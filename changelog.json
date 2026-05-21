@@ -1,35 +1,9 @@
 [
     {
-        "version": "1.1.0",
-        "date": "2026-05-05",
-        "items": [
-            "Added third party emote support from BetterTTV, FrankerFaceZ, and 7TV.",
-            "Added setting to remove emotes from messages added to the queue.",
-            "Added display of system messages like connection status and subscriber alerts.",
-            "Added the ability to quickly scroll back to new messages when scrolled.",
-            "Added ability to filter out mentions from speech.",
-            "Added different timestamp formats for the chat preview.",
-            "Added clickable URL links in the chat preview.",
-            "Changed the TTS indicator in the chat preview to an icon instead of 'TTS'.",
-            "Bug fix: chat and queue not resetting when changing channels.",
-            "Bug fix: large messages causing scroll issues."
-        ]
-    },
-    {
-        "version": "1.0.1",
-        "date": "2026-04-15",
-        "items": [
-            "Added this very changelog dialog so you can see what's been added each update!",
-            "Toasts now appear at the top-center of the screen instead of the bottom-right.",
-            "Bug fix: settings being reset when an input field is empty.",
-            "Bug fix: chat messages causing dropdown menus to scroll back to default position."
-        ]
-    },
-    {
         "version": "1.0.0",
-        "date": "2026-04-06",
+        "date": "2026-06-01",
         "items": [
-            "Initial public release of Chatvoice."
+            "Initial public release of Peepochat."
         ]
     }
 ]

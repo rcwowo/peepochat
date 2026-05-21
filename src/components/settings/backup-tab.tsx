@@ -4,7 +4,6 @@ import { toast } from "sonner"
 
 import { useChatvoiceSettings } from "@/lib/chatvoice-context"
 import { exportConfigBackup } from "@/lib/chatvoice-config"
-import { getAllAssignments, clearAssignments } from "@/lib/assignments-db"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { SectionHeading } from "@/components/settings/settings-primitives"
@@ -13,14 +12,13 @@ export function BackupTab() {
   const { config, restoreBackup } = useChatvoiceSettings()
   const fileInputRef = React.useRef<HTMLInputElement | null>(null)
 
-  const downloadBackup = async () => {
-    const assignments = await getAllAssignments()
-    const backup = exportConfigBackup(config, assignments)
+  const downloadBackup = () => {
+    const backup = exportConfigBackup(config)
     const blob = new Blob([backup], { type: "application/json" })
     const url = URL.createObjectURL(blob)
     const link = document.createElement("a")
     link.href = url
-    link.download = `chatvoice-backup-${new Date().toISOString().slice(0, 10)}.json`
+    link.download = `peepochat-backup-${new Date().toISOString().slice(0, 10)}.json`
     link.click()
     URL.revokeObjectURL(url)
   }
@@ -54,12 +52,14 @@ export function BackupTab() {
       <div className="rounded-xl border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
         <div className="font-medium text-foreground">What gets saved</div>
         <ul className="mt-2 space-y-1">
-          <li>· Twitch channel settings</li>
-          <li>· Voice profile library</li>
-          <li>· Randomized user assignments</li>
-          <li>· Filters, limits, and blocklists</li>
+          <li>· Twitch channel and connection preferences</li>
+          <li>· Chat display settings (timestamps, theme)</li>
           <li>· Schema version metadata for migrations</li>
         </ul>
+        <p className="mt-3 text-xs">
+          Older Chatvoice backups (including voice and speech settings) can still
+          be imported; speech-related data is ignored.
+        </p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
@@ -85,13 +85,12 @@ export function BackupTab() {
       <SectionHeading title="Danger zone" />
       <Button
         variant="destructive"
-        onClick={async () => {
+        onClick={() => {
           if (
             window.confirm(
               "This will reset ALL settings to defaults. This cannot be undone. Continue?"
             )
           ) {
-            await clearAssignments()
             localStorage.clear()
             window.location.reload()
           }

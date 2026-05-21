@@ -131,32 +131,6 @@ export function hydrateMessageEmotes(
   }
 }
 
-export function stripMessageEmotes(text: string, emotes: TwitchEmote[]): string {
-  const thirdPartyRanges = normalizeRanges(
-    emotes.map((emote) => ({ start: emote.start, end: emote.end }))
-  )
-
-  if (thirdPartyRanges.length === 0) {
-    return text
-  }
-
-  let cursor = 0
-  let output = ""
-
-  for (const range of thirdPartyRanges) {
-    if (range.start > cursor) {
-      output += text.slice(cursor, range.start)
-    }
-    cursor = Math.max(cursor, range.end + 1)
-  }
-
-  if (cursor < text.length) {
-    output += text.slice(cursor)
-  }
-
-  return output
-}
-
 function mergeThirdPartyEmotes(
   text: string,
   nativeEmotes: TwitchEmote[],

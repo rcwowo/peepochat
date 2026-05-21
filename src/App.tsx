@@ -21,7 +21,7 @@ function DashboardLayout() {
     if (!ready || needsOnboarding) return
 
     if (hasNewVersion()) {
-      toast("Chatvoice has been updated since your last visit!", {
+      toast("Peepochat has been updated since your last visit!", {
         icon: <SparklesIcon className="size-4" />,
         duration: 10_000,
         action: {

@@ -7,24 +7,16 @@ import {
   PlugIcon,
   SparklesIcon,
   SunIcon,
-  User,
-  Users,
 } from "lucide-react"
 
-import type {
-  MessageTimestampFormat,
-  QueueMode,
-} from "@/lib/chatvoice-config"
+import type { MessageTimestampFormat } from "@/lib/chatvoice-config"
 import logoSrc from "/logo.png"
 import iconSrc from "/icon.png"
 import { useChatvoiceSettings } from "@/lib/chatvoice-context"
 import { useTheme } from "@/components/theme-provider"
-import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { Textarea } from "@/components/ui/textarea"
 import {
   SectionHeading,
-  SettingsField,
   SettingsToggle,
 } from "@/components/settings/settings-primitives"
 import { ChangelogDialog } from "@/components/changelog-dialog"
@@ -37,15 +29,12 @@ export function GeneralTab() {
 
   return (
     <div className="space-y-6">
-      {/* Hero */}
       <div className="relative -mx-6 -mt-12 overflow-hidden px-6 pt-8 pb-6">
-        {/* Background */}
         <div className="pointer-events-none absolute inset-0 bg-linear-to-b from-primary/6 via-primary/3 to-transparent" />
         <div className="pointer-events-none absolute -top-20 -right-20 size-64 rounded-full bg-primary/[0.07] blur-3xl" />
         <div className="pointer-events-none absolute -bottom-16 -left-16 size-48 rounded-full bg-primary/4 blur-3xl" />
 
         <div className="relative flex items-start gap-5">
-          {/* Icon */}
           <img
             src={iconSrc}
             alt=""
@@ -53,12 +42,11 @@ export function GeneralTab() {
           />
 
           <div className="min-w-0 flex-1">
-            {/* Logo */}
-            <img src={logoSrc} alt="Chatvoice" className="h-6 dark:invert" />
+            <img src={logoSrc} alt="Peepochat" className="h-6 dark:invert" />
             <p className="text-xs text-muted-foreground mt-1">Version {version}</p>
             <p className="mt-3 max-w-sm text-[13px] leading-relaxed text-muted-foreground">
-              Let your chat have a voice! Read Twitch chat messages aloud using your
-              browser's built-in speech synthesis capabilities.
+              A lightweight Twitch chat client for the web. Connect to a channel,
+              follow the conversation, and keep your settings on this device.
             </p>
 
             <div className="mt-4 flex flex-wrap gap-2">
@@ -83,7 +71,7 @@ export function GeneralTab() {
                 href="https://bsky.app/profile/rcw.lol"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-md bg-foreground/5 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-foreground/1 hover:text-foreground"
+                className="inline-flex items-center gap-1.5 rounded-md bg-foreground/5 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
               >
                 <ExternalLinkIcon className="size-3" />
                 Bluesky
@@ -93,79 +81,28 @@ export function GeneralTab() {
         </div>
       </div>
 
-      <SectionHeading 
-        title="Appearance" 
-        description="Choose what theme should Chatvoice use."
-        />
+      <SectionHeading
+        title="Appearance"
+        description="Choose what theme the app should use."
+      />
       <ThemeSwitcher />
 
       <SectionHeading
         title="Message timestamp format"
-        description="Choose how timestamps should appear in the chat preview."
+        description="Choose how timestamps appear in chat."
       />
       <TimestampFormatSwitcher
-        value={config.playback.messageTimestampFormat}
+        value={config.chat.messageTimestampFormat}
         onChange={(format) =>
           updateConfig((current) => ({
             ...current,
-            playback: {
-              ...current.playback,
+            chat: {
+              ...current.chat,
               messageTimestampFormat: format,
             },
           }))
         }
       />
-
-      <Separator />
-
-      <SectionHeading
-        title="Queue mode"
-        description="Choose how chat messages are queued for speech."
-      />
-      <QueueModeSwitcher
-        value={config.playback.queueMode}
-        onChange={(mode) =>
-          updateConfig((current) => ({
-            ...current,
-            playback: { ...current.playback, queueMode: mode },
-          }))
-        }
-      />
-
-      <Separator />
-
-      <SectionHeading
-        title="Speech template"
-        description="Control how final spoken text is assembled before it is sent to the browser speech engine."
-      />
-      <div className="space-y-4">
-        <SettingsField label="Template">
-          <Textarea
-            rows={3}
-            value={config.playback.textTemplate}
-            onChange={(event) =>
-              updateConfig((current) => ({
-                ...current,
-                playback: {
-                  ...current.playback,
-                  textTemplate: event.target.value,
-                },
-              }))
-            }
-          />
-        </SettingsField>
-        <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm">
-          <div className="mb-2 text-xs font-medium text-muted-foreground uppercase">
-            Available tokens
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            <Badge variant="outline">{`{displayName}`}</Badge>
-            <Badge variant="outline">{`{user}`}</Badge>
-            <Badge variant="outline">{`{channel}`}</Badge>
-            <Badge variant="outline">{`{message}`}</Badge>
-          </div>
-        </div>
-      </div>
 
       <Separator />
 
@@ -223,47 +160,14 @@ function ThemeSwitcher() {
   )
 }
 
-const QUEUE_MODE_OPTIONS: {
-  value: QueueMode
-  label: string
-  description: string
-  icon: React.ComponentType<{ className?: string }>
-}[] = [
-  {
-    value: "small-chat",
-    label: "Small chat",
-    description: "Queue messages as they arrive, up to the queue limit. Best for smaller, slower chats.",
-    icon: User,
-  },
-  {
-    value: "big-chat",
-    label: "Big chat",
-    description:
-      "Speak one message at a time, then skip ahead to the newest message. Best for larger, faster chats.",
-    icon: Users,
-  },
-]
-
 const MESSAGE_TIMESTAMP_FORMAT_OPTIONS: {
   value: MessageTimestampFormat
   preview: string
 }[] = [
-  {
-    value: "24-hour",
-    preview: "21:37",
-  },
-  {
-    value: "12-hour",
-    preview: "9:37",
-  },
-  {
-    value: "12-hour-meridiem",
-    preview: "9:37 PM",
-  },
-  {
-    value: "none",
-    preview: "None",
-  },
+  { value: "24-hour", preview: "21:37" },
+  { value: "12-hour", preview: "9:37" },
+  { value: "12-hour-meridiem", preview: "9:37 PM" },
+  { value: "none", preview: "None" },
 ]
 
 function TimestampFormatSwitcher({
@@ -287,61 +191,6 @@ function TimestampFormatSwitcher({
           }`}
         >
           <span className="font-mono text-xs sm:text-sm">{option.preview}</span>
-        </button>
-      ))}
-    </div>
-  )
-}
-
-function QueueModeSwitcher({
-  value,
-  onChange,
-}: {
-  value: QueueMode
-  onChange: (mode: QueueMode) => void
-}) {
-  return (
-    <div className="grid gap-2 sm:grid-cols-2">
-      {QUEUE_MODE_OPTIONS.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          onClick={() => onChange(option.value)}
-          className={`flex items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors ${
-            value === option.value
-              ? "border-primary bg-primary/10"
-              : "border-border hover:bg-muted"
-          }`}
-        >
-          <div
-            className={`mt-0.5 rounded-md border p-1.5 ${
-              value === option.value
-                ? "border-primary/30 bg-primary/10"
-                : "border-border bg-muted/40"
-            }`}
-          >
-            <option.icon
-              className={`size-3.5 ${
-                value === option.value
-                  ? "text-primary"
-                  : "text-muted-foreground"
-              }`}
-            />
-          </div>
-          <div>
-            <div
-              className={`text-sm ${
-                value === option.value
-                  ? "font-medium text-foreground"
-                  : "text-muted-foreground"
-              }`}
-            >
-              {option.label}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {option.description}
-            </div>
-          </div>
         </button>
       ))}
     </div>
