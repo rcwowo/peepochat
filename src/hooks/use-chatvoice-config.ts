@@ -3,9 +3,9 @@ import * as React from "react"
 import {
   type AppConfig,
   createDefaultConfig,
-  hasStoredConfig,
   importConfigBackup,
   loadConfig,
+  needsOnboardingForConfig,
   saveConfig,
 } from "@/lib/chatvoice-config"
 
@@ -17,11 +17,16 @@ export function useChatvoiceConfig() {
   const [needsOnboarding, setNeedsOnboarding] = React.useState(false)
 
   React.useEffect(() => {
-    const isFirstRun = !hasStoredConfig()
-    setConfig(loadConfig())
-    setNeedsOnboarding(isFirstRun)
+    const loaded = loadConfig()
+    setConfig(loaded)
+    setNeedsOnboarding(needsOnboardingForConfig(loaded))
     setReady(true)
   }, [])
+
+  React.useEffect(() => {
+    if (!ready) return
+    setNeedsOnboarding(needsOnboardingForConfig(config))
+  }, [ready, config])
 
   const updateConfig = React.useCallback(
     (updater: AppConfig | ((current: AppConfig) => AppConfig)) => {
@@ -41,7 +46,9 @@ export function useChatvoiceConfig() {
   const restoreBackup = React.useCallback(async (payload: string) => {
     const restored = importConfigBackup(payload)
     saveConfig(restored)
-    setConfig(loadConfig())
+    const loaded = loadConfig()
+    setConfig(loaded)
+    setNeedsOnboarding(needsOnboardingForConfig(loaded))
     return restored
   }, [])
 
@@ -49,11 +56,16 @@ export function useChatvoiceConfig() {
     setNeedsOnboarding(false)
   }, [])
 
+  const requireOnboarding = React.useCallback(() => {
+    setNeedsOnboarding(true)
+  }, [])
+
   return {
     config,
     ready,
     needsOnboarding,
     completeOnboarding,
+    requireOnboarding,
     updateConfig,
     restoreBackup,
   }

@@ -99,9 +99,15 @@ const RECONNECT_DELAY_MS = 3_000
 // Client
 // ---------------------------------------------------------------------------
 
+export type TwitchChatConnectOptions = {
+  accessToken?: string
+  nick?: string
+}
+
 export class TwitchChatClient {
   private ws: WebSocket | null = null
   private channel: string | null = null
+  private connectOptions: TwitchChatConnectOptions = {}
   private handler: TwitchChatEventHandler
   private pingTimer: ReturnType<typeof setTimeout> | null = null
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
@@ -111,19 +117,25 @@ export class TwitchChatClient {
     this.handler = handler
   }
 
-  /** Connect to a Twitch channel (anonymous read-only). */
-  connect(channel: string) {
+  /** Connect to a Twitch channel (anonymous or authenticated read). */
+  connect(channel: string, options: TwitchChatConnectOptions = {}) {
     this.disconnect()
     this.intentionalClose = false
     this.channel = normalizeChannel(channel)
+    this.connectOptions = options
 
     const ws = new WebSocket(TWITCH_WS_URL)
     this.ws = ws
 
     ws.addEventListener("open", () => {
+      const token = options.accessToken?.trim()
+      const nick = options.nick?.trim().toLowerCase()
+      const pass = token ? `oauth:${token}` : "oauth:anonymous"
+      const resolvedNick = nick || ANONYMOUS_NICK
+
       ws.send("CAP REQ :twitch.tv/tags twitch.tv/commands")
-      ws.send(`PASS oauth:anonymous`)
-      ws.send(`NICK ${ANONYMOUS_NICK}`)
+      ws.send(`PASS ${pass}`)
+      ws.send(`NICK ${resolvedNick}`)
       ws.send(`JOIN #${this.channel}`)
       this.resetPingTimer()
     })
@@ -262,7 +274,7 @@ export class TwitchChatClient {
     })
     const channel = this.channel
     this.reconnectTimer = setTimeout(() => {
-      this.connect(channel)
+      this.connect(channel, this.connectOptions)
     }, RECONNECT_DELAY_MS)
   }
 

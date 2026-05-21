@@ -52,7 +52,8 @@ export function BackupTab() {
       <div className="rounded-xl border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
         <div className="font-medium text-foreground">What gets saved</div>
         <ul className="mt-2 space-y-1">
-          <li>· Twitch channel and connection preferences</li>
+          <li>· Twitch account (token is not exported) and channels</li>
+          <li>· Connection preferences</li>
           <li>· Chat display settings (timestamps, theme)</li>
           <li>· Schema version metadata for migrations</li>
         </ul>

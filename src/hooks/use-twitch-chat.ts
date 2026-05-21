@@ -7,6 +7,7 @@ import {
 } from "@/lib/chat-emotes"
 import {
   TwitchChatClient,
+  type TwitchChatConnectOptions,
   type TwitchChatMessage,
   type TwitchConnectionState,
   type TwitchSystemMessage,
@@ -305,7 +306,10 @@ export function useTwitchChat() {
   }, [])
 
   const startConnection = React.useCallback(
-    (channel: string): Promise<string> => {
+    (
+      channel: string,
+      options: TwitchChatConnectOptions = {}
+    ): Promise<string> => {
       // Reject any previously pending connect
       if (pendingConnectRef.current) {
         pendingConnectRef.current.reject(new Error("New connection started"))
@@ -327,7 +331,7 @@ export function useTwitchChat() {
 
       return new Promise<string>((resolve, reject) => {
         pendingConnectRef.current = { channel: normalizedChannel, resolve, reject }
-        getClient().connect(channel)
+        getClient().connect(channel, options)
       })
     },
     [getClient, resetChatState, resetThirdPartyEmotes]

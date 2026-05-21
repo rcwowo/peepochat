@@ -45,8 +45,9 @@ export function GeneralTab() {
             <img src={logoSrc} alt="Peepochat" className="h-6 dark:invert" />
             <p className="text-xs text-muted-foreground mt-1">Version {version}</p>
             <p className="mt-3 max-w-sm text-[13px] leading-relaxed text-muted-foreground">
-              A lightweight Twitch chat client for the web. Connect to a channel,
-              follow the conversation, and keep your settings on this device.
+              A lightweight Twitch chat client for the web. Sign in with Twitch,
+              follow channels from the sidebar, and keep your settings on this
+              device.
             </p>
 
             <div className="mt-4 flex flex-wrap gap-2">

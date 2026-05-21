@@ -2,8 +2,20 @@ import * as React from "react"
 import { toast } from "sonner"
 
 import { useChatvoiceConfig } from "@/hooks/use-chatvoice-config"
+import { useTwitchAuth } from "@/hooks/use-twitch-auth"
+import { useTwitchChannels } from "@/hooks/use-twitch-channels"
 import { useTwitchChat, type TwitchTimelineItem } from "@/hooks/use-twitch-chat"
-import type { AppConfig, MessageTimestampFormat } from "@/lib/chatvoice-config"
+import type {
+  AppConfig,
+  MessageTimestampFormat,
+  TwitchAccount,
+  TwitchChannel,
+} from "@/lib/chatvoice-config"
+import {
+  getAccount,
+  getActiveChannelLogin,
+  hasAccount,
+} from "@/lib/chatvoice-config"
 import type { TwitchConnectionState } from "@/lib/twitch-chat"
 
 export type ChatvoiceConfigContextValue = {
@@ -11,8 +23,19 @@ export type ChatvoiceConfigContextValue = {
   ready: boolean
   needsOnboarding: boolean
   completeOnboarding: () => void
+  requireOnboarding: () => void
   updateConfig: ReturnType<typeof useChatvoiceConfig>["updateConfig"]
   restoreBackup: ReturnType<typeof useChatvoiceConfig>["restoreBackup"]
+  account: TwitchAccount | null
+  oauthBusy: boolean
+  isOAuthConfigured: boolean
+  loginWithTwitch: () => void
+  logout: () => void
+  channels: TwitchChannel[]
+  activeChannelLogin: string
+  setActiveChannel: (login: string) => void
+  addChannel: (login: string) => Promise<string>
+  removeChannel: (login: string) => void
 }
 
 export type ChatvoiceChatContextValue = {
@@ -56,9 +79,14 @@ export function ChatvoiceProvider({ children }: { children: React.ReactNode }) {
     ready,
     needsOnboarding,
     completeOnboarding,
+    requireOnboarding,
     updateConfig,
     restoreBackup,
   } = useChatvoiceConfig()
+  const { account, oauthBusy, login, logout, isOAuthConfigured } = useTwitchAuth({
+    config,
+    updateConfig,
+  })
   const {
     connectionState,
     timeline,
@@ -67,29 +95,67 @@ export function ChatvoiceProvider({ children }: { children: React.ReactNode }) {
     stopConnection: stopChatConnection,
   } = useTwitchChat()
 
+  const connectToChannel = React.useCallback(
+    (channel: string) => {
+      const twitchAccount = getAccount(config)
+      return startChatConnection(channel, {
+        accessToken: twitchAccount?.accessToken,
+        nick: twitchAccount?.login,
+      })
+    },
+    [config, startChatConnection]
+  )
+
+  const {
+    channels,
+    activeChannelLogin,
+    setActiveChannel,
+    addChannel,
+    removeChannel,
+  } = useTwitchChannels({
+    config,
+    updateConfig,
+    onActiveChannelChange: (login) => {
+      toast.promise(connectToChannel(login), {
+        loading: `Connecting to #${login}…`,
+        success: (ch) => `Connected to #${ch}`,
+        error: (err) =>
+          err instanceof Error ? err.message : "Connection failed",
+      })
+    },
+  })
+
   const startConnection = React.useCallback(
-    (channel: string) => startChatConnection(channel),
-    [startChatConnection]
+    (channel: string) => connectToChannel(channel),
+    [connectToChannel]
   )
 
   const stopConnection = React.useCallback(() => {
     stopChatConnection()
   }, [stopChatConnection])
 
+  const handleLogout = React.useCallback(() => {
+    stopConnection()
+    logout()
+    requireOnboarding()
+  }, [logout, requireOnboarding, stopConnection])
+
   const autoConnectedRef = React.useRef(false)
 
   React.useEffect(() => {
     if (!ready || needsOnboarding || autoConnectedRef.current) return
+    if (!hasAccount(config)) return
+
     autoConnectedRef.current = true
 
-    const channel = config.twitch.channel.trim()
+    const channel = getActiveChannelLogin(config)
     if (
       channel &&
       config.twitch.autoConnect &&
       !connectionState.connected &&
       !connectionState.connecting
     ) {
-      toast.promise(startConnection(channel), {
+      toast.promise(connectToChannel(channel), {
         loading: `Connecting to #${channel}…`,
         success: (ch) => `Connected to #${ch}`,
         error: (err) =>
@@ -104,16 +170,38 @@ export function ChatvoiceProvider({ children }: { children: React.ReactNode }) {
       ready,
       needsOnboarding,
       completeOnboarding,
+      requireOnboarding,
       updateConfig,
       restoreBackup,
+      account,
+      oauthBusy,
+      isOAuthConfigured,
+      loginWithTwitch: login,
+      logout: handleLogout,
+      channels,
+      activeChannelLogin,
+      setActiveChannel,
+      addChannel,
+      removeChannel,
     }),
     [
       config,
       ready,
       needsOnboarding,
       completeOnboarding,
+      requireOnboarding,
       updateConfig,
       restoreBackup,
+      account,
+      oauthBusy,
+      isOAuthConfigured,
+      login,
+      handleLogout,
+      channels,
+      activeChannelLogin,
+      setActiveChannel,
+      addChannel,
+      removeChannel,
     ]
   )
 

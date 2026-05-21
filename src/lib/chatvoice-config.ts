@@ -12,11 +12,26 @@ const chatSchema = z.object({
   messageTimestampFormat: messageTimestampFormatSchema,
 })
 
-const twitchSchema = z.object({
-  channel: z.string(),
-  clientId: z.string(),
+export const twitchAccountSchema = z.object({
+  id: z.string(),
+  login: z.string(),
+  displayName: z.string(),
+  profileImageUrl: z.string(),
+  bannerImageUrl: z.string(),
   accessToken: z.string(),
-  readOnly: z.boolean(),
+  clientId: z.string(),
+})
+
+export const twitchChannelSchema = z.object({
+  login: z.string(),
+  displayName: z.string().optional(),
+  profileImageUrl: z.string().optional(),
+})
+
+const twitchSchema = z.object({
+  account: twitchAccountSchema.nullable(),
+  channels: z.array(twitchChannelSchema),
+  activeChannelLogin: z.string(),
   autoConnect: z.boolean(),
 })
 
@@ -37,6 +52,8 @@ const backupEnvelopeSchema = z.object({
 
 export type MessageTimestampFormat = z.infer<typeof messageTimestampFormatSchema>
 export type ChatConfig = z.infer<typeof chatSchema>
+export type TwitchAccount = z.infer<typeof twitchAccountSchema>
+export type TwitchChannel = z.infer<typeof twitchChannelSchema>
 export type TwitchConfig = z.infer<typeof twitchSchema>
 export type AppConfig = z.infer<typeof appConfigSchema>
 export type BackupEnvelope = z.infer<typeof backupEnvelopeSchema>
@@ -46,10 +63,9 @@ export function createDefaultConfig(): AppConfig {
     schemaVersion: CHATVOICE_SCHEMA_VERSION,
     updatedAt: new Date().toISOString(),
     twitch: {
-      channel: "",
-      clientId: "",
-      accessToken: "",
-      readOnly: true,
+      account: null,
+      channels: [],
+      activeChannelLogin: "",
       autoConnect: true,
     },
     chat: {
@@ -58,9 +74,26 @@ export function createDefaultConfig(): AppConfig {
   }
 }
 
+export function getAccount(config: AppConfig): TwitchAccount | null {
+  return config.twitch.account
+}
+
+export function getActiveChannelLogin(config: AppConfig): string {
+  return config.twitch.activeChannelLogin.trim().replace(/^#/, "").toLowerCase()
+}
+
 export function hasStoredConfig(): boolean {
   if (typeof window === "undefined") return false
   return window.localStorage.getItem(CHATVOICE_STORAGE_KEY) !== null
+}
+
+export function hasAccount(config: AppConfig): boolean {
+  return config.twitch.account !== null
+}
+
+/** True while login or at least one channel is still required. */
+export function needsOnboardingForConfig(config: AppConfig): boolean {
+  return !hasAccount(config) || config.twitch.channels.length === 0
 }
 
 export function loadConfig(): AppConfig {
@@ -98,7 +131,7 @@ export function exportConfigBackup(config: AppConfig): string {
     appVersion: CHATVOICE_APP_VERSION,
     exportedAt: new Date().toISOString(),
     schemaVersion: CHATVOICE_SCHEMA_VERSION,
-    data: normalizeConfig(config),
+    data: redactTokensForExport(normalizeConfig(config)),
   }
 
   return JSON.stringify(envelope, null, 2)
@@ -107,6 +140,43 @@ export function exportConfigBackup(config: AppConfig): string {
 export function importConfigBackup(payload: string): AppConfig {
   const parsed = JSON.parse(payload)
   return migrateConfig(parsed)
+}
+
+function coerceTwitchShape(input: unknown): unknown {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    return input
+  }
+
+  const twitch = input as Record<string, unknown>
+  if ("account" in twitch) {
+    return input
+  }
+
+  if (Array.isArray(twitch.accounts)) {
+    const accounts = twitch.accounts as TwitchAccount[]
+    const activeId =
+      typeof twitch.activeAccountId === "string" ? twitch.activeAccountId : null
+    const account =
+      accounts.find((entry) => entry.id === activeId) ?? accounts[0] ?? null
+
+    return {
+      ...twitch,
+      account: account
+        ? {
+            ...account,
+            bannerImageUrl:
+              typeof account.bannerImageUrl === "string"
+                ? account.bannerImageUrl
+                : "",
+          }
+        : null,
+    }
+  }
+
+  return {
+    ...twitch,
+    account: null,
+  }
 }
 
 export function migrateConfig(input: unknown): AppConfig {
@@ -126,57 +196,21 @@ export function migrateConfig(input: unknown): AppConfig {
     return migrateConfig({
       ...createDefaultConfig(),
       ...object,
-      twitch: {
-        ...createDefaultConfig().twitch,
-        ...(typeof object.twitch === "object" && object.twitch
+      twitch: coerceTwitchShape(
+        typeof object.twitch === "object" && object.twitch
           ? object.twitch
-          : {}),
-      },
+          : createDefaultConfig().twitch
+      ),
       schemaVersion: CHATVOICE_SCHEMA_VERSION,
     })
   }
 
-  const schemaVersion =
-    typeof object?.schemaVersion === "number" ? object.schemaVersion : 1
-
-  if (schemaVersion < CHATVOICE_SCHEMA_VERSION) {
-    return migrateFromLegacyConfig(object)
+  const withTwitch = {
+    ...object,
+    twitch: coerceTwitchShape(object.twitch),
   }
 
-  return normalizeConfig(appConfigSchema.parse(input))
-}
-
-function migrateFromLegacyConfig(input: Record<string, unknown>): AppConfig {
-  const defaults = createDefaultConfig()
-  const playback =
-    typeof input.playback === "object" && input.playback
-      ? (input.playback as Record<string, unknown>)
-      : {}
-
-  const messageTimestampFormat = messageTimestampFormatSchema.safeParse(
-    playback.messageTimestampFormat
-  )
-
-  return normalizeConfig(
-    appConfigSchema.parse({
-      schemaVersion: CHATVOICE_SCHEMA_VERSION,
-      updatedAt:
-        typeof input.updatedAt === "string"
-          ? input.updatedAt
-          : defaults.updatedAt,
-      twitch: {
-        ...defaults.twitch,
-        ...(typeof input.twitch === "object" && input.twitch
-          ? (input.twitch as Record<string, unknown>)
-          : {}),
-      },
-      chat: {
-        messageTimestampFormat: messageTimestampFormat.success
-          ? messageTimestampFormat.data
-          : defaults.chat.messageTimestampFormat,
-      },
-    })
-  )
+  return normalizeConfig(appConfigSchema.parse(withTwitch))
 }
 
 const MESSAGE_URL_PATTERN = /https?:\/\/\S+/g
@@ -201,9 +235,52 @@ export function findMessageUrls(text: string): MessageUrlMatch[] {
 }
 
 function normalizeConfig(config: AppConfig): AppConfig {
+  const twitch = {
+    ...config.twitch,
+    activeChannelLogin: config.twitch.activeChannelLogin
+      .trim()
+      .replace(/^#/, "")
+      .toLowerCase(),
+    channels: config.twitch.channels.map((channel) => ({
+      ...channel,
+      login: channel.login.trim().replace(/^#/, "").toLowerCase(),
+    })),
+    account: config.twitch.account
+      ? {
+          ...config.twitch.account,
+          bannerImageUrl: config.twitch.account.bannerImageUrl ?? "",
+        }
+      : null,
+  }
+
+  if (
+    twitch.activeChannelLogin &&
+    !twitch.channels.some(
+      (channel) => channel.login === twitch.activeChannelLogin
+    )
+  ) {
+    twitch.channels = [
+      ...twitch.channels,
+      { login: twitch.activeChannelLogin },
+    ]
+  }
+
   return {
     ...config,
     updatedAt: config.updatedAt || new Date().toISOString(),
     schemaVersion: CHATVOICE_SCHEMA_VERSION,
+    twitch,
+  }
+}
+
+function redactTokensForExport(config: AppConfig): AppConfig {
+  return {
+    ...config,
+    twitch: {
+      ...config.twitch,
+      account: config.twitch.account
+        ? { ...config.twitch.account, accessToken: "" }
+        : null,
+    },
   }
 }

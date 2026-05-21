@@ -4,7 +4,7 @@ import {
   CloudUploadIcon,
   MessagesSquareIcon,
   SettingsIcon,
-  WifiIcon,
+  SmileIcon,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -15,9 +15,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
-type OnboardingStep = "welcome" | "channel"
+type OnboardingStep = "welcome" | "login" | "channel"
 
-const TRACKED_STEPS: OnboardingStep[] = ["channel"]
+const TRACKED_STEPS: OnboardingStep[] = ["login", "channel"]
 
 export function OnboardingDialog({
   open,
@@ -26,10 +26,26 @@ export function OnboardingDialog({
   open: boolean
   onComplete: () => void
 }) {
-  const { updateConfig, restoreBackup } = useChatvoiceSettings()
+  const {
+    account,
+    oauthBusy,
+    isOAuthConfigured,
+    loginWithTwitch,
+    addChannel,
+    restoreBackup,
+  } = useChatvoiceSettings()
   const [step, setStep] = React.useState<OnboardingStep>("welcome")
   const [channel, setChannel] = React.useState("")
+  const [addingChannel, setAddingChannel] = React.useState(false)
   const fileInputRef = React.useRef<HTMLInputElement | null>(null)
+
+  React.useEffect(() => {
+    if (!account) return
+
+    setStep((current) =>
+      current === "welcome" || current === "login" ? "channel" : current
+    )
+  }, [account])
 
   const handleImportBackup = async (
     event: React.ChangeEvent<HTMLInputElement>
@@ -51,22 +67,25 @@ export function OnboardingDialog({
     }
   }
 
-  const handleFinish = () => {
+  const handleFinish = async () => {
     const trimmed = channel.trim()
     if (!trimmed) {
       toast.error("Please enter a Twitch channel name.")
       return
     }
 
-    updateConfig((current) => ({
-      ...current,
-      twitch: {
-        ...current.twitch,
-        channel: trimmed.replace(/^#/, "").toLowerCase(),
-      },
-    }))
-    toast.success("You're all set!")
-    onComplete()
+    setAddingChannel(true)
+    try {
+      await addChannel(trimmed)
+      toast.success("You're all set!")
+      onComplete()
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Could not add channel"
+      )
+    } finally {
+      setAddingChannel(false)
+    }
   }
 
   if (!open) return null
@@ -88,7 +107,7 @@ export function OnboardingDialog({
       >
         {isWelcome && (
           <WelcomeStep
-            onContinue={() => setStep("channel")}
+            onContinue={() => setStep("login")}
             onImportClick={() => fileInputRef.current?.click()}
           />
         )}
@@ -110,42 +129,84 @@ export function OnboardingDialog({
             </div>
 
             <div className="w-full rounded-2xl border border-border bg-card p-6 shadow-lg ring-1 ring-foreground/3">
-              <div className="space-y-5">
-                <div>
-                  <h2 className="text-lg font-semibold tracking-tight">
-                    Connect to chat
-                  </h2>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Enter the Twitch channel you want to follow. You can change
-                    this later in the header.
-                  </p>
-                </div>
+              {step === "login" ? (
+                <div className="space-y-5">
+                  <div>
+                    <h2 className="text-lg font-semibold tracking-tight">
+                      Sign in with Twitch
+                    </h2>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      At least one Twitch account is required for Peepochat to work.
+                      Don't worry, everything is stored locally on this device.
+                    </p>
+                  </div>
 
-                <div className="grid gap-1.5">
-                  <Label className="text-sm">Twitch channel</Label>
-                  <Input
-                    placeholder="Channel name"
-                    value={channel}
-                    onChange={(e) => setChannel(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleFinish()
-                    }}
-                  />
-                </div>
+                  <Button
+                    className="w-full"
+                    onClick={loginWithTwitch}
+                    disabled={oauthBusy || !isOAuthConfigured}
+                  >
+                    {oauthBusy ? "Signing in…" : "Sign in with Twitch"}
+                  </Button>
 
-                <div className="flex gap-2">
+                  {!isOAuthConfigured && (
+                    <p className="text-xs text-destructive">
+                      Set VITE_TWITCH_CLIENT_ID in your environment to enable
+                      login.
+                    </p>
+                  )}
+
                   <Button
                     variant="outline"
-                    className="flex-1"
+                    className="w-full"
                     onClick={() => setStep("welcome")}
                   >
                     Back
                   </Button>
-                  <Button className="flex-1" onClick={handleFinish}>
-                    Finish setup
-                  </Button>
                 </div>
-              </div>
+              ) : (
+                <div className="space-y-5">
+                  <div>
+                    <h2 className="text-lg font-semibold tracking-tight">
+                      Add a channel
+                    </h2>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Pick the first channel you want to follow. You can add
+                      more from the sidebar later.
+                    </p>
+                  </div>
+
+                  <div className="grid gap-1.5">
+                    <Label className="text-sm">Twitch channel</Label>
+                    <Input
+                      placeholder="Channel name"
+                      value={channel}
+                      onChange={(e) => setChannel(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") void handleFinish()
+                      }}
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => setStep("login")}
+                      disabled={addingChannel}
+                    >
+                      Back
+                    </Button>
+                    <Button
+                      className="flex-1"
+                      onClick={() => void handleFinish()}
+                      disabled={!channel.trim() || addingChannel}
+                    >
+                      Finish setup
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -183,8 +244,8 @@ function WelcomeStep({
       <div className="mt-8 flex animate-in flex-col items-center delay-200 duration-600 fill-mode-backwards fade-in slide-in-from-bottom-3">
         <img src={logoSrc} alt="Peepochat" className="h-9 dark:invert" />
         <p className="mt-3 text-center text-[15px] leading-relaxed text-muted-foreground">
-          A focused Twitch chat client for the web. No account required — your
-          settings stay on this device.
+          A focused Twitch chat client for the web. Sign in with Twitch, follow
+          channels, and keep your settings on this device.
         </p>
       </div>
 
@@ -223,7 +284,7 @@ function WelcomeStep({
       </Button>
 
       <p className="mt-2 animate-in text-xs text-muted-foreground/60 delay-700 duration-500 fill-mode-backwards fade-in">
-        No account required. All data is stored in your browser.
+        Twitch login is required. Settings stay on this device.
       </p>
     </div>
   )
@@ -231,6 +292,6 @@ function WelcomeStep({
 
 const FEATURES = [
   { icon: MessagesSquareIcon, label: "Live chat" },
-  { icon: WifiIcon, label: "IRC connection" },
+  { icon: SmileIcon, label: "Emotes" },
   { icon: SettingsIcon, label: "Local backups" },
 ]

@@ -5,7 +5,9 @@ import { SparklesIcon } from "lucide-react"
 import { ChatvoiceProvider, useChatvoiceSettings } from "@/lib/chatvoice-context"
 import { hasNewVersion, initLastSeenVersion, markVersionSeen } from "@/lib/changelog"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { AppHeader } from "@/components/app-header"
+import { ChannelSidebar } from "@/components/channel-sidebar"
 import { OnboardingDialog } from "@/components/onboarding-dialog"
 import { SettingsDialog } from "@/components/settings-dialog"
 import { ChangelogDialog } from "@/components/changelog-dialog"
@@ -16,7 +18,6 @@ function DashboardLayout() {
   const [settingsOpen, setSettingsOpen] = React.useState(false)
   const [changelogOpen, setChangelogOpen] = React.useState(false)
 
-  // Show a toast when the app version has changed since last visit
   React.useEffect(() => {
     if (!ready || needsOnboarding) return
 
@@ -52,14 +53,24 @@ function DashboardLayout() {
   }
 
   return (
-    <div className="flex h-svh flex-col bg-background">
+    <SidebarProvider
+      className="flex h-svh w-full flex-col"
+      style={
+        { "--sidebar-width-icon": "4.5rem" } as React.CSSProperties
+      }
+    >
       <AppHeader onSettingsClick={() => setSettingsOpen(true)} />
-      <div className="flex min-h-0 flex-1 flex-col overflow-auto p-4 md:p-6">
-        <ChatPage />
+      <div className="flex min-h-0 w-full flex-1">
+        <ChannelSidebar />
+        <SidebarInset className="flex min-h-0 min-w-0 flex-1 flex-col bg-background">
+          <div className="flex min-h-0 flex-1 flex-col overflow-auto p-4 md:p-6">
+            <ChatPage />
+          </div>
+        </SidebarInset>
       </div>
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       <ChangelogDialog open={changelogOpen} onOpenChange={setChangelogOpen} />
-    </div>
+    </SidebarProvider>
   )
 }
 
