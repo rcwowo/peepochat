@@ -4,10 +4,10 @@ import {
   createEmptyEmoteCatalog,
   fetchThirdPartyEmoteCatalog,
   hydrateMessageEmotes,
+  type ThirdPartyEmoteCatalog,
 } from "@/lib/chat-emotes"
 import {
   TwitchChatClient,
-  EMPTY_SYSTEM_MESSAGE_META,
   type TwitchChatConnectOptions,
   type TwitchChatMessage,
   type TwitchConnectionState,
@@ -20,115 +20,151 @@ export type TwitchTimelineItem =
   | { kind: "chat"; message: TwitchChatMessage }
   | { kind: "system"; message: TwitchSystemMessage }
 
+export type TwitchChatRoomState = {
+  login: string
+  roomId: string | null
+  joined: boolean
+  joining: boolean
+  timeline: TwitchTimelineItem[]
+}
+
 type PendingConnect = {
-  channel: string
-  resolve: (channel: string) => void
+  resolve: () => void
   reject: (err: Error) => void
+}
+
+function createEmptyRoom(login: string): TwitchChatRoomState {
+  return {
+    login,
+    roomId: null,
+    joined: false,
+    joining: true,
+    timeline: [],
+  }
+}
+
+function normalizeChannelLogin(channel: string) {
+  return channel.trim().replace(/^#/, "").toLowerCase()
 }
 
 export function useTwitchChat() {
   const clientRef = React.useRef<TwitchChatClient | null>(null)
   const pendingConnectRef = React.useRef<PendingConnect | null>(null)
-  const pendingRoomMessagesRef = React.useRef(new Map<string, TwitchChatMessage[]>())
-  const emoteCatalogRef = React.useRef(createEmptyEmoteCatalog())
-  const emoteCatalogRoomIdRef = React.useRef<string | null>(null)
-  const emoteCatalogLoadingRoomIdRef = React.useRef<string | null>(null)
+  const pendingRoomMessagesRef = React.useRef(
+    new Map<string, Map<string, TwitchChatMessage[]>>()
+  )
+  const emoteCatalogsRef = React.useRef(new Map<string, ThirdPartyEmoteCatalog>())
+  const emoteCatalogLoadingRef = React.useRef(new Map<string, boolean>())
   const emoteCatalogGenerationRef = React.useRef(0)
-  const activeChannelRef = React.useRef<string | null>(null)
   const hasAnnouncedConnectedRef = React.useRef(false)
+  const syncedChannelsRef = React.useRef<string[]>([])
+
   const [connectionState, setConnectionState] =
     React.useState<TwitchConnectionState>({
       connected: false,
       connecting: false,
-      channel: null,
       lastError: null,
     })
-  const [messages, setMessages] = React.useState<TwitchChatMessage[]>([])
-  const [timeline, setTimeline] = React.useState<TwitchTimelineItem[]>([])
+  const [rooms, setRooms] = React.useState<Record<string, TwitchChatRoomState>>(
+    {}
+  )
   const [logs, setLogs] = React.useState<string[]>([])
-  const [activeRoomId, setActiveRoomId] = React.useState<string | null>(null)
 
-  // Stable log appender
   const appendLog = React.useCallback((text: string) => {
     setLogs((current) => [text, ...current].slice(0, 20))
   }, [])
 
-  const resetThirdPartyEmotes = React.useCallback(() => {
-    pendingRoomMessagesRef.current.clear()
-    emoteCatalogRef.current = createEmptyEmoteCatalog()
-    emoteCatalogRoomIdRef.current = null
-    emoteCatalogLoadingRoomIdRef.current = null
-    emoteCatalogGenerationRef.current += 1
-  }, [])
+  const updateRoom = React.useCallback(
+    (
+      login: string,
+      updater: (room: TwitchChatRoomState) => TwitchChatRoomState
+    ) => {
+      setRooms((current) => {
+        const existing = current[login] ?? createEmptyRoom(login)
+        return { ...current, [login]: updater(existing) }
+      })
+    },
+    []
+  )
 
-  const appendMessages = React.useCallback((nextMessages: TwitchChatMessage[]) => {
-    if (nextMessages.length === 0) {
-      return
-    }
+  const appendRoomTimeline = React.useCallback(
+    (login: string, items: TwitchTimelineItem[]) => {
+      if (items.length === 0) return
 
-    setMessages((current) => [...current, ...nextMessages].slice(-MESSAGE_LIMIT))
-    setTimeline((current) => [
-      ...current,
-      ...nextMessages.map((message) => ({ kind: "chat" as const, message })),
-    ].slice(-MESSAGE_LIMIT))
-  }, [])
+      updateRoom(login, (room) => ({
+        ...room,
+        timeline: [...room.timeline, ...items].slice(-MESSAGE_LIMIT),
+      }))
+    },
+    [updateRoom]
+  )
 
-  const appendSystemMessage = React.useCallback((message: TwitchSystemMessage) => {
-    setTimeline((current) => [
-      ...current,
-      { kind: "system" as const, message },
-    ].slice(-MESSAGE_LIMIT))
-  }, [])
-
-  const resetChatState = React.useCallback(() => {
-    setMessages([])
-    setTimeline([])
-    setLogs([])
-  }, [])
+  const appendRoomSystemMessage = React.useCallback(
+    (login: string, message: TwitchSystemMessage) => {
+      appendRoomTimeline(login, [{ kind: "system", message }])
+    },
+    [appendRoomTimeline]
+  )
 
   const flushPendingRoomMessages = React.useCallback(
-    (roomId: string, useCatalog: boolean) => {
-      const pending = pendingRoomMessagesRef.current.get(roomId)
+    (login: string, roomId: string, useCatalog: boolean) => {
+      const roomPending = pendingRoomMessagesRef.current.get(login)
+      const pending = roomPending?.get(roomId)
       if (!pending || pending.length === 0) {
         return
       }
 
-      pendingRoomMessagesRef.current.delete(roomId)
-      appendMessages(
-        pending.map((message) =>
-          hydrateMessageEmotes(
-            message,
-            useCatalog ? emoteCatalogRef.current : null
-          )
-        )
+      roomPending?.delete(roomId)
+      const catalog = useCatalog
+        ? (emoteCatalogsRef.current.get(roomId) ?? null)
+        : null
+
+      appendRoomTimeline(
+        login,
+        pending.map((message) => ({
+          kind: "chat" as const,
+          message: hydrateMessageEmotes(message, catalog),
+        }))
       )
     },
-    [appendMessages]
+    [appendRoomTimeline]
   )
 
-  const queuePendingRoomMessage = React.useCallback((message: TwitchChatMessage) => {
-    const roomId = message.roomId
-    if (!roomId) {
-      appendMessages([hydrateMessageEmotes(message, null)])
-      return
-    }
-
-    const pending = pendingRoomMessagesRef.current.get(roomId) ?? []
-    pending.push(message)
-    pendingRoomMessagesRef.current.set(roomId, pending)
-  }, [appendMessages])
-
-  const maybeLoadThirdPartyEmotes = React.useCallback(
-    (roomId: string | null) => {
-      if (
-        !roomId ||
-        emoteCatalogRoomIdRef.current === roomId ||
-        emoteCatalogLoadingRoomIdRef.current === roomId
-      ) {
+  const queuePendingRoomMessage = React.useCallback(
+    (login: string, message: TwitchChatMessage) => {
+      const roomId = message.roomId
+      if (!roomId) {
+        appendRoomTimeline(login, [
+          {
+            kind: "chat",
+            message: hydrateMessageEmotes(message, null),
+          },
+        ])
         return
       }
 
-      emoteCatalogLoadingRoomIdRef.current = roomId
+      const roomPending =
+        pendingRoomMessagesRef.current.get(login) ??
+        new Map<string, TwitchChatMessage[]>()
+      const pending = roomPending.get(roomId) ?? []
+      pending.push(message)
+      roomPending.set(roomId, pending)
+      pendingRoomMessagesRef.current.set(login, roomPending)
+    },
+    [appendRoomTimeline]
+  )
+
+  const maybeLoadThirdPartyEmotes = React.useCallback(
+    (login: string, roomId: string | null) => {
+      if (!roomId || emoteCatalogsRef.current.has(roomId)) {
+        return
+      }
+
+      if (emoteCatalogLoadingRef.current.get(roomId)) {
+        return
+      }
+
+      emoteCatalogLoadingRef.current.set(roomId, true)
       const generation = emoteCatalogGenerationRef.current
 
       void fetchThirdPartyEmoteCatalog(roomId)
@@ -137,54 +173,115 @@ export function useTwitchChat() {
             return
           }
 
-          emoteCatalogRef.current = catalog
-          emoteCatalogRoomIdRef.current = roomId
-          emoteCatalogLoadingRoomIdRef.current = null
+          emoteCatalogsRef.current.set(roomId, catalog)
+          emoteCatalogLoadingRef.current.delete(roomId)
 
-          setMessages((current) =>
-            current.map((entry) =>
-              entry.roomId === roomId
-                ? hydrateMessageEmotes(entry, emoteCatalogRef.current)
-                : entry
-            )
-          )
-          setTimeline((current) =>
-            current.map((entry) => {
-              if (entry.kind !== "chat") {
-                return entry
-              }
+          setRooms((current) => {
+            const room = current[login]
+            if (!room) return current
 
-              return entry.message.roomId === roomId
-                ? {
+            return {
+              ...current,
+              [login]: {
+                ...room,
+                timeline: room.timeline.map((entry) => {
+                  if (entry.kind !== "chat") return entry
+                  if (entry.message.roomId !== roomId) return entry
+
+                  return {
                     ...entry,
-                    message: hydrateMessageEmotes(
-                      entry.message,
-                      emoteCatalogRef.current
-                    ),
+                    message: hydrateMessageEmotes(entry.message, catalog),
                   }
-                : entry
-            })
-          )
-          flushPendingRoomMessages(roomId, true)
+                }),
+              },
+            }
+          })
 
-          appendLog(`Loaded ${catalog.size} third-party emotes for room ${roomId}`)
+          flushPendingRoomMessages(login, roomId, true)
+          appendLog(`Loaded ${catalog.size} third-party emotes for #${login}`)
         })
         .catch(() => {
           if (generation !== emoteCatalogGenerationRef.current) {
             return
           }
 
-          emoteCatalogRef.current = createEmptyEmoteCatalog()
-          emoteCatalogRoomIdRef.current = roomId
-          emoteCatalogLoadingRoomIdRef.current = null
-          flushPendingRoomMessages(roomId, false)
-          appendLog("Third-party emotes could not be loaded.")
+          emoteCatalogsRef.current.set(roomId, createEmptyEmoteCatalog())
+          emoteCatalogLoadingRef.current.delete(roomId)
+          flushPendingRoomMessages(login, roomId, false)
+          appendLog(`Third-party emotes could not be loaded for #${login}.`)
         })
     },
     [appendLog, flushPendingRoomMessages]
   )
 
-  // Lazily create the client with a stable handler
+  const routeMessageToRoom = React.useCallback(
+    (message: TwitchChatMessage) => {
+      const login = normalizeChannelLogin(message.channel)
+      const roomId = message.roomId
+
+      if (roomId) {
+        updateRoom(login, (room) => ({
+          ...room,
+          roomId: room.roomId ?? roomId,
+        }))
+        maybeLoadThirdPartyEmotes(login, roomId)
+      }
+
+      if (roomId && !emoteCatalogsRef.current.has(roomId)) {
+        queuePendingRoomMessage(login, message)
+        return
+      }
+
+      const catalog = roomId
+        ? (emoteCatalogsRef.current.get(roomId) ?? null)
+        : null
+
+      appendRoomTimeline(login, [
+        { kind: "chat", message: hydrateMessageEmotes(message, catalog) },
+      ])
+    },
+    [
+      appendRoomTimeline,
+      maybeLoadThirdPartyEmotes,
+      queuePendingRoomMessage,
+      updateRoom,
+    ]
+  )
+
+  const routeSystemMessage = React.useCallback(
+    (message: TwitchSystemMessage) => {
+      const login = message.channel
+        ? normalizeChannelLogin(message.channel)
+        : null
+
+      if (login) {
+        if (message.roomId) {
+          updateRoom(login, (room) => ({
+            ...room,
+            roomId: room.roomId ?? message.roomId,
+          }))
+        }
+        appendRoomSystemMessage(login, message)
+        return
+      }
+
+      setRooms((current) => {
+        const next = { ...current }
+        for (const channelLogin of Object.keys(next)) {
+          next[channelLogin] = {
+            ...next[channelLogin],
+            timeline: [
+              ...next[channelLogin].timeline,
+              { kind: "system" as const, message },
+            ].slice(-MESSAGE_LIMIT),
+          }
+        }
+        return next
+      })
+    },
+    [appendRoomSystemMessage, updateRoom]
+  )
+
   const getClient = React.useCallback(() => {
     if (clientRef.current) return clientRef.current
 
@@ -198,29 +295,10 @@ export function useTwitchChat() {
             lastError: null,
           }))
           if (!hasAnnouncedConnectedRef.current) {
-            appendSystemMessage({
-              id: `system:connected:${Date.now()}`,
-              channel: activeChannelRef.current,
-              roomId: null,
-              text: activeChannelRef.current
-                ? `Connected to #${activeChannelRef.current}`
-                : "Connected to Twitch chat",
-              headline: activeChannelRef.current
-                ? `Connected to #${activeChannelRef.current}`
-                : "Connected to Twitch chat",
-              details: null,
-              receivedAt: new Date().toISOString(),
-              event: "connection",
-              level: "success",
-              accentColor: null,
-              ...EMPTY_SYSTEM_MESSAGE_META,
-            })
             hasAnnouncedConnectedRef.current = true
           }
-          if (pendingConnectRef.current) {
-            pendingConnectRef.current.resolve(pendingConnectRef.current.channel)
-            pendingConnectRef.current = null
-          }
+          pendingConnectRef.current?.resolve()
+          pendingConnectRef.current = null
           break
         case "disconnected":
           setConnectionState((prev) => ({
@@ -229,50 +307,52 @@ export function useTwitchChat() {
             connecting: false,
             lastError: event.reason,
           }))
-          appendSystemMessage({
-            id: `system:disconnected:${Date.now()}`,
-            channel: activeChannelRef.current,
-            roomId: null,
-            text: event.reason ? `Disconnected: ${event.reason}` : "Disconnected",
-            headline: event.reason ? "Disconnected" : "Disconnected",
-            details: event.reason,
-            receivedAt: new Date().toISOString(),
-            event: "connection",
-            level: event.reason ? "warning" : "info",
-            accentColor: null,
-            ...EMPTY_SYSTEM_MESSAGE_META,
+          setRooms((current) => {
+            const next = { ...current }
+            for (const login of Object.keys(next)) {
+              next[login] = {
+                ...next[login],
+                joined: false,
+                joining: syncedChannelsRef.current.includes(login),
+              }
+            }
+            return next
           })
-          if (pendingConnectRef.current) {
-            pendingConnectRef.current.reject(
-              new Error(event.reason ?? "Disconnected")
-            )
-            pendingConnectRef.current = null
-          }
+          pendingConnectRef.current?.reject(
+            new Error(event.reason ?? "Disconnected")
+          )
+          pendingConnectRef.current = null
           break
-        case "room-state":
-          setActiveRoomId(event.state.roomId)
-          maybeLoadThirdPartyEmotes(event.state.roomId)
+        case "channel-joined":
+          updateRoom(event.channel, (room) => ({
+            ...room,
+            joined: true,
+            joining: false,
+          }))
           break
+        case "channel-parted":
+          updateRoom(event.channel, (room) => ({
+            ...room,
+            joined: false,
+            joining: false,
+          }))
+          break
+        case "room-state": {
+          const login = normalizeChannelLogin(event.state.channel)
+          updateRoom(login, (room) => ({
+            ...room,
+            roomId: event.state.roomId,
+            joined: true,
+            joining: false,
+          }))
+          maybeLoadThirdPartyEmotes(login, event.state.roomId)
+          break
+        }
         case "message":
-          if (event.message.roomId) {
-            setActiveRoomId((current) => current ?? event.message.roomId)
-          }
-
-          if (
-            event.message.roomId &&
-            emoteCatalogRoomIdRef.current !== event.message.roomId
-          ) {
-            maybeLoadThirdPartyEmotes(event.message.roomId)
-            queuePendingRoomMessage(event.message)
-            break
-          }
-
-          appendMessages([
-            hydrateMessageEmotes(event.message, emoteCatalogRef.current),
-          ])
+          routeMessageToRoom(event.message)
           break
         case "system":
-          appendSystemMessage(event.message)
+          routeSystemMessage(event.message)
           break
         case "log":
           appendLog(event.text)
@@ -283,91 +363,118 @@ export function useTwitchChat() {
             ...prev,
             lastError: event.text,
           }))
-          appendSystemMessage({
-            id: `system:error:${Date.now()}`,
-            channel: activeChannelRef.current,
-            roomId: null,
-            text: event.text,
-            headline: "Connection issue",
-            details: event.text,
-            receivedAt: new Date().toISOString(),
-            event: "status",
-            level: "error",
-            accentColor: null,
-            ...EMPTY_SYSTEM_MESSAGE_META,
-          })
-          if (pendingConnectRef.current) {
-            pendingConnectRef.current.reject(new Error(event.text))
-            pendingConnectRef.current = null
-          }
+          pendingConnectRef.current?.reject(new Error(event.text))
+          pendingConnectRef.current = null
           break
       }
     })
 
     clientRef.current = client
     return client
-  }, [appendLog, appendMessages, appendSystemMessage, maybeLoadThirdPartyEmotes, queuePendingRoomMessage])
+  }, [
+    appendLog,
+    maybeLoadThirdPartyEmotes,
+    routeMessageToRoom,
+    routeSystemMessage,
+    updateRoom,
+  ])
 
-  // Disconnect on unmount
   React.useEffect(() => {
     return () => {
-      clientRef.current?.disconnect()
+      clientRef.current?.close()
     }
   }, [])
 
-  const startConnection = React.useCallback(
+  const ensureRooms = React.useCallback((channelLogins: string[]) => {
+    setRooms((current) => {
+      const next = { ...current }
+      for (const login of channelLogins) {
+        if (!next[login]) {
+          next[login] = createEmptyRoom(login)
+        } else {
+          next[login] = { ...next[login], joining: !next[login].joined }
+        }
+      }
+      return next
+    })
+  }, [])
+
+  const syncChannels = React.useCallback(
     (
-      channel: string,
+      channelLogins: string[],
       options: TwitchChatConnectOptions = {}
-    ): Promise<string> => {
-      // Reject any previously pending connect
+    ): Promise<void> => {
+      const normalized = [
+        ...new Set(channelLogins.map(normalizeChannelLogin).filter(Boolean)),
+      ]
+      syncedChannelsRef.current = normalized
+
+      if (normalized.length === 0) {
+        clientRef.current?.close()
+        hasAnnouncedConnectedRef.current = false
+        emoteCatalogGenerationRef.current += 1
+        pendingRoomMessagesRef.current.clear()
+        emoteCatalogsRef.current.clear()
+        emoteCatalogLoadingRef.current.clear()
+        setConnectionState({
+          connected: false,
+          connecting: false,
+          lastError: null,
+        })
+        setRooms({})
+        return Promise.resolve()
+      }
+
+      ensureRooms(normalized)
+
       if (pendingConnectRef.current) {
-        pendingConnectRef.current.reject(new Error("New connection started"))
+        pendingConnectRef.current.reject(new Error("Channel list updated"))
         pendingConnectRef.current = null
       }
 
-      resetThirdPartyEmotes()
-      resetChatState()
-      setActiveRoomId(null)
-
-      const normalizedChannel = channel.trim().replace(/^#/, "").toLowerCase()
-      hasAnnouncedConnectedRef.current = false
-      activeChannelRef.current = normalizedChannel
-      setConnectionState({
-        connected: false,
-        connecting: true,
-        channel: normalizedChannel,
+      setConnectionState((prev) => ({
+        ...prev,
+        connecting: !prev.connected,
         lastError: null,
-      })
+      }))
 
-      return new Promise<string>((resolve, reject) => {
-        pendingConnectRef.current = { channel: normalizedChannel, resolve, reject }
-        getClient().connect(channel, options)
+      return new Promise<void>((resolve, reject) => {
+        pendingConnectRef.current = { resolve, reject }
+        getClient().setChannels(normalized, options)
       })
     },
-    [getClient, resetChatState, resetThirdPartyEmotes]
+    [ensureRooms, getClient]
   )
 
-  const stopConnection = React.useCallback(() => {
-    clientRef.current?.disconnect()
-    hasAnnouncedConnectedRef.current = false
-    activeChannelRef.current = null
-    resetThirdPartyEmotes()
-    setActiveRoomId(null)
-    setConnectionState((prev) => ({
-      ...prev,
-      connected: false,
-      connecting: false,
-    }))
-  }, [resetThirdPartyEmotes])
+  const getRoom = React.useCallback(
+    (login: string): TwitchChatRoomState | null => {
+      const normalized = normalizeChannelLogin(login)
+      return rooms[normalized] ?? null
+    },
+    [rooms]
+  )
+
+  const getTimeline = React.useCallback(
+    (login: string): TwitchTimelineItem[] => {
+      return getRoom(login)?.timeline ?? []
+    },
+    [getRoom]
+  )
+
+  const getRoomId = React.useCallback(
+    (login: string): string | null => {
+      return getRoom(login)?.roomId ?? null
+    },
+    [getRoom]
+  )
 
   return {
     connectionState,
-    messages,
-    timeline,
+    rooms,
     logs,
-    activeRoomId,
-    startConnection,
-    stopConnection,
+    syncChannels,
+    getRoom,
+    getTimeline,
+    getRoomId,
   }
 }

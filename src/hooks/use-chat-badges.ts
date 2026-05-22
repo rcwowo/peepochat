@@ -13,17 +13,12 @@ export function useChatBadges(account: TwitchAccount | null) {
   const [globalCatalog, setGlobalCatalog] = React.useState<ChatBadgeCatalog>(
     () => createEmptyBadgeCatalog()
   )
-  const [channelCatalog, setChannelCatalog] = React.useState<ChatBadgeCatalog>(
-    () => createEmptyBadgeCatalog()
-  )
-  const [activeRoomId, setActiveRoomId] = React.useState<string | null>(null)
+  const [channelCatalogs, setChannelCatalogs] = React.useState<
+    Record<string, ChatBadgeCatalog>
+  >({})
   const globalLoadingRef = React.useRef(false)
-  const channelLoadingRef = React.useRef<string | null>(null)
-
-  const catalog = React.useMemo(
-    () => mergeBadgeCatalogs(globalCatalog, channelCatalog),
-    [channelCatalog, globalCatalog]
-  )
+  const channelLoadingRef = React.useRef(new Set<string>())
+  const loadedRoomIdsRef = React.useRef(new Set<string>())
 
   React.useEffect(() => {
     if (!account || globalLoadingRef.current) {
@@ -46,54 +41,63 @@ export function useChatBadges(account: TwitchAccount | null) {
 
   const loadBadgesForRoom = React.useCallback(
     (roomId: string | null) => {
-      setActiveRoomId(roomId)
-
       if (!roomId || !account) {
-        setChannelCatalog(createEmptyBadgeCatalog())
         return
       }
 
-      if (channelLoadingRef.current === roomId) {
+      if (
+        loadedRoomIdsRef.current.has(roomId) ||
+        channelLoadingRef.current.has(roomId)
+      ) {
         return
       }
 
-      channelLoadingRef.current = roomId
+      channelLoadingRef.current.add(roomId)
 
       void loadChannelBadgeCatalog(roomId, account.accessToken, account.clientId)
         .then((nextCatalog) => {
-          if (channelLoadingRef.current !== roomId) {
-            return
-          }
-
-          setChannelCatalog(nextCatalog)
+          loadedRoomIdsRef.current.add(roomId)
+          setChannelCatalogs((current) => ({
+            ...current,
+            [roomId]: nextCatalog,
+          }))
         })
         .catch(() => {
-          if (channelLoadingRef.current !== roomId) {
-            return
-          }
-
-          setChannelCatalog(createEmptyBadgeCatalog())
+          loadedRoomIdsRef.current.add(roomId)
+          setChannelCatalogs((current) => ({
+            ...current,
+            [roomId]: createEmptyBadgeCatalog(),
+          }))
         })
         .finally(() => {
-          if (channelLoadingRef.current === roomId) {
-            channelLoadingRef.current = null
-          }
+          channelLoadingRef.current.delete(roomId)
         })
     },
     [account]
   )
 
+  const getBadgeCatalog = React.useCallback(
+    (roomId: string | null): ChatBadgeCatalog => {
+      const channelCatalog = roomId ? channelCatalogs[roomId] : null
+      return mergeBadgeCatalogs(
+        globalCatalog,
+        channelCatalog ?? createEmptyBadgeCatalog()
+      )
+    },
+    [channelCatalogs, globalCatalog]
+  )
+
   React.useEffect(() => {
     if (!account) {
       setGlobalCatalog(createEmptyBadgeCatalog())
-      setChannelCatalog(createEmptyBadgeCatalog())
-      setActiveRoomId(null)
+      setChannelCatalogs({})
+      channelLoadingRef.current.clear()
+      loadedRoomIdsRef.current.clear()
     }
   }, [account])
 
   return {
-    catalog,
-    activeRoomId,
+    getBadgeCatalog,
     loadBadgesForRoom,
     hasBadgeSupport: Boolean(account),
   }

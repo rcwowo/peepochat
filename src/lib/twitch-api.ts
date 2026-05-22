@@ -135,6 +135,7 @@ export async function fetchTwitchUsersByLogin(
     login: user.login,
     displayName: user.display_name,
     profileImageUrl: user.profile_image_url,
+    bannerImageUrl: "",
   }))
 }
 

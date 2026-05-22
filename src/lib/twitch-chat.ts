@@ -110,8 +110,12 @@ export const EMPTY_SYSTEM_MESSAGE_META = {
 export type TwitchConnectionState = {
   connected: boolean
   connecting: boolean
-  channel: string | null
   lastError: string | null
+}
+
+export type TwitchChannelJoinState = {
+  joined: boolean
+  joining: boolean
 }
 
 export type TwitchRoomState = {
@@ -122,6 +126,8 @@ export type TwitchRoomState = {
 export type TwitchChatEvent =
   | { type: "connected" }
   | { type: "disconnected"; reason: string | null }
+  | { type: "channel-joined"; channel: string }
+  | { type: "channel-parted"; channel: string }
   | { type: "room-state"; state: TwitchRoomState }
   | { type: "message"; message: TwitchChatMessage }
   | { type: "system"; message: TwitchSystemMessage }
@@ -150,23 +156,32 @@ export type TwitchChatConnectOptions = {
 
 export class TwitchChatClient {
   private ws: WebSocket | null = null
-  private channel: string | null = null
+  private desiredChannels = new Set<string>()
+  private joinedChannels = new Set<string>()
   private connectOptions: TwitchChatConnectOptions = {}
   private handler: TwitchChatEventHandler
   private pingTimer: ReturnType<typeof setTimeout> | null = null
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private intentionalClose = false
+  private sessionOpen = false
+  private welcomeReceived = false
 
   constructor(handler: TwitchChatEventHandler) {
     this.handler = handler
   }
 
-  /** Connect to a Twitch channel (anonymous or authenticated read). */
-  connect(channel: string, options: TwitchChatConnectOptions = {}) {
-    this.disconnect()
+  /** Open an IRC session (anonymous or authenticated read). */
+  open(options: TwitchChatConnectOptions = {}) {
+    if (this.ws && this.ws.readyState <= WebSocket.OPEN) {
+      this.connectOptions = options
+      return
+    }
+
     this.intentionalClose = false
-    this.channel = normalizeChannel(channel)
+    this.sessionOpen = true
+    this.welcomeReceived = false
     this.connectOptions = options
+    this.joinedChannels.clear()
 
     const ws = new WebSocket(TWITCH_WS_URL)
     this.ws = ws
@@ -180,7 +195,6 @@ export class TwitchChatClient {
       ws.send("CAP REQ :twitch.tv/tags twitch.tv/commands")
       ws.send(`PASS ${pass}`)
       ws.send(`NICK ${resolvedNick}`)
-      ws.send(`JOIN #${this.channel}`)
       this.resetPingTimer()
     })
 
@@ -199,7 +213,14 @@ export class TwitchChatClient {
       }
 
       this.clearTimers()
-      if (!this.intentionalClose) {
+      this.welcomeReceived = false
+      const parted = [...this.joinedChannels]
+      this.joinedChannels.clear()
+      for (const channel of parted) {
+        this.handler({ type: "channel-parted", channel })
+      }
+
+      if (!this.intentionalClose && this.sessionOpen) {
         this.handler({
           type: "disconnected",
           reason: event.reason || "Connection lost",
@@ -219,9 +240,39 @@ export class TwitchChatClient {
     })
   }
 
-  /** Cleanly disconnect. */
-  disconnect() {
+  /**
+   * Sync joined channels to the desired set. Opens the session when needed.
+   */
+  setChannels(channels: string[], options: TwitchChatConnectOptions = {}) {
+    const normalized = [
+      ...new Set(
+        channels.map((channel) => normalizeChannel(channel)).filter(Boolean)
+      ),
+    ]
+
+    this.desiredChannels = new Set(normalized)
+    this.connectOptions = options
+
+    if (!this.sessionOpen) {
+      if (normalized.length === 0) {
+        return
+      }
+      this.open(options)
+      return
+    }
+
+    if (!this.isConnected || !this.welcomeReceived) {
+      return
+    }
+
+    this.syncJoins()
+  }
+
+  /** Cleanly disconnect and clear all channels. */
+  close() {
     this.intentionalClose = true
+    this.sessionOpen = false
+    this.desiredChannels.clear()
     this.clearTimers()
     if (this.ws) {
       this.ws.close()
@@ -229,9 +280,68 @@ export class TwitchChatClient {
     }
   }
 
+  /** @deprecated Use open/setChannels/close instead. */
+  connect(channel: string, options: TwitchChatConnectOptions = {}) {
+    this.setChannels([channel], options)
+  }
+
+  /** @deprecated Use close instead. */
+  disconnect() {
+    this.close()
+  }
+
   /** Whether there is an active WebSocket connection. */
   get isConnected() {
     return this.ws?.readyState === WebSocket.OPEN
+  }
+
+  private syncJoins() {
+    const desired = this.desiredChannels
+    const joined = this.joinedChannels
+
+    for (const channel of joined) {
+      if (!desired.has(channel)) {
+        this.partChannel(channel)
+      }
+    }
+
+    for (const channel of desired) {
+      if (!joined.has(channel)) {
+        this.joinChannel(channel)
+      }
+    }
+  }
+
+  private joinChannel(channel: string) {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      return
+    }
+
+    this.ws.send(`JOIN #${channel}`)
+    this.handler({ type: "log", text: `Joining #${channel}…` })
+  }
+
+  private partChannel(channel: string) {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      this.joinedChannels.delete(channel)
+      this.handler({ type: "channel-parted", channel })
+      return
+    }
+
+    this.ws.send(`PART #${channel}`)
+    this.joinedChannels.delete(channel)
+    this.handler({ type: "channel-parted", channel })
+    this.handler({ type: "log", text: `Left #${channel}` })
+  }
+
+  private markChannelJoined(channel: string) {
+    if (this.joinedChannels.has(channel)) {
+      return
+    }
+
+    this.joinedChannels.add(channel)
+    this.handler({ type: "channel-joined", channel })
+    this.handler({ type: "log", text: `Joined #${channel}` })
   }
 
   // -----------------------------------------------------------------------
@@ -246,10 +356,20 @@ export class TwitchChatClient {
       return
     }
 
-    // Successful join / welcome
+    // Successful welcome — join all desired channels
     if (raw.includes("001")) {
+      this.welcomeReceived = true
       this.handler({ type: "connected" })
-      this.handler({ type: "log", text: `Joined #${this.channel}` })
+      this.syncJoins()
+      return
+    }
+
+    // JOIN confirmation for our nick
+    if (raw.includes(" JOIN #")) {
+      const joinMatch = raw.match(/ JOIN #(\S+)/)
+      if (joinMatch) {
+        this.markChannelJoined(normalizeChannel(joinMatch[1]))
+      }
       return
     }
 
@@ -310,15 +430,17 @@ export class TwitchChatClient {
 
   private scheduleReconnect() {
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
-    if (!this.channel || this.intentionalClose) return
+    if (!this.sessionOpen || this.intentionalClose) return
+    if (this.desiredChannels.size === 0) return
 
     this.handler({
       type: "log",
       text: `Reconnecting in ${RECONNECT_DELAY_MS / 1000}s...`,
     })
-    const channel = this.channel
     this.reconnectTimer = setTimeout(() => {
-      this.connect(channel, this.connectOptions)
+      this.welcomeReceived = false
+      this.joinedChannels.clear()
+      this.open(this.connectOptions)
     }, RECONNECT_DELAY_MS)
   }
 

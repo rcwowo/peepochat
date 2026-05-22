@@ -1,8 +1,13 @@
 import * as React from "react"
-import { PlusIcon, XIcon } from "lucide-react"
+import { Columns2Icon, PlusIcon, XIcon } from "lucide-react"
 import { toast } from "sonner"
 
+import {
+  SortableSidebarList,
+  preventRowDrag,
+} from "@/components/channel-sidebar-list"
 import { useChatvoice } from "@/lib/chatvoice-context"
+import { CHANNEL_ORDER_PREFIX, SPLIT_ORDER_PREFIX } from "@/lib/sidebar-order"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -22,9 +27,7 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarHeader,
-  SidebarMenu,
   SidebarMenuButton,
-  SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
 import {
@@ -35,6 +38,12 @@ import {
 
 function channelLabel(login: string, displayName?: string) {
   return displayName ?? login
+}
+
+function splitGroupLabel(
+  channels: Array<{ login: string; displayName?: string }>
+) {
+  return channels.map((c) => channelLabel(c.login, c.displayName)).join(", ")
 }
 
 function ChannelAvatar({
@@ -63,6 +72,112 @@ function ChannelAvatar({
       )}
     >
       {login.slice(0, 2)}
+    </span>
+  )
+}
+
+function splitClusterAvatarSize(count: number) {
+  if (count <= 2) return "size-6"
+  if (count === 3) return "size-[1.2rem]"
+  return "size-[1.125rem]"
+}
+
+function splitClusterAvatarPosition(index: number, count: number) {
+  if (count === 2) {
+    return cn(
+      index === 0 && "left-0 top-1/2 z-[2] -translate-y-1/2",
+      index === 1 && "left-3 top-1/2 z-[1] -translate-y-1/2"
+    )
+  }
+
+  if (count === 3) {
+    return cn(
+      index === 0 && "left-1/2 top-0 -translate-x-1/2 z-[4]",
+      index === 1 && "bottom-0 left-0 z-[3]",
+      index === 2 && "bottom-0 right-0 z-[2]"
+    )
+  }
+
+  return cn(
+    index === 0 && "left-0 top-0 z-[4]",
+    index === 1 && "right-0 top-0 z-[3]",
+    index === 2 && "left-0 bottom-0 z-[2]",
+    index === 3 && "right-0 bottom-0 z-[1]"
+  )
+}
+
+function SplitAvatarCluster({
+  channels,
+  size = "md",
+  variant = "inline",
+  ringClass = "ring-sidebar",
+  isActive = false,
+}: {
+  channels: Array<{
+    login: string
+    profileImageUrl?: string
+  }>
+  size?: "md" | "sm"
+  variant?: "inline" | "clustered"
+  ringClass?: string
+  isActive?: boolean
+}) {
+  const visible = channels.slice(0, 4)
+  const count = visible.length
+
+  if (variant === "clustered") {
+    const avatarSize = splitClusterAvatarSize(count)
+    const clusteredRing = isActive ? "ring-sidebar-ring/25" : ringClass
+
+    return (
+      <span className="relative size-9 shrink-0 rounded-full">
+        {visible.map((channel, index) => (
+          <ChannelAvatar
+            key={channel.login}
+            login={channel.login}
+            profileImageUrl={channel.profileImageUrl}
+            className={cn(
+              avatarSize,
+              "absolute ring-2",
+              clusteredRing,
+              splitClusterAvatarPosition(index, count)
+            )}
+          />
+        ))}
+      </span>
+    )
+  }
+
+  const avatarSize = size === "sm" ? "size-7" : "size-8"
+
+  return (
+    <span
+      className={cn(
+        "relative flex shrink-0 items-center",
+        size === "sm"
+          ? "h-8 w-[calc(1.75rem+0.5rem*var(--n))]"
+          : "h-10 w-[calc(2rem+0.55rem*var(--n))]"
+      )}
+      style={
+        { "--n": Math.max(visible.length - 1, 0) } as React.CSSProperties
+      }
+    >
+      {visible.map((channel, index) => (
+        <ChannelAvatar
+          key={channel.login}
+          login={channel.login}
+          profileImageUrl={channel.profileImageUrl}
+          className={cn(
+            avatarSize,
+            "absolute top-1/2 -translate-y-1/2 ring-2",
+            ringClass,
+            index === 0 && "left-0 z-[4]",
+            index === 1 && "left-[0.55rem] z-[3]",
+            index === 2 && "left-[1.1rem] z-[2]",
+            index === 3 && "left-[1.65rem] z-[1]"
+          )}
+        />
+      ))}
     </span>
   )
 }
@@ -105,6 +220,63 @@ function CollapsedChannelButton({
   )
 }
 
+function SortableRowContent({ children }: { children: React.ReactNode }) {
+  const { state, isMobile } = useSidebar()
+  const collapsed = state === "collapsed" && !isMobile
+
+  if (!collapsed) {
+    return children
+  }
+
+  return (
+    <div className="flex w-full items-center justify-center">{children}</div>
+  )
+}
+
+function CollapsedSplitButton({
+  channels,
+  isActive,
+  onSelect,
+}: {
+  channels: Array<{
+    login: string
+    displayName?: string
+    profileImageUrl?: string
+  }>
+  isActive: boolean
+  onSelect: () => void
+}) {
+  const label = splitGroupLabel(channels)
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          aria-label={label}
+          onClick={onSelect}
+          className={cn(
+            "flex size-11 shrink-0 items-center justify-center rounded-full outline-none transition-[background-color,box-shadow]",
+            "focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+            isActive
+              ? "bg-sidebar-ring/25 shadow-[0_0_0_2px_var(--color-sidebar-ring)]"
+              : "bg-secondary shadow-[0_0_0_1px_var(--color-sidebar-border)] hover:bg-sidebar-accent hover:shadow-[0_0_0_2px_var(--color-sidebar-ring)]"
+          )}
+        >
+          <SplitAvatarCluster
+            channels={channels}
+            size="sm"
+            variant="clustered"
+            isActive={isActive}
+            ringClass="ring-secondary"
+          />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="right">{label}</TooltipContent>
+    </Tooltip>
+  )
+}
+
 function ChannelMenuButton({
   login,
   displayName,
@@ -112,6 +284,8 @@ function ChannelMenuButton({
   isActive,
   onSelect,
   onRemove,
+  onSplit,
+  showSplitAction,
 }: {
   login: string
   displayName?: string
@@ -119,6 +293,8 @@ function ChannelMenuButton({
   isActive: boolean
   onSelect: () => void
   onRemove: () => void
+  onSplit?: () => void
+  showSplitAction?: boolean
 }) {
   const { state, isMobile } = useSidebar()
   const collapsed = state === "collapsed" && !isMobile
@@ -141,25 +317,82 @@ function ChannelMenuButton({
     <SidebarMenuButton
       isActive={isActive}
       onClick={onSelect}
-      className="group/channel relative h-10"
+      className="group/channel relative h-10 w-full"
     >
-      <ChannelAvatar
-        login={login}
-        profileImageUrl={profileImageUrl}
-        className="size-8"
+        <ChannelAvatar
+          login={login}
+          profileImageUrl={profileImageUrl}
+          className="size-8"
+        />
+        <span className="truncate font-medium">{label}</span>
+        <div className="absolute right-1 top-1/2 hidden -translate-y-1/2 items-center gap-0.5 group-hover/channel:flex">
+        {showSplitAction && onSplit ? (
+          <button
+            type="button"
+            aria-label={`Split with ${label}`}
+            className="flex size-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+            onPointerDown={preventRowDrag}
+            onClick={(event) => {
+              event.stopPropagation()
+              onSplit()
+            }}
+          >
+            <Columns2Icon className="size-3" />
+          </button>
+        ) : null}
+        <button
+          type="button"
+          aria-label={`Remove ${label}`}
+          className="flex size-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+          onPointerDown={preventRowDrag}
+          onClick={(event) => {
+            event.stopPropagation()
+            onRemove()
+          }}
+        >
+          <XIcon className="size-3" />
+        </button>
+      </div>
+    </SidebarMenuButton>
+  )
+}
+
+function SplitMenuButton({
+  channels,
+  isActive,
+  onSelect,
+}: {
+  channels: Array<{
+    login: string
+    displayName?: string
+    profileImageUrl?: string
+  }>
+  isActive: boolean
+  onSelect: () => void
+}) {
+  const { state, isMobile } = useSidebar()
+  const collapsed = state === "collapsed" && !isMobile
+
+  if (collapsed) {
+    return (
+      <CollapsedSplitButton
+        channels={channels}
+        isActive={isActive}
+        onSelect={onSelect}
       />
+    )
+  }
+
+  const label = splitGroupLabel(channels)
+
+  return (
+    <SidebarMenuButton
+      isActive={isActive}
+      onClick={onSelect}
+      className="h-10 w-full"
+    >
+      <SplitAvatarCluster channels={channels} />
       <span className="truncate font-medium">{label}</span>
-      <button
-        type="button"
-        aria-label={`Remove ${label}`}
-        className="absolute right-1 top-1/2 hidden size-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground group-hover/channel:flex"
-        onClick={(event) => {
-          event.stopPropagation()
-          onRemove()
-        }}
-      >
-        <XIcon className="size-3" />
-      </button>
     </SidebarMenuButton>
   )
 }
@@ -252,10 +485,64 @@ export function ChannelSidebar() {
     setActiveChannel,
     addChannel,
     removeChannel,
+    isSplitView,
+    activeSplitId,
+    savedSplits,
+    sidebarOrder,
+    channelsInSplits,
+    selectSplit,
+    openSplitView,
+    addSplitChannel,
+    reorderSidebar,
   } = useChatvoice()
   const { state, isMobile } = useSidebar()
   const collapsed = state === "collapsed" && !isMobile
   const [addDialogOpen, setAddDialogOpen] = React.useState(false)
+
+  const splitById = React.useMemo(
+    () => new Map(savedSplits.map((split) => [split.id, split])),
+    [savedSplits]
+  )
+
+  const channelByLogin = React.useMemo(
+    () => new Map(channels.map((channel) => [channel.login, channel])),
+    [channels]
+  )
+
+  const sidebarEntries = React.useMemo(() => {
+    return sidebarOrder
+      .map((key) => {
+        if (key.startsWith(SPLIT_ORDER_PREFIX)) {
+          const split = splitById.get(key.slice(SPLIT_ORDER_PREFIX.length))
+          if (!split || split.channels.length < 2) {
+            return null
+          }
+
+          return {
+            key,
+            kind: "split" as const,
+            split,
+            channels: split.channels.map(
+              (login) => channelByLogin.get(login) ?? { login }
+            ),
+          }
+        }
+
+        if (key.startsWith(CHANNEL_ORDER_PREFIX)) {
+          const channel = channelByLogin.get(
+            key.slice(CHANNEL_ORDER_PREFIX.length)
+          )
+          if (!channel || channelsInSplits.has(channel.login)) {
+            return null
+          }
+
+          return { key, kind: "channel" as const, channel }
+        }
+
+        return null
+      })
+      .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
+  }, [channelByLogin, channelsInSplits, sidebarOrder, splitById])
 
   const handleAddChannel = async (login: string) => {
     try {
@@ -265,6 +552,21 @@ export function ChannelSidebar() {
       toast.error(error instanceof Error ? error.message : "Could not add channel")
       throw error
     }
+  }
+
+  const handleSplitWith = (login: string) => {
+    if (isSplitView) {
+      addSplitChannel(login)
+      toast.success(`Added #${login} to split`)
+      return
+    }
+
+    if (!activeChannelLogin || activeChannelLogin === login) {
+      return
+    }
+
+    openSplitView([activeChannelLogin, login])
+    toast.success(`Split view: #${activeChannelLogin} + #${login}`)
   }
 
   const addButton = (
@@ -294,30 +596,56 @@ export function ChannelSidebar() {
         <SidebarContent className="group-data-[collapsible=icon]:overflow-y-auto group-data-[collapsible=icon]:overflow-x-hidden">
           <SidebarGroup className="group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:py-3">
             <SidebarGroupContent>
-              <SidebarMenu
-                className={cn(
-                  "group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-3"
-                )}
+              <SortableSidebarList
+                itemIds={sidebarEntries.map((entry) => entry.key)}
+                onReorder={reorderSidebar}
+                className="group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-3"
               >
-                {channels.map((channel) => (
-                  <SidebarMenuItem
-                    key={channel.login}
-                    className="group-data-[collapsible=icon]:w-auto"
-                  >
-                    <ChannelMenuButton
-                      login={channel.login}
-                      displayName={channel.displayName}
-                      profileImageUrl={channel.profileImageUrl}
-                      isActive={channel.login === activeChannelLogin}
-                      onSelect={() => setActiveChannel(channel.login)}
+                {(itemId) => {
+                  const entry = sidebarEntries.find((e) => e.key === itemId)
+                  if (!entry) {
+                    return null
+                  }
+
+                  if (entry.kind === "split") {
+                    return (
+                      <SortableRowContent>
+                        <SplitMenuButton
+                          channels={entry.channels}
+                          isActive={
+                            isSplitView && activeSplitId === entry.split.id
+                          }
+                          onSelect={() => selectSplit(entry.split.id)}
+                        />
+                      </SortableRowContent>
+                    )
+                  }
+
+                  return (
+                    <SortableRowContent>
+                      <ChannelMenuButton
+                      login={entry.channel.login}
+                      displayName={entry.channel.displayName}
+                      profileImageUrl={entry.channel.profileImageUrl}
+                      isActive={
+                        !isSplitView &&
+                        entry.channel.login === activeChannelLogin
+                      }
+                      onSelect={() => setActiveChannel(entry.channel.login)}
                       onRemove={() => {
-                        removeChannel(channel.login)
-                        toast.info(`Removed #${channel.login}`)
+                        removeChannel(entry.channel.login)
+                        toast.info(`Removed #${entry.channel.login}`)
                       }}
+                      showSplitAction={Boolean(
+                        activeChannelLogin &&
+                          entry.channel.login !== activeChannelLogin
+                      )}
+                      onSplit={() => handleSplitWith(entry.channel.login)}
                     />
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
+                    </SortableRowContent>
+                  )
+                }}
+              </SortableSidebarList>
             </SidebarGroupContent>
           </SidebarGroup>
         </SidebarContent>

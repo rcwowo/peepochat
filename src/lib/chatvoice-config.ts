@@ -1,7 +1,9 @@
 import { z } from "zod"
 
+import { normalizeSidebarOrder } from "@/lib/sidebar-order"
+
 export const CHATVOICE_STORAGE_KEY = "chatvoice::config"
-export const CHATVOICE_SCHEMA_VERSION = 2
+export const CHATVOICE_SCHEMA_VERSION = 4
 export const CHATVOICE_APP_VERSION: string = __APP_VERSION__
 
 const messageTimestampFormatSchema = z
@@ -10,6 +12,17 @@ const messageTimestampFormatSchema = z
 
 const chatSchema = z.object({
   messageTimestampFormat: messageTimestampFormatSchema,
+})
+
+const chatSplitSchema = z.object({
+  id: z.string().min(1),
+  channels: z.array(z.string()),
+})
+
+const chatLayoutSchema = z.object({
+  activeSplitId: z.string().nullable(),
+  splits: z.array(chatSplitSchema),
+  sidebarOrder: z.array(z.string()).optional(),
 })
 
 export const twitchAccountSchema = z.object({
@@ -40,6 +53,7 @@ const appConfigSchema = z.object({
   updatedAt: z.string().min(1),
   twitch: twitchSchema,
   chat: chatSchema,
+  layout: chatLayoutSchema,
 })
 
 const backupEnvelopeSchema = z.object({
@@ -51,6 +65,8 @@ const backupEnvelopeSchema = z.object({
 })
 
 export type MessageTimestampFormat = z.infer<typeof messageTimestampFormatSchema>
+export type ChatSplit = z.infer<typeof chatSplitSchema>
+export type ChatLayoutConfig = z.infer<typeof chatLayoutSchema>
 export type ChatConfig = z.infer<typeof chatSchema>
 export type TwitchAccount = z.infer<typeof twitchAccountSchema>
 export type TwitchChannel = z.infer<typeof twitchChannelSchema>
@@ -71,6 +87,103 @@ export function createDefaultConfig(): AppConfig {
     chat: {
       messageTimestampFormat: "24-hour",
     },
+    layout: {
+      activeSplitId: null,
+      splits: [],
+      sidebarOrder: [],
+    },
+  }
+}
+
+export function getChatLayout(config: AppConfig): ChatLayoutConfig {
+  return config.layout
+}
+
+export function normalizeSplitChannels(channels: string[]): string[] {
+  return [
+    ...new Set(
+      channels.map((login) => login.trim().replace(/^#/, "").toLowerCase())
+    ),
+  ].filter(Boolean)
+}
+
+export function createSplitId() {
+  return `split-${crypto.randomUUID()}`
+}
+
+export function splitChannelsKey(channels: string[]) {
+  return normalizeSplitChannels(channels).sort().join("\0")
+}
+
+export function findSplitByChannels(
+  splits: ChatSplit[],
+  channels: string[]
+): ChatSplit | undefined {
+  const key = splitChannelsKey(channels)
+  return splits.find((split) => splitChannelsKey(split.channels) === key)
+}
+
+export function getChannelsUsedInSplits(splits: ChatSplit[]): Set<string> {
+  const used = new Set<string>()
+  for (const split of splits) {
+    for (const login of normalizeSplitChannels(split.channels)) {
+      used.add(login)
+    }
+  }
+  return used
+}
+
+export function getActiveSplit(config: AppConfig): ChatSplit | null {
+  const { activeSplitId, splits } = config.layout
+  if (!activeSplitId) {
+    return null
+  }
+
+  return splits.find((split) => split.id === activeSplitId) ?? null
+}
+
+export function getActiveSplitChannels(config: AppConfig): string[] {
+  const split = getActiveSplit(config)
+  if (!split) {
+    return []
+  }
+
+  return normalizeSplitChannels(split.channels)
+}
+
+export function isSplitViewActive(config: AppConfig): boolean {
+  return getActiveSplitChannels(config).length >= 2
+}
+
+function coerceLayoutShape(input: unknown): ChatLayoutConfig {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    return createDefaultConfig().layout
+  }
+
+  const layout = input as Record<string, unknown>
+
+  if (Array.isArray(layout.splits)) {
+    return {
+      activeSplitId:
+        typeof layout.activeSplitId === "string" ? layout.activeSplitId : null,
+      splits: layout.splits as ChatSplit[],
+    }
+  }
+
+  const legacyChannels = normalizeSplitChannels(
+    Array.isArray(layout.splitChannels) ? (layout.splitChannels as string[]) : []
+  )
+  const legacyViewMode = layout.viewMode === "split"
+  const splits: ChatSplit[] =
+    legacyChannels.length >= 2
+      ? [{ id: createSplitId(), channels: legacyChannels }]
+      : []
+
+  return {
+    activeSplitId:
+      legacyViewMode && splits[0] ? splits[0].id : null,
+    splits,
+    sidebarOrder: [],
   }
 }
 
@@ -210,7 +323,13 @@ export function migrateConfig(input: unknown): AppConfig {
     twitch: coerceTwitchShape(object.twitch),
   }
 
-  return normalizeConfig(appConfigSchema.parse(withTwitch))
+  return normalizeConfig(
+    appConfigSchema.parse({
+      ...withTwitch,
+      layout: coerceLayoutShape(object.layout),
+      schemaVersion: CHATVOICE_SCHEMA_VERSION,
+    })
+  )
 }
 
 const MESSAGE_URL_PATTERN = /https?:\/\/\S+/g
@@ -265,11 +384,41 @@ function normalizeConfig(config: AppConfig): AppConfig {
     ]
   }
 
+  const coerced = coerceLayoutShape(config.layout)
+  const splits = coerced.splits
+    .map((split) => ({
+      id: split.id.trim(),
+      channels: normalizeSplitChannels(split.channels),
+    }))
+    .filter((split) => split.id && split.channels.length >= 2)
+
+  let activeSplitId = coerced.activeSplitId
+  if (activeSplitId && !splits.some((split) => split.id === activeSplitId)) {
+    activeSplitId = null
+  }
+
+  const layoutBase = {
+    activeSplitId,
+    splits,
+    sidebarOrder: coerced.sidebarOrder ?? [],
+  }
+
+  const normalizedLayout = normalizeSidebarOrder({
+    ...config,
+    twitch,
+    layout: layoutBase,
+  })
+
   return {
     ...config,
     updatedAt: config.updatedAt || new Date().toISOString(),
     schemaVersion: CHATVOICE_SCHEMA_VERSION,
     twitch,
+    layout: {
+      activeSplitId,
+      splits,
+      sidebarOrder: normalizedLayout,
+    },
   }
 }
 

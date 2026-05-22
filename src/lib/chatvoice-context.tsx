@@ -1,24 +1,28 @@
 import * as React from "react"
 import { toast } from "sonner"
 
+import { useChatLayout } from "@/hooks/use-chat-layout"
 import { useChatvoiceConfig } from "@/hooks/use-chatvoice-config"
 import { useTwitchAuth } from "@/hooks/use-twitch-auth"
 import { useTwitchChannels } from "@/hooks/use-twitch-channels"
 import { useChatBadges } from "@/hooks/use-chat-badges"
-import { useTwitchChat, type TwitchTimelineItem } from "@/hooks/use-twitch-chat"
+import {
+  useTwitchChat,
+  type TwitchChatRoomState,
+  type TwitchTimelineItem,
+} from "@/hooks/use-twitch-chat"
 import type { ChatBadgeCatalog } from "@/lib/chat-badges"
 import type {
   AppConfig,
+  ChatSplit,
   MessageTimestampFormat,
   TwitchAccount,
   TwitchChannel,
 } from "@/lib/chatvoice-config"
-import {
-  getAccount,
-  getActiveChannelLogin,
-  hasAccount,
-} from "@/lib/chatvoice-config"
+import { getAccount, hasAccount } from "@/lib/chatvoice-config"
 import type { TwitchConnectionState } from "@/lib/twitch-chat"
+
+export type { TwitchTimelineItem }
 
 export type ChatvoiceConfigContextValue = {
   config: AppConfig
@@ -42,12 +46,24 @@ export type ChatvoiceConfigContextValue = {
 
 export type ChatvoiceChatContextValue = {
   connectionState: TwitchConnectionState
-  timeline: TwitchTimelineItem[]
+  rooms: Record<string, TwitchChatRoomState>
   logs: string[]
-  badgeCatalog: ChatBadgeCatalog
+  savedSplits: ChatSplit[]
+  activeSplitId: string | null
+  sidebarOrder: string[]
+  splitChannels: string[]
+  isSplitView: boolean
+  channelsInSplits: Set<string>
+  visibleChannelLogins: string[]
+  getTimeline: (login: string) => TwitchTimelineItem[]
+  getRoom: (login: string) => TwitchChatRoomState | null
+  getBadgeCatalog: (login: string) => ChatBadgeCatalog
   hasBadgeSupport: boolean
-  startConnection: (channel: string) => Promise<string>
-  stopConnection: () => void
+  selectSplit: (splitId: string) => void
+  openSplitView: (channels: string[]) => void
+  addSplitChannel: (login: string) => void
+  removeSplitChannel: (login: string) => void
+  reorderSidebar: (activeId: string, overId: string) => void
 }
 
 export type ChatvoiceContextValue = ChatvoiceConfigContextValue &
@@ -93,63 +109,102 @@ export function ChatvoiceProvider({ children }: { children: React.ReactNode }) {
   })
   const {
     connectionState,
-    timeline,
+    rooms,
     logs,
-    activeRoomId,
-    startConnection: startChatConnection,
-    stopConnection: stopChatConnection,
+    syncChannels,
+    getTimeline,
+    getRoom,
+    getRoomId,
   } = useTwitchChat()
-  const { catalog: badgeCatalog, loadBadgesForRoom, hasBadgeSupport } =
+  const { getBadgeCatalog, loadBadgesForRoom, hasBadgeSupport } =
     useChatBadges(account)
 
-  React.useEffect(() => {
-    loadBadgesForRoom(activeRoomId)
-  }, [activeRoomId, loadBadgesForRoom])
-
-  const connectToChannel = React.useCallback(
-    (channel: string) => {
+  const connectOptions = React.useMemo(
+    () => {
       const twitchAccount = getAccount(config)
-      return startChatConnection(channel, {
+      return {
         accessToken: twitchAccount?.accessToken,
         nick: twitchAccount?.login,
-      })
+      }
     },
-    [config, startChatConnection]
+    [config]
   )
+
+  const syncAllChannels = React.useCallback(
+    (channelLogins: string[]) => {
+      return syncChannels(channelLogins, connectOptions)
+    },
+    [connectOptions, syncChannels]
+  )
+
+  const {
+    savedSplits,
+    activeSplitId,
+    sidebarOrder,
+    splitChannels,
+    isSplitView,
+    channelsInSplits,
+    visibleChannelLogins,
+    navigateToChannel,
+    selectSplit,
+    openSplitView,
+    addSplitChannel,
+    removeSplitChannel,
+    reorderSidebar,
+  } = useChatLayout({ config, updateConfig })
 
   const {
     channels,
     activeChannelLogin,
-    setActiveChannel,
+    setActiveChannel: setActiveChannelLogin,
     addChannel,
     removeChannel,
   } = useTwitchChannels({
     config,
     updateConfig,
-    onActiveChannelChange: (login) => {
-      toast.promise(connectToChannel(login), {
-        loading: `Connecting to #${login}…`,
-        success: (ch) => `Connected to #${ch}`,
-        error: (err) =>
-          err instanceof Error ? err.message : "Connection failed",
-      })
-    },
+    onActiveChannelChange: navigateToChannel,
   })
 
-  const startConnection = React.useCallback(
-    (channel: string) => connectToChannel(channel),
-    [connectToChannel]
+  const setActiveChannel = React.useCallback(
+    (login: string) => {
+      setActiveChannelLogin(login)
+    },
+    [setActiveChannelLogin]
   )
 
-  const stopConnection = React.useCallback(() => {
-    stopChatConnection()
-  }, [stopChatConnection])
+  const channelLogins = React.useMemo(
+    () => channels.map((channel) => channel.login),
+    [channels]
+  )
+
+  React.useEffect(() => {
+    if (!ready || needsOnboarding) return
+    if (!hasAccount(config)) return
+    if (channelLogins.length === 0) return
+
+    void syncAllChannels(channelLogins).catch((error) => {
+      if (error instanceof Error && error.message !== "Channel list updated") {
+        toast.error(error.message)
+      }
+    })
+  }, [channelLogins, config, needsOnboarding, ready, syncAllChannels])
+
+  React.useEffect(() => {
+    for (const login of visibleChannelLogins) {
+      loadBadgesForRoom(getRoomId(login))
+    }
+  }, [getRoomId, loadBadgesForRoom, visibleChannelLogins])
+
+  const getBadgeCatalogForChannel = React.useCallback(
+    (login: string) => getBadgeCatalog(getRoomId(login)),
+    [getBadgeCatalog, getRoomId]
+  )
 
   const handleLogout = React.useCallback(() => {
-    stopConnection()
+    void syncChannels([])
     logout()
     requireOnboarding()
-  }, [logout, requireOnboarding, stopConnection])
+  }, [logout, requireOnboarding, syncChannels])
 
   const autoConnectedRef = React.useRef(false)
 
@@ -159,16 +214,15 @@ export function ChatvoiceProvider({ children }: { children: React.ReactNode }) {
 
     autoConnectedRef.current = true
 
-    const channel = getActiveChannelLogin(config)
     if (
-      channel &&
+      channelLogins.length > 0 &&
       config.twitch.autoConnect &&
       !connectionState.connected &&
       !connectionState.connecting
     ) {
-      toast.promise(connectToChannel(channel), {
-        loading: `Connecting to #${channel}…`,
-        success: (ch) => `Connected to #${ch}`,
+      toast.promise(syncAllChannels(channelLogins), {
+        loading: "Connecting to Twitch chat…",
+        success: "Connected to Twitch chat",
         error: (err) =>
           err instanceof Error ? err.message : "Connection failed",
       })
@@ -219,21 +273,45 @@ export function ChatvoiceProvider({ children }: { children: React.ReactNode }) {
   const chatValue = React.useMemo<ChatvoiceChatContextValue>(
     () => ({
       connectionState,
-      timeline,
+      rooms,
       logs,
-      badgeCatalog,
+      savedSplits,
+      activeSplitId,
+      sidebarOrder,
+      splitChannels,
+      isSplitView,
+      channelsInSplits,
+      visibleChannelLogins,
+      getTimeline,
+      getRoom,
+      getBadgeCatalog: getBadgeCatalogForChannel,
       hasBadgeSupport,
-      startConnection,
-      stopConnection,
+      selectSplit,
+      openSplitView,
+      addSplitChannel,
+      removeSplitChannel,
+      reorderSidebar,
     }),
     [
       connectionState,
-      timeline,
+      rooms,
       logs,
-      badgeCatalog,
+      savedSplits,
+      activeSplitId,
+      sidebarOrder,
+      splitChannels,
+      isSplitView,
+      channelsInSplits,
+      visibleChannelLogins,
+      getTimeline,
+      getRoom,
+      getBadgeCatalogForChannel,
       hasBadgeSupport,
-      startConnection,
-      stopConnection,
+      selectSplit,
+      openSplitView,
+      addSplitChannel,
+      removeSplitChannel,
+      reorderSidebar,
     ]
   )
 

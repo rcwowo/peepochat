@@ -2,8 +2,45 @@ import * as React from "react"
 import { toast } from "sonner"
 
 import type { AppConfig, TwitchChannel } from "@/lib/chatvoice-config"
-import { getAccount, getActiveChannelLogin } from "@/lib/chatvoice-config"
+import {
+  getAccount,
+  getActiveChannelLogin,
+  normalizeSplitChannels,
+} from "@/lib/chatvoice-config"
+import {
+  appendChannelToSidebarOrder,
+  applySidebarOrder,
+  channelOrderKey,
+  normalizeSidebarOrder,
+  removeKeysFromSidebarOrder,
+  splitOrderKey,
+} from "@/lib/sidebar-order"
 import { fetchTwitchUsersByLogin } from "@/lib/twitch-api"
+
+function pruneSplitsAfterChannelRemoval(
+  splits: AppConfig["layout"]["splits"],
+  removedLogin: string,
+  activeSplitId: string | null
+) {
+  const nextSplits = splits
+    .map((split) => ({
+      ...split,
+      channels: normalizeSplitChannels(
+        split.channels.filter((channel) => channel !== removedLogin)
+      ),
+    }))
+    .filter((split) => split.channels.length >= 2)
+
+  let nextActiveSplitId = activeSplitId
+  if (
+    nextActiveSplitId &&
+    !nextSplits.some((split) => split.id === nextActiveSplitId)
+  ) {
+    nextActiveSplitId = null
+  }
+
+  return { splits: nextSplits, activeSplitId: nextActiveSplitId }
+}
 
 export function useTwitchChannels({
   config,
@@ -79,17 +116,33 @@ export function useTwitchChannels({
           (channel) => channel.login === normalized
         )
 
+        const nextChannels = exists
+          ? current.twitch.channels.map((channel) =>
+              channel.login === normalized ? { ...channel, ...profile } : channel
+            )
+          : [...current.twitch.channels, profile]
+
+        const order = appendChannelToSidebarOrder(
+          normalizeSidebarOrder(current),
+          normalized
+        )
+        const applied = applySidebarOrder(
+          {
+            ...current,
+            twitch: { ...current.twitch, channels: nextChannels, activeChannelLogin: normalized },
+            layout: current.layout,
+          },
+          order
+        )
+
         return {
           ...current,
           twitch: {
             ...current.twitch,
-            channels: exists
-              ? current.twitch.channels.map((channel) =>
-                  channel.login === normalized ? { ...channel, ...profile } : channel
-                )
-              : [...current.twitch.channels, profile],
+            channels: applied.channels,
             activeChannelLogin: normalized,
           },
+          layout: applied.layout,
         }
       })
 
@@ -112,13 +165,42 @@ export function useTwitchChannels({
             ? (channels[0]?.login ?? "")
             : current.twitch.activeChannelLogin
 
+        const { splits, activeSplitId } = pruneSplitsAfterChannelRemoval(
+          current.layout.splits,
+          normalized,
+          current.layout.activeSplitId
+        )
+
+        const removedKeys = [channelOrderKey(normalized)]
+        const splitKeys = current.layout.splits
+          .filter((split) => !splits.some((entry) => entry.id === split.id))
+          .map((split) => splitOrderKey(split.id))
+
+        const order = removeKeysFromSidebarOrder(
+          normalizeSidebarOrder(current),
+          [...removedKeys, ...splitKeys]
+        )
+        const applied = applySidebarOrder(
+          {
+            ...current,
+            twitch: {
+              ...current.twitch,
+              channels,
+              activeChannelLogin: nextActive,
+            },
+            layout: { ...current.layout, activeSplitId, splits },
+          },
+          order
+        )
+
         return {
           ...current,
           twitch: {
             ...current.twitch,
-            channels,
+            channels: applied.channels,
             activeChannelLogin: nextActive,
           },
+          layout: applied.layout,
         }
       })
 

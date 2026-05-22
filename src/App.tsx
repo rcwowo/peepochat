@@ -62,10 +62,8 @@ function DashboardLayout() {
       <AppHeader onSettingsClick={() => setSettingsOpen(true)} />
       <div className="flex min-h-0 w-full flex-1">
         <ChannelSidebar />
-        <SidebarInset className="flex min-h-0 min-w-0 flex-1 flex-col bg-background">
-          <div className="flex min-h-0 flex-1 flex-col overflow-auto p-4 md:p-6">
-            <ChatPage />
-          </div>
+        <SidebarInset className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
+          <ChatPage />
         </SidebarInset>
       </div>
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
