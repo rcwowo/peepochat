@@ -1,7 +1,7 @@
 {
     "$schema": "./node_modules/wrangler/config-schema.json",
-    "name": "chatvoice",
-    "compatibility_date": "2026-04-25",
+    "name": "project-peepochat",
+    "compatibility_date": "2026-05-21",
     "assets": {
         "directory": "./dist"
     }
