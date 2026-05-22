@@ -4,7 +4,9 @@ import { toast } from "sonner"
 import { useChatvoiceConfig } from "@/hooks/use-chatvoice-config"
 import { useTwitchAuth } from "@/hooks/use-twitch-auth"
 import { useTwitchChannels } from "@/hooks/use-twitch-channels"
+import { useChatBadges } from "@/hooks/use-chat-badges"
 import { useTwitchChat, type TwitchTimelineItem } from "@/hooks/use-twitch-chat"
+import type { ChatBadgeCatalog } from "@/lib/chat-badges"
 import type {
   AppConfig,
   MessageTimestampFormat,
@@ -42,6 +44,8 @@ export type ChatvoiceChatContextValue = {
   connectionState: TwitchConnectionState
   timeline: TwitchTimelineItem[]
   logs: string[]
+  badgeCatalog: ChatBadgeCatalog
+  hasBadgeSupport: boolean
   startConnection: (channel: string) => Promise<string>
   stopConnection: () => void
 }
@@ -91,9 +95,16 @@ export function ChatvoiceProvider({ children }: { children: React.ReactNode }) {
     connectionState,
     timeline,
     logs,
+    activeRoomId,
     startConnection: startChatConnection,
     stopConnection: stopChatConnection,
   } = useTwitchChat()
+  const { catalog: badgeCatalog, loadBadgesForRoom, hasBadgeSupport } =
+    useChatBadges(account)
+
+  React.useEffect(() => {
+    loadBadgesForRoom(activeRoomId)
+  }, [activeRoomId, loadBadgesForRoom])
 
   const connectToChannel = React.useCallback(
     (channel: string) => {
@@ -210,10 +221,20 @@ export function ChatvoiceProvider({ children }: { children: React.ReactNode }) {
       connectionState,
       timeline,
       logs,
+      badgeCatalog,
+      hasBadgeSupport,
       startConnection,
       stopConnection,
     }),
-    [connectionState, timeline, logs, startConnection, stopConnection]
+    [
+      connectionState,
+      timeline,
+      logs,
+      badgeCatalog,
+      hasBadgeSupport,
+      startConnection,
+      stopConnection,
+    ]
   )
 
   return (

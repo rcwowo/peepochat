@@ -7,6 +7,7 @@ import {
 } from "@/lib/chat-emotes"
 import {
   TwitchChatClient,
+  EMPTY_SYSTEM_MESSAGE_META,
   type TwitchChatConnectOptions,
   type TwitchChatMessage,
   type TwitchConnectionState,
@@ -45,6 +46,7 @@ export function useTwitchChat() {
   const [messages, setMessages] = React.useState<TwitchChatMessage[]>([])
   const [timeline, setTimeline] = React.useState<TwitchTimelineItem[]>([])
   const [logs, setLogs] = React.useState<string[]>([])
+  const [activeRoomId, setActiveRoomId] = React.useState<string | null>(null)
 
   // Stable log appender
   const appendLog = React.useCallback((text: string) => {
@@ -211,6 +213,7 @@ export function useTwitchChat() {
               event: "connection",
               level: "success",
               accentColor: null,
+              ...EMPTY_SYSTEM_MESSAGE_META,
             })
             hasAnnouncedConnectedRef.current = true
           }
@@ -237,6 +240,7 @@ export function useTwitchChat() {
             event: "connection",
             level: event.reason ? "warning" : "info",
             accentColor: null,
+            ...EMPTY_SYSTEM_MESSAGE_META,
           })
           if (pendingConnectRef.current) {
             pendingConnectRef.current.reject(
@@ -246,9 +250,14 @@ export function useTwitchChat() {
           }
           break
         case "room-state":
+          setActiveRoomId(event.state.roomId)
           maybeLoadThirdPartyEmotes(event.state.roomId)
           break
         case "message":
+          if (event.message.roomId) {
+            setActiveRoomId((current) => current ?? event.message.roomId)
+          }
+
           if (
             event.message.roomId &&
             emoteCatalogRoomIdRef.current !== event.message.roomId
@@ -285,6 +294,7 @@ export function useTwitchChat() {
             event: "status",
             level: "error",
             accentColor: null,
+            ...EMPTY_SYSTEM_MESSAGE_META,
           })
           if (pendingConnectRef.current) {
             pendingConnectRef.current.reject(new Error(event.text))
@@ -318,6 +328,7 @@ export function useTwitchChat() {
 
       resetThirdPartyEmotes()
       resetChatState()
+      setActiveRoomId(null)
 
       const normalizedChannel = channel.trim().replace(/^#/, "").toLowerCase()
       hasAnnouncedConnectedRef.current = false
@@ -342,6 +353,7 @@ export function useTwitchChat() {
     hasAnnouncedConnectedRef.current = false
     activeChannelRef.current = null
     resetThirdPartyEmotes()
+    setActiveRoomId(null)
     setConnectionState((prev) => ({
       ...prev,
       connected: false,
@@ -354,6 +366,7 @@ export function useTwitchChat() {
     messages,
     timeline,
     logs,
+    activeRoomId,
     startConnection,
     stopConnection,
   }

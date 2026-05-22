@@ -138,6 +138,111 @@ export async function fetchTwitchUsersByLogin(
   }))
 }
 
+export type TwitchChatBadgeVersion = {
+  id: string
+  title: string
+  description: string
+  imageUrl: string
+  imageUrl2x: string
+  imageUrl4x: string
+}
+
+export type TwitchChatBadgeSet = {
+  setId: string
+  versions: TwitchChatBadgeVersion[]
+}
+
+export async function fetchGlobalChatBadges(
+  accessToken: string,
+  clientId: string
+): Promise<TwitchChatBadgeSet[]> {
+  const response = await fetch("https://api.twitch.tv/helix/chat/badges/global", {
+    headers: helixHeaders(accessToken, clientId),
+  })
+
+  if (!response.ok) {
+    throw new TwitchApiError("Could not load global chat badges.", response.status)
+  }
+
+  const payload = (await response.json()) as {
+    data?: Array<{
+      set_id: string
+      versions?: Array<{
+        id: string
+        title: string
+        description: string
+        image_url_1x: string
+        image_url_2x: string
+        image_url_4x: string
+      }>
+    }>
+  }
+
+  return parseChatBadgeSets(payload.data)
+}
+
+export async function fetchChannelChatBadges(
+  broadcasterId: string,
+  accessToken: string,
+  clientId: string
+): Promise<TwitchChatBadgeSet[]> {
+  const params = new URLSearchParams({ broadcaster_id: broadcasterId })
+  const response = await fetch(
+    `https://api.twitch.tv/helix/chat/badges?${params.toString()}`,
+    {
+      headers: helixHeaders(accessToken, clientId),
+    }
+  )
+
+  if (!response.ok) {
+    throw new TwitchApiError("Could not load channel chat badges.", response.status)
+  }
+
+  const payload = (await response.json()) as {
+    data?: Array<{
+      set_id: string
+      versions?: Array<{
+        id: string
+        title: string
+        description: string
+        image_url_1x: string
+        image_url_2x: string
+        image_url_4x: string
+      }>
+    }>
+  }
+
+  return parseChatBadgeSets(payload.data)
+}
+
+function parseChatBadgeSets(
+  data:
+    | Array<{
+        set_id: string
+        versions?: Array<{
+          id: string
+          title: string
+          description: string
+          image_url_1x: string
+          image_url_2x: string
+          image_url_4x: string
+        }>
+      }>
+    | undefined
+): TwitchChatBadgeSet[] {
+  return (data ?? []).map((set) => ({
+    setId: set.set_id,
+    versions: (set.versions ?? []).map((version) => ({
+      id: version.id,
+      title: version.title,
+      description: version.description,
+      imageUrl: version.image_url_1x,
+      imageUrl2x: version.image_url_2x,
+      imageUrl4x: version.image_url_4x,
+    })),
+  }))
+}
+
 function helixHeaders(accessToken: string, clientId: string): HeadersInit {
   return {
     Authorization: `Bearer ${accessToken}`,

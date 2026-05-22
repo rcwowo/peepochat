@@ -29,6 +29,20 @@ export type TwitchEmote = {
   end: number
 }
 
+export type TwitchChatReply = {
+  parentMessageId: string
+  parentDisplayName: string
+  parentUserName: string
+  parentBody: string
+  parentColor: string | null
+}
+
+export type TwitchNoticeActor = {
+  userName: string
+  displayName: string
+  color: string | null
+}
+
 export type TwitchChatMessage = {
   id: string
   channel: string
@@ -40,6 +54,7 @@ export type TwitchChatMessage = {
   receivedAt: string
   badges: TwitchBadge[]
   emotes: TwitchEmote[]
+  reply: TwitchChatReply | null
   flags: {
     isBroadcaster: boolean
     isModerator: boolean
@@ -61,7 +76,36 @@ export type TwitchSystemMessage = {
   event: "subscription" | "raid" | "announcement" | "connection" | "notice" | "status"
   level: "info" | "success" | "warning" | "error"
   accentColor: string | null
+  msgId: string | null
+  actor: TwitchNoticeActor | null
+  viewerCount: number | null
+  cumulativeMonths: number | null
+  streakMonths: number | null
+  giftCount: number | null
+  subPlan: string | null
+  announcementTheme: string | null
 }
+
+export const EMPTY_SYSTEM_MESSAGE_META = {
+  msgId: null,
+  actor: null,
+  viewerCount: null,
+  cumulativeMonths: null,
+  streakMonths: null,
+  giftCount: null,
+  subPlan: null,
+  announcementTheme: null,
+} as const satisfies Pick<
+  TwitchSystemMessage,
+  | "msgId"
+  | "actor"
+  | "viewerCount"
+  | "cumulativeMonths"
+  | "streakMonths"
+  | "giftCount"
+  | "subPlan"
+  | "announcementTheme"
+>
 
 export type TwitchConnectionState = {
   connected: boolean
@@ -334,6 +378,7 @@ function parsePrivmsg(raw: string): TwitchChatMessage | null {
   const color = tags.get("color") || null
   const id = tags.get("id") || stableMessageId(channel, userName, messageText)
   const roomId = tags.get("room-id") || null
+  const reply = parseReplyTag(tags)
 
   // Timestamp: tmi-sent-ts is in milliseconds
   const tmiTs = tags.get("tmi-sent-ts")
@@ -352,6 +397,7 @@ function parsePrivmsg(raw: string): TwitchChatMessage | null {
     receivedAt,
     badges: parsedBadges,
     emotes: parsedEmotes,
+    reply,
     flags: {
       isBroadcaster: badges.includes("broadcaster/"),
       isModerator: tags.get("mod") === "1",
@@ -391,6 +437,7 @@ function parseUserNotice(raw: string): TwitchSystemMessage | null {
   const event = getUserNoticeEvent(msgId)
   const headline = systemText || getUserNoticeHeadline(msgId)
   const details = trailingText.trim() || null
+  const announcementTheme = parsed.tags.get("msg-param-color") ?? null
 
   const text = [headline, details].filter(Boolean).join(" ").trim() ||
     "Channel event"
@@ -409,8 +456,22 @@ function parseUserNotice(raw: string): TwitchSystemMessage | null {
     level: event === "subscription" || event === "raid" ? "success" : "info",
     accentColor:
       event === "announcement"
-        ? resolveAnnouncementColor(parsed.tags.get("msg-param-color") ?? null)
+        ? resolveAnnouncementColor(announcementTheme)
         : null,
+    msgId: msgId || null,
+    actor: parseNoticeActor(parsed.tags),
+    viewerCount: parseOptionalInt(parsed.tags.get("msg-param-viewerCount")),
+    cumulativeMonths: parseOptionalInt(
+      parsed.tags.get("msg-param-cumulative-months") ??
+        parsed.tags.get("msg-param-months")
+    ),
+    streakMonths: parseOptionalInt(parsed.tags.get("msg-param-streak-months")),
+    giftCount: parseOptionalInt(
+      parsed.tags.get("msg-param-mass-gift-count") ??
+        parsed.tags.get("msg-param-sender-count")
+    ),
+    subPlan: parsed.tags.get("msg-param-sub-plan") || null,
+    announcementTheme,
   }
 }
 
@@ -436,6 +497,14 @@ function parseNotice(raw: string): TwitchSystemMessage | null {
     event: "notice",
     level: "warning",
     accentColor: null,
+    msgId: null,
+    actor: null,
+    viewerCount: null,
+    cumulativeMonths: null,
+    streakMonths: null,
+    giftCount: null,
+    subPlan: null,
+    announcementTheme: null,
   }
 }
 
@@ -515,20 +584,65 @@ function getUserNoticeHeadline(msgId: string): string {
   }
 }
 
+function parseReplyTag(tags: Map<string, string>): TwitchChatReply | null {
+  const parentMessageId = tags.get("reply-parent-msg-id")
+  if (!parentMessageId) {
+    return null
+  }
+
+  const parentUserName =
+    tags.get("reply-parent-user-login") ??
+    tags.get("reply-parent-login") ??
+    ""
+
+  return {
+    parentMessageId,
+    parentDisplayName:
+      tags.get("reply-parent-display-name") || parentUserName || "User",
+    parentUserName,
+    parentBody: decodeTagValue(tags.get("reply-parent-msg-body") ?? ""),
+    parentColor: tags.get("reply-parent-user-color") || null,
+  }
+}
+
+function parseNoticeActor(tags: Map<string, string>): TwitchNoticeActor | null {
+  const userName = tags.get("login") ?? ""
+  const displayName = tags.get("display-name") || userName
+
+  if (!displayName) {
+    return null
+  }
+
+  return {
+    userName,
+    displayName,
+    color: tags.get("color") || null,
+  }
+}
+
+function parseOptionalInt(value: string | undefined): number | null {
+  if (!value) {
+    return null
+  }
+
+  const parsed = Number.parseInt(value, 10)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
 function resolveAnnouncementColor(value: string | null): string | null {
   switch (value?.toLowerCase()) {
     case "blue":
-      return "#3b82f6"
+      return "#00d6d6"
     case "green":
-      return "#16a34a"
+      return "#00db84"
     case "orange":
-      return "#f97316"
+      return "#ffb31a"
     case "purple":
-      return "#8b5cf6"
+      return "#ff75e6"
     case "primary":
       return "#9146ff"
     default:
-      return "#f59e0b"
+      return "#9146ff"
   }
 }
 
