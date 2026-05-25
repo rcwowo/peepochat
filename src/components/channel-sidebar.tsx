@@ -2,10 +2,8 @@ import * as React from "react"
 import { Columns2Icon, PlusIcon, XIcon } from "lucide-react"
 import { toast } from "sonner"
 
-import {
-  SortableSidebarList,
-  preventRowDrag,
-} from "@/components/channel-sidebar-list"
+import { SortableSidebarList } from "@/components/channel-sidebar-list"
+import { preventRowDrag } from "@/components/sortable-sidebar-utils"
 import { useChatvoice } from "@/lib/chatvoice-context"
 import { CHANNEL_ORDER_PREFIX, SPLIT_ORDER_PREFIX } from "@/lib/sidebar-order"
 import { cn } from "@/lib/utils"

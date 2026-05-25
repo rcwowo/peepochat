@@ -104,8 +104,3 @@ export function SortableSidebarList({
     </DndContext>
   )
 }
-
-/** Prevent row drag when pressing action controls inside a sortable row. */
-export function preventRowDrag(event: React.PointerEvent) {
-  event.stopPropagation()
-}

@@ -51,6 +51,11 @@ export function ChatComposer({
   const [completer, setCompleter] = React.useState<EmoteCompleterState>(() =>
     createEmoteCompleterState()
   )
+  const completerRef = React.useRef(completer)
+
+  React.useLayoutEffect(() => {
+    completerRef.current = completer
+  })
 
   const inputRef = React.useRef<HTMLInputElement>(null)
   const historyRef = React.useRef<string[]>([])
@@ -156,7 +161,7 @@ export function ChatComposer({
       const cursor = input?.selectionStart ?? value.length
       const range =
         options.replaceRange ??
-        completer.replaceRange ??
+        completerRef.current.replaceRange ??
         getWordAtCursor(value, cursor)
 
       const applied = applyEmoteSuggestion(
@@ -185,7 +190,7 @@ export function ChatComposer({
         el.setSelectionRange(applied.caret, applied.caret)
       })
     },
-    [completer.replaceRange, value]
+    [value]
   )
 
   const handleTab = React.useCallback(
@@ -193,20 +198,23 @@ export function ChatComposer({
       const input = inputRef.current
       const cursor = input?.selectionStart ?? value.length
       const range = getSearchRange(value, cursor)
+      const activeCompleter = completerRef.current
 
       if (cursor !== range.start) {
         const wordAtCursor = getWordAtCursor(value, cursor)
         if (!wordAtCursor) return
 
-        if (completer.prefixed && completer.suggestions.length > 0) {
-          completeSuggestion(completer.suggestions[completer.current]!)
+        if (activeCompleter.prefixed && activeCompleter.suggestions.length > 0) {
+          completeSuggestion(
+            activeCompleter.suggestions[activeCompleter.current]!
+          )
           return
         }
 
         const { word, start, end } = wordAtCursor
         const replaceRange = { start, end }
 
-        let tabState = completer.tab
+        let tabState = activeCompleter.tab
         let matches: EmoteSuggestion[]
         let matchIndex = 0
 
@@ -232,16 +240,7 @@ export function ChatComposer({
         applyTabMatch(matches[matchIndex]!, tabState.replaceRange, tabState)
       }
     },
-    [
-      applyTabMatch,
-      completer.current,
-      completer.prefixed,
-      completer.suggestions,
-      completer.tab,
-      completeSuggestion,
-      emoteList,
-      value,
-    ]
+    [applyTabMatch, completeSuggestion, emoteList, value]
   )
 
   const sendCurrentMessage = () => {
