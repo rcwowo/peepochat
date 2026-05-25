@@ -20,6 +20,7 @@ import type {
   TwitchChannel,
 } from "@/lib/chatvoice-config"
 import { getAccount, hasAccount } from "@/lib/chatvoice-config"
+import type { ComposerEmoteCatalog } from "@/lib/chat-emote-catalog"
 import type { TwitchConnectionState } from "@/lib/twitch-chat"
 
 export type { TwitchTimelineItem }
@@ -57,7 +58,12 @@ export type ChatvoiceChatContextValue = {
   visibleChannelLogins: string[]
   getTimeline: (login: string) => TwitchTimelineItem[]
   getRoom: (login: string) => TwitchChatRoomState | null
+  getRoomId: (login: string) => string | null
   getBadgeCatalog: (login: string) => ChatBadgeCatalog
+  getComposerEmoteCatalog: (login: string) => ComposerEmoteCatalog
+  ensureComposerEmotes: (login: string, roomId: string | null) => void
+  sendChatMessage: (login: string, message: string) => boolean
+  canSendChat: boolean
   hasBadgeSupport: boolean
   selectSplit: (splitId: string) => void
   openSplitView: (channels: string[]) => void
@@ -115,6 +121,10 @@ export function ChatvoiceProvider({ children }: { children: React.ReactNode }) {
     getTimeline,
     getRoom,
     getRoomId,
+    setEmoteLoadContext,
+    getComposerEmoteCatalog,
+    ensureComposerEmotes,
+    sendMessage,
   } = useTwitchChat()
   const { getBadgeCatalog, loadBadgesForRoom, hasBadgeSupport } =
     useChatBadges(account)
@@ -194,6 +204,37 @@ export function ChatvoiceProvider({ children }: { children: React.ReactNode }) {
       loadBadgesForRoom(getRoomId(login))
     }
   }, [getRoomId, loadBadgesForRoom, visibleChannelLogins])
+
+  const channelHints = React.useMemo(
+    () =>
+      channels.map((channel) => ({
+        login: channel.login,
+        displayName: channel.displayName,
+        profileImageUrl: channel.profileImageUrl,
+      })),
+    [channels]
+  )
+
+  React.useEffect(() => {
+    setEmoteLoadContext({
+      accessToken: account?.accessToken,
+      clientId: account?.clientId,
+      userId: account?.id,
+      userLogin: account?.login,
+      userDisplayName: account?.displayName,
+      channelHints,
+    })
+  }, [
+    account?.accessToken,
+    account?.clientId,
+    account?.displayName,
+    account?.id,
+    account?.login,
+    channelHints,
+    setEmoteLoadContext,
+  ])
+
+  const canSendChat = Boolean(account?.accessToken && connectionState.connected)
 
   const getBadgeCatalogForChannel = React.useCallback(
     (login: string) => getBadgeCatalog(getRoomId(login)),
@@ -284,7 +325,12 @@ export function ChatvoiceProvider({ children }: { children: React.ReactNode }) {
       visibleChannelLogins,
       getTimeline,
       getRoom,
+      getRoomId,
       getBadgeCatalog: getBadgeCatalogForChannel,
+      getComposerEmoteCatalog,
+      ensureComposerEmotes,
+      sendChatMessage: sendMessage,
+      canSendChat,
       hasBadgeSupport,
       selectSplit,
       openSplitView,
@@ -305,7 +351,12 @@ export function ChatvoiceProvider({ children }: { children: React.ReactNode }) {
       visibleChannelLogins,
       getTimeline,
       getRoom,
+      getRoomId,
       getBadgeCatalogForChannel,
+      getComposerEmoteCatalog,
+      ensureComposerEmotes,
+      sendMessage,
+      canSendChat,
       hasBadgeSupport,
       selectSplit,
       openSplitView,

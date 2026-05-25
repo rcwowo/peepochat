@@ -123,12 +123,24 @@ export type TwitchRoomState = {
   roomId: string | null
 }
 
+/** Tags from USERSTATE after the local user sends a message or joins a channel. */
+export type TwitchSelfUserState = {
+  channel: string
+  roomId: string | null
+  displayName: string
+  color: string | null
+  badges: TwitchBadge[]
+  isModerator: boolean
+  isSubscriber: boolean
+}
+
 export type TwitchChatEvent =
   | { type: "connected" }
   | { type: "disconnected"; reason: string | null }
   | { type: "channel-joined"; channel: string }
   | { type: "channel-parted"; channel: string }
   | { type: "room-state"; state: TwitchRoomState }
+  | { type: "self-state"; state: TwitchSelfUserState }
   | { type: "message"; message: TwitchChatMessage }
   | { type: "system"; message: TwitchSystemMessage }
   | { type: "log"; text: string }
@@ -295,6 +307,26 @@ export class TwitchChatClient {
     return this.ws?.readyState === WebSocket.OPEN
   }
 
+  /**
+   * Send a chat message to a joined channel. Requires an authenticated session
+   * (non-anonymous nick) and `chat:edit` on the OAuth token.
+   */
+  sendMessage(channel: string, message: string): boolean {
+    const normalized = normalizeChannel(channel)
+    const text = message.replace(/\r?\n/g, " ").trim()
+
+    if (!text || !this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      return false
+    }
+
+    if (!this.joinedChannels.has(normalized)) {
+      return false
+    }
+
+    this.ws.send(`PRIVMSG #${normalized} :${text}`)
+    return true
+  }
+
   private syncJoins() {
     const desired = this.desiredChannels
     const joined = this.joinedChannels
@@ -378,6 +410,15 @@ export class TwitchChatClient {
       const state = parseRoomState(raw)
       if (state) {
         this.handler({ type: "room-state", state })
+      }
+      return
+    }
+
+    // USERSTATE - local user state after join or sending a message (no PRIVMSG echo)
+    if (raw.includes(" USERSTATE ")) {
+      const state = parseUserState(raw)
+      if (state) {
+        this.handler({ type: "self-state", state })
       }
       return
     }
@@ -544,6 +585,71 @@ function parseRoomState(raw: string): TwitchRoomState | null {
   }
 }
 
+function parseUserState(raw: string): TwitchSelfUserState | null {
+  const parsed = splitTaggedLine(raw)
+  if (!parsed) return null
+
+  const match = parsed.rest.match(/^:tmi\.twitch\.tv USERSTATE #(\S+)$/)
+  if (!match) return null
+
+  const badges = parseBadgesTag(parsed.tags.get("badges") ?? "")
+
+  return {
+    channel: match[1],
+    roomId: parsed.tags.get("room-id") || null,
+    displayName: parsed.tags.get("display-name") || "",
+    color: parsed.tags.get("color") || null,
+    badges,
+    isModerator: parsed.tags.get("mod") === "1",
+    isSubscriber: parsed.tags.get("subscriber") === "1",
+  }
+}
+
+/** Build a timeline entry for a message the local user just sent (Twitch does not echo PRIVMSG). */
+export function createLocalChatMessage(params: {
+  channel: string
+  roomId: string | null
+  text: string
+  userName: string
+  displayName: string
+  color: string | null
+  badges: TwitchBadge[]
+  isModerator?: boolean
+  isSubscriber?: boolean
+}): TwitchChatMessage {
+  const badges = params.badges
+  const id =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? `local:${crypto.randomUUID()}`
+      : `local:${Date.now()}-${Math.random().toString(36).slice(2)}`
+
+  return {
+    id,
+    channel: params.channel,
+    roomId: params.roomId,
+    userName: params.userName,
+    displayName: params.displayName,
+    text: params.text,
+    color: params.color,
+    receivedAt: new Date().toISOString(),
+    badges,
+    emotes: [],
+    reply: null,
+    flags: {
+      isBroadcaster: badges.some((badge) => badge.set === "broadcaster"),
+      isModerator:
+        params.isModerator ??
+        badges.some((badge) => badge.set === "moderator"),
+      isSubscriber:
+        params.isSubscriber ??
+        badges.some((badge) => badge.set === "subscriber"),
+      isVip: badges.some((badge) => badge.set === "vip"),
+      isFirst: false,
+      isAction: false,
+    },
+  }
+}
+
 function parseUserNotice(raw: string): TwitchSystemMessage | null {
   const parsed = splitTaggedLine(raw)
   if (!parsed) return null
@@ -656,7 +762,7 @@ function parseEmotesTag(raw: string, text: string): TwitchEmote[] {
         id,
         code,
         provider: "twitch",
-        imageUrl: `https://static-cdn.jtvnw.net/emoticons/v2/${encodeURIComponent(id)}/default/dark/1.0`,
+        imageUrl: `https://static-cdn.jtvnw.net/emoticons/v2/${encodeURIComponent(id)}/static/dark/1.0`,
         start: parsedStart,
         end: parsedEnd,
       })

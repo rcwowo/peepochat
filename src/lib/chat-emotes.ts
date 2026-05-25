@@ -1,13 +1,34 @@
 import type { TwitchChatMessage, TwitchEmote, TwitchEmoteProvider } from "@/lib/twitch-chat"
 
-type EmoteCatalogEntry = {
+export type EmoteCatalogEntry = {
   id: string
   code: string
-  provider: Exclude<TwitchEmoteProvider, "twitch">
+  provider: TwitchEmoteProvider
   imageUrl: string
 }
 
 export type ThirdPartyEmoteCatalog = Map<string, EmoteCatalogEntry>
+
+export type ThirdPartyProviderEmotes = {
+  channel: EmoteCatalogEntry[]
+  global: EmoteCatalogEntry[]
+}
+
+export type ThirdPartyEmoteSets = Record<
+  Exclude<TwitchEmoteProvider, "twitch">,
+  ThirdPartyProviderEmotes
+>
+
+const thirdPartySetsCache = new Map<string, Promise<ThirdPartyEmoteSets>>()
+
+/** Drop cached third-party fetches (all rooms, or one room). */
+export function clearThirdPartyEmoteCache(roomId?: string) {
+  if (roomId) {
+    thirdPartySetsCache.delete(roomId)
+  } else {
+    thirdPartySetsCache.clear()
+  }
+}
 
 type BetterTtvEmote = {
   id: string
@@ -82,30 +103,47 @@ export function createEmptyEmoteCatalog(): ThirdPartyEmoteCatalog {
   return new Map()
 }
 
-export async function fetchThirdPartyEmoteCatalog(
+async function fetchThirdPartyEmoteSetsUncached(
   roomId: string
-): Promise<ThirdPartyEmoteCatalog> {
-  const results = await Promise.allSettled([
-    fetchBetterTtvEmotes(roomId),
-    fetchFrankerFaceZEmotes(roomId),
-    fetchSevenTvEmotes(roomId),
+): Promise<ThirdPartyEmoteSets> {
+  const [bttv, ffz, sevenTv] = await Promise.allSettled([
+    fetchBetterTtvEmoteSets(roomId),
+    fetchFrankerFaceZEmoteSets(roomId),
+    fetchSevenTvEmoteSets(roomId),
   ])
 
+  return {
+    bttv: bttv.status === "fulfilled" ? bttv.value : { channel: [], global: [] },
+    ffz: ffz.status === "fulfilled" ? ffz.value : { channel: [], global: [] },
+    "7tv":
+      sevenTv.status === "fulfilled" ? sevenTv.value : { channel: [], global: [] },
+  }
+}
+
+/** One in-flight fetch per room for BTTV/FFZ/7TV sets (shared by chat hydration and composer). */
+export function getThirdPartyEmoteSets(
+  roomId: string
+): Promise<ThirdPartyEmoteSets> {
+  let pending = thirdPartySetsCache.get(roomId)
+  if (!pending) {
+    pending = fetchThirdPartyEmoteSetsUncached(roomId)
+    thirdPartySetsCache.set(roomId, pending)
+    void pending.catch(() => {
+      if (thirdPartySetsCache.get(roomId) === pending) {
+        thirdPartySetsCache.delete(roomId)
+      }
+    })
+  }
+  return pending
+}
+
+export function buildThirdPartyEmoteCatalog(
+  sets: ThirdPartyEmoteSets
+): ThirdPartyEmoteCatalog {
   const catalog = createEmptyEmoteCatalog()
 
   for (const provider of PROVIDER_PRIORITY) {
-    const result =
-      provider === "bttv"
-        ? results[0]
-        : provider === "ffz"
-          ? results[1]
-          : results[2]
-
-    if (result.status !== "fulfilled") {
-      continue
-    }
-
-    for (const entry of result.value) {
+    for (const entry of [...sets[provider].channel, ...sets[provider].global]) {
       if (!catalog.has(entry.code)) {
         catalog.set(entry.code, entry)
       }
@@ -115,34 +153,79 @@ export async function fetchThirdPartyEmoteCatalog(
   return catalog
 }
 
-export function hydrateMessageEmotes(
-  message: TwitchChatMessage,
-  catalog: ThirdPartyEmoteCatalog | null
-): TwitchChatMessage {
-  const nativeEmotes = message.emotes.filter(
-    (emote) => emote.provider === "twitch"
-  )
-
-  return {
-    ...message,
-    emotes: catalog
-      ? mergeThirdPartyEmotes(message.text, nativeEmotes, catalog)
-      : nativeEmotes,
-  }
+export async function fetchThirdPartyEmoteCatalog(
+  roomId: string
+): Promise<ThirdPartyEmoteCatalog> {
+  const sets = await getThirdPartyEmoteSets(roomId)
+  return buildThirdPartyEmoteCatalog(sets)
 }
 
-function mergeThirdPartyEmotes(
-  text: string,
-  nativeEmotes: TwitchEmote[],
-  catalog: ThirdPartyEmoteCatalog
-): TwitchEmote[] {
-  if (catalog.size === 0) {
-    return nativeEmotes
+export type TwitchEmoteHydration = {
+  byCode: Map<string, EmoteCatalogEntry>
+  byId: Map<string, EmoteCatalogEntry>
+}
+
+export function hydrateMessageEmotes(
+  message: TwitchChatMessage,
+  catalog: ThirdPartyEmoteCatalog | null,
+  twitchCatalog?: TwitchEmoteHydration | null
+): TwitchChatMessage {
+  const nativeEmotes = upgradeTwitchEmoteImages(
+    message.emotes.filter((emote) => emote.provider === "twitch"),
+    twitchCatalog
+  )
+
+  let emotes = nativeEmotes
+
+  if (catalog) {
+    emotes = mergeEmotesFromCodeCatalog(message.text, emotes, catalog)
   }
 
-  const merged = [...nativeEmotes]
+  if (twitchCatalog) {
+    emotes = mergeEmotesFromCodeCatalog(
+      message.text,
+      emotes,
+      twitchCatalog.byCode,
+      (entry) => entry.provider === "twitch"
+    )
+  }
+
+  return { ...message, emotes }
+}
+
+function upgradeTwitchEmoteImages(
+  emotes: TwitchEmote[],
+  twitchCatalog?: TwitchEmoteHydration | null
+): TwitchEmote[] {
+  if (!twitchCatalog) {
+    return emotes
+  }
+
+  return emotes.map((emote) => {
+    const fromCatalog =
+      twitchCatalog.byId.get(emote.id) ?? twitchCatalog.byCode.get(emote.code)
+
+    if (!fromCatalog || fromCatalog.provider !== "twitch") {
+      return emote
+    }
+
+    return { ...emote, imageUrl: fromCatalog.imageUrl }
+  })
+}
+
+function mergeEmotesFromCodeCatalog(
+  text: string,
+  existing: TwitchEmote[],
+  catalog: Map<string, EmoteCatalogEntry>,
+  accept?: (entry: EmoteCatalogEntry) => boolean
+): TwitchEmote[] {
+  if (catalog.size === 0) {
+    return existing
+  }
+
+  const merged = [...existing]
   const occupied = normalizeRanges(
-    nativeEmotes.map((emote) => ({ start: emote.start, end: emote.end }))
+    existing.map((emote) => ({ start: emote.start, end: emote.end }))
   )
 
   const tokenPattern = /\S+/g
@@ -159,7 +242,7 @@ function mergeThirdPartyEmotes(
     }
 
     const entry = catalog.get(code)
-    if (!entry) {
+    if (!entry || (accept && !accept(entry))) {
       continue
     }
 
@@ -204,7 +287,9 @@ function normalizeRanges(ranges: TextRange[]): TextRange[] {
   return merged
 }
 
-async function fetchBetterTtvEmotes(roomId: string): Promise<EmoteCatalogEntry[]> {
+async function fetchBetterTtvEmoteSets(
+  roomId: string
+): Promise<ThirdPartyProviderEmotes> {
   const [globalResponse, roomResponse] = await Promise.allSettled([
     fetchJson<BetterTtvEmote[]>("https://api.betterttv.net/3/cached/emotes/global"),
     fetchJson<BetterTtvUserResponse>(
@@ -212,30 +297,33 @@ async function fetchBetterTtvEmotes(roomId: string): Promise<EmoteCatalogEntry[]
     ),
   ])
 
-  const source: BetterTtvEmote[] = []
+  const channelSource: BetterTtvEmote[] =
+    roomResponse.status === "fulfilled"
+      ? [
+          ...(roomResponse.value.channelEmotes ?? []),
+          ...(roomResponse.value.sharedEmotes ?? []),
+        ]
+      : []
 
-  if (roomResponse.status === "fulfilled") {
-    source.push(
-      ...(roomResponse.value.channelEmotes ?? []),
-      ...(roomResponse.value.sharedEmotes ?? [])
-    )
-  }
+  const globalSource: BetterTtvEmote[] =
+    globalResponse.status === "fulfilled" ? globalResponse.value : []
 
-  if (globalResponse.status === "fulfilled") {
-    source.push(...globalResponse.value)
-  }
-
-  return source.map((emote) => ({
+  const mapBttv = (emote: BetterTtvEmote): EmoteCatalogEntry => ({
     id: emote.id,
     code: emote.code,
     provider: "bttv",
     imageUrl: `https://cdn.betterttv.net/emote/${encodeURIComponent(emote.id)}/1x.${emote.imageType ?? "webp"}`,
-  }))
+  })
+
+  return {
+    channel: channelSource.map(mapBttv),
+    global: globalSource.map(mapBttv),
+  }
 }
 
-async function fetchFrankerFaceZEmotes(
+async function fetchFrankerFaceZEmoteSets(
   roomId: string
-): Promise<EmoteCatalogEntry[]> {
+): Promise<ThirdPartyProviderEmotes> {
   const [globalResponse, roomResponse] = await Promise.allSettled([
     fetchJson<FrankerFaceZGlobalResponse>("https://api.frankerfacez.com/v1/set/global"),
     fetchJson<FrankerFaceZRoomResponse>(
@@ -243,27 +331,40 @@ async function fetchFrankerFaceZEmotes(
     ),
   ])
 
-  const source: FrankerFaceZEmote[] = []
+  const channelSource: FrankerFaceZEmote[] =
+    roomResponse.status === "fulfilled"
+      ? extractFrankerFaceZEmotes(roomResponse.value.sets)
+      : []
 
-  if (roomResponse.status === "fulfilled") {
-    source.push(...extractFrankerFaceZEmotes(roomResponse.value.sets))
-  }
+  const globalSource: FrankerFaceZEmote[] =
+    globalResponse.status === "fulfilled"
+      ? extractFrankerFaceZGlobalEmotes(globalResponse.value)
+      : []
 
-  if (globalResponse.status === "fulfilled") {
-    source.push(...extractFrankerFaceZGlobalEmotes(globalResponse.value))
-  }
+  const mapFfz = (emote: FrankerFaceZEmote): EmoteCatalogEntry | null => {
+    const imageUrl = emote.animated?.["1"] ?? emote.urls?.["1"] ?? ""
+    if (!imageUrl) return null
 
-  return source
-    .map((emote) => ({
+    return {
       id: String(emote.id),
       code: emote.name,
-      provider: "ffz" as const,
-      imageUrl: emote.animated?.["1"] ?? emote.urls?.["1"] ?? "",
-    }))
-    .filter((emote) => emote.imageUrl)
+      provider: "ffz",
+      imageUrl,
+    }
+  }
+
+  const compact = (entries: Array<EmoteCatalogEntry | null>) =>
+    entries.filter((emote): emote is EmoteCatalogEntry => emote !== null)
+
+  return {
+    channel: compact(channelSource.map(mapFfz)),
+    global: compact(globalSource.map(mapFfz)),
+  }
 }
 
-async function fetchSevenTvEmotes(roomId: string): Promise<EmoteCatalogEntry[]> {
+async function fetchSevenTvEmoteSets(
+  roomId: string
+): Promise<ThirdPartyProviderEmotes> {
   const [globalResponse, roomResponse] = await Promise.allSettled([
     fetchJson<SevenTvEmoteSet>("https://7tv.io/v3/emote-sets/global"),
     fetchJson<SevenTvUserResponse>(
@@ -271,24 +372,35 @@ async function fetchSevenTvEmotes(roomId: string): Promise<EmoteCatalogEntry[]> 
     ),
   ])
 
-  const source: SevenTvEmote[] = []
+  const channelSource: SevenTvEmote[] =
+    roomResponse.status === "fulfilled"
+      ? (roomResponse.value.emote_set?.emotes ?? [])
+      : []
 
-  if (roomResponse.status === "fulfilled") {
-    source.push(...(roomResponse.value.emote_set?.emotes ?? []))
-  }
+  const globalSource: SevenTvEmote[] =
+    globalResponse.status === "fulfilled"
+      ? (globalResponse.value.emotes ?? [])
+      : []
 
-  if (globalResponse.status === "fulfilled") {
-    source.push(...(globalResponse.value.emotes ?? []))
-  }
+  const map7tv = (emote: SevenTvEmote): EmoteCatalogEntry | null => {
+    const imageUrl = buildSevenTvImageUrl(emote.data?.host)
+    if (!imageUrl) return null
 
-  return source
-    .map((emote) => ({
+    return {
       id: emote.id,
       code: emote.name,
-      provider: "7tv" as const,
-      imageUrl: buildSevenTvImageUrl(emote.data?.host),
-    }))
-    .filter((emote) => emote.imageUrl)
+      provider: "7tv",
+      imageUrl,
+    }
+  }
+
+  const compact = (entries: Array<EmoteCatalogEntry | null>) =>
+    entries.filter((emote): emote is EmoteCatalogEntry => emote !== null)
+
+  return {
+    channel: compact(channelSource.map(map7tv)),
+    global: compact(globalSource.map(map7tv)),
+  }
 }
 
 function extractFrankerFaceZGlobalEmotes(
