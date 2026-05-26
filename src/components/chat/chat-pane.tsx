@@ -248,6 +248,7 @@ export function ChatPane({
                         key={entry.message.id}
                         message={entry.message}
                         timestampFormat={timestampFormat}
+                        isHistorical={entry.isHistorical}
                       />
                     )
                   }
@@ -259,6 +260,7 @@ export function ChatPane({
                       timestampFormat={timestampFormat}
                       badgeCatalog={badgeCatalog}
                       showBadgeFallback={showBadgeFallback}
+                      isHistorical={entry.isHistorical}
                     />
                   )
                 })}

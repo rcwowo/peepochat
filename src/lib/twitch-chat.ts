@@ -1,3 +1,5 @@
+import { normalizeChannelLogin } from "@/lib/twitch-channel"
+
 /**
  * Browser-native Twitch IRC client over WebSocket.
  *
@@ -258,7 +260,7 @@ export class TwitchChatClient {
   setChannels(channels: string[], options: TwitchChatConnectOptions = {}) {
     const normalized = [
       ...new Set(
-        channels.map((channel) => normalizeChannel(channel)).filter(Boolean)
+        channels.map((channel) => normalizeChannelLogin(channel)).filter(Boolean)
       ),
     ]
 
@@ -312,7 +314,7 @@ export class TwitchChatClient {
    * (non-anonymous nick) and `chat:edit` on the OAuth token.
    */
   sendMessage(channel: string, message: string): boolean {
-    const normalized = normalizeChannel(channel)
+    const normalized = normalizeChannelLogin(channel)
     const text = message.replace(/\r?\n/g, " ").trim()
 
     if (!text || !this.ws || this.ws.readyState !== WebSocket.OPEN) {
@@ -400,7 +402,7 @@ export class TwitchChatClient {
     if (raw.includes(" JOIN #")) {
       const joinMatch = raw.match(/ JOIN #(\S+)/)
       if (joinMatch) {
-        this.markChannelJoined(normalizeChannel(joinMatch[1]))
+        this.markChannelJoined(normalizeChannelLogin(joinMatch[1]))
       }
       return
     }
@@ -506,7 +508,14 @@ export class TwitchChatClient {
  *
  * Expected format:
  *   @badge-info=...;badges=...;color=#FF4500;display-name=Foo;... :foo!foo@foo.tmi.twitch.tv PRIVMSG #channel :Hello world
+ *
+ * The trailing `:` before the message body is optional (RFC 2812); recent-messages
+ * may omit it when the body has no leading spaces.
  */
+export function parseIrcPrivmsg(raw: string): TwitchChatMessage | null {
+  return parsePrivmsg(raw)
+}
+
 function parsePrivmsg(raw: string): TwitchChatMessage | null {
   // Split tags from the rest
   if (!raw.startsWith("@")) return null
@@ -517,13 +526,16 @@ function parsePrivmsg(raw: string): TwitchChatMessage | null {
   const { tags, rest } = parsed
 
   // Parse prefix to get userName
-  // :foo!foo@foo.tmi.twitch.tv PRIVMSG #channel :message
-  const prefixMatch = rest.match(/^:(\w+)!\S+ PRIVMSG #(\S+) :(.*)$/)
+  // :foo!foo@foo.tmi.twitch.tv PRIVMSG #channel [:message]
+  const prefixMatch = rest.match(/^:([^!]+)!\S+ PRIVMSG #(\S+)(?:\s(.*))?$/)
   if (!prefixMatch) return null
 
   const userName = prefixMatch[1]
   const channel = prefixMatch[2]
-  let messageText = prefixMatch[3]
+  let messageText = prefixMatch[3] ?? ""
+  if (messageText.startsWith(":")) {
+    messageText = messageText.slice(1)
+  }
 
   // Detect /me (ACTION) messages
   const isAction =
@@ -543,11 +555,7 @@ function parsePrivmsg(raw: string): TwitchChatMessage | null {
   const roomId = tags.get("room-id") || null
   const reply = parseReplyTag(tags)
 
-  // Timestamp: tmi-sent-ts is in milliseconds
-  const tmiTs = tags.get("tmi-sent-ts")
-  const receivedAt = tmiTs
-    ? new Date(Number(tmiTs)).toISOString()
-    : new Date().toISOString()
+  const receivedAt = parseMessageReceivedAt(tags)
 
   return {
     id,
@@ -771,6 +779,18 @@ function parseEmotesTag(raw: string, text: string): TwitchEmote[] {
   return emotes.sort((a, b) => a.start - b.start)
 }
 
+function parseMessageReceivedAt(tags: Map<string, string>): string {
+  const rmTs = tags.get("rm-received-ts")
+  if (rmTs) {
+    const parsed = Number(rmTs)
+    if (Number.isFinite(parsed)) {
+      return new Date(parsed).toISOString()
+    }
+  }
+
+  return parseTmiTimestamp(tags)
+}
+
 function parseTmiTimestamp(tags: Map<string, string>): string {
   const tmiTs = tags.get("tmi-sent-ts")
   return tmiTs ? new Date(Number(tmiTs)).toISOString() : new Date().toISOString()
@@ -899,10 +919,6 @@ function splitTaggedLine(raw: string): {
   }
 
   return { tags, rest }
-}
-
-function normalizeChannel(channel: string) {
-  return channel.trim().replace(/^#/, "").toLowerCase()
 }
 
 function stableMessageId(

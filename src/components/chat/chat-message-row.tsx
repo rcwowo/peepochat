@@ -9,24 +9,32 @@ import { getReadableUsernameColor } from "@/lib/chat-username"
 import type { MessageTimestampFormat } from "@/lib/chatvoice-config"
 import { formatMessageTimestamp } from "@/lib/chatvoice-context"
 import type { TwitchChatMessage } from "@/lib/twitch-chat"
+import { cn } from "@/lib/utils"
 
 export function ChatMessageRow({
   message,
   timestampFormat,
   badgeCatalog,
   showBadgeFallback = false,
+  isHistorical = false,
 }: {
   message: TwitchChatMessage
   timestampFormat: MessageTimestampFormat
   badgeCatalog: ChatBadgeCatalog
   showBadgeFallback?: boolean
+  isHistorical?: boolean
 }) {
   const timestamp = formatMessageTimestamp(message.receivedAt, timestampFormat)
   const badges = resolveMessageBadges(message.badges, badgeCatalog)
   const usernameColor = getReadableUsernameColor(message.color)
 
   return (
-    <div className="chat-message group px-3 py-1 leading-5">
+    <div
+      className={cn(
+        "chat-message group px-3 py-1 leading-5",
+        isHistorical && "chat-message--historical"
+      )}
+    >
       {message.reply ? (
         <div className="chat-reply mb-0.5">
           <ChatReplyPreview reply={message.reply} />

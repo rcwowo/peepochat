@@ -16,6 +16,14 @@ import {
   type ThirdPartyEmoteCatalog,
   type TwitchEmoteHydration,
 } from "@/lib/chat-emotes"
+import { normalizeChannelLogin } from "@/lib/twitch-channel"
+import {
+  createRecentMessagesStatusMessage,
+  fetchRecentMessages,
+  RECENT_MESSAGES_CONCURRENCY,
+  RECENT_MESSAGES_ERROR_TEXT,
+  RECENT_MESSAGES_UNAVAILABLE_TEXT,
+} from "@/lib/recent-messages"
 import {
   createLocalChatMessage,
   TwitchChatClient,
@@ -26,11 +34,11 @@ import {
   type TwitchSystemMessage,
 } from "@/lib/twitch-chat"
 
-const MESSAGE_LIMIT = 60
+const LIVE_MESSAGE_LIMIT = 60
 
 export type TwitchTimelineItem =
-  | { kind: "chat"; message: TwitchChatMessage }
-  | { kind: "system"; message: TwitchSystemMessage }
+  | { kind: "chat"; message: TwitchChatMessage; isHistorical?: boolean }
+  | { kind: "system"; message: TwitchSystemMessage; isHistorical?: boolean }
 
 export type TwitchChatRoomState = {
   login: string
@@ -64,10 +72,6 @@ function createEmptyRoom(login: string): TwitchChatRoomState {
   }
 }
 
-function normalizeChannelLogin(channel: string) {
-  return channel.trim().replace(/^#/, "").toLowerCase()
-}
-
 export function useTwitchChat() {
   const clientRef = React.useRef<TwitchChatClient | null>(null)
   const pendingConnectRef = React.useRef<PendingConnect | null>(null)
@@ -99,6 +103,14 @@ export function useTwitchChat() {
   const emoteCatalogGenerationRef = React.useRef(0)
   const hasAnnouncedConnectedRef = React.useRef(false)
   const syncedChannelsRef = React.useRef<string[]>([])
+  const recentMessagesEnabledRef = React.useRef(true)
+  const historyLoadedRef = React.useRef(new Set<string>())
+  const historyLoadingRef = React.useRef(new Set<string>())
+  const historyErrorNotifiedRef = React.useRef(new Set<string>())
+  const recentMessagesGenerationRef = React.useRef(0)
+  const recentMessagesQueueRef = React.useRef<string[]>([])
+  const recentMessagesQueuedRef = React.useRef(new Set<string>())
+  const recentMessagesActiveRef = React.useRef(0)
 
   const [connectionState, setConnectionState] =
     React.useState<TwitchConnectionState>({
@@ -132,16 +144,118 @@ export function useTwitchChat() {
     []
   )
 
+  const partitionTimeline = React.useCallback((timeline: TwitchTimelineItem[]) => {
+    const historical: TwitchTimelineItem[] = []
+    const live: TwitchTimelineItem[] = []
+
+    for (const entry of timeline) {
+      if (entry.isHistorical) {
+        historical.push(entry)
+      } else {
+        live.push(entry)
+      }
+    }
+
+    return { historical, live }
+  }, [])
+
+  const mergeTimeline = React.useCallback(
+    (historical: TwitchTimelineItem[], live: TwitchTimelineItem[]) => {
+      return [...historical, ...live.slice(-LIVE_MESSAGE_LIMIT)]
+    },
+    []
+  )
+
+  const getTimelineMessageIds = React.useCallback(
+    (timeline: TwitchTimelineItem[]) => {
+      const ids = new Set<string>()
+      for (const entry of timeline) {
+        ids.add(entry.message.id)
+      }
+      return ids
+    },
+    []
+  )
+
   const appendRoomTimeline = React.useCallback(
     (login: string, items: TwitchTimelineItem[]) => {
       if (items.length === 0) return
 
-      updateRoom(login, (room) => ({
-        ...room,
-        timeline: [...room.timeline, ...items].slice(-MESSAGE_LIMIT),
-      }))
+      updateRoom(login, (room) => {
+        const { historical, live } = partitionTimeline(room.timeline)
+        const knownIds = getTimelineMessageIds(room.timeline)
+        const nextLive = [...live]
+
+        for (const item of items) {
+          if (item.isHistorical) {
+            continue
+          }
+
+          if (knownIds.has(item.message.id)) {
+            continue
+          }
+
+          knownIds.add(item.message.id)
+          nextLive.push(item)
+        }
+
+        return {
+          ...room,
+          timeline: mergeTimeline(historical, nextLive),
+        }
+      })
     },
-    [updateRoom]
+    [getTimelineMessageIds, mergeTimeline, partitionTimeline, updateRoom]
+  )
+
+  const prependHistoricalTimeline = React.useCallback(
+    (login: string, items: TwitchTimelineItem[]) => {
+      if (items.length === 0) return
+
+      updateRoom(login, (room) => {
+        const { historical, live } = partitionTimeline(room.timeline)
+        const knownIds = getTimelineMessageIds(room.timeline)
+        const nextHistorical = [...historical]
+
+        for (const item of items) {
+          if (knownIds.has(item.message.id)) {
+            continue
+          }
+
+          knownIds.add(item.message.id)
+          nextHistorical.push({ ...item, isHistorical: true })
+        }
+
+        return {
+          ...room,
+          timeline: mergeTimeline(nextHistorical, live),
+        }
+      })
+    },
+    [getTimelineMessageIds, mergeTimeline, partitionTimeline, updateRoom]
+  )
+
+  const clearHistoricalTimeline = React.useCallback(
+    (login?: string) => {
+      const clearRoom = (room: TwitchChatRoomState): TwitchChatRoomState => {
+        const { live } = partitionTimeline(room.timeline)
+        return { ...room, timeline: live }
+      }
+
+      if (login) {
+        updateRoom(login, clearRoom)
+        return
+      }
+
+      setRooms((current) => {
+        const next = { ...current }
+        for (const channelLogin of Object.keys(next)) {
+          next[channelLogin] = clearRoom(next[channelLogin])
+        }
+        return next
+      })
+    },
+    [partitionTimeline, updateRoom]
   )
 
   const appendRoomSystemMessage = React.useCallback(
@@ -428,18 +542,169 @@ export function useTwitchChat() {
       setRooms((current) => {
         const next = { ...current }
         for (const channelLogin of Object.keys(next)) {
+          const room = next[channelLogin]
+          const { historical, live } = partitionTimeline(room.timeline)
           next[channelLogin] = {
-            ...next[channelLogin],
-            timeline: [
-              ...next[channelLogin].timeline,
+            ...room,
+            timeline: mergeTimeline(historical, [
+              ...live,
               { kind: "system" as const, message },
-            ].slice(-MESSAGE_LIMIT),
+            ]),
           }
         }
         return next
       })
     },
-    [appendRoomSystemMessage, updateRoom]
+    [appendRoomSystemMessage, mergeTimeline, partitionTimeline, updateRoom]
+  )
+
+  const shouldApplyRecentMessagesFetch = React.useCallback(
+    (normalized: string, generation: number) => {
+      return (
+        recentMessagesEnabledRef.current &&
+        syncedChannelsRef.current.includes(normalized) &&
+        recentMessagesGenerationRef.current === generation
+      )
+    },
+    []
+  )
+
+  const clearRecentMessagesQueue = React.useCallback(() => {
+    recentMessagesQueueRef.current = []
+    recentMessagesQueuedRef.current.clear()
+    recentMessagesGenerationRef.current += 1
+  }, [])
+
+  const drainRecentMessagesQueue = React.useCallback(() => {
+    const runNext = () => {
+      while (
+        recentMessagesActiveRef.current < RECENT_MESSAGES_CONCURRENCY &&
+        recentMessagesQueueRef.current.length > 0
+      ) {
+        const normalized = recentMessagesQueueRef.current.shift()
+        if (!normalized) {
+          continue
+        }
+
+        recentMessagesActiveRef.current += 1
+        const generation = recentMessagesGenerationRef.current
+
+        void (async () => {
+          if (!shouldApplyRecentMessagesFetch(normalized, generation)) {
+            return
+          }
+
+          historyLoadingRef.current.add(normalized)
+
+          try {
+            const outcome = await fetchRecentMessages(normalized)
+
+            if (!shouldApplyRecentMessagesFetch(normalized, generation)) {
+              return
+            }
+
+            switch (outcome.status) {
+              case "success": {
+                historyLoadedRef.current.add(normalized)
+
+                if (outcome.messages.length === 0) {
+                  return
+                }
+
+                const roomId =
+                  outcome.messages.find((message) => message.roomId)?.roomId ??
+                  null
+
+                if (roomId) {
+                  updateRoom(normalized, (room) => ({
+                    ...room,
+                    roomId: room.roomId ?? roomId,
+                  }))
+                  maybeLoadThirdPartyEmotes(normalized, roomId)
+                  maybeLoadComposerEmotes(normalized, roomId)
+                }
+
+                const catalog = roomId
+                  ? (emoteCatalogsRef.current.get(roomId) ?? null)
+                  : null
+
+                prependHistoricalTimeline(
+                  normalized,
+                  outcome.messages.map((message) => ({
+                    kind: "chat" as const,
+                    message: hydrateRoomMessage(message, catalog),
+                    isHistorical: true,
+                  }))
+                )
+                return
+              }
+              case "unavailable": {
+                historyLoadedRef.current.add(normalized)
+                appendRoomSystemMessage(
+                  normalized,
+                  createRecentMessagesStatusMessage(
+                    normalized,
+                    RECENT_MESSAGES_UNAVAILABLE_TEXT
+                  )
+                )
+                return
+              }
+              case "error": {
+                if (historyErrorNotifiedRef.current.has(normalized)) {
+                  return
+                }
+
+                historyErrorNotifiedRef.current.add(normalized)
+                appendRoomSystemMessage(
+                  normalized,
+                  createRecentMessagesStatusMessage(
+                    normalized,
+                    RECENT_MESSAGES_ERROR_TEXT
+                  )
+                )
+              }
+            }
+          } finally {
+            historyLoadingRef.current.delete(normalized)
+            recentMessagesQueuedRef.current.delete(normalized)
+            recentMessagesActiveRef.current -= 1
+            runNext()
+          }
+        })()
+      }
+    }
+
+    runNext()
+  }, [
+    appendRoomSystemMessage,
+    hydrateRoomMessage,
+    maybeLoadComposerEmotes,
+    maybeLoadThirdPartyEmotes,
+    prependHistoricalTimeline,
+    shouldApplyRecentMessagesFetch,
+    updateRoom,
+  ])
+
+  const loadRecentMessages = React.useCallback(
+    (login: string) => {
+      const normalized = normalizeChannelLogin(login)
+      if (!recentMessagesEnabledRef.current) {
+        return
+      }
+
+      if (
+        historyLoadedRef.current.has(normalized) ||
+        historyLoadingRef.current.has(normalized) ||
+        recentMessagesQueuedRef.current.has(normalized)
+      ) {
+        return
+      }
+
+      recentMessagesQueuedRef.current.add(normalized)
+      recentMessagesQueueRef.current.push(normalized)
+      drainRecentMessagesQueue()
+    },
+    [drainRecentMessagesQueue]
   )
 
   const getClient = React.useCallback(() => {
@@ -496,6 +761,7 @@ export function useTwitchChat() {
             joined: true,
             joining: false,
           }))
+          loadRecentMessages(event.channel)
           break
         case "channel-parted":
           updateRoom(event.channel, (room) => ({
@@ -514,6 +780,7 @@ export function useTwitchChat() {
           }))
           maybeLoadThirdPartyEmotes(login, event.state.roomId)
           maybeLoadComposerEmotes(login, event.state.roomId)
+          loadRecentMessages(login)
           break
         }
         case "self-state":
@@ -550,6 +817,7 @@ export function useTwitchChat() {
     return client
   }, [
     appendLog,
+    loadRecentMessages,
     maybeLoadComposerEmotes,
     maybeLoadThirdPartyEmotes,
     routeMessageToRoom,
@@ -593,6 +861,10 @@ export function useTwitchChat() {
         emoteCatalogGenerationRef.current += 1
         clearThirdPartyEmoteCache()
         pendingRoomMessagesRef.current.clear()
+        historyLoadedRef.current.clear()
+        historyLoadingRef.current.clear()
+        historyErrorNotifiedRef.current.clear()
+        clearRecentMessagesQueue()
         emoteCatalogsRef.current.clear()
         composerCatalogsRef.current.clear()
         setComposerCatalogs({})
@@ -610,6 +882,18 @@ export function useTwitchChat() {
 
       ensureRooms(normalized)
 
+      const activeHistory = historyLoadedRef.current
+      for (const loadedLogin of activeHistory) {
+        if (!normalized.includes(loadedLogin)) {
+          activeHistory.delete(loadedLogin)
+          historyErrorNotifiedRef.current.delete(loadedLogin)
+        }
+      }
+
+      for (const login of normalized) {
+        loadRecentMessages(login)
+      }
+
       if (pendingConnectRef.current) {
         pendingConnectRef.current.reject(new Error("Channel list updated"))
         pendingConnectRef.current = null
@@ -626,7 +910,34 @@ export function useTwitchChat() {
         getClient().setChannels(normalized, options)
       })
     },
-    [ensureRooms, getClient]
+    [clearRecentMessagesQueue, ensureRooms, getClient, loadRecentMessages]
+  )
+
+  const setRecentMessagesEnabled = React.useCallback(
+    (enabled: boolean) => {
+      const wasEnabled = recentMessagesEnabledRef.current
+      recentMessagesEnabledRef.current = enabled
+
+      if (!enabled) {
+        historyLoadedRef.current.clear()
+        historyLoadingRef.current.clear()
+        historyErrorNotifiedRef.current.clear()
+        clearRecentMessagesQueue()
+        if (wasEnabled) {
+          clearHistoricalTimeline()
+        }
+        return
+      }
+
+      if (!wasEnabled) {
+        historyLoadedRef.current.clear()
+        historyErrorNotifiedRef.current.clear()
+        for (const login of syncedChannelsRef.current) {
+          loadRecentMessages(login)
+        }
+      }
+    },
+    [clearHistoricalTimeline, clearRecentMessagesQueue, loadRecentMessages]
   )
 
   const getRoom = React.useCallback(
@@ -744,6 +1055,7 @@ export function useTwitchChat() {
     getTimeline,
     getRoomId,
     setEmoteLoadContext,
+    setRecentMessagesEnabled,
     getComposerEmoteCatalog,
     ensureComposerEmotes,
     sendMessage,

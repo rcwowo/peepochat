@@ -2,6 +2,7 @@ import * as React from "react"
 import {
   ExternalLinkIcon,
   HeartIcon,
+  HistoryIcon,
   MonitorIcon,
   MoonIcon,
   PlugIcon,
@@ -104,6 +105,30 @@ export function GeneralTab() {
           }))
         }
       />
+
+      <Separator />
+
+      <SectionHeading
+        title="Chat history"
+        description="Load recent messages when you open a channel."
+      />
+      <div className="space-y-3">
+        <SettingsToggle
+          icon={HistoryIcon}
+          title="Show recent messages"
+          description="Fetch messages sent before you connected, via recent-messages.robotty.de."
+          checked={config.chat.recentMessagesEnabled}
+          onCheckedChange={(checked) =>
+            updateConfig((current) => ({
+              ...current,
+              chat: {
+                ...current.chat,
+                recentMessagesEnabled: checked,
+              },
+            }))
+          }
+        />
+      </div>
 
       <Separator />
 

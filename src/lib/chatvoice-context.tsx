@@ -123,6 +123,7 @@ export function ChatvoiceProvider({ children }: { children: React.ReactNode }) {
     getRoom,
     getRoomId,
     setEmoteLoadContext,
+    setRecentMessagesEnabled,
     getComposerEmoteCatalog,
     ensureComposerEmotes,
     sendMessage,
@@ -235,6 +236,10 @@ export function ChatvoiceProvider({ children }: { children: React.ReactNode }) {
     channelHints,
     setEmoteLoadContext,
   ])
+
+  React.useEffect(() => {
+    setRecentMessagesEnabled(config.chat.recentMessagesEnabled)
+  }, [config.chat.recentMessagesEnabled, setRecentMessagesEnabled])
 
   const canSendChat = Boolean(account?.accessToken && connectionState.connected)
 

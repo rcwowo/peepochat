@@ -11,6 +11,7 @@ import { ChatUsername } from "@/components/chat/chat-username"
 import type { MessageTimestampFormat } from "@/lib/chatvoice-config"
 import { formatMessageTimestamp } from "@/lib/chatvoice-context"
 import type { TwitchSystemMessage } from "@/lib/twitch-chat"
+import { cn } from "@/lib/utils"
 
 const ANNOUNCEMENT_GRADIENTS: Record<string, [string, string]> = {
   primary: ["#9146ff", "#9146ff"],
@@ -241,27 +242,42 @@ function AnnouncementNotice({
 export function ChatSystemMessage({
   message,
   timestampFormat,
+  isHistorical = false,
 }: {
   message: TwitchSystemMessage
   timestampFormat: MessageTimestampFormat
+  isHistorical?: boolean
 }) {
+  const historicalClass = isHistorical ? "chat-message--historical" : undefined
+
+  let content: React.ReactNode
+
   switch (message.event) {
     case "subscription":
-      return (
+      content = (
         <SubscriptionNotice message={message} timestampFormat={timestampFormat} />
       )
+      break
     case "raid":
-      return <RaidNotice message={message} timestampFormat={timestampFormat} />
+      content = <RaidNotice message={message} timestampFormat={timestampFormat} />
+      break
     case "announcement":
-      return (
+      content = (
         <AnnouncementNotice message={message} timestampFormat={timestampFormat} />
       )
+      break
     case "connection":
     case "notice":
     case "status":
     default:
-      return (
+      content = (
         <InlineSystemLine message={message} timestampFormat={timestampFormat} />
       )
   }
+
+  if (!historicalClass) {
+    return content
+  }
+
+  return <div className={cn(historicalClass)}>{content}</div>
 }

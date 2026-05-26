@@ -148,6 +148,15 @@
     overflow-wrap: anywhere;
   }
 
+  .chat-message--historical {
+    opacity: 0.4;
+    transition: opacity 0.15s ease;
+  }
+
+  .chat-message--historical:hover {
+    opacity: 0.6;
+  }
+
   .chat-message:hover {
     background: var(--chat-row-hover);
   }

@@ -54,7 +54,7 @@ export function BackupTab() {
         <ul className="mt-2 space-y-1">
           <li>· Twitch account (token is not exported) and channels</li>
           <li>· Connection preferences</li>
-          <li>· Chat display settings (timestamps, theme)</li>
+          <li>· Chat display settings (timestamps, theme, recent messages)</li>
           <li>· Schema version metadata for migrations</li>
         </ul>
         <p className="mt-3 text-xs">
