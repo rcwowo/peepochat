@@ -1,19 +1,64 @@
 import * as React from "react"
-import { MessagesSquareIcon, XIcon } from "lucide-react"
+import {
+  EllipsisIcon,
+  ExternalLinkIcon,
+  MessagesSquareIcon,
+  XIcon,
+} from "lucide-react"
 
 import { ChatComposer } from "@/components/chat/chat-composer"
 import { ChatMessageRow } from "@/components/chat/chat-message-row"
 import { ChatSystemMessage } from "@/components/chat/chat-system-message"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { EmptyState } from "@/components/dashboard-primitives"
 import type { TwitchTimelineItem } from "@/hooks/use-twitch-chat"
 import type { ChatBadgeCatalog } from "@/lib/chat-badges"
 import type { MessageTimestampFormat } from "@/lib/chatvoice-config"
 import { cn } from "@/lib/utils"
 
+const CHATVOICE_URL = "https://chatvoice.rcw.lol"
+const CHATLOGS_URL = "https://tv.supa.sh/logs"
+
+function openExternalTool(url: string) {
+  window.open(url, "_blank", "noopener,noreferrer")
+}
+
+function ChannelPaneAvatar({
+  login,
+  profileImageUrl,
+}: {
+  login: string
+  profileImageUrl?: string
+}) {
+  if (profileImageUrl) {
+    return (
+      <img
+        src={profileImageUrl}
+        alt=""
+        className="size-6 shrink-0 rounded-full object-cover"
+      />
+    )
+  }
+
+  return (
+    <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[10px] font-semibold uppercase text-primary">
+      {login.slice(0, 2)}
+    </span>
+  )
+}
+
 type ChatPaneProps = {
   channelLogin: string
   displayName?: string
+  profileImageUrl?: string
   timeline: TwitchTimelineItem[]
   timestampFormat: MessageTimestampFormat
   badgeCatalog: ChatBadgeCatalog
@@ -27,6 +72,7 @@ type ChatPaneProps = {
 export function ChatPane({
   channelLogin,
   displayName,
+  profileImageUrl,
   timeline,
   timestampFormat,
   badgeCatalog,
@@ -102,18 +148,63 @@ export function ChatPane({
       )}
     >
       <div className="flex h-9 shrink-0 items-center justify-between gap-2 border-b border-border px-3">
-        <span className="truncate text-sm font-medium">
-          #{channelLogin}
-          {displayName && displayName.toLowerCase() !== channelLogin ? (
-            <span className="ml-1.5 font-normal text-muted-foreground">
-              {label}
-            </span>
-          ) : null}
-        </span>
+        <div className="flex min-w-0 items-center gap-2">
+          <ChannelPaneAvatar
+            login={channelLogin}
+            profileImageUrl={profileImageUrl}
+          />
+          <span className="truncate text-sm font-medium">{label}</span>
+        </div>
         <div className="flex shrink-0 items-center gap-2">
           {!joined ? (
             <span className="text-xs text-muted-foreground">Connecting…</span>
           ) : null}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                className="text-muted-foreground hover:text-foreground"
+                aria-label={`${label} channel options`}
+              >
+                <EllipsisIcon className="size-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuLabel>Tools</DropdownMenuLabel>
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  onSelect={() =>
+                    openExternalTool(`https://www.twitch.tv/${channelLogin}`)
+                  }
+                >
+                  View Channel
+                  <ExternalLinkIcon className="ml-auto size-3.5 text-muted-foreground" />
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() =>
+                    openExternalTool(
+                      `${CHATVOICE_URL}/?channel=${encodeURIComponent(channelLogin)}`
+                    )
+                  }
+                >
+                  Open in Chatvoice
+                  <ExternalLinkIcon className="ml-auto size-3.5 text-muted-foreground" />
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() =>
+                    openExternalTool(
+                      `${CHATLOGS_URL}?c=${encodeURIComponent(channelLogin)}`
+                    )
+                  }
+                >
+                  View Chatlogs
+                  <ExternalLinkIcon className="ml-auto size-3.5 text-muted-foreground" />
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
           {showRemoveSplit && onRemoveSplit ? (
             <Button
               type="button"

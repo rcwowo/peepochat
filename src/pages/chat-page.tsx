@@ -44,6 +44,7 @@ export function ChatPage() {
               key={login}
               channelLogin={login}
               displayName={meta?.displayName}
+              profileImageUrl={meta?.profileImageUrl}
               timeline={getTimeline(login)}
               timestampFormat={timestampFormat}
               badgeCatalog={getBadgeCatalog(login)}
@@ -63,6 +64,7 @@ export function ChatPage() {
       <ChatPane
         channelLogin={activeChannelLogin}
         displayName={channelMeta.get(activeChannelLogin)?.displayName}
+        profileImageUrl={channelMeta.get(activeChannelLogin)?.profileImageUrl}
         timeline={getTimeline(activeChannelLogin)}
         timestampFormat={timestampFormat}
         badgeCatalog={getBadgeCatalog(activeChannelLogin)}
