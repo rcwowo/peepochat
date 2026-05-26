@@ -167,6 +167,9 @@ function coerceLayoutShape(input: unknown): ChatLayoutConfig {
       activeSplitId:
         typeof layout.activeSplitId === "string" ? layout.activeSplitId : null,
       splits: layout.splits as ChatSplit[],
+      sidebarOrder: Array.isArray(layout.sidebarOrder)
+        ? (layout.sidebarOrder as string[])
+        : [],
     }
   }
 

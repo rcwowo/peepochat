@@ -54,7 +54,7 @@ function ChannelAvatar({
   className?: string
 }) {
   const classes = cn(
-    "size-10 shrink-0 rounded-full object-cover aspect-square",
+    "size-10 shrink-0 rounded-full object-cover aspect-square cursor-pointer",
     className
   )
 
@@ -169,10 +169,10 @@ function SplitAvatarCluster({
             avatarSize,
             "absolute top-1/2 -translate-y-1/2 ring-2",
             ringClass,
-            index === 0 && "left-0 z-[4]",
-            index === 1 && "left-[0.55rem] z-[3]",
-            index === 2 && "left-[1.1rem] z-[2]",
-            index === 3 && "left-[1.65rem] z-[1]"
+            index === 0 && "left-0 z-4",
+            index === 1 && "left-[0.55rem] z-3",
+            index === 2 && "left-[1.1rem] z-2",
+            index === 3 && "left-[1.65rem] z-1"
           )}
         />
       ))}
@@ -205,6 +205,7 @@ function CollapsedChannelButton({
           className={cn(
             "flex size-11 shrink-0 items-center justify-center rounded-full outline-none transition-colors",
             "focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+            "cursor-inherit",
             isActive
               ? "bg-sidebar-accent ring-2 ring-sidebar-ring"
               : "hover:bg-sidebar-accent"
@@ -219,8 +220,8 @@ function CollapsedChannelButton({
 }
 
 function SortableRowContent({ children }: { children: React.ReactNode }) {
-  const { state, isMobile } = useSidebar()
-  const collapsed = state === "collapsed" && !isMobile
+  const { state } = useSidebar()
+  const collapsed = state === "collapsed"
 
   if (!collapsed) {
     return children
@@ -256,6 +257,7 @@ function CollapsedSplitButton({
           className={cn(
             "flex size-11 shrink-0 items-center justify-center rounded-full outline-none transition-[background-color,box-shadow]",
             "focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+            "cursor-inherit",
             isActive
               ? "bg-sidebar-ring/25 shadow-[0_0_0_2px_var(--color-sidebar-ring)]"
               : "bg-secondary shadow-[0_0_0_1px_var(--color-sidebar-border)] hover:bg-sidebar-accent hover:shadow-[0_0_0_2px_var(--color-sidebar-ring)]"
@@ -294,8 +296,8 @@ function ChannelMenuButton({
   onSplit?: () => void
   showSplitAction?: boolean
 }) {
-  const { state, isMobile } = useSidebar()
-  const collapsed = state === "collapsed" && !isMobile
+  const { state } = useSidebar()
+  const collapsed = state === "collapsed"
 
   if (collapsed) {
     return (
@@ -315,7 +317,7 @@ function ChannelMenuButton({
     <SidebarMenuButton
       isActive={isActive}
       onClick={onSelect}
-      className="group/channel relative h-10 w-full"
+      className="group/channel relative h-10 w-full cursor-inherit"
     >
         <ChannelAvatar
           login={login}
@@ -359,6 +361,7 @@ function SplitMenuButton({
   channels,
   isActive,
   onSelect,
+  onUnsplit,
 }: {
   channels: Array<{
     login: string
@@ -367,9 +370,10 @@ function SplitMenuButton({
   }>
   isActive: boolean
   onSelect: () => void
+  onUnsplit: () => void
 }) {
-  const { state, isMobile } = useSidebar()
-  const collapsed = state === "collapsed" && !isMobile
+  const { state } = useSidebar()
+  const collapsed = state === "collapsed"
 
   if (collapsed) {
     return (
@@ -387,10 +391,24 @@ function SplitMenuButton({
     <SidebarMenuButton
       isActive={isActive}
       onClick={onSelect}
-      className="h-10 w-full"
+      className="group/split relative h-10 w-full cursor-inherit"
     >
       <SplitAvatarCluster channels={channels} />
       <span className="truncate font-medium">{label}</span>
+      <div className="absolute right-1 top-1/2 hidden -translate-y-1/2 items-center gap-0.5 group-hover/split:flex">
+        <button
+          type="button"
+          aria-label={`Unsplit ${label}`}
+          className="flex size-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+          onPointerDown={preventRowDrag}
+          onClick={(event) => {
+            event.stopPropagation()
+            onUnsplit()
+          }}
+        >
+          <XIcon className="size-3" />
+        </button>
+      </div>
     </SidebarMenuButton>
   )
 }
@@ -491,10 +509,11 @@ export function ChannelSidebar() {
     selectSplit,
     openSplitView,
     addSplitChannel,
+    unsplit,
     reorderSidebar,
   } = useChatvoice()
-  const { state, isMobile } = useSidebar()
-  const collapsed = state === "collapsed" && !isMobile
+  const { state } = useSidebar()
+  const collapsed = state === "collapsed"
   const [addDialogOpen, setAddDialogOpen] = React.useState(false)
 
   const splitById = React.useMemo(
@@ -614,6 +633,10 @@ export function ChannelSidebar() {
                             isSplitView && activeSplitId === entry.split.id
                           }
                           onSelect={() => selectSplit(entry.split.id)}
+                          onUnsplit={() => {
+                            unsplit(entry.split.id)
+                            toast.info("Split removed")
+                          }}
                         />
                       </SortableRowContent>
                     )

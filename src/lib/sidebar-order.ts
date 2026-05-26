@@ -184,8 +184,24 @@ export function replaceChannelsWithSplitInOrder(
 ) {
   const splitKey = splitOrderKey(splitId)
   const channelKeys = channelLogins.map(channelOrderKey)
-  const withoutChannels = order.filter(
-    (key) => !channelKeys.includes(key) && key !== splitKey
-  )
-  return [...withoutChannels, splitKey]
+  const removeKeys = new Set<string>([splitKey, ...channelKeys])
+
+  // Insert the split at the position of the earliest channel being replaced.
+  // If none of the channels exist in the order (edge cases), keep the split's
+  // existing position if present, otherwise append it.
+  const indices = channelKeys
+    .map((key) => order.indexOf(key))
+    .filter((idx) => idx >= 0)
+  const existingSplitIndex = order.indexOf(splitKey)
+  const insertIndex =
+    indices.length > 0
+      ? Math.min(...indices)
+      : existingSplitIndex >= 0
+        ? existingSplitIndex
+        : order.length
+
+  const next = order.filter((key) => !removeKeys.has(key))
+  const clampedIndex = Math.max(0, Math.min(insertIndex, next.length))
+  next.splice(clampedIndex, 0, splitKey)
+  return next
 }

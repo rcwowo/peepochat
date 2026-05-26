@@ -69,6 +69,7 @@ export type ChatvoiceChatContextValue = {
   openSplitView: (channels: string[]) => void
   addSplitChannel: (login: string) => void
   removeSplitChannel: (login: string) => void
+  unsplit: (splitId: string) => void
   reorderSidebar: (activeId: string, overId: string) => void
 }
 
@@ -160,6 +161,7 @@ export function ChatvoiceProvider({ children }: { children: React.ReactNode }) {
     openSplitView,
     addSplitChannel,
     removeSplitChannel,
+    unsplit,
     reorderSidebar,
   } = useChatLayout({ config, updateConfig })
 
@@ -336,6 +338,7 @@ export function ChatvoiceProvider({ children }: { children: React.ReactNode }) {
       openSplitView,
       addSplitChannel,
       removeSplitChannel,
+      unsplit,
       reorderSidebar,
     }),
     [
@@ -362,6 +365,7 @@ export function ChatvoiceProvider({ children }: { children: React.ReactNode }) {
       openSplitView,
       addSplitChannel,
       removeSplitChannel,
+      unsplit,
       reorderSidebar,
     ]
   )

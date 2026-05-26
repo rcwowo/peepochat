@@ -377,7 +377,7 @@ export function ChatComposer({
           autoCapitalize="off"
           autoCorrect="off"
           spellCheck={false}
-          className="h-9 flex-1 border-border/50 bg-background/40 shadow-none backdrop-blur-sm focus-visible:ring-1 focus-visible:ring-border/40 dark:bg-input/30"
+          className="h-9 flex-1 border-border/50 bg-background/40 text-sm shadow-none backdrop-blur-sm focus-visible:ring-1 focus-visible:ring-border/40 dark:bg-input/30"
           onChange={(event) => {
             const nextValue = event.target.value
             setValue(nextValue)

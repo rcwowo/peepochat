@@ -51,9 +51,12 @@ function SortableSidebarRow({
     <SidebarMenuItem
       ref={setNodeRef}
       style={style}
+      data-dragging={isDragging ? "true" : "false"}
       className={cn(
         "group-data-[collapsible=icon]:w-auto",
-        "cursor-grab touch-none active:cursor-grabbing",
+        "touch-none",
+        "[&_button]:cursor-pointer [&_img]:cursor-pointer",
+        "data-[dragging=true]:cursor-grabbing data-[dragging=true]:[&_button]:cursor-grabbing data-[dragging=true]:[&_img]:cursor-grabbing",
         isDragging && "z-10 opacity-60"
       )}
       {...attributes}

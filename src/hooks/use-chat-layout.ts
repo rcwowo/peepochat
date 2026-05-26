@@ -12,12 +12,12 @@ import {
   normalizeSplitChannels,
 } from "@/lib/chatvoice-config"
 import {
-  appendChannelToSidebarOrder,
   applySidebarOrder,
   normalizeSidebarOrder,
   removeKeysFromSidebarOrder,
   reorderSidebarItemIds,
   replaceChannelsWithSplitInOrder,
+  channelOrderKey,
   splitOrderKey,
 } from "@/lib/sidebar-order"
 
@@ -244,6 +244,23 @@ export function useChatLayout({
         )
 
         if (nextChannels.length >= 2) {
+          const currentOrder = normalizeSidebarOrder(current)
+          const splitKey = splitOrderKey(activeId)
+          const removedKey = channelOrderKey(normalized)
+          const splitIndex = currentOrder.indexOf(splitKey)
+
+          const order = currentOrder.filter((key) => key !== removedKey)
+          if (splitIndex >= 0) {
+            const nextSplitIndex = order.indexOf(splitKey)
+            if (nextSplitIndex >= 0) {
+              order.splice(nextSplitIndex + 1, 0, removedKey)
+            } else {
+              order.push(removedKey)
+            }
+          } else {
+            order.push(removedKey)
+          }
+
           return commitLayout(
             current,
             {
@@ -253,16 +270,35 @@ export function useChatLayout({
                   ? { ...split, channels: nextChannels }
                   : split
               ),
-            }
+            },
+            order
           )
         }
 
         const remaining = nextChannels[0] ?? getActiveChannelLogin(current)
         const splits = current.layout.splits.filter((split) => split.id !== activeId)
-        let order = removeKeysFromSidebarOrder(normalizeSidebarOrder(current), [
-          splitOrderKey(activeId),
+        const currentOrder = normalizeSidebarOrder(current)
+        const splitKey = splitOrderKey(activeId)
+        const splitIndex = currentOrder.indexOf(splitKey)
+
+        const removedKey = channelOrderKey(normalized)
+        const remainingKey = remaining ? channelOrderKey(remaining) : null
+
+        const order = removeKeysFromSidebarOrder(currentOrder, [
+          splitKey,
+          removedKey,
+          ...(remainingKey ? [remainingKey] : []),
         ])
-        order = appendChannelToSidebarOrder(order, normalized)
+
+        const insertAt =
+          splitIndex >= 0 ? Math.min(splitIndex, order.length) : order.length
+
+        if (remainingKey) {
+          order.splice(insertAt, 0, remainingKey)
+          order.splice(insertAt + 1, 0, removedKey)
+        } else {
+          order.splice(insertAt, 0, removedKey)
+        }
 
         return commitLayout(
           {
@@ -276,6 +312,42 @@ export function useChatLayout({
           { activeSplitId: null, splits },
           order
         )
+      })
+    },
+    [updateConfig]
+  )
+
+  const unsplit = React.useCallback(
+    (splitId: string) => {
+      updateConfig((current) => {
+        const split = current.layout.splits.find((s) => s.id === splitId)
+        if (!split) return current
+
+        const splitKey = splitOrderKey(splitId)
+        const splitIndex = normalizeSidebarOrder(current).indexOf(splitKey)
+        const channels = normalizeSplitChannels(split.channels)
+        const channelKeys = channels.map(channelOrderKey)
+
+        const nextSplits = current.layout.splits.filter((s) => s.id !== splitId)
+        const nextActiveSplitId =
+          current.layout.activeSplitId === splitId ? null : current.layout.activeSplitId
+
+        const base = removeKeysFromSidebarOrder(normalizeSidebarOrder(current), [
+          splitKey,
+          ...channelKeys,
+        ])
+        const insertAt = splitIndex >= 0 ? Math.min(splitIndex, base.length) : base.length
+        base.splice(insertAt, 0, ...channelKeys.filter((k) => !base.includes(k)))
+
+        const nextConfig: AppConfig = {
+          ...current,
+          twitch:
+            current.layout.activeSplitId === splitId && channels[0]
+              ? { ...current.twitch, activeChannelLogin: channels[0] }
+              : current.twitch,
+        }
+
+        return commitLayout(nextConfig, { activeSplitId: nextActiveSplitId, splits: nextSplits }, base)
       })
     },
     [updateConfig]
@@ -316,6 +388,7 @@ export function useChatLayout({
     openSplitView,
     addSplitChannel,
     removeSplitChannel,
+    unsplit,
     reorderSidebar,
   }
 }
