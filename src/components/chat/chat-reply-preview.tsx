@@ -5,7 +5,7 @@ import type { TwitchChatReply } from "@/lib/twitch-chat"
 
 export function ChatReplyPreview({ reply }: { reply: TwitchChatReply }) {
   return (
-    <div className="chat-reply mb-0.5 flex items-start gap-1.5 pl-0.5">
+    <div className="chat-reply flex items-start gap-1.5 pl-0.5">
       <CornerDownRight
         className="mt-0.5 size-3.5 shrink-0 scale-x-[-1] text-muted-foreground"
         aria-hidden

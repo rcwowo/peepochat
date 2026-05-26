@@ -27,18 +27,21 @@ export function ChatMessageRow({
 
   return (
     <div className="chat-message group px-3 py-1 leading-5">
-      {timestamp ? (
-        <time
-          className="chat-timestamp mr-1.5 inline-block align-top text-xs tabular-nums select-none"
-          dateTime={message.receivedAt}
-        >
-          {timestamp}
-        </time>
+      {message.reply ? (
+        <div className="chat-reply mb-0.5">
+          <ChatReplyPreview reply={message.reply} />
+        </div>
       ) : null}
 
-      <span className="inline-block min-w-0 align-top text-[13px] leading-5">
-        {message.reply ? <ChatReplyPreview reply={message.reply} /> : null}
-        <span className="inline min-w-0">
+      <div className="min-w-0 text-[13px] leading-5">
+        {timestamp ? (
+          <time
+            className="chat-timestamp mr-1.5 inline whitespace-nowrap text-xs tabular-nums select-none"
+            dateTime={message.receivedAt}
+          >
+            {timestamp}
+          </time>
+        ) : null}
         <ChatBadgeList
           badges={badges}
           unresolved={message.badges}
@@ -63,8 +66,7 @@ export function ChatMessageRow({
         >
           <ChatMessageBody text={message.text} emotes={message.emotes} />
         </span>
-        </span>
-      </span>
+      </div>
     </div>
   )
 }
