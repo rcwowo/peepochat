@@ -2,7 +2,7 @@ import * as React from "react"
 import { toast } from "sonner"
 import { SparklesIcon } from "lucide-react"
 
-import { ChatvoiceProvider, useChatvoiceSettings } from "@/lib/chatvoice-context"
+import { PeeepochatProvider, usePeeepochatSettings } from "@/lib/peepochat-context"
 import { hasNewVersion, initLastSeenVersion, markVersionSeen } from "@/lib/changelog"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
@@ -14,7 +14,7 @@ import { ChangelogDialog } from "@/components/changelog-dialog"
 import { ChatPage } from "@/pages/chat-page"
 
 function DashboardLayout() {
-  const { ready, needsOnboarding, completeOnboarding } = useChatvoiceSettings()
+  const { ready, needsOnboarding, completeOnboarding } = usePeeepochatSettings()
   const [settingsOpen, setSettingsOpen] = React.useState(false)
   const [changelogOpen, setChangelogOpen] = React.useState(false)
 
@@ -75,9 +75,9 @@ function DashboardLayout() {
 export function App() {
   return (
     <TooltipProvider>
-      <ChatvoiceProvider>
+      <PeeepochatProvider>
         <DashboardLayout />
-      </ChatvoiceProvider>
+      </PeeepochatProvider>
     </TooltipProvider>
   )
 }

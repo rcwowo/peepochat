@@ -1,7 +1,7 @@
 import { arrayMove } from "@dnd-kit/sortable"
 
-import type { AppConfig, ChatSplit, TwitchChannel } from "@/lib/chatvoice-config"
-import { getChannelsUsedInSplits, normalizeSplitChannels } from "@/lib/chatvoice-config"
+import type { AppConfig, ChatSplit, TwitchChannel } from "@/lib/peepochat-config"
+import { getChannelsUsedInSplits, normalizeSplitChannels } from "@/lib/peepochat-config"
 
 export const SPLIT_ORDER_PREFIX = "split:"
 export const CHANNEL_ORDER_PREFIX = "channel:"

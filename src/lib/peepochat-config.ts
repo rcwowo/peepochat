@@ -2,9 +2,9 @@ import { z } from "zod"
 
 import { normalizeSidebarOrder } from "@/lib/sidebar-order"
 
-export const CHATVOICE_STORAGE_KEY = "chatvoice::config"
-export const CHATVOICE_SCHEMA_VERSION = 4
-export const CHATVOICE_APP_VERSION: string = __APP_VERSION__
+export const PEEPOCHAT_STORAGE_KEY = "peepochat::config"
+export const PEEPOCHAT_SCHEMA_VERSION = 4
+export const PEEPOCHAT_APP_VERSION: string = __APP_VERSION__
 
 const messageTimestampFormatSchema = z
   .enum(["24-hour", "12-hour", "12-hour-meridiem", "none"])
@@ -50,7 +50,7 @@ const twitchSchema = z.object({
 })
 
 const appConfigSchema = z.object({
-  schemaVersion: z.literal(CHATVOICE_SCHEMA_VERSION),
+  schemaVersion: z.literal(PEEPOCHAT_SCHEMA_VERSION),
   updatedAt: z.string().min(1),
   twitch: twitchSchema,
   chat: chatSchema,
@@ -58,7 +58,7 @@ const appConfigSchema = z.object({
 })
 
 const backupEnvelopeSchema = z.object({
-  app: z.enum(["chatvoice", "peepochat"]),
+  app: z.literal("peepochat"),
   appVersion: z.string().min(1),
   exportedAt: z.string().min(1),
   schemaVersion: z.number().int().positive(),
@@ -77,7 +77,7 @@ export type BackupEnvelope = z.infer<typeof backupEnvelopeSchema>
 
 export function createDefaultConfig(): AppConfig {
   return {
-    schemaVersion: CHATVOICE_SCHEMA_VERSION,
+    schemaVersion: PEEPOCHAT_SCHEMA_VERSION,
     updatedAt: new Date().toISOString(),
     twitch: {
       account: null,
@@ -164,31 +164,17 @@ function coerceLayoutShape(input: unknown): ChatLayoutConfig {
 
   const layout = input as Record<string, unknown>
 
-  if (Array.isArray(layout.splits)) {
-    return {
-      activeSplitId:
-        typeof layout.activeSplitId === "string" ? layout.activeSplitId : null,
-      splits: layout.splits as ChatSplit[],
-      sidebarOrder: Array.isArray(layout.sidebarOrder)
-        ? (layout.sidebarOrder as string[])
-        : [],
-    }
+  if (!Array.isArray(layout.splits)) {
+    return createDefaultConfig().layout
   }
-
-  const legacyChannels = normalizeSplitChannels(
-    Array.isArray(layout.splitChannels) ? (layout.splitChannels as string[]) : []
-  )
-  const legacyViewMode = layout.viewMode === "split"
-  const splits: ChatSplit[] =
-    legacyChannels.length >= 2
-      ? [{ id: createSplitId(), channels: legacyChannels }]
-      : []
 
   return {
     activeSplitId:
-      legacyViewMode && splits[0] ? splits[0].id : null,
-    splits,
-    sidebarOrder: [],
+      typeof layout.activeSplitId === "string" ? layout.activeSplitId : null,
+    splits: layout.splits as ChatSplit[],
+    sidebarOrder: Array.isArray(layout.sidebarOrder)
+      ? (layout.sidebarOrder as string[])
+      : [],
   }
 }
 
@@ -202,7 +188,7 @@ export function getActiveChannelLogin(config: AppConfig): string {
 
 export function hasStoredConfig(): boolean {
   if (typeof window === "undefined") return false
-  return window.localStorage.getItem(CHATVOICE_STORAGE_KEY) !== null
+  return window.localStorage.getItem(PEEPOCHAT_STORAGE_KEY) !== null
 }
 
 export function hasAccount(config: AppConfig): boolean {
@@ -219,13 +205,13 @@ export function loadConfig(): AppConfig {
     return createDefaultConfig()
   }
 
-  const raw = window.localStorage.getItem(CHATVOICE_STORAGE_KEY)
+  const raw = window.localStorage.getItem(PEEPOCHAT_STORAGE_KEY)
   if (!raw) {
     return createDefaultConfig()
   }
 
   try {
-    return migrateConfig(JSON.parse(raw))
+    return parseConfig(JSON.parse(raw))
   } catch {
     return createDefaultConfig()
   }
@@ -240,15 +226,15 @@ export function saveConfig(config: AppConfig) {
     ...config,
     updatedAt: new Date().toISOString(),
   })
-  window.localStorage.setItem(CHATVOICE_STORAGE_KEY, JSON.stringify(normalized))
+  window.localStorage.setItem(PEEPOCHAT_STORAGE_KEY, JSON.stringify(normalized))
 }
 
 export function exportConfigBackup(config: AppConfig): string {
   const envelope: BackupEnvelope = {
     app: "peepochat",
-    appVersion: CHATVOICE_APP_VERSION,
+    appVersion: PEEPOCHAT_APP_VERSION,
     exportedAt: new Date().toISOString(),
-    schemaVersion: CHATVOICE_SCHEMA_VERSION,
+    schemaVersion: PEEPOCHAT_SCHEMA_VERSION,
     data: redactTokensForExport(normalizeConfig(config)),
   }
 
@@ -257,82 +243,22 @@ export function exportConfigBackup(config: AppConfig): string {
 
 export function importConfigBackup(payload: string): AppConfig {
   const parsed = JSON.parse(payload)
-  return migrateConfig(parsed)
+  return parseConfig(parsed)
 }
 
-function coerceTwitchShape(input: unknown): unknown {
-  if (!input || typeof input !== "object" || Array.isArray(input)) {
-    return input
-  }
-
-  const twitch = input as Record<string, unknown>
-  if ("account" in twitch) {
-    return input
-  }
-
-  if (Array.isArray(twitch.accounts)) {
-    const accounts = twitch.accounts as TwitchAccount[]
-    const activeId =
-      typeof twitch.activeAccountId === "string" ? twitch.activeAccountId : null
-    const account =
-      accounts.find((entry) => entry.id === activeId) ?? accounts[0] ?? null
-
-    return {
-      ...twitch,
-      account: account
-        ? {
-            ...account,
-            bannerImageUrl:
-              typeof account.bannerImageUrl === "string"
-                ? account.bannerImageUrl
-                : "",
-          }
-        : null,
-    }
-  }
-
-  return {
-    ...twitch,
-    account: null,
-  }
-}
-
-export function migrateConfig(input: unknown): AppConfig {
+function parseConfig(input: unknown): AppConfig {
   const envelopeResult = backupEnvelopeSchema.safeParse(input)
   if (envelopeResult.success) {
-    return migrateConfig(envelopeResult.data.data)
+    return parseConfig(envelopeResult.data.data)
   }
 
   const object = input as Record<string, unknown>
 
-  if (
-    object &&
-    typeof object === "object" &&
-    !Array.isArray(object) &&
-    !("schemaVersion" in object)
-  ) {
-    return migrateConfig({
-      ...createDefaultConfig(),
-      ...object,
-      twitch: coerceTwitchShape(
-        typeof object.twitch === "object" && object.twitch
-          ? object.twitch
-          : createDefaultConfig().twitch
-      ),
-      schemaVersion: CHATVOICE_SCHEMA_VERSION,
-    })
-  }
-
-  const withTwitch = {
-    ...object,
-    twitch: coerceTwitchShape(object.twitch),
-  }
-
   return normalizeConfig(
     appConfigSchema.parse({
-      ...withTwitch,
+      ...object,
       layout: coerceLayoutShape(object.layout),
-      schemaVersion: CHATVOICE_SCHEMA_VERSION,
+      schemaVersion: PEEPOCHAT_SCHEMA_VERSION,
     })
   )
 }
@@ -417,7 +343,7 @@ function normalizeConfig(config: AppConfig): AppConfig {
   return {
     ...config,
     updatedAt: config.updatedAt || new Date().toISOString(),
-    schemaVersion: CHATVOICE_SCHEMA_VERSION,
+    schemaVersion: PEEPOCHAT_SCHEMA_VERSION,
     twitch,
     layout: {
       activeSplitId,

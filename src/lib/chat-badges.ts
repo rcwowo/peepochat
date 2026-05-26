@@ -5,8 +5,8 @@ import {
 } from "@/lib/twitch-api"
 import type { TwitchBadge } from "@/lib/twitch-chat"
 
-const GLOBAL_CACHE_KEY = "chatvoice::badges::global"
-const CHANNEL_CACHE_PREFIX = "chatvoice::badges::channel::"
+const GLOBAL_CACHE_KEY = "peepochat::badges::global"
+const CHANNEL_CACHE_PREFIX = "peepochat::badges::channel::"
 const GLOBAL_TTL_MS = 3 * 24 * 60 * 60 * 1000
 const CHANNEL_TTL_MS = 24 * 60 * 60 * 1000
 

@@ -258,3 +258,12 @@
   --chat-notice-sub-border: #bf94ff;
   --chat-notice-raid-border: #ff6b6b;
 }
+
+/* White SVG marks: dark on light backgrounds, light on dark backgrounds */
+@utility brand-mark {
+  filter: invert(1);
+
+  @variant dark {
+    filter: none;
+  }
+}

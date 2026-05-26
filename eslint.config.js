@@ -31,7 +31,7 @@ export default defineConfig([
     },
   },
   {
-    files: ["src/components/ui/*.{ts,tsx}", "src/lib/chatvoice-context.tsx"],
+    files: ["src/components/ui/*.{ts,tsx}", "src/lib/peepochat-context.tsx"],
     rules: {
       "react-refresh/only-export-components": "off",
     },

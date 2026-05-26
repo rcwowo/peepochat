@@ -4,7 +4,7 @@ import { toast } from "sonner"
 
 import { SortableSidebarList } from "@/components/channel-sidebar-list"
 import { preventRowDrag } from "@/components/sortable-sidebar-utils"
-import { useChatvoice } from "@/lib/chatvoice-context"
+import { usePeeepochat } from "@/lib/peepochat-context"
 import { CHANNEL_ORDER_PREFIX, SPLIT_ORDER_PREFIX } from "@/lib/sidebar-order"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -511,7 +511,7 @@ export function ChannelSidebar() {
     addSplitChannel,
     unsplit,
     reorderSidebar,
-  } = useChatvoice()
+  } = usePeeepochat()
   const { state } = useSidebar()
   const collapsed = state === "collapsed"
   const [addDialogOpen, setAddDialogOpen] = React.useState(false)

@@ -8,7 +8,7 @@
 import changelogData from "../../changelog.json"
 
 const APP_VERSION: string = __APP_VERSION__
-const LAST_SEEN_KEY = "chatvoice::last-seen-version"
+const LAST_SEEN_KEY = "peepochat::last-seen-version"
 
 export type ChangelogEntry = {
   version: string

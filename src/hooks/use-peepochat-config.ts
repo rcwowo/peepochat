@@ -7,9 +7,9 @@ import {
   loadConfig,
   needsOnboardingForConfig,
   saveConfig,
-} from "@/lib/chatvoice-config"
+} from "@/lib/peepochat-config"
 
-export function useChatvoiceConfig() {
+export function usePeeepochatConfig() {
   const [config, setConfig] = React.useState<AppConfig>(() =>
     createDefaultConfig()
   )

@@ -2,14 +2,14 @@ import * as React from "react"
 import { CloudDownloadIcon, CloudUploadIcon } from "lucide-react"
 import { toast } from "sonner"
 
-import { useChatvoiceSettings } from "@/lib/chatvoice-context"
-import { exportConfigBackup } from "@/lib/chatvoice-config"
+import { usePeeepochatSettings } from "@/lib/peepochat-context"
+import { exportConfigBackup } from "@/lib/peepochat-config"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { SectionHeading } from "@/components/settings/settings-primitives"
 
 export function BackupTab() {
-  const { config, restoreBackup } = useChatvoiceSettings()
+  const { config, restoreBackup } = usePeeepochatSettings()
   const fileInputRef = React.useRef<HTMLInputElement | null>(null)
 
   const downloadBackup = () => {
@@ -55,12 +55,8 @@ export function BackupTab() {
           <li>· Twitch account (token is not exported) and channels</li>
           <li>· Connection preferences</li>
           <li>· Chat display settings (timestamps, theme, recent messages)</li>
-          <li>· Schema version metadata for migrations</li>
+          <li>· App version and schema metadata</li>
         </ul>
-        <p className="mt-3 text-xs">
-          Older Chatvoice backups (including voice and speech settings) can still
-          be imported; speech-related data is ignored.
-        </p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">

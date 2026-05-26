@@ -8,9 +8,9 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 
-import iconSrc from "/icon.png"
-import logoSrc from "/logo.png"
-import { useChatvoiceSettings } from "@/lib/chatvoice-context"
+import iconSrc from "/icon.svg"
+import logoSrc from "/logo.svg"
+import { usePeeepochatSettings } from "@/lib/peepochat-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -33,7 +33,7 @@ export function OnboardingDialog({
     loginWithTwitch,
     addChannel,
     restoreBackup,
-  } = useChatvoiceSettings()
+  } = usePeeepochatSettings()
   const [step, setStep] = React.useState<OnboardingStep>("welcome")
   const [channel, setChannel] = React.useState("")
   const [addingChannel, setAddingChannel] = React.useState(false)
@@ -237,12 +237,12 @@ function WelcomeStep({
         <img
           src={iconSrc}
           alt=""
-          className="relative size-20 drop-shadow-xl dark:brightness-150 dark:contrast-75 dark:invert dark:saturate-0"
+          className="brand-mark relative size-20 drop-shadow-xl"
         />
       </div>
 
       <div className="mt-8 flex animate-in flex-col items-center delay-200 duration-600 fill-mode-backwards fade-in slide-in-from-bottom-3">
-        <img src={logoSrc} alt="Peepochat" className="h-9 dark:invert" />
+        <img src={logoSrc} alt="Peepochat" className="brand-mark h-9" />
         <p className="mt-3 text-center text-[15px] leading-relaxed text-muted-foreground">
           A focused Twitch chat client for the web. Sign in with Twitch, follow
           channels, and keep your settings on this device.

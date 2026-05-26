@@ -1,6 +1,6 @@
 import * as React from "react"
 
-import type { AppConfig, ChatSplit } from "@/lib/chatvoice-config"
+import type { AppConfig, ChatSplit } from "@/lib/peepochat-config"
 import {
   createSplitId,
   findSplitByChannels,
@@ -10,7 +10,7 @@ import {
   getChatLayout,
   isSplitViewActive,
   normalizeSplitChannels,
-} from "@/lib/chatvoice-config"
+} from "@/lib/peepochat-config"
 import {
   applySidebarOrder,
   normalizeSidebarOrder,

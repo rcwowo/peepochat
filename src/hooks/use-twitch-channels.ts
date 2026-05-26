@@ -1,12 +1,12 @@
 import * as React from "react"
 import { toast } from "sonner"
 
-import type { AppConfig, TwitchChannel } from "@/lib/chatvoice-config"
+import type { AppConfig, TwitchChannel } from "@/lib/peepochat-config"
 import {
   getAccount,
   getActiveChannelLogin,
   normalizeSplitChannels,
-} from "@/lib/chatvoice-config"
+} from "@/lib/peepochat-config"
 import {
   appendChannelToSidebarOrder,
   applySidebarOrder,

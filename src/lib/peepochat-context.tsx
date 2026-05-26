@@ -2,7 +2,7 @@ import * as React from "react"
 import { toast } from "sonner"
 
 import { useChatLayout } from "@/hooks/use-chat-layout"
-import { useChatvoiceConfig } from "@/hooks/use-chatvoice-config"
+import { usePeeepochatConfig } from "@/hooks/use-peepochat-config"
 import { useTwitchAuth } from "@/hooks/use-twitch-auth"
 import { useTwitchChannels } from "@/hooks/use-twitch-channels"
 import { useChatBadges } from "@/hooks/use-chat-badges"
@@ -18,21 +18,21 @@ import type {
   MessageTimestampFormat,
   TwitchAccount,
   TwitchChannel,
-} from "@/lib/chatvoice-config"
-import { getAccount, hasAccount } from "@/lib/chatvoice-config"
+} from "@/lib/peepochat-config"
+import { getAccount, hasAccount } from "@/lib/peepochat-config"
 import type { ComposerEmoteCatalog } from "@/lib/chat-emote-catalog"
 import type { TwitchConnectionState } from "@/lib/twitch-chat"
 
 export type { TwitchTimelineItem }
 
-export type ChatvoiceConfigContextValue = {
+export type PeeepochatConfigContextValue = {
   config: AppConfig
   ready: boolean
   needsOnboarding: boolean
   completeOnboarding: () => void
   requireOnboarding: () => void
-  updateConfig: ReturnType<typeof useChatvoiceConfig>["updateConfig"]
-  restoreBackup: ReturnType<typeof useChatvoiceConfig>["restoreBackup"]
+  updateConfig: ReturnType<typeof usePeeepochatConfig>["updateConfig"]
+  restoreBackup: ReturnType<typeof usePeeepochatConfig>["restoreBackup"]
   account: TwitchAccount | null
   oauthBusy: boolean
   isOAuthConfigured: boolean
@@ -45,7 +45,7 @@ export type ChatvoiceConfigContextValue = {
   removeChannel: (login: string) => void
 }
 
-export type ChatvoiceChatContextValue = {
+export type PeeepochatChatContextValue = {
   connectionState: TwitchConnectionState
   rooms: Record<string, TwitchChatRoomState>
   logs: string[]
@@ -73,34 +73,34 @@ export type ChatvoiceChatContextValue = {
   reorderSidebar: (activeId: string, overId: string) => void
 }
 
-export type ChatvoiceContextValue = ChatvoiceConfigContextValue &
-  ChatvoiceChatContextValue
+export type PeeepochatContextValue = PeeepochatConfigContextValue &
+  PeeepochatChatContextValue
 
-const ChatvoiceConfigContext =
-  React.createContext<ChatvoiceConfigContextValue | null>(null)
-const ChatvoiceChatContext =
-  React.createContext<ChatvoiceChatContextValue | null>(null)
+const PeeepochatConfigContext =
+  React.createContext<PeeepochatConfigContextValue | null>(null)
+const PeeepochatChatContext =
+  React.createContext<PeeepochatChatContextValue | null>(null)
 
-export function useChatvoiceSettings() {
-  const context = React.useContext(ChatvoiceConfigContext)
+export function usePeeepochatSettings() {
+  const context = React.useContext(PeeepochatConfigContext)
   if (!context) {
     throw new Error(
-      "useChatvoiceSettings must be used within a ChatvoiceProvider"
+      "usePeeepochatSettings must be used within a PeeepochatProvider"
     )
   }
   return context
 }
 
-export function useChatvoice() {
-  const config = React.useContext(ChatvoiceConfigContext)
-  const chat = React.useContext(ChatvoiceChatContext)
+export function usePeeepochat() {
+  const config = React.useContext(PeeepochatConfigContext)
+  const chat = React.useContext(PeeepochatChatContext)
   if (!config || !chat) {
-    throw new Error("useChatvoice must be used within a ChatvoiceProvider")
+    throw new Error("usePeeepochat must be used within a PeeepochatProvider")
   }
   return { ...config, ...chat }
 }
 
-export function ChatvoiceProvider({ children }: { children: React.ReactNode }) {
+export function PeeepochatProvider({ children }: { children: React.ReactNode }) {
   const {
     config,
     ready,
@@ -109,7 +109,7 @@ export function ChatvoiceProvider({ children }: { children: React.ReactNode }) {
     requireOnboarding,
     updateConfig,
     restoreBackup,
-  } = useChatvoiceConfig()
+  } = usePeeepochatConfig()
   const { account, oauthBusy, login, logout, isOAuthConfigured } = useTwitchAuth({
     config,
     updateConfig,
@@ -277,7 +277,7 @@ export function ChatvoiceProvider({ children }: { children: React.ReactNode }) {
     }
   }, [ready, needsOnboarding]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const configValue = React.useMemo<ChatvoiceConfigContextValue>(
+  const configValue = React.useMemo<PeeepochatConfigContextValue>(
     () => ({
       config,
       ready,
@@ -318,7 +318,7 @@ export function ChatvoiceProvider({ children }: { children: React.ReactNode }) {
     ]
   )
 
-  const chatValue = React.useMemo<ChatvoiceChatContextValue>(
+  const chatValue = React.useMemo<PeeepochatChatContextValue>(
     () => ({
       connectionState,
       rooms,
@@ -376,11 +376,11 @@ export function ChatvoiceProvider({ children }: { children: React.ReactNode }) {
   )
 
   return (
-    <ChatvoiceConfigContext.Provider value={configValue}>
-      <ChatvoiceChatContext.Provider value={chatValue}>
+    <PeeepochatConfigContext.Provider value={configValue}>
+      <PeeepochatChatContext.Provider value={chatValue}>
         {children}
-      </ChatvoiceChatContext.Provider>
-    </ChatvoiceConfigContext.Provider>
+      </PeeepochatChatContext.Provider>
+    </PeeepochatConfigContext.Provider>
   )
 }
 

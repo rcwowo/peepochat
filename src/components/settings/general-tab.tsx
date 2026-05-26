@@ -10,10 +10,10 @@ import {
   SunIcon,
 } from "lucide-react"
 
-import type { MessageTimestampFormat } from "@/lib/chatvoice-config"
-import logoSrc from "/logo.png"
-import iconSrc from "/icon.png"
-import { useChatvoiceSettings } from "@/lib/chatvoice-context"
+import type { MessageTimestampFormat } from "@/lib/peepochat-config"
+import logoSrc from "/logo.svg"
+import iconSrc from "/icon.svg"
+import { usePeeepochatSettings } from "@/lib/peepochat-context"
 import { useTheme } from "@/components/theme-provider"
 import { Separator } from "@/components/ui/separator"
 import {
@@ -25,7 +25,7 @@ import { ChangelogDialog } from "@/components/changelog-dialog"
 const version: string = __APP_VERSION__
 
 export function GeneralTab() {
-  const { config, updateConfig } = useChatvoiceSettings()
+  const { config, updateConfig } = usePeeepochatSettings()
   const [changelogOpen, setChangelogOpen] = React.useState(false)
 
   return (
@@ -39,11 +39,11 @@ export function GeneralTab() {
           <img
             src={iconSrc}
             alt=""
-            className="size-14 shrink-0 drop-shadow-md dark:brightness-150 dark:contrast-75 dark:invert dark:saturate-0"
+            className="brand-mark size-14 shrink-0 drop-shadow-md"
           />
 
           <div className="min-w-0 flex-1">
-            <img src={logoSrc} alt="Peepochat" className="h-6 dark:invert" />
+            <img src={logoSrc} alt="Peepochat" className="brand-mark h-6" />
             <p className="text-xs text-muted-foreground mt-1">Version {version}</p>
             <p className="mt-3 max-w-sm text-[13px] leading-relaxed text-muted-foreground">
               A lightweight Twitch chat client for the web. Sign in with Twitch,

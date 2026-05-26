@@ -6,8 +6,8 @@ import {
   type ChatBadgeCatalog,
 } from "@/lib/chat-badges"
 import { getReadableUsernameColor } from "@/lib/chat-username"
-import type { MessageTimestampFormat } from "@/lib/chatvoice-config"
-import { formatMessageTimestamp } from "@/lib/chatvoice-context"
+import type { MessageTimestampFormat } from "@/lib/peepochat-config"
+import { formatMessageTimestamp } from "@/lib/peepochat-context"
 import type { TwitchChatMessage } from "@/lib/twitch-chat"
 import { cn } from "@/lib/utils"
 

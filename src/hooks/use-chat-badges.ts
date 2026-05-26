@@ -7,7 +7,7 @@ import {
   mergeBadgeCatalogs,
   type ChatBadgeCatalog,
 } from "@/lib/chat-badges"
-import type { TwitchAccount } from "@/lib/chatvoice-config"
+import type { TwitchAccount } from "@/lib/peepochat-config"
 
 export function useChatBadges(account: TwitchAccount | null) {
   const [globalCatalog, setGlobalCatalog] = React.useState<ChatBadgeCatalog>(

@@ -8,8 +8,8 @@ import {
 
 import { ChatMessageBody } from "@/components/chat/chat-message-body"
 import { ChatUsername } from "@/components/chat/chat-username"
-import type { MessageTimestampFormat } from "@/lib/chatvoice-config"
-import { formatMessageTimestamp } from "@/lib/chatvoice-context"
+import type { MessageTimestampFormat } from "@/lib/peepochat-config"
+import { formatMessageTimestamp } from "@/lib/peepochat-context"
 import type { TwitchSystemMessage } from "@/lib/twitch-chat"
 import { cn } from "@/lib/utils"
 

@@ -1,8 +1,8 @@
 import * as React from "react"
 import { toast } from "sonner"
 
-import type { AppConfig, TwitchAccount } from "@/lib/chatvoice-config"
-import { getAccount } from "@/lib/chatvoice-config"
+import type { AppConfig, TwitchAccount } from "@/lib/peepochat-config"
+import { getAccount } from "@/lib/peepochat-config"
 import { fetchTwitchUser, validateTwitchToken } from "@/lib/twitch-api"
 import {
   clearTwitchOAuthCallbackUrl,

@@ -6,7 +6,7 @@ import { ChatSuggestions } from "@/components/chat/chat-suggestions"
 import { EmotePicker } from "@/components/chat/emote-picker"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { useChatvoice } from "@/lib/chatvoice-context"
+import { usePeeepochat } from "@/lib/peepochat-context"
 import {
   applyEmoteSuggestion,
   createEmoteCompleterState,
@@ -44,7 +44,7 @@ export function ChatComposer({
     getRoomId,
     sendChatMessage,
     connectionState,
-  } = useChatvoice()
+  } = usePeeepochat()
 
   const [value, setValue] = React.useState("")
   const [error, setError] = React.useState("")

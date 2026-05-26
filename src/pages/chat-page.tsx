@@ -1,7 +1,7 @@
 import * as React from "react"
 
 import { ChatPane } from "@/components/chat/chat-pane"
-import { useChatvoice } from "@/lib/chatvoice-context"
+import { usePeeepochat } from "@/lib/peepochat-context"
 
 export function ChatPage() {
   const {
@@ -16,7 +16,7 @@ export function ChatPage() {
     getBadgeCatalog,
     hasBadgeSupport,
     removeSplitChannel,
-  } = useChatvoice()
+  } = usePeeepochat()
 
   const timestampFormat = config.chat.messageTimestampFormat
 
