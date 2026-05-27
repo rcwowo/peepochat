@@ -56,7 +56,7 @@ function DashboardLayout() {
     <SidebarProvider
       open={false}
       onOpenChange={() => {}}
-      className="flex h-svh w-full flex-col"
+      className="relative flex h-svh w-full flex-col"
       style={
         { "--sidebar-width-icon": "4.5rem" } as React.CSSProperties
       }
@@ -68,6 +68,13 @@ function DashboardLayout() {
           <ChatPage />
         </SidebarInset>
       </div>
+      {settingsOpen && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-50 hidden sm:block"
+          style={{ backgroundColor: "rgba(0, 0, 0, 0.55)" }}
+        />
+      )}
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       <ChangelogDialog open={changelogOpen} onOpenChange={setChangelogOpen} />
     </SidebarProvider>
