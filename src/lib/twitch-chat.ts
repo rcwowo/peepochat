@@ -785,6 +785,7 @@ function parseEmotesTag(raw: string, text: string): TwitchEmote[] {
         id,
         code,
         provider: "twitch",
+        // Prefer animated (per Twitch docs); the renderer falls back to static if needed.
         imageUrl: `https://static-cdn.jtvnw.net/emoticons/v2/${encodeURIComponent(id)}/animated/dark/1.0`,
         start: parsedStart,
         end: parsedEnd,

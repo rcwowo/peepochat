@@ -5,23 +5,122 @@ import { Tooltip as TooltipPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
 
+const TooltipResetContext = React.createContext<{
+  resetCounter: number
+  suppressUntilMs: number
+}>({ resetCounter: 0, suppressUntilMs: 0 })
+
 function TooltipProvider({
   delayDuration = 0,
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Provider>) {
+  const [resetCounter, setResetCounter] = React.useState(0)
+  const [suppressUntilMs, setSuppressUntilMs] = React.useState(0)
+
+  React.useEffect(() => {
+    const reset = (suppressMs = 0) => {
+      setResetCounter((current) => current + 1)
+      if (suppressMs > 0) {
+        setSuppressUntilMs(Date.now() + suppressMs)
+      }
+    }
+
+    // When the tab becomes active again, focused elements can immediately
+    // trigger tooltips (focus-open). Close and briefly suppress re-open.
+    const onBlur = () => reset()
+    const onFocus = () => reset(250)
+    window.addEventListener("blur", onBlur)
+    window.addEventListener("focus", onFocus)
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        reset()
+        return
+      }
+      if (document.visibilityState === "visible") {
+        reset(250)
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibility)
+
+    return () => {
+      window.removeEventListener("blur", onBlur)
+      window.removeEventListener("focus", onFocus)
+      document.removeEventListener("visibilitychange", onVisibility)
+    }
+  }, [])
+
   return (
-    <TooltipPrimitive.Provider
-      data-slot="tooltip-provider"
-      delayDuration={delayDuration}
-      {...props}
-    />
+    <TooltipResetContext.Provider value={{ resetCounter, suppressUntilMs }}>
+      <TooltipPrimitive.Provider
+        data-slot="tooltip-provider"
+        delayDuration={delayDuration}
+        {...props}
+      />
+    </TooltipResetContext.Provider>
   )
 }
 
 function Tooltip({
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Root>) {
-  return <TooltipPrimitive.Root data-slot="tooltip" {...props} />
+  const { resetCounter, suppressUntilMs } = React.useContext(TooltipResetContext)
+  const isControlled = props.open !== undefined
+  const [open, setOpen] = React.useState(false)
+
+  React.useEffect(() => {
+    if (isControlled) return
+    setOpen(false)
+  }, [isControlled, resetCounter])
+
+  React.useEffect(() => {
+    if (!isControlled) return
+    if (!props.open) return
+    // Force-close controlled tooltips (sidebar channel buttons) when tab/window changes
+    // so they don't remain stuck open.
+    props.onOpenChange?.(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isControlled, resetCounter])
+
+  const handleOpenChange = (next: boolean) => {
+    if (next && Date.now() < suppressUntilMs) {
+      if (isControlled) {
+        props.onOpenChange?.(false)
+      } else {
+        setOpen(false)
+        props.onOpenChange?.(false)
+      }
+      return
+    }
+
+    if (isControlled) {
+      props.onOpenChange?.(next)
+      return
+    }
+
+    setOpen(next)
+    props.onOpenChange?.(next)
+  }
+
+  if (isControlled) {
+    const { open: _open, onOpenChange: _onOpenChange, ...rest } = props
+    return (
+      <TooltipPrimitive.Root
+        data-slot="tooltip"
+        {...rest}
+        open={props.open}
+        onOpenChange={handleOpenChange}
+      />
+    )
+  }
+
+  return (
+    <TooltipPrimitive.Root
+      data-slot="tooltip"
+      {...props}
+      open={open}
+      onOpenChange={handleOpenChange}
+    />
+  )
 }
 
 function TooltipTrigger({
@@ -48,7 +147,7 @@ function TooltipContent({
         {...props}
       >
         {children}
-        <TooltipPrimitive.Arrow className="z-50 size-2.5 translate-y-[calc(-50%_-_2px)] rotate-45 rounded-[2px] bg-foreground fill-foreground" />
+        <TooltipPrimitive.Arrow className="z-50 size-2.5 translate-y-[calc(-50%-2px)] rotate-45 rounded-[2px] bg-foreground fill-foreground" />
       </TooltipPrimitive.Content>
     </TooltipPrimitive.Portal>
   )

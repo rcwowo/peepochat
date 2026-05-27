@@ -14,6 +14,13 @@ function getEmoteSrcSet(emote: TwitchEmote) {
   return `${base}/1.0 1x, ${base}/2.0 2x, ${base}/3.0 3x`
 }
 
+function twitchStaticFallbackUrl(url: string) {
+  if (!url.includes("/animated/")) {
+    return null
+  }
+  return url.replace("/animated/", "/static/")
+}
+
 export function ChatEmote({
   emote,
   label,
@@ -34,6 +41,14 @@ export function ChatEmote({
             alt={label}
             loading="lazy"
             decoding="async"
+            onError={(event) => {
+              if (emote.provider !== "twitch") return
+              const img = event.currentTarget
+              const next = twitchStaticFallbackUrl(img.currentSrc || img.src)
+              if (!next || img.src === next) return
+              img.src = next
+              img.srcset = ""
+            }}
           />
         </span>
       </TooltipTrigger>

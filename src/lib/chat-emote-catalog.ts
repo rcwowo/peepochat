@@ -363,7 +363,7 @@ function resolveCategoryDrafts(
 
   return drafts.map((draft) => {
     const icon = resolveCategoryIcon(draft.icon, profiles, currentProfile, channelLogin)
-    const sorted = sortPickerEmotes(draft.emotes.map(toComposerEmote))
+    const sorted = dedupeComposerEmotes(sortPickerEmotes(draft.emotes.map(toComposerEmote)))
 
     return {
       id: draft.id,
@@ -488,7 +488,7 @@ function buildThirdPartyPlatforms(
     const meta = PLATFORM_META[provider]
 
     if (channel.length > 0) {
-      const sorted = sortPickerEmotes(channel)
+      const sorted = dedupeComposerEmotes(sortPickerEmotes(channel))
       const id = `${provider}-channel-${channelLogin}`
       categories.push({
         id,
@@ -501,7 +501,7 @@ function buildThirdPartyPlatforms(
     }
 
     if (global.length > 0) {
-      const sorted = sortPickerEmotes(global)
+      const sorted = dedupeComposerEmotes(sortPickerEmotes(global))
       const id = `${provider}-global`
       categories.push({
         id,
@@ -532,6 +532,20 @@ function toComposerEmote(emote: TwitchChatEmote): ComposerEmote {
     provider: "twitch",
     imageUrl: emote.imageUrl,
   }
+}
+
+function dedupeComposerEmotes(emotes: ComposerEmote[]): ComposerEmote[] {
+  const seen = new Set<string>()
+  const result: ComposerEmote[] = []
+
+  for (const emote of emotes) {
+    const key = `${emote.provider}:${emote.id}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    result.push(emote)
+  }
+
+  return result
 }
 
 export function getDefaultPickerSelection(catalog: ComposerEmoteCatalog): {
