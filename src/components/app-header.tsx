@@ -1,7 +1,6 @@
 import logoSrc from "/logo.svg"
 import { AccountMenu } from "@/components/account-menu"
 import { Button } from "@/components/ui/button"
-import { SidebarTrigger } from "@/components/ui/sidebar"
 import {
   Tooltip,
   TooltipContent,
@@ -17,7 +16,6 @@ export function AppHeader({
   return (
     <header className="flex h-12 shrink-0 items-center justify-between border-b border-border bg-sidebar px-4">
       <div className="flex items-center gap-2">
-        <SidebarTrigger className="-ml-1" />
         <img src={logoSrc} alt="Peepochat" className="brand-mark h-6 w-auto" />
       </div>
       <div className="flex items-center gap-3">

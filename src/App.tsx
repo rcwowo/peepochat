@@ -54,6 +54,8 @@ function DashboardLayout() {
 
   return (
     <SidebarProvider
+      open={false}
+      onOpenChange={() => {}}
       className="flex h-svh w-full flex-col"
       style={
         { "--sidebar-width-icon": "4.5rem" } as React.CSSProperties

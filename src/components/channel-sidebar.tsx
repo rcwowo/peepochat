@@ -1,13 +1,19 @@
 import * as React from "react"
-import { Columns2Icon, PlusIcon, XIcon } from "lucide-react"
+import { Columns2Icon, PlusIcon, Trash2Icon, UngroupIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { SortableSidebarList } from "@/components/channel-sidebar-list"
-import { preventRowDrag } from "@/components/sortable-sidebar-utils"
 import { usePeeepochat } from "@/lib/peepochat-context"
 import { CHANNEL_ORDER_PREFIX, SPLIT_ORDER_PREFIX } from "@/lib/sidebar-order"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu"
 import {
   Dialog,
   DialogContent,
@@ -24,9 +30,6 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarHeader,
-  SidebarMenuButton,
-  useSidebar,
 } from "@/components/ui/sidebar"
 import {
   Tooltip,
@@ -54,12 +57,19 @@ function ChannelAvatar({
   className?: string
 }) {
   const classes = cn(
-    "size-10 shrink-0 rounded-full object-cover aspect-square cursor-pointer",
+    "pointer-events-none size-10 shrink-0 rounded-full object-cover aspect-square",
     className
   )
 
   if (profileImageUrl) {
-    return <img src={profileImageUrl} alt="" className={classes} />
+    return (
+      <img
+        src={profileImageUrl}
+        alt=""
+        draggable={false}
+        className={classes}
+      />
+    )
   }
 
   return (
@@ -106,8 +116,6 @@ function splitClusterAvatarPosition(index: number, count: number) {
 
 function SplitAvatarCluster({
   channels,
-  size = "md",
-  variant = "inline",
   ringClass = "ring-sidebar",
   isActive = false,
 }: {
@@ -115,51 +123,16 @@ function SplitAvatarCluster({
     login: string
     profileImageUrl?: string
   }>
-  size?: "md" | "sm"
-  variant?: "inline" | "clustered"
   ringClass?: string
   isActive?: boolean
 }) {
   const visible = channels.slice(0, 4)
   const count = visible.length
-
-  if (variant === "clustered") {
-    const avatarSize = splitClusterAvatarSize(count)
-    const clusteredRing = isActive ? "ring-sidebar-ring/25" : ringClass
-
-    return (
-      <span className="relative size-9 shrink-0 rounded-full">
-        {visible.map((channel, index) => (
-          <ChannelAvatar
-            key={channel.login}
-            login={channel.login}
-            profileImageUrl={channel.profileImageUrl}
-            className={cn(
-              avatarSize,
-              "absolute ring-2",
-              clusteredRing,
-              splitClusterAvatarPosition(index, count)
-            )}
-          />
-        ))}
-      </span>
-    )
-  }
-
-  const avatarSize = size === "sm" ? "size-7" : "size-8"
+  const avatarSize = splitClusterAvatarSize(count)
+  const clusteredRing = isActive ? "ring-sidebar-ring/25" : ringClass
 
   return (
-    <span
-      className={cn(
-        "relative flex shrink-0 items-center",
-        size === "sm"
-          ? "h-8 w-[calc(1.75rem+0.5rem*var(--n))]"
-          : "h-10 w-[calc(2rem+0.55rem*var(--n))]"
-      )}
-      style={
-        { "--n": Math.max(visible.length - 1, 0) } as React.CSSProperties
-      }
-    >
+    <span className="relative size-9 shrink-0 rounded-full">
       {visible.map((channel, index) => (
         <ChannelAvatar
           key={channel.login}
@@ -167,12 +140,9 @@ function SplitAvatarCluster({
           profileImageUrl={channel.profileImageUrl}
           className={cn(
             avatarSize,
-            "absolute top-1/2 -translate-y-1/2 ring-2",
-            ringClass,
-            index === 0 && "left-0 z-4",
-            index === 1 && "left-[0.55rem] z-3",
-            index === 2 && "left-[1.1rem] z-2",
-            index === 3 && "left-[1.65rem] z-1"
+            "absolute ring-2",
+            clusteredRing,
+            splitClusterAvatarPosition(index, count)
           )}
         />
       ))}
@@ -180,188 +150,127 @@ function SplitAvatarCluster({
   )
 }
 
-function CollapsedChannelButton({
+const sidebarIconButtonClass =
+  "flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+
+function SidebarIconContextMenu({
+  label,
+  buttonClassName,
+  onSelect,
+  menu,
+  children,
+}: {
+  label: string
+  buttonClassName: string
+  onSelect: () => void
+  menu: React.ReactNode
+  children: React.ReactNode
+}) {
+  const [tooltipOpen, setTooltipOpen] = React.useState(false)
+  const suppressTooltipUntilLeaveRef = React.useRef(false)
+
+  const handleTooltipOpenChange = React.useCallback((open: boolean) => {
+    if (open && suppressTooltipUntilLeaveRef.current) {
+      return
+    }
+    setTooltipOpen(open)
+  }, [])
+
+  const suppressTooltip = React.useCallback(() => {
+    suppressTooltipUntilLeaveRef.current = true
+    setTooltipOpen(false)
+  }, [])
+
+  const handlePointerLeave = React.useCallback(() => {
+    suppressTooltipUntilLeaveRef.current = false
+    setTooltipOpen(false)
+  }, [])
+
+  return (
+    <ContextMenu onOpenChange={suppressTooltip}>
+      <Tooltip open={tooltipOpen} onOpenChange={handleTooltipOpenChange}>
+        <ContextMenuTrigger asChild>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              aria-label={label}
+              onClick={onSelect}
+              onContextMenu={suppressTooltip}
+              onPointerLeave={handlePointerLeave}
+              className={buttonClassName}
+            >
+              {children}
+            </button>
+          </TooltipTrigger>
+        </ContextMenuTrigger>
+        <TooltipContent side="right">{label}</TooltipContent>
+      </Tooltip>
+      {menu}
+    </ContextMenu>
+  )
+}
+
+function ChannelContextMenu({
   login,
   displayName,
   profileImageUrl,
   isActive,
-  onSelect,
-}: {
-  login: string
-  displayName?: string
-  profileImageUrl?: string
-  isActive: boolean
-  onSelect: () => void
-}) {
-  const label = channelLabel(login, displayName)
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          aria-label={label}
-          onClick={onSelect}
-          className={cn(
-            "flex size-11 shrink-0 items-center justify-center rounded-full outline-none transition-colors",
-            "focus-visible:ring-2 focus-visible:ring-sidebar-ring",
-            "cursor-inherit",
-            isActive
-              ? "bg-sidebar-accent ring-2 ring-sidebar-ring"
-              : "hover:bg-sidebar-accent"
-          )}
-        >
-          <ChannelAvatar login={login} profileImageUrl={profileImageUrl} />
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="right">{label}</TooltipContent>
-    </Tooltip>
-  )
-}
-
-function SortableRowContent({ children }: { children: React.ReactNode }) {
-  const { state } = useSidebar()
-  const collapsed = state === "collapsed"
-
-  if (!collapsed) {
-    return children
-  }
-
-  return (
-    <div className="flex w-full items-center justify-center">{children}</div>
-  )
-}
-
-function CollapsedSplitButton({
-  channels,
-  isActive,
-  onSelect,
-}: {
-  channels: Array<{
-    login: string
-    displayName?: string
-    profileImageUrl?: string
-  }>
-  isActive: boolean
-  onSelect: () => void
-}) {
-  const label = splitGroupLabel(channels)
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          aria-label={label}
-          onClick={onSelect}
-          className={cn(
-            "flex size-11 shrink-0 items-center justify-center rounded-full outline-none transition-[background-color,box-shadow]",
-            "focus-visible:ring-2 focus-visible:ring-sidebar-ring",
-            "cursor-inherit",
-            isActive
-              ? "bg-sidebar-ring/25 shadow-[0_0_0_2px_var(--color-sidebar-ring)]"
-              : "bg-secondary shadow-[0_0_0_1px_var(--color-sidebar-border)] hover:bg-sidebar-accent hover:shadow-[0_0_0_2px_var(--color-sidebar-ring)]"
-          )}
-        >
-          <SplitAvatarCluster
-            channels={channels}
-            size="sm"
-            variant="clustered"
-            isActive={isActive}
-            ringClass="ring-secondary"
-          />
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="right">{label}</TooltipContent>
-    </Tooltip>
-  )
-}
-
-function ChannelMenuButton({
-  login,
-  displayName,
-  profileImageUrl,
-  isActive,
+  activeChannelLogin,
   onSelect,
   onRemove,
   onSplit,
-  showSplitAction,
 }: {
   login: string
   displayName?: string
   profileImageUrl?: string
   isActive: boolean
+  activeChannelLogin: string
   onSelect: () => void
   onRemove: () => void
-  onSplit?: () => void
-  showSplitAction?: boolean
+  onSplit: () => void
 }) {
-  const { state } = useSidebar()
-  const collapsed = state === "collapsed"
-
-  if (collapsed) {
-    return (
-      <CollapsedChannelButton
-        login={login}
-        displayName={displayName}
-        profileImageUrl={profileImageUrl}
-        isActive={isActive}
-        onSelect={onSelect}
-      />
-    )
-  }
-
   const label = channelLabel(login, displayName)
+  const activeLabel = channelLabel(activeChannelLogin)
+  const canSplit =
+    Boolean(activeChannelLogin) && activeChannelLogin !== login
 
   return (
-    <SidebarMenuButton
-      isActive={isActive}
-      onClick={onSelect}
-      className="group/channel relative h-10 w-full cursor-inherit"
+    <SidebarIconContextMenu
+      label={label}
+      onSelect={onSelect}
+      buttonClassName={cn(
+        sidebarIconButtonClass,
+        isActive
+          ? "bg-sidebar-accent ring-2 ring-sidebar-ring"
+          : "hover:bg-sidebar-accent"
+      )}
+      menu={
+        <ContextMenuContent>
+          {canSplit ? (
+            <ContextMenuItem onSelect={onSplit}>
+              <Columns2Icon />
+              Split with {activeLabel}
+            </ContextMenuItem>
+          ) : null}
+          {canSplit ? <ContextMenuSeparator /> : null}
+          <ContextMenuItem variant="destructive" onSelect={onRemove}>
+            <Trash2Icon />
+            Remove {label}
+          </ContextMenuItem>
+        </ContextMenuContent>
+      }
     >
-        <ChannelAvatar
-          login={login}
-          profileImageUrl={profileImageUrl}
-          className="size-8"
-        />
-        <span className="truncate font-medium">{label}</span>
-        <div className="absolute right-1 top-1/2 hidden -translate-y-1/2 items-center gap-0.5 group-hover/channel:flex">
-        {showSplitAction && onSplit ? (
-          <button
-            type="button"
-            aria-label={`Split with ${label}`}
-            className="flex size-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-            onPointerDown={preventRowDrag}
-            onClick={(event) => {
-              event.stopPropagation()
-              onSplit()
-            }}
-          >
-            <Columns2Icon className="size-3" />
-          </button>
-        ) : null}
-        <button
-          type="button"
-          aria-label={`Remove ${label}`}
-          className="flex size-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-          onPointerDown={preventRowDrag}
-          onClick={(event) => {
-            event.stopPropagation()
-            onRemove()
-          }}
-        >
-          <XIcon className="size-3" />
-        </button>
-      </div>
-    </SidebarMenuButton>
+      <ChannelAvatar login={login} profileImageUrl={profileImageUrl} />
+    </SidebarIconContextMenu>
   )
 }
 
-function SplitMenuButton({
+function SplitContextMenu({
   channels,
   isActive,
   onSelect,
-  onUnsplit,
+  onUngroup,
+  onDelete,
 }: {
   channels: Array<{
     login: string
@@ -370,46 +279,41 @@ function SplitMenuButton({
   }>
   isActive: boolean
   onSelect: () => void
-  onUnsplit: () => void
+  onUngroup: () => void
+  onDelete: () => void
 }) {
-  const { state } = useSidebar()
-  const collapsed = state === "collapsed"
-
-  if (collapsed) {
-    return (
-      <CollapsedSplitButton
-        channels={channels}
-        isActive={isActive}
-        onSelect={onSelect}
-      />
-    )
-  }
-
   const label = splitGroupLabel(channels)
 
   return (
-    <SidebarMenuButton
-      isActive={isActive}
-      onClick={onSelect}
-      className="group/split relative h-10 w-full cursor-inherit"
+    <SidebarIconContextMenu
+      label={label}
+      onSelect={onSelect}
+      buttonClassName={cn(
+        sidebarIconButtonClass,
+        isActive
+          ? "bg-sidebar-ring/25 shadow-[0_0_0_2px_var(--color-sidebar-ring)]"
+          : "bg-secondary shadow-[0_0_0_1px_var(--color-sidebar-border)] hover:bg-sidebar-accent hover:shadow-[0_0_0_2px_var(--color-sidebar-ring)]"
+      )}
+      menu={
+        <ContextMenuContent>
+          <ContextMenuItem onSelect={onUngroup}>
+            <UngroupIcon />
+            Ungroup split
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem variant="destructive" onSelect={onDelete}>
+            <Trash2Icon />
+            Delete split
+          </ContextMenuItem>
+        </ContextMenuContent>
+      }
     >
-      <SplitAvatarCluster channels={channels} />
-      <span className="truncate font-medium">{label}</span>
-      <div className="absolute right-1 top-1/2 hidden -translate-y-1/2 items-center gap-0.5 group-hover/split:flex">
-        <button
-          type="button"
-          aria-label={`Unsplit ${label}`}
-          className="flex size-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-          onPointerDown={preventRowDrag}
-          onClick={(event) => {
-            event.stopPropagation()
-            onUnsplit()
-          }}
-        >
-          <XIcon className="size-3" />
-        </button>
-      </div>
-    </SidebarMenuButton>
+      <SplitAvatarCluster
+        channels={channels}
+        isActive={isActive}
+        ringClass="ring-secondary"
+      />
+    </SidebarIconContextMenu>
   )
 }
 
@@ -512,8 +416,6 @@ export function ChannelSidebar() {
     unsplit,
     reorderSidebar,
   } = usePeeepochat()
-  const { state } = useSidebar()
-  const collapsed = state === "collapsed"
   const [addDialogOpen, setAddDialogOpen] = React.useState(false)
 
   const splitById = React.useMemo(
@@ -586,15 +488,22 @@ export function ChannelSidebar() {
     toast.success(`Split view: #${activeChannelLogin} + #${login}`)
   }
 
+  const handleDeleteSplit = (splitChannels: string[]) => {
+    for (const login of splitChannels) {
+      removeChannel(login)
+    }
+    toast.info("Split deleted")
+  }
+
   const addButton = (
     <Button
       variant="outline"
-      size={collapsed ? "icon" : "sm"}
-      className={cn(collapsed ? "size-11 shrink-0" : "w-full")}
+      size="icon"
+      className="size-11 shrink-0"
       onClick={() => setAddDialogOpen(true)}
     >
       <PlusIcon className="size-4 shrink-0" />
-      {!collapsed && <span>Add channel</span>}
+      <span className="sr-only">Add channel</span>
     </Button>
   )
 
@@ -604,19 +513,13 @@ export function ChannelSidebar() {
         collapsible="icon"
         className="top-12 h-[calc(100svh-3rem)] border-r border-sidebar-border"
       >
-        <SidebarHeader className="px-2 py-3 group-data-[collapsible=icon]:hidden">
-          <p className="px-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            Channels
-          </p>
-        </SidebarHeader>
-
-        <SidebarContent className="group-data-[collapsible=icon]:overflow-y-auto group-data-[collapsible=icon]:overflow-x-hidden">
-          <SidebarGroup className="group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:py-3">
+        <SidebarContent className="overflow-x-hidden overflow-y-auto">
+          <SidebarGroup className="px-2 py-3">
             <SidebarGroupContent>
               <SortableSidebarList
                 itemIds={sidebarEntries.map((entry) => entry.key)}
                 onReorder={reorderSidebar}
-                className="group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-3"
+                className="items-center gap-3"
               >
                 {(itemId) => {
                   const entry = sidebarEntries.find((e) => e.key === itemId)
@@ -626,44 +529,44 @@ export function ChannelSidebar() {
 
                   if (entry.kind === "split") {
                     return (
-                      <SortableRowContent>
-                        <SplitMenuButton
+                      <div className="flex w-full items-center justify-center">
+                        <SplitContextMenu
                           channels={entry.channels}
                           isActive={
                             isSplitView && activeSplitId === entry.split.id
                           }
                           onSelect={() => selectSplit(entry.split.id)}
-                          onUnsplit={() => {
+                          onUngroup={() => {
                             unsplit(entry.split.id)
-                            toast.info("Split removed")
+                            toast.info("Split ungrouped")
                           }}
+                          onDelete={() =>
+                            handleDeleteSplit(entry.split.channels)
+                          }
                         />
-                      </SortableRowContent>
+                      </div>
                     )
                   }
 
                   return (
-                    <SortableRowContent>
-                      <ChannelMenuButton
-                      login={entry.channel.login}
-                      displayName={entry.channel.displayName}
-                      profileImageUrl={entry.channel.profileImageUrl}
-                      isActive={
-                        !isSplitView &&
-                        entry.channel.login === activeChannelLogin
-                      }
-                      onSelect={() => setActiveChannel(entry.channel.login)}
-                      onRemove={() => {
-                        removeChannel(entry.channel.login)
-                        toast.info(`Removed #${entry.channel.login}`)
-                      }}
-                      showSplitAction={Boolean(
-                        activeChannelLogin &&
-                          entry.channel.login !== activeChannelLogin
-                      )}
-                      onSplit={() => handleSplitWith(entry.channel.login)}
-                    />
-                    </SortableRowContent>
+                    <div className="flex w-full items-center justify-center">
+                      <ChannelContextMenu
+                        login={entry.channel.login}
+                        displayName={entry.channel.displayName}
+                        profileImageUrl={entry.channel.profileImageUrl}
+                        isActive={
+                          !isSplitView &&
+                          entry.channel.login === activeChannelLogin
+                        }
+                        activeChannelLogin={activeChannelLogin}
+                        onSelect={() => setActiveChannel(entry.channel.login)}
+                        onRemove={() => {
+                          removeChannel(entry.channel.login)
+                          toast.info(`Removed #${entry.channel.login}`)
+                        }}
+                        onSplit={() => handleSplitWith(entry.channel.login)}
+                      />
+                    </div>
                   )
                 }}
               </SortableSidebarList>
@@ -671,20 +574,11 @@ export function ChannelSidebar() {
           </SidebarGroup>
         </SidebarContent>
 
-        <SidebarFooter
-          className={cn(
-            "p-2",
-            collapsed && "flex items-center justify-center"
-          )}
-        >
-          {collapsed ? (
-            <Tooltip>
-              <TooltipTrigger asChild>{addButton}</TooltipTrigger>
-              <TooltipContent side="right">Add channel</TooltipContent>
-            </Tooltip>
-          ) : (
-            addButton
-          )}
+        <SidebarFooter className="flex items-center justify-center p-2">
+          <Tooltip>
+            <TooltipTrigger asChild>{addButton}</TooltipTrigger>
+            <TooltipContent side="right">Add channel</TooltipContent>
+          </Tooltip>
         </SidebarFooter>
       </Sidebar>
 
