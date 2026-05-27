@@ -11,6 +11,53 @@ import {
   isSplitViewActive,
   normalizeSplitChannels,
 } from "@/lib/peepochat-config"
+
+export type CachedChannelChatView = {
+  key: string
+  kind: "channel"
+  login: string
+}
+
+export type CachedSplitChatView = {
+  key: string
+  kind: "split"
+  splitId: string
+  channels: string[]
+}
+
+export type CachedChatView = CachedChannelChatView | CachedSplitChatView
+
+function buildCachedChatViews(
+  channelLogins: string[],
+  savedSplits: ChatSplit[],
+  channelsInSplits: Set<string>
+): CachedChatView[] {
+  const views: CachedChatView[] = []
+
+  for (const login of channelLogins) {
+    if (!channelsInSplits.has(login)) {
+      views.push({
+        key: `channel:${login}`,
+        kind: "channel",
+        login,
+      })
+    }
+  }
+
+  for (const split of savedSplits) {
+    const channels = normalizeSplitChannels(split.channels)
+    if (channels.length >= 2) {
+      views.push({
+        key: `split:${split.id}`,
+        kind: "split",
+        splitId: split.id,
+        channels,
+      })
+    }
+  }
+
+  return views
+}
 import {
   applySidebarOrder,
   normalizeSidebarOrder,
@@ -361,6 +408,50 @@ export function useChatLayout({
     return activeChannelLogin ? [activeChannelLogin] : []
   }, [activeChannelLogin, isSplitView, splitChannels])
 
+  const keepChatViewsMounted = config.chat.keepChatViewsMounted
+
+  const channelLogins = React.useMemo(
+    () => config.twitch.channels.map((channel) => channel.login),
+    [config.twitch.channels]
+  )
+
+  const cachedChatViews = React.useMemo(
+    () => buildCachedChatViews(channelLogins, savedSplits, channelsInSplits),
+    [channelLogins, channelsInSplits, savedSplits]
+  )
+
+  const activeChatViewKey = React.useMemo(() => {
+    if (isSplitView && activeSplitId) {
+      return `split:${activeSplitId}`
+    }
+
+    if (activeChannelLogin) {
+      return `channel:${activeChannelLogin}`
+    }
+
+    return null
+  }, [activeChannelLogin, activeSplitId, isSplitView])
+
+  const mountedChannelLogins = React.useMemo(() => {
+    if (!keepChatViewsMounted) {
+      return visibleChannelLogins
+    }
+
+    const logins = new Set<string>()
+    for (const view of cachedChatViews) {
+      if (view.kind === "channel") {
+        logins.add(view.login)
+        continue
+      }
+
+      for (const login of view.channels) {
+        logins.add(login)
+      }
+    }
+
+    return [...logins]
+  }, [cachedChatViews, keepChatViewsMounted, visibleChannelLogins])
+
   return {
     savedSplits,
     activeSplitId,
@@ -369,6 +460,10 @@ export function useChatLayout({
     isSplitView,
     channelsInSplits,
     visibleChannelLogins,
+    keepChatViewsMounted,
+    cachedChatViews,
+    activeChatViewKey,
+    mountedChannelLogins,
     selectSplit,
     openSplitView,
     addSplitChannel,

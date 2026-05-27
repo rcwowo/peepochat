@@ -13,6 +13,7 @@ const messageTimestampFormatSchema = z
 const chatSchema = z.object({
   messageTimestampFormat: messageTimestampFormatSchema,
   recentMessagesEnabled: z.boolean().default(true),
+  keepChatViewsMounted: z.boolean().default(true),
 })
 
 const chatSplitSchema = z.object({
@@ -88,6 +89,7 @@ export function createDefaultConfig(): AppConfig {
     chat: {
       messageTimestampFormat: "24-hour",
       recentMessagesEnabled: true,
+      keepChatViewsMounted: true,
     },
     layout: {
       activeSplitId: null,

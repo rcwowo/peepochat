@@ -3,6 +3,7 @@ import {
   ExternalLinkIcon,
   HeartIcon,
   HistoryIcon,
+  LayersIcon,
   MonitorIcon,
   MoonIcon,
   PlugIcon,
@@ -124,6 +125,30 @@ export function GeneralTab() {
               chat: {
                 ...current.chat,
                 recentMessagesEnabled: checked,
+              },
+            }))
+          }
+        />
+      </div>
+
+      <Separator />
+
+      <SectionHeading
+        title="Performance"
+        description="Trade memory for faster switching between channels and splits."
+      />
+      <div className="space-y-3">
+        <SettingsToggle
+          icon={LayersIcon}
+          title="Keep chat views mounted"
+          description="Leave off-screen channels and splits in the DOM (hidden) so switching back is instant. Uses more memory on busy channels."
+          checked={config.chat.keepChatViewsMounted}
+          onCheckedChange={(checked) =>
+            updateConfig((current) => ({
+              ...current,
+              chat: {
+                ...current.chat,
+                keepChatViewsMounted: checked,
               },
             }))
           }

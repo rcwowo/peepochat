@@ -1,7 +1,122 @@
 import * as React from "react"
 
 import { ChatPane } from "@/components/chat/chat-pane"
+import type { TwitchTimelineItem } from "@/hooks/use-twitch-chat"
+import type { CachedChatView } from "@/hooks/use-chat-layout"
+import type { ChatBadgeCatalog } from "@/lib/chat-badges"
+import type { MessageTimestampFormat, TwitchChannel } from "@/lib/peepochat-config"
 import { usePeeepochat } from "@/lib/peepochat-context"
+import type { TwitchChatRoomState } from "@/hooks/use-twitch-chat"
+import { cn } from "@/lib/utils"
+
+type ChatPaneBindings = {
+  timestampFormat: MessageTimestampFormat
+  channelMeta: Map<string, TwitchChannel>
+  getTimeline: (login: string) => TwitchTimelineItem[]
+  getRoom: (login: string) => TwitchChatRoomState | null
+  getBadgeCatalog: (login: string) => ChatBadgeCatalog
+  hasBadgeSupport: boolean
+  removeSplitChannel: (login: string) => void
+}
+
+function SingleChannelPane({
+  login,
+  isActive,
+  bindings,
+}: {
+  login: string
+  isActive: boolean
+  bindings: ChatPaneBindings
+}) {
+  const meta = bindings.channelMeta.get(login)
+  const room = bindings.getRoom(login)
+
+  return (
+    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
+      <ChatPane
+        channelLogin={login}
+        displayName={meta?.displayName}
+        profileImageUrl={meta?.profileImageUrl}
+        timeline={bindings.getTimeline(login)}
+        timestampFormat={bindings.timestampFormat}
+        badgeCatalog={bindings.getBadgeCatalog(login)}
+        showBadgeFallback={!bindings.hasBadgeSupport}
+        joined={room?.joined ?? false}
+        isActive={isActive}
+      />
+    </div>
+  )
+}
+
+function SplitChannelPanes({
+  channels,
+  isActive,
+  bindings,
+}: {
+  channels: string[]
+  isActive: boolean
+  bindings: ChatPaneBindings
+}) {
+  return (
+    <div className="flex h-full min-h-0 min-w-0 flex-1 divide-x divide-border">
+      {channels.map((login) => {
+        const meta = bindings.channelMeta.get(login)
+        const room = bindings.getRoom(login)
+
+        return (
+          <ChatPane
+            key={login}
+            channelLogin={login}
+            displayName={meta?.displayName}
+            profileImageUrl={meta?.profileImageUrl}
+            timeline={bindings.getTimeline(login)}
+            timestampFormat={bindings.timestampFormat}
+            badgeCatalog={bindings.getBadgeCatalog(login)}
+            showBadgeFallback={!bindings.hasBadgeSupport}
+            joined={room?.joined ?? false}
+            showRemoveSplit
+            onRemoveSplit={bindings.removeSplitChannel}
+            isActive={isActive}
+          />
+        )
+      })}
+    </div>
+  )
+}
+
+function CachedChatViewLayer({
+  view,
+  isActive,
+  bindings,
+}: {
+  view: CachedChatView
+  isActive: boolean
+  bindings: ChatPaneBindings
+}) {
+  return (
+    <div
+      className={cn(
+        "absolute inset-0 flex min-h-0 min-w-0",
+        !isActive && "hidden"
+      )}
+      aria-hidden={!isActive}
+    >
+      {view.kind === "channel" ? (
+        <SingleChannelPane
+          login={view.login}
+          isActive={isActive}
+          bindings={bindings}
+        />
+      ) : (
+        <SplitChannelPanes
+          channels={view.channels}
+          isActive={isActive}
+          bindings={bindings}
+        />
+      )}
+    </div>
+  )
+}
 
 export function ChatPage() {
   const {
@@ -11,6 +126,9 @@ export function ChatPage() {
     isSplitView,
     splitChannels,
     visibleChannelLogins,
+    keepChatViewsMounted,
+    cachedChatViews,
+    activeChatViewKey,
     getTimeline,
     getRoom,
     getBadgeCatalog,
@@ -24,6 +142,27 @@ export function ChatPage() {
     return new Map(channels.map((channel) => [channel.login, channel]))
   }, [channels])
 
+  const bindings = React.useMemo<ChatPaneBindings>(
+    () => ({
+      timestampFormat,
+      channelMeta,
+      getTimeline,
+      getRoom,
+      getBadgeCatalog,
+      hasBadgeSupport,
+      removeSplitChannel,
+    }),
+    [
+      timestampFormat,
+      channelMeta,
+      getTimeline,
+      getRoom,
+      getBadgeCatalog,
+      hasBadgeSupport,
+      removeSplitChannel,
+    ]
+  )
+
   if (visibleChannelLogins.length === 0) {
     return (
       <div className="flex h-full min-h-0 min-w-0 flex-1 items-center justify-center text-sm text-muted-foreground">
@@ -32,46 +171,36 @@ export function ChatPage() {
     )
   }
 
-  if (isSplitView) {
+  if (keepChatViewsMounted && cachedChatViews.length > 0) {
     return (
-      <div className="flex h-full min-h-0 min-w-0 flex-1 divide-x divide-border">
-        {splitChannels.map((login) => {
-          const meta = channelMeta.get(login)
-          const room = getRoom(login)
-
-          return (
-            <ChatPane
-              key={login}
-              channelLogin={login}
-              displayName={meta?.displayName}
-              profileImageUrl={meta?.profileImageUrl}
-              timeline={getTimeline(login)}
-              timestampFormat={timestampFormat}
-              badgeCatalog={getBadgeCatalog(login)}
-              showBadgeFallback={!hasBadgeSupport}
-              joined={room?.joined ?? false}
-              showRemoveSplit
-              onRemoveSplit={removeSplitChannel}
-            />
-          )
-        })}
+      <div className="relative flex h-full min-h-0 min-w-0 flex-1">
+        {cachedChatViews.map((view) => (
+          <CachedChatViewLayer
+            key={view.key}
+            view={view}
+            isActive={view.key === activeChatViewKey}
+            bindings={bindings}
+          />
+        ))}
       </div>
     )
   }
 
-  return (
-    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
-      <ChatPane
-        key={activeChannelLogin}
-        channelLogin={activeChannelLogin}
-        displayName={channelMeta.get(activeChannelLogin)?.displayName}
-        profileImageUrl={channelMeta.get(activeChannelLogin)?.profileImageUrl}
-        timeline={getTimeline(activeChannelLogin)}
-        timestampFormat={timestampFormat}
-        badgeCatalog={getBadgeCatalog(activeChannelLogin)}
-        showBadgeFallback={!hasBadgeSupport}
-        joined={getRoom(activeChannelLogin)?.joined ?? false}
+  if (isSplitView) {
+    return (
+      <SplitChannelPanes
+        channels={splitChannels}
+        isActive
+        bindings={bindings}
       />
-    </div>
+    )
+  }
+
+  return (
+    <SingleChannelPane
+      login={activeChannelLogin}
+      isActive
+      bindings={bindings}
+    />
   )
 }

@@ -67,6 +67,7 @@ type ChatPaneProps = {
   badgeCatalog: ChatBadgeCatalog
   showBadgeFallback: boolean
   joined?: boolean
+  isActive?: boolean
   showRemoveSplit?: boolean
   onRemoveSplit?: (channelLogin: string) => void
   className?: string
@@ -81,6 +82,7 @@ function ChatPaneInner({
   badgeCatalog,
   showBadgeFallback,
   joined = true,
+  isActive = true,
   showRemoveSplit = false,
   onRemoveSplit,
   className,
@@ -118,14 +120,15 @@ function ChatPaneInner({
   )
 
   React.useLayoutEffect(() => {
-    if (isScrollPaused) return
+    if (!isActive || isScrollPaused) return
     scrollToBottom("auto")
-  }, [timeline, isScrollPaused, scrollToBottom])
+  }, [isActive, timeline, isScrollPaused, scrollToBottom])
 
   React.useEffect(() => {
     const container = chatContainerRef.current
     const messageList = messageListRef.current
     if (
+      !isActive ||
       !container ||
       !messageList ||
       isScrollPaused ||
@@ -142,7 +145,7 @@ function ChatPaneInner({
     return () => {
       observer.disconnect()
     }
-  }, [isScrollPaused, scrollToBottom])
+  }, [isActive, isScrollPaused, scrollToBottom])
 
   return (
     <div

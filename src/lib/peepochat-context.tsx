@@ -1,7 +1,10 @@
 import * as React from "react"
 import { toast } from "sonner"
 
-import { useChatLayout } from "@/hooks/use-chat-layout"
+import {
+  useChatLayout,
+  type CachedChatView,
+} from "@/hooks/use-chat-layout"
 import { usePeeepochatConfig } from "@/hooks/use-peepochat-config"
 import { useTwitchAuth } from "@/hooks/use-twitch-auth"
 import { useTwitchChannels } from "@/hooks/use-twitch-channels"
@@ -52,6 +55,10 @@ export type PeeepochatLayoutContextValue = {
   isSplitView: boolean
   channelsInSplits: Set<string>
   visibleChannelLogins: string[]
+  keepChatViewsMounted: boolean
+  cachedChatViews: CachedChatView[]
+  activeChatViewKey: string | null
+  mountedChannelLogins: string[]
   selectSplit: (splitId: string) => void
   openSplitView: (channels: string[]) => void
   addSplitChannel: (login: string) => void
@@ -180,6 +187,10 @@ export function PeeepochatProvider({ children }: { children: React.ReactNode }) 
     isSplitView,
     channelsInSplits,
     visibleChannelLogins,
+    keepChatViewsMounted,
+    cachedChatViews,
+    activeChatViewKey,
+    mountedChannelLogins,
     selectSplit,
     openSplitView,
     addSplitChannel,
@@ -223,10 +234,10 @@ export function PeeepochatProvider({ children }: { children: React.ReactNode }) 
   ])
 
   React.useEffect(() => {
-    for (const login of visibleChannelLogins) {
+    for (const login of mountedChannelLogins) {
       loadBadgesForRoom(getRoomId(login))
     }
-  }, [getRoomId, loadBadgesForRoom, visibleChannelLogins])
+  }, [getRoomId, loadBadgesForRoom, mountedChannelLogins])
 
   const channelHints = React.useMemo(
     () =>
@@ -347,6 +358,10 @@ export function PeeepochatProvider({ children }: { children: React.ReactNode }) 
       isSplitView,
       channelsInSplits,
       visibleChannelLogins,
+      keepChatViewsMounted,
+      cachedChatViews,
+      activeChatViewKey,
+      mountedChannelLogins,
       selectSplit,
       openSplitView,
       addSplitChannel,
@@ -362,6 +377,10 @@ export function PeeepochatProvider({ children }: { children: React.ReactNode }) 
       isSplitView,
       channelsInSplits,
       visibleChannelLogins,
+      keepChatViewsMounted,
+      cachedChatViews,
+      activeChatViewKey,
+      mountedChannelLogins,
       selectSplit,
       openSplitView,
       addSplitChannel,
