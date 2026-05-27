@@ -41,6 +41,7 @@ export function ChatComposer({
     canSendChat,
     getComposerEmoteCatalog,
     ensureComposerEmotes,
+    isComposerEmotesLoading,
     getRoomId,
     sendChatMessage,
     connectionState,
@@ -69,6 +70,7 @@ export function ChatComposer({
   }, [channelLogin, ensureComposerEmotes, roomId])
 
   const catalog = getComposerEmoteCatalog(channelLogin)
+  const emotesLoading = isComposerEmotesLoading(channelLogin)
   const emoteList = React.useMemo(
     () => [...catalog.byCode.values()],
     [catalog]
@@ -399,6 +401,7 @@ export function ChatComposer({
 
         <EmotePicker
           catalog={catalog}
+          loading={emotesLoading}
           disabled={disabled}
           onSelect={(code) => {
             setValue((current) => insertEmoteAtEnd(current, code))

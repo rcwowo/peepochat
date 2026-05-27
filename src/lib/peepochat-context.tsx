@@ -62,6 +62,8 @@ export type PeeepochatChatContextValue = {
   getBadgeCatalog: (login: string) => ChatBadgeCatalog
   getComposerEmoteCatalog: (login: string) => ComposerEmoteCatalog
   ensureComposerEmotes: (login: string, roomId: string | null) => void
+  isComposerEmotesLoading: (login: string) => boolean
+  refreshEmotes: (login: string) => Promise<boolean>
   sendChatMessage: (login: string, message: string) => boolean
   canSendChat: boolean
   hasBadgeSupport: boolean
@@ -126,6 +128,8 @@ export function PeeepochatProvider({ children }: { children: React.ReactNode }) 
     setRecentMessagesEnabled,
     getComposerEmoteCatalog,
     ensureComposerEmotes,
+    isComposerEmotesLoading,
+    refreshEmotes,
     sendMessage,
   } = useTwitchChat()
   const { getBadgeCatalog, loadBadgesForRoom, hasBadgeSupport } =
@@ -336,6 +340,8 @@ export function PeeepochatProvider({ children }: { children: React.ReactNode }) 
       getBadgeCatalog: getBadgeCatalogForChannel,
       getComposerEmoteCatalog,
       ensureComposerEmotes,
+      isComposerEmotesLoading,
+      refreshEmotes,
       sendChatMessage: sendMessage,
       canSendChat,
       hasBadgeSupport,
@@ -363,6 +369,8 @@ export function PeeepochatProvider({ children }: { children: React.ReactNode }) 
       getBadgeCatalogForChannel,
       getComposerEmoteCatalog,
       ensureComposerEmotes,
+      isComposerEmotesLoading,
+      refreshEmotes,
       sendMessage,
       canSendChat,
       hasBadgeSupport,

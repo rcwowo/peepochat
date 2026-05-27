@@ -8,6 +8,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { Spinner } from "@/components/ui/spinner"
 import {
   Popover,
   PopoverContent,
@@ -36,12 +37,14 @@ import { cn } from "@/lib/utils"
 
 type EmotePickerProps = {
   catalog: ComposerEmoteCatalog
+  loading?: boolean
   disabled?: boolean
   onSelect: (code: string) => void
 }
 
 export function EmotePicker({
   catalog,
+  loading = false,
   disabled = false,
   onSelect,
 }: EmotePickerProps) {
@@ -149,6 +152,10 @@ export function EmotePicker({
           <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
             <EmoteGrid emotes={searchResults} onSelect={handleSelect} />
           </div>
+        ) : loading ? (
+          <div className="flex flex-1 items-center justify-center p-4 text-center text-sm text-muted-foreground">
+            <Spinner className="size-5 text-muted-foreground" aria-label="Loading emotes" />
+          </div>
         ) : catalog.platforms.length === 0 ? (
           <div className="flex flex-1 items-center justify-center p-4 text-center text-sm text-muted-foreground">
             Emotes load after the channel connects.
@@ -192,7 +199,7 @@ function PlatformTabs({
   return (
     <TabsList
       variant="line"
-      className="grid !h-9 w-full shrink-0 gap-0 rounded-none border-b border-border/80 bg-popover p-0 [&_[data-slot=tabs-trigger]]:after:hidden"
+      className="grid h-9! w-full shrink-0 gap-0 rounded-none border-b border-border/80 bg-popover p-0 **:data-[slot=tabs-trigger]:after:hidden"
       style={{
         gridTemplateColumns: `repeat(${platforms.length}, minmax(0, 1fr))`,
       }}
@@ -202,7 +209,7 @@ function PlatformTabs({
           key={platform.id}
           value={platform.id}
           className={cn(
-            "group/tab relative !h-9 min-h-0 w-full min-w-0 flex-row items-center justify-center gap-1.5 rounded-none border-0 px-2 py-0 shadow-none after:hidden",
+            "group/tab relative h-9! min-h-0 w-full min-w-0 flex-row items-center justify-center gap-1.5 rounded-none border-0 px-2 py-0 shadow-none after:hidden",
             "text-muted-foreground hover:text-foreground",
             "data-[state=active]:bg-transparent data-[state=active]:text-foreground"
           )}
@@ -346,7 +353,7 @@ function EmoteGridItem({
         emotePickerCellWidthClass(ratioBucket)
       )}
     >
-      <Tooltip>
+      <Tooltip disableHoverableContent>
         <TooltipTrigger asChild>
           <button
             type="button"
@@ -367,7 +374,11 @@ function EmoteGridItem({
             />
           </button>
         </TooltipTrigger>
-        <TooltipContent side="top" sideOffset={4} className="px-2 py-1 text-xs">
+        <TooltipContent
+          side="top"
+          sideOffset={4}
+          className="pointer-events-none px-2 py-1 text-xs"
+        >
           {emote.code}
         </TooltipContent>
       </Tooltip>

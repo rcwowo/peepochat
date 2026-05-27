@@ -3,6 +3,7 @@ import {
   EllipsisIcon,
   ExternalLinkIcon,
   MessagesSquareIcon,
+  RefreshCcwIcon,
   XIcon,
 } from "lucide-react"
 
@@ -16,12 +17,14 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { EmptyState } from "@/components/dashboard-primitives"
 import type { TwitchTimelineItem } from "@/hooks/use-twitch-chat"
 import type { ChatBadgeCatalog } from "@/lib/chat-badges"
 import type { MessageTimestampFormat } from "@/lib/peepochat-config"
+import { usePeeepochat } from "@/lib/peepochat-context"
 import { cn } from "@/lib/utils"
 
 const CHATVOICE_URL = "https://chatvoice.rcw.lol"
@@ -82,6 +85,7 @@ export function ChatPane({
   onRemoveSplit,
   className,
 }: ChatPaneProps) {
+  const { refreshEmotes } = usePeeepochat()
   const chatContainerRef = React.useRef<HTMLDivElement>(null)
   const messageListRef = React.useRef<HTMLDivElement>(null)
   const isProgrammaticScrollRef = React.useRef(false)
@@ -172,6 +176,14 @@ export function ChatPane({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuLabel>Channel</DropdownMenuLabel>
+              <DropdownMenuGroup>
+                <DropdownMenuItem onSelect={() => void refreshEmotes(channelLogin)}>
+                  Refresh Emotes
+                  <RefreshCcwIcon className="ml-auto size-3.5 text-muted-foreground" />
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
               <DropdownMenuLabel>Tools</DropdownMenuLabel>
               <DropdownMenuGroup>
                 <DropdownMenuItem

@@ -83,6 +83,9 @@ export function useTwitchChat() {
   const [composerCatalogs, setComposerCatalogs] = React.useState<
     Record<string, ComposerEmoteCatalog>
   >({})
+  const [composerCatalogLoading, setComposerCatalogLoading] = React.useState<
+    Record<string, boolean>
+  >({})
   const emoteCatalogLoadingRef = React.useRef(new Map<string, boolean>())
   const composerCatalogLoadingRef = React.useRef(new Map<string, boolean>())
   const composerCatalogLoadedRef = React.useRef(new Set<string>())
@@ -448,6 +451,7 @@ export function useTwitchChat() {
       }
 
       composerCatalogLoadingRef.current.set(roomId, true)
+      setComposerCatalogLoading((current) => ({ ...current, [roomId]: true }))
       const generation = emoteCatalogGenerationRef.current
       const context = emoteLoadContextRef.current
 
@@ -468,6 +472,12 @@ export function useTwitchChat() {
           composerCatalogsRef.current.set(roomId, catalog)
           setComposerCatalogs((current) => ({ ...current, [roomId]: catalog }))
           composerCatalogLoadingRef.current.delete(roomId)
+          setComposerCatalogLoading((current) => {
+            if (!current[roomId]) return current
+            const next = { ...current }
+            delete next[roomId]
+            return next
+          })
           rehydrateRoomTimeline(login, roomId)
           appendLog(
             `Loaded ${catalog.byCode.size} emotes for composer in #${login}`
@@ -479,6 +489,12 @@ export function useTwitchChat() {
           }
 
           composerCatalogLoadingRef.current.delete(roomId)
+          setComposerCatalogLoading((current) => {
+            if (!current[roomId]) return current
+            const next = { ...current }
+            delete next[roomId]
+            return next
+          })
           appendLog(`Composer emotes could not be loaded for #${login}.`)
         })
     },
@@ -982,6 +998,7 @@ export function useTwitchChat() {
       composerCatalogsRef.current.clear()
       composerCatalogLoadedRef.current.clear()
       composerCatalogLoadingRef.current.clear()
+      setComposerCatalogLoading({})
 
       for (const room of Object.values(rooms)) {
         if (room.roomId) {
@@ -1009,6 +1026,85 @@ export function useTwitchChat() {
       maybeLoadComposerEmotes(login, roomId)
     },
     [maybeLoadComposerEmotes]
+  )
+
+  const isComposerEmotesLoading = React.useCallback(
+    (login: string): boolean => {
+      const roomId = getRoomId(login)
+      if (!roomId) return false
+      return Boolean(composerCatalogLoading[roomId])
+    },
+    [composerCatalogLoading, getRoomId]
+  )
+
+  const refreshEmotes = React.useCallback(
+    async (login: string): Promise<boolean> => {
+      const roomId = getRoomId(login)
+      if (!roomId) return false
+
+      clearThirdPartyEmoteCache(roomId)
+
+      emoteCatalogsRef.current.delete(roomId)
+      emoteCatalogLoadingRef.current.delete(roomId)
+
+      composerCatalogsRef.current.delete(roomId)
+      composerCatalogLoadedRef.current.delete(roomId)
+      composerCatalogLoadingRef.current.delete(roomId)
+      setComposerCatalogLoading((current) => ({ ...current, [roomId]: true }))
+      setComposerCatalogs((current) => {
+        if (!current[roomId]) return current
+        const next = { ...current }
+        delete next[roomId]
+        return next
+      })
+
+      const generation = emoteCatalogGenerationRef.current
+      const context = emoteLoadContextRef.current
+
+      const thirdParty = getThirdPartyEmoteSets(roomId)
+        .then((sets) => {
+          if (generation !== emoteCatalogGenerationRef.current) return
+          emoteCatalogsRef.current.set(roomId, buildThirdPartyEmoteCatalog(sets))
+        })
+        .catch(() => {
+          if (generation !== emoteCatalogGenerationRef.current) return
+          emoteCatalogsRef.current.set(roomId, createEmptyEmoteCatalog())
+        })
+
+      const composer = fetchComposerEmoteCatalog({
+        roomId,
+        channelLogin: login,
+        accessToken: context.accessToken,
+        clientId: context.clientId,
+        userId: context.userId,
+        channelHints: context.channelHints,
+      })
+        .then((catalog) => {
+          if (generation !== emoteCatalogGenerationRef.current) return
+          composerCatalogLoadedRef.current.add(roomId)
+          composerCatalogsRef.current.set(roomId, catalog)
+          setComposerCatalogs((current) => ({ ...current, [roomId]: catalog }))
+        })
+        .catch(() => {
+          // Keep previous catalog (if any) and just stop loading.
+        })
+
+      await Promise.allSettled([thirdParty, composer])
+
+      if (generation !== emoteCatalogGenerationRef.current) {
+        return true
+      }
+
+      setComposerCatalogLoading((current) => {
+        if (!current[roomId]) return current
+        const next = { ...current }
+        delete next[roomId]
+        return next
+      })
+
+      return true
+    },
+    [getRoomId]
   )
 
   const sendMessage = React.useCallback(
@@ -1058,6 +1154,8 @@ export function useTwitchChat() {
     setRecentMessagesEnabled,
     getComposerEmoteCatalog,
     ensureComposerEmotes,
+    isComposerEmotesLoading,
+    refreshEmotes,
     sendMessage,
   }
 }
