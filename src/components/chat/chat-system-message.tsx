@@ -1,4 +1,4 @@
-import type * as React from "react"
+import * as React from "react"
 import {
   Gift,
   Megaphone,
@@ -250,7 +250,7 @@ function AnnouncementNotice({
   )
 }
 
-export function ChatSystemMessage({
+function ChatSystemMessageInner({
   message,
   timestampFormat,
   isHistorical = false,
@@ -292,3 +292,5 @@ export function ChatSystemMessage({
 
   return <div className={cn(historicalClass)}>{content}</div>
 }
+
+export const ChatSystemMessage = React.memo(ChatSystemMessageInner)

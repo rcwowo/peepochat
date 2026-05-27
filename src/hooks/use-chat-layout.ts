@@ -76,20 +76,6 @@ export function useChatLayout({
     [savedSplits]
   )
 
-  const navigateToChannel = React.useCallback(
-    (login: string) => {
-      const normalized = login.trim().replace(/^#/, "").toLowerCase()
-      if (!normalized) return
-
-      updateConfig((current) => ({
-        ...current,
-        twitch: { ...current.twitch, activeChannelLogin: normalized },
-        layout: { ...current.layout, activeSplitId: null },
-      }))
-    },
-    [updateConfig]
-  )
-
   const selectSplit = React.useCallback(
     (splitId: string) => {
       updateConfig((current) => {
@@ -383,7 +369,6 @@ export function useChatLayout({
     isSplitView,
     channelsInSplits,
     visibleChannelLogins,
-    navigateToChannel,
     selectSplit,
     openSplitView,
     addSplitChannel,

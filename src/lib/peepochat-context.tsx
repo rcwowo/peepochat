@@ -19,7 +19,6 @@ import type {
   TwitchAccount,
   TwitchChannel,
 } from "@/lib/peepochat-config"
-import { getAccount, hasAccount } from "@/lib/peepochat-config"
 import type { ComposerEmoteCatalog } from "@/lib/chat-emote-catalog"
 import type { TwitchConnectionState } from "@/lib/twitch-chat"
 
@@ -45,10 +44,7 @@ export type PeeepochatConfigContextValue = {
   removeChannel: (login: string) => void
 }
 
-export type PeeepochatChatContextValue = {
-  connectionState: TwitchConnectionState
-  rooms: Record<string, TwitchChatRoomState>
-  logs: string[]
+export type PeeepochatLayoutContextValue = {
   savedSplits: ChatSplit[]
   activeSplitId: string | null
   sidebarOrder: string[]
@@ -56,6 +52,18 @@ export type PeeepochatChatContextValue = {
   isSplitView: boolean
   channelsInSplits: Set<string>
   visibleChannelLogins: string[]
+  selectSplit: (splitId: string) => void
+  openSplitView: (channels: string[]) => void
+  addSplitChannel: (login: string) => void
+  removeSplitChannel: (login: string) => void
+  unsplit: (splitId: string) => void
+  reorderSidebar: (activeId: string, overId: string) => void
+}
+
+export type PeeepochatChatContextValue = {
+  connectionState: TwitchConnectionState
+  rooms: Record<string, TwitchChatRoomState>
+  logs: string[]
   getTimeline: (login: string) => TwitchTimelineItem[]
   getRoom: (login: string) => TwitchChatRoomState | null
   getRoomId: (login: string) => string | null
@@ -71,19 +79,16 @@ export type PeeepochatChatContextValue = {
   ) => boolean
   canSendChat: boolean
   hasBadgeSupport: boolean
-  selectSplit: (splitId: string) => void
-  openSplitView: (channels: string[]) => void
-  addSplitChannel: (login: string) => void
-  removeSplitChannel: (login: string) => void
-  unsplit: (splitId: string) => void
-  reorderSidebar: (activeId: string, overId: string) => void
 }
 
 export type PeeepochatContextValue = PeeepochatConfigContextValue &
+  PeeepochatLayoutContextValue &
   PeeepochatChatContextValue
 
 const PeeepochatConfigContext =
   React.createContext<PeeepochatConfigContextValue | null>(null)
+const PeeepochatLayoutContext =
+  React.createContext<PeeepochatLayoutContextValue | null>(null)
 const PeeepochatChatContext =
   React.createContext<PeeepochatChatContextValue | null>(null)
 
@@ -97,13 +102,25 @@ export function usePeeepochatSettings() {
   return context
 }
 
+export function usePeeepochatLayout() {
+  const config = React.useContext(PeeepochatConfigContext)
+  const layout = React.useContext(PeeepochatLayoutContext)
+  if (!config || !layout) {
+    throw new Error(
+      "usePeeepochatLayout must be used within a PeeepochatProvider"
+    )
+  }
+  return { ...config, ...layout }
+}
+
 export function usePeeepochat() {
   const config = React.useContext(PeeepochatConfigContext)
+  const layout = React.useContext(PeeepochatLayoutContext)
   const chat = React.useContext(PeeepochatChatContext)
-  if (!config || !chat) {
+  if (!config || !layout || !chat) {
     throw new Error("usePeeepochat must be used within a PeeepochatProvider")
   }
-  return { ...config, ...chat }
+  return { ...config, ...layout, ...chat }
 }
 
 export function PeeepochatProvider({ children }: { children: React.ReactNode }) {
@@ -120,6 +137,7 @@ export function PeeepochatProvider({ children }: { children: React.ReactNode }) 
     config,
     updateConfig,
   })
+  const hasAccountValue = account !== null
   const {
     connectionState,
     rooms,
@@ -140,14 +158,11 @@ export function PeeepochatProvider({ children }: { children: React.ReactNode }) 
     useChatBadges(account)
 
   const connectOptions = React.useMemo(
-    () => {
-      const twitchAccount = getAccount(config)
-      return {
-        accessToken: twitchAccount?.accessToken,
-        nick: twitchAccount?.login,
-      }
-    },
-    [config]
+    () => ({
+      accessToken: account?.accessToken,
+      nick: account?.login,
+    }),
+    [account?.accessToken, account?.login]
   )
 
   const syncAllChannels = React.useCallback(
@@ -165,7 +180,6 @@ export function PeeepochatProvider({ children }: { children: React.ReactNode }) 
     isSplitView,
     channelsInSplits,
     visibleChannelLogins,
-    navigateToChannel,
     selectSplit,
     openSplitView,
     addSplitChannel,
@@ -177,21 +191,13 @@ export function PeeepochatProvider({ children }: { children: React.ReactNode }) 
   const {
     channels,
     activeChannelLogin,
-    setActiveChannel: setActiveChannelLogin,
+    setActiveChannel,
     addChannel,
     removeChannel,
   } = useTwitchChannels({
     config,
     updateConfig,
-    onActiveChannelChange: navigateToChannel,
   })
-
-  const setActiveChannel = React.useCallback(
-    (login: string) => {
-      setActiveChannelLogin(login)
-    },
-    [setActiveChannelLogin]
-  )
 
   const channelLogins = React.useMemo(
     () => channels.map((channel) => channel.login),
@@ -200,7 +206,7 @@ export function PeeepochatProvider({ children }: { children: React.ReactNode }) 
 
   React.useEffect(() => {
     if (!ready || needsOnboarding) return
-    if (!hasAccount(config)) return
+    if (!hasAccountValue) return
     if (channelLogins.length === 0) return
 
     void syncAllChannels(channelLogins).catch((error) => {
@@ -208,7 +214,13 @@ export function PeeepochatProvider({ children }: { children: React.ReactNode }) 
         toast.error(error.message)
       }
     })
-  }, [channelLogins, config, needsOnboarding, ready, syncAllChannels])
+  }, [
+    channelLogins,
+    hasAccountValue,
+    needsOnboarding,
+    ready,
+    syncAllChannels,
+  ])
 
   React.useEffect(() => {
     for (const login of visibleChannelLogins) {
@@ -266,7 +278,7 @@ export function PeeepochatProvider({ children }: { children: React.ReactNode }) 
 
   React.useEffect(() => {
     if (!ready || needsOnboarding || autoConnectedRef.current) return
-    if (!hasAccount(config)) return
+    if (!hasAccountValue) return
 
     autoConnectedRef.current = true
 
@@ -326,11 +338,8 @@ export function PeeepochatProvider({ children }: { children: React.ReactNode }) 
     ]
   )
 
-  const chatValue = React.useMemo<PeeepochatChatContextValue>(
+  const layoutValue = React.useMemo<PeeepochatLayoutContextValue>(
     () => ({
-      connectionState,
-      rooms,
-      logs,
       savedSplits,
       activeSplitId,
       sidebarOrder,
@@ -338,6 +347,35 @@ export function PeeepochatProvider({ children }: { children: React.ReactNode }) 
       isSplitView,
       channelsInSplits,
       visibleChannelLogins,
+      selectSplit,
+      openSplitView,
+      addSplitChannel,
+      removeSplitChannel,
+      unsplit,
+      reorderSidebar,
+    }),
+    [
+      savedSplits,
+      activeSplitId,
+      sidebarOrder,
+      splitChannels,
+      isSplitView,
+      channelsInSplits,
+      visibleChannelLogins,
+      selectSplit,
+      openSplitView,
+      addSplitChannel,
+      removeSplitChannel,
+      unsplit,
+      reorderSidebar,
+    ]
+  )
+
+  const chatValue = React.useMemo<PeeepochatChatContextValue>(
+    () => ({
+      connectionState,
+      rooms,
+      logs,
       getTimeline,
       getRoom,
       getRoomId,
@@ -349,24 +387,11 @@ export function PeeepochatProvider({ children }: { children: React.ReactNode }) 
       sendChatMessage: sendMessage,
       canSendChat,
       hasBadgeSupport,
-      selectSplit,
-      openSplitView,
-      addSplitChannel,
-      removeSplitChannel,
-      unsplit,
-      reorderSidebar,
     }),
     [
       connectionState,
       rooms,
       logs,
-      savedSplits,
-      activeSplitId,
-      sidebarOrder,
-      splitChannels,
-      isSplitView,
-      channelsInSplits,
-      visibleChannelLogins,
       getTimeline,
       getRoom,
       getRoomId,
@@ -378,20 +403,16 @@ export function PeeepochatProvider({ children }: { children: React.ReactNode }) 
       sendMessage,
       canSendChat,
       hasBadgeSupport,
-      selectSplit,
-      openSplitView,
-      addSplitChannel,
-      removeSplitChannel,
-      unsplit,
-      reorderSidebar,
     ]
   )
 
   return (
     <PeeepochatConfigContext.Provider value={configValue}>
-      <PeeepochatChatContext.Provider value={chatValue}>
-        {children}
-      </PeeepochatChatContext.Provider>
+      <PeeepochatLayoutContext.Provider value={layoutValue}>
+        <PeeepochatChatContext.Provider value={chatValue}>
+          {children}
+        </PeeepochatChatContext.Provider>
+      </PeeepochatLayoutContext.Provider>
     </PeeepochatConfigContext.Provider>
   )
 }

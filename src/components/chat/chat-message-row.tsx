@@ -1,3 +1,5 @@
+import * as React from "react"
+
 import { ChatBadgeList } from "@/components/chat/chat-badge"
 import { ChatMessageBody } from "@/components/chat/chat-message-body"
 import { ChatReplyPreview } from "@/components/chat/chat-reply-preview"
@@ -13,7 +15,7 @@ import type { TwitchChatMessage } from "@/lib/twitch-chat"
 import { cn } from "@/lib/utils"
 import { CopyIcon, CornerUpLeftIcon } from "lucide-react"
 
-export function ChatMessageRow({
+function ChatMessageRowInner({
   message,
   timestampFormat,
   badgeCatalog,
@@ -122,3 +124,5 @@ export function ChatMessageRow({
     </div>
   )
 }
+
+export const ChatMessageRow = React.memo(ChatMessageRowInner)

@@ -76,13 +76,37 @@ export function useChatBadges(account: TwitchAccount | null) {
     [account]
   )
 
+  type MergedEntry = {
+    global: ChatBadgeCatalog
+    channel: ChatBadgeCatalog
+    merged: ChatBadgeCatalog
+  }
+  const mergedCatalogsRef = React.useRef(new Map<string, MergedEntry>())
+
   const getBadgeCatalog = React.useCallback(
     (roomId: string | null): ChatBadgeCatalog => {
-      const channelCatalog = roomId ? channelCatalogs[roomId] : null
-      return mergeBadgeCatalogs(
-        globalCatalog,
-        channelCatalog ?? createEmptyBadgeCatalog()
-      )
+      if (!roomId) {
+        return globalCatalog
+      }
+
+      const channelCatalog = channelCatalogs[roomId]
+      if (!channelCatalog) {
+        return globalCatalog
+      }
+
+      const cache = mergedCatalogsRef.current
+      const cached = cache.get(roomId)
+      if (
+        cached &&
+        cached.global === globalCatalog &&
+        cached.channel === channelCatalog
+      ) {
+        return cached.merged
+      }
+
+      const merged = mergeBadgeCatalogs(globalCatalog, channelCatalog)
+      cache.set(roomId, { global: globalCatalog, channel: channelCatalog, merged })
+      return merged
     },
     [channelCatalogs, globalCatalog]
   )

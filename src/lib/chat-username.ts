@@ -1,26 +1,77 @@
 const USERNAME_COLOR_CACHE = new Map<string, string>()
 
+let cachedBackground: string | null = null
+let backgroundObserver: MutationObserver | null = null
+
+function readBackgroundColor(): string {
+  if (typeof document === "undefined" || !document.body) {
+    return ""
+  }
+  return getComputedStyle(document.body).backgroundColor
+}
+
+function invalidateBackgroundCache() {
+  cachedBackground = null
+  USERNAME_COLOR_CACHE.clear()
+}
+
+function ensureBackgroundObserver() {
+  if (
+    typeof document === "undefined" ||
+    typeof MutationObserver === "undefined" ||
+    backgroundObserver !== null
+  ) {
+    return
+  }
+
+  backgroundObserver = new MutationObserver(() => {
+    invalidateBackgroundCache()
+  })
+
+  const root = document.documentElement
+  if (root) {
+    backgroundObserver.observe(root, {
+      attributes: true,
+      attributeFilter: ["class", "data-theme", "style"],
+    })
+  }
+  if (document.body) {
+    backgroundObserver.observe(document.body, {
+      attributes: true,
+      attributeFilter: ["class", "data-theme", "style"],
+    })
+  }
+}
+
+function getBackgroundColor(): string {
+  if (cachedBackground !== null) {
+    return cachedBackground
+  }
+  ensureBackgroundObserver()
+  cachedBackground = readBackgroundColor()
+  return cachedBackground
+}
+
 export function getReadableUsernameColor(color: string | null | undefined): string | undefined {
   if (!color || typeof document === "undefined") {
     return color ?? undefined
   }
 
-  const background = getComputedStyle(document.body).backgroundColor
-  const cacheKey = `${color}:${background}`
-  const cached = USERNAME_COLOR_CACHE.get(cacheKey)
+  const cached = USERNAME_COLOR_CACHE.get(color)
   if (cached) {
     return cached
   }
 
+  const background = getBackgroundColor()
   const foreground = parseCssColor(color)
-  const backdrop = parseCssColor(background)
+  const backdrop = background ? parseCssColor(background) : null
   if (!foreground || !backdrop) {
     return color
   }
 
   const ratio = contrastRatio(foreground, backdrop)
   if (ratio >= 4.5) {
-    USERNAME_COLOR_CACHE.set(cacheKey, color)
+    USERNAME_COLOR_CACHE.set(color, color)
     return color
   }
 
@@ -38,12 +89,12 @@ export function getReadableUsernameColor(color: string | null | undefined): stri
 
     if (contrastRatio(adjusted, backdrop) >= 4.5) {
       const hex = rgbToHex(adjusted)
-      USERNAME_COLOR_CACHE.set(cacheKey, hex)
+      USERNAME_COLOR_CACHE.set(color, hex)
       return hex
     }
   }
 
-  USERNAME_COLOR_CACHE.set(cacheKey, color)
+  USERNAME_COLOR_CACHE.set(color, color)
   return color
 }
 

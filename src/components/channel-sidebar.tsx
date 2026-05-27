@@ -3,7 +3,7 @@ import { Columns2Icon, PlusIcon, Trash2Icon, UngroupIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { SortableSidebarList } from "@/components/channel-sidebar-list"
-import { usePeeepochat } from "@/lib/peepochat-context"
+import { usePeeepochatLayout } from "@/lib/peepochat-context"
 import { CHANNEL_ORDER_PREFIX, SPLIT_ORDER_PREFIX } from "@/lib/sidebar-order"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -415,7 +415,7 @@ export function ChannelSidebar() {
     addSplitChannel,
     unsplit,
     reorderSidebar,
-  } = usePeeepochat()
+  } = usePeeepochatLayout()
   const [addDialogOpen, setAddDialogOpen] = React.useState(false)
 
   const splitById = React.useMemo(

@@ -68,11 +68,11 @@ type ChatPaneProps = {
   showBadgeFallback: boolean
   joined?: boolean
   showRemoveSplit?: boolean
-  onRemoveSplit?: () => void
+  onRemoveSplit?: (channelLogin: string) => void
   className?: string
 }
 
-export function ChatPane({
+function ChatPaneInner({
   channelLogin,
   displayName,
   profileImageUrl,
@@ -224,7 +224,7 @@ export function ChatPane({
               size="icon-xs"
               className="text-muted-foreground hover:text-foreground"
               aria-label={`Remove #${channelLogin} from split`}
-              onClick={onRemoveSplit}
+              onClick={() => onRemoveSplit(channelLogin)}
             >
               <XIcon className="size-3.5" />
             </Button>
@@ -302,3 +302,5 @@ export function ChatPane({
     </div>
   )
 }
+
+export const ChatPane = React.memo(ChatPaneInner)

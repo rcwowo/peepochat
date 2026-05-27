@@ -915,7 +915,17 @@ export function useTwitchChat() {
       const normalized = [
         ...new Set(channelLogins.map(normalizeChannelLogin).filter(Boolean)),
       ]
+
+      const previous = syncedChannelsRef.current
+      const unchanged =
+        previous.length === normalized.length &&
+        previous.every((login, index) => login === normalized[index])
+
       syncedChannelsRef.current = normalized
+
+      if (unchanged && normalized.length > 0 && clientRef.current?.isConnected) {
+        return Promise.resolve()
+      }
 
       if (normalized.length === 0) {
         clientRef.current?.close()

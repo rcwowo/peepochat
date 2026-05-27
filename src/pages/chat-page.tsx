@@ -51,7 +51,7 @@ export function ChatPage() {
               showBadgeFallback={!hasBadgeSupport}
               joined={room?.joined ?? false}
               showRemoveSplit
-              onRemoveSplit={() => removeSplitChannel(login)}
+              onRemoveSplit={removeSplitChannel}
             />
           )
         })}
@@ -62,6 +62,7 @@ export function ChatPage() {
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
       <ChatPane
+        key={activeChannelLogin}
         channelLogin={activeChannelLogin}
         displayName={channelMeta.get(activeChannelLogin)?.displayName}
         profileImageUrl={channelMeta.get(activeChannelLogin)?.profileImageUrl}

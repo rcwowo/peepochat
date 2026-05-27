@@ -16,6 +16,7 @@ import {
   splitOrderKey,
 } from "@/lib/sidebar-order"
 import { fetchTwitchUsersByLogin } from "@/lib/twitch-api"
+import { normalizeChannelLogin } from "@/lib/twitch-channel"
 
 function pruneSplitsAfterChannelRemoval(
   splits: AppConfig["layout"]["splits"],
@@ -45,17 +46,15 @@ function pruneSplitsAfterChannelRemoval(
 export function useTwitchChannels({
   config,
   updateConfig,
-  onActiveChannelChange,
 }: {
   config: AppConfig
   updateConfig: (updater: AppConfig | ((current: AppConfig) => AppConfig)) => void
-  onActiveChannelChange?: (login: string) => void
 }) {
   const activeChannelLogin = getActiveChannelLogin(config)
 
   const setActiveChannel = React.useCallback(
     (login: string) => {
-      const normalized = login.trim().replace(/^#/, "").toLowerCase()
+      const normalized = normalizeChannelLogin(login)
       if (!normalized) {
         return
       }
@@ -74,17 +73,16 @@ export function useTwitchChannels({
               ? current.twitch.channels
               : [...current.twitch.channels, { login: normalized }],
           },
+          layout: { ...current.layout, activeSplitId: null },
         }
       })
-
-      onActiveChannelChange?.(normalized)
     },
-    [onActiveChannelChange, updateConfig]
+    [updateConfig]
   )
 
   const addChannel = React.useCallback(
     async (login: string) => {
-      const normalized = login.trim().replace(/^#/, "").toLowerCase()
+      const normalized = normalizeChannelLogin(login)
       if (!normalized) {
         throw new Error("Enter a channel name.")
       }
@@ -130,7 +128,7 @@ export function useTwitchChannels({
           {
             ...current,
             twitch: { ...current.twitch, channels: nextChannels, activeChannelLogin: normalized },
-            layout: current.layout,
+            layout: { ...current.layout, activeSplitId: null },
           },
           order
         )
@@ -142,19 +140,18 @@ export function useTwitchChannels({
             channels: applied.channels,
             activeChannelLogin: normalized,
           },
-          layout: applied.layout,
+          layout: { ...applied.layout, activeSplitId: null },
         }
       })
 
-      onActiveChannelChange?.(normalized)
       return normalized
     },
-    [config, onActiveChannelChange, updateConfig]
+    [config, updateConfig]
   )
 
   const removeChannel = React.useCallback(
     (login: string) => {
-      const normalized = login.trim().replace(/^#/, "").toLowerCase()
+      const normalized = normalizeChannelLogin(login)
 
       updateConfig((current) => {
         const channels = current.twitch.channels.filter(
@@ -203,22 +200,8 @@ export function useTwitchChannels({
           layout: applied.layout,
         }
       })
-
-      if (activeChannelLogin === normalized) {
-        const next = config.twitch.channels.find(
-          (channel) => channel.login !== normalized
-        )
-        if (next) {
-          onActiveChannelChange?.(next.login)
-        }
-      }
     },
-    [
-      activeChannelLogin,
-      config.twitch.channels,
-      onActiveChannelChange,
-      updateConfig,
-    ]
+    [updateConfig]
   )
 
   return {
