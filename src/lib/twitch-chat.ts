@@ -74,6 +74,7 @@ export type TwitchSystemMessage = {
   text: string
   headline: string
   details: string | null
+  detailsEmotes?: TwitchEmote[]
   receivedAt: string
   event: "subscription" | "raid" | "announcement" | "connection" | "notice" | "status"
   level: "info" | "success" | "warning" | "error"
@@ -313,7 +314,11 @@ export class TwitchChatClient {
    * Send a chat message to a joined channel. Requires an authenticated session
    * (non-anonymous nick) and `chat:edit` on the OAuth token.
    */
-  sendMessage(channel: string, message: string): boolean {
+  sendMessage(
+    channel: string,
+    message: string,
+    options: { replyParentMessageId?: string | null } = {}
+  ): boolean {
     const normalized = normalizeChannelLogin(channel)
     const text = message.replace(/\r?\n/g, " ").trim()
 
@@ -325,7 +330,11 @@ export class TwitchChatClient {
       return false
     }
 
-    this.ws.send(`PRIVMSG #${normalized} :${text}`)
+    const replyParentMessageId = options.replyParentMessageId?.trim()
+    const replyTag = replyParentMessageId
+      ? `@reply-parent-msg-id=${replyParentMessageId} `
+      : ""
+    this.ws.send(`${replyTag}PRIVMSG #${normalized} :${text}`)
     return true
   }
 
@@ -624,6 +633,7 @@ export function createLocalChatMessage(params: {
   badges: TwitchBadge[]
   isModerator?: boolean
   isSubscriber?: boolean
+  reply?: TwitchChatReply | null
 }): TwitchChatMessage {
   const badges = params.badges
   const id =
@@ -642,7 +652,7 @@ export function createLocalChatMessage(params: {
     receivedAt: new Date().toISOString(),
     badges,
     emotes: [],
-    reply: null,
+    reply: params.reply ?? null,
     flags: {
       isBroadcaster: badges.some((badge) => badge.set === "broadcaster"),
       isModerator:
@@ -673,6 +683,10 @@ function parseUserNotice(raw: string): TwitchSystemMessage | null {
   const event = getUserNoticeEvent(msgId)
   const headline = systemText || getUserNoticeHeadline(msgId)
   const details = trailingText.trim() || null
+  const detailsEmotes =
+    details && (parsed.tags.get("emotes") ?? "").trim()
+      ? parseEmotesTag(parsed.tags.get("emotes") ?? "", details)
+      : []
   const announcementTheme = parsed.tags.get("msg-param-color") ?? null
 
   const text = [headline, details].filter(Boolean).join(" ").trim() ||
@@ -687,6 +701,7 @@ function parseUserNotice(raw: string): TwitchSystemMessage | null {
     text,
     headline,
     details,
+    detailsEmotes,
     receivedAt: parseTmiTimestamp(parsed.tags),
     event,
     level: event === "subscription" || event === "raid" ? "success" : "info",
@@ -770,7 +785,7 @@ function parseEmotesTag(raw: string, text: string): TwitchEmote[] {
         id,
         code,
         provider: "twitch",
-        imageUrl: `https://static-cdn.jtvnw.net/emoticons/v2/${encodeURIComponent(id)}/static/dark/1.0`,
+        imageUrl: `https://static-cdn.jtvnw.net/emoticons/v2/${encodeURIComponent(id)}/animated/dark/1.0`,
         start: parsedStart,
         end: parsedEnd,
       })

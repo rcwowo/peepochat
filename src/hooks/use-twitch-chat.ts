@@ -551,6 +551,46 @@ export function useTwitchChat() {
             roomId: room.roomId ?? message.roomId,
           }))
         }
+
+        if (
+          message.event === "subscription" &&
+          message.details &&
+          message.detailsEmotes &&
+          message.detailsEmotes.length > 0
+        ) {
+          const roomId = message.roomId
+          const thirdPartyCatalog = roomId
+            ? (emoteCatalogsRef.current.get(roomId) ?? null)
+            : null
+
+          const hydrated = hydrateRoomMessage(
+            {
+              id: message.id,
+              channel: login,
+              roomId: message.roomId,
+              userName: message.actor?.userName ?? "system",
+              displayName: message.actor?.displayName ?? "System",
+              text: message.details,
+              color: message.actor?.color ?? null,
+              receivedAt: message.receivedAt,
+              badges: [],
+              emotes: message.detailsEmotes,
+              reply: null,
+              flags: {
+                isBroadcaster: false,
+                isModerator: false,
+                isSubscriber: false,
+                isVip: false,
+                isFirst: false,
+                isAction: false,
+              },
+            },
+            thirdPartyCatalog
+          )
+
+          message = { ...message, detailsEmotes: hydrated.emotes }
+        }
+
         appendRoomSystemMessage(login, message)
         return
       }
@@ -571,7 +611,13 @@ export function useTwitchChat() {
         return next
       })
     },
-    [appendRoomSystemMessage, mergeTimeline, partitionTimeline, updateRoom]
+    [
+      appendRoomSystemMessage,
+      hydrateRoomMessage,
+      mergeTimeline,
+      partitionTimeline,
+      updateRoom,
+    ]
   )
 
   const shouldApplyRecentMessagesFetch = React.useCallback(
@@ -1108,12 +1154,18 @@ export function useTwitchChat() {
   )
 
   const sendMessage = React.useCallback(
-    (login: string, message: string): boolean => {
+    (
+      login: string,
+      message: string,
+      reply: import("@/lib/twitch-chat").TwitchChatReply | null = null
+    ): boolean => {
       const normalized = normalizeChannelLogin(login)
       const text = message.replace(/\r?\n/g, " ").trim()
       if (!text) return false
 
-      const sent = getClient().sendMessage(normalized, text)
+      const sent = getClient().sendMessage(normalized, text, {
+        replyParentMessageId: reply?.parentMessageId ?? null,
+      })
       if (!sent) return false
 
       const { userLogin, userDisplayName } = emoteLoadContextRef.current
@@ -1133,6 +1185,7 @@ export function useTwitchChat() {
             badges: sender.badges,
             isModerator: sender.isModerator,
             isSubscriber: sender.isSubscriber,
+            reply,
           })
         )
       }

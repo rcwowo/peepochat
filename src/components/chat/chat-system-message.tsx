@@ -81,12 +81,14 @@ function NoticeBlock({
   timestampFormat,
   borderColor,
   icon,
+  showDetails = true,
   children,
 }: {
   message: TwitchSystemMessage
   timestampFormat: MessageTimestampFormat
   borderColor: string
   icon: React.ReactNode
+  showDetails?: boolean
   children: React.ReactNode
 }) {
   return (
@@ -106,7 +108,7 @@ function NoticeBlock({
             <span className="min-w-0">{children}</span>
           </span>
 
-          {message.details ? (
+          {showDetails && message.details ? (
             <span className="chat-notice-user-message mt-1 block pl-6 leading-5">
               {message.details}
             </span>
@@ -139,8 +141,17 @@ function SubscriptionNotice({
           <Star className="size-4 fill-current" aria-hidden />
         )
       }
+      showDetails={false}
     >
       <span className="chat-notice-body">{message.headline}</span>
+      {message.details ? (
+        <span className="chat-notice-user-message mt-1 block leading-5">
+          <ChatMessageBody
+            text={message.details}
+            emotes={message.detailsEmotes ?? []}
+          />
+        </span>
+      ) : null}
     </NoticeBlock>
   )
 }

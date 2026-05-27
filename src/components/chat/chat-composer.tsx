@@ -1,12 +1,14 @@
 import * as React from "react"
-import { AlertCircleIcon } from "lucide-react"
+import { AlertCircleIcon, XIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { ChatSuggestions } from "@/components/chat/chat-suggestions"
 import { EmotePicker } from "@/components/chat/emote-picker"
+import { ChatReplyPreview } from "@/components/chat/chat-reply-preview"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { usePeeepochat } from "@/lib/peepochat-context"
+import type { TwitchChatReply } from "@/lib/twitch-chat"
 import {
   applyEmoteSuggestion,
   createEmoteCompleterState,
@@ -49,6 +51,7 @@ export function ChatComposer({
 
   const [value, setValue] = React.useState("")
   const [error, setError] = React.useState("")
+  const [reply, setReply] = React.useState<TwitchChatReply | null>(null)
   const [completer, setCompleter] = React.useState<EmoteCompleterState>(() =>
     createEmoteCompleterState()
   )
@@ -58,7 +61,7 @@ export function ChatComposer({
     completerRef.current = completer
   })
 
-  const inputRef = React.useRef<HTMLInputElement>(null)
+  const inputRef = React.useRef<HTMLTextAreaElement>(null)
   const historyRef = React.useRef<string[]>([])
   const historyIndexRef = React.useRef(-1)
 
@@ -245,6 +248,62 @@ export function ChatComposer({
     [applyTabMatch, completeSuggestion, emoteList, value]
   )
 
+  const resizeTextarea = React.useCallback(() => {
+    const el = inputRef.current
+    if (!el) return
+    const max = 160
+    el.style.height = "0px"
+    const next = el.scrollHeight
+    if (next > max) {
+      el.style.overflowY = "auto"
+      el.style.height = `${max}px`
+    } else {
+      el.style.overflowY = "hidden"
+      el.style.height = `${Math.max(next, 36)}px`
+    }
+  }, [])
+
+  React.useLayoutEffect(() => {
+    resizeTextarea()
+  }, [resizeTextarea, value])
+
+  React.useEffect(() => {
+    const handler = (event: Event) => {
+      const custom = event as CustomEvent<{ channelLogin?: string; text?: string }>
+      if (!custom.detail || custom.detail.channelLogin !== channelLogin) return
+      const text = custom.detail.text ?? ""
+      if (!text) return
+      setValue((current) => (current ? `${current} ${text}` : text))
+      setCompleter(createEmoteCompleterState())
+      requestAnimationFrame(() => {
+        const el = inputRef.current
+        if (!el) return
+        el.focus()
+        const end = el.value.length
+        el.setSelectionRange(end, end)
+      })
+    }
+
+    window.addEventListener("peepochat:composer-insert", handler)
+    return () => window.removeEventListener("peepochat:composer-insert", handler)
+  }, [channelLogin])
+
+  React.useEffect(() => {
+    const handler = (event: Event) => {
+      const custom = event as CustomEvent<{
+        channelLogin?: string
+        reply?: TwitchChatReply | null
+      }>
+      if (!custom.detail || custom.detail.channelLogin !== channelLogin) return
+      if (!custom.detail.reply) return
+      setReply(custom.detail.reply)
+      requestAnimationFrame(() => inputRef.current?.focus())
+    }
+
+    window.addEventListener("peepochat:composer-reply", handler)
+    return () => window.removeEventListener("peepochat:composer-reply", handler)
+  }, [channelLogin])
+
   const sendCurrentMessage = () => {
     const message = value.trim()
     if (!message) return
@@ -256,7 +315,7 @@ export function ChatComposer({
       return
     }
 
-    const sent = sendChatMessage(channelLogin, message)
+    const sent = sendChatMessage(channelLogin, message, reply)
     if (!sent) {
       setError("Message could not be sent. Check your connection and login.")
       toast.error("Failed to send message")
@@ -264,12 +323,13 @@ export function ChatComposer({
     }
 
     setValue("")
+    setReply(null)
     setCompleter(createEmoteCompleterState())
     historyRef.current = [...historyRef.current, message].slice(-50)
     historyIndexRef.current = -1
   }
 
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const input = event.currentTarget
 
     if (event.key === "Tab") {
@@ -345,9 +405,18 @@ export function ChatComposer({
     }
 
     if (event.key === "Enter") {
-      event.preventDefault()
-      sendCurrentMessage()
-      return
+      if (!event.shiftKey) {
+        event.preventDefault()
+        sendCurrentMessage()
+        return
+      }
+    }
+
+    if (event.key === "Escape") {
+      if (reply) {
+        event.preventDefault()
+        setReply(null)
+      }
     }
   }
 
@@ -360,6 +429,29 @@ export function ChatComposer({
         </div>
       ) : null}
 
+      {reply ? (
+        <div className="px-2 pt-2">
+          <div className="flex items-start justify-between gap-2 rounded-md border border-border/60 bg-muted/20 px-2 py-1.5">
+            <div className="min-w-0">
+              <div className="text-[11px] font-medium text-muted-foreground">
+                Replying to
+              </div>
+              <ChatReplyPreview reply={reply} />
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              aria-label="Cancel reply"
+              className="mt-0.5 text-muted-foreground hover:text-foreground"
+              onClick={() => setReply(null)}
+            >
+              <XIcon className="size-3.5" />
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
       <div className="relative flex items-center gap-1 px-2 py-2">
         <ChatSuggestions
           open={showSuggestions}
@@ -369,9 +461,8 @@ export function ChatComposer({
             completeSuggestion(suggestion, { reset: true })
           }
         />
-        <Input
+        <Textarea
           ref={inputRef}
-          type="text"
           value={value}
           disabled={disabled}
           maxLength={MESSAGE_LIMIT}
@@ -379,7 +470,8 @@ export function ChatComposer({
           autoCapitalize="off"
           autoCorrect="off"
           spellCheck={false}
-          className="h-9 flex-1 border-border/50 bg-background/40 text-sm shadow-none backdrop-blur-sm focus-visible:ring-1 focus-visible:ring-border/40 dark:bg-input/30"
+          rows={1}
+          className="min-h-9 max-h-40 flex-1 resize-none overflow-y-hidden border-border/50 bg-background/40 py-2 text-sm leading-5 shadow-none backdrop-blur-sm focus-visible:ring-1 focus-visible:ring-border/40 dark:bg-input/30"
           onChange={(event) => {
             const nextValue = event.target.value
             setValue(nextValue)

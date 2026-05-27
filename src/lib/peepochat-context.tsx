@@ -64,7 +64,11 @@ export type PeeepochatChatContextValue = {
   ensureComposerEmotes: (login: string, roomId: string | null) => void
   isComposerEmotesLoading: (login: string) => boolean
   refreshEmotes: (login: string) => Promise<boolean>
-  sendChatMessage: (login: string, message: string) => boolean
+  sendChatMessage: (
+    login: string,
+    message: string,
+    reply?: import("@/lib/twitch-chat").TwitchChatReply | null
+  ) => boolean
   canSendChat: boolean
   hasBadgeSupport: boolean
   selectSplit: (splitId: string) => void

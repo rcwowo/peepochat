@@ -1,6 +1,7 @@
 import { ChatBadgeList } from "@/components/chat/chat-badge"
 import { ChatMessageBody } from "@/components/chat/chat-message-body"
 import { ChatReplyPreview } from "@/components/chat/chat-reply-preview"
+import { Button } from "@/components/ui/button"
 import {
   resolveMessageBadges,
   type ChatBadgeCatalog,
@@ -10,6 +11,7 @@ import type { MessageTimestampFormat } from "@/lib/peepochat-config"
 import { formatMessageTimestamp } from "@/lib/peepochat-context"
 import type { TwitchChatMessage } from "@/lib/twitch-chat"
 import { cn } from "@/lib/utils"
+import { CopyIcon, CornerUpLeftIcon } from "lucide-react"
 
 export function ChatMessageRow({
   message,
@@ -31,10 +33,52 @@ export function ChatMessageRow({
   return (
     <div
       className={cn(
-        "chat-message group px-3 py-1 leading-5",
+        "chat-message group relative px-3 py-1 pr-14 leading-5",
         isHistorical && "chat-message--historical"
       )}
     >
+      <div className="pointer-events-none absolute top-0 right-2 z-10 -translate-y-[13px] opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100">
+        <div className="pointer-events-auto flex items-center gap-1 rounded-md bg-background/80 p-0.5 shadow-sm ring-1 ring-border/40 backdrop-blur-sm">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            aria-label="Copy message"
+            className="text-muted-foreground hover:text-foreground"
+            onClick={() => {
+              void navigator.clipboard?.writeText(message.text)
+            }}
+          >
+            <CopyIcon className="size-3.5" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            aria-label="Reply"
+            className="text-muted-foreground hover:text-foreground"
+            onClick={() => {
+              window.dispatchEvent(
+                new CustomEvent("peepochat:composer-reply", {
+                  detail: {
+                    channelLogin: message.channel,
+                    reply: {
+                      parentMessageId: message.id,
+                      parentDisplayName: message.displayName,
+                      parentUserName: message.userName,
+                      parentBody: message.text,
+                      parentColor: message.color,
+                    },
+                  },
+                })
+              )
+            }}
+          >
+            <CornerUpLeftIcon className="size-3.5" />
+          </Button>
+        </div>
+      </div>
+
       {message.reply ? (
         <div className="chat-reply mb-0.5">
           <ChatReplyPreview reply={message.reply} />
