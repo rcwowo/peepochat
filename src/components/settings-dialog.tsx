@@ -1,11 +1,11 @@
 import * as React from "react"
 import {
-  BrushIcon,
+  SlidersHorizontalIcon,
   DatabaseIcon,
   InfoIcon,
+  PaintbrushIcon,
   ScrollTextIcon,
-  SparklesIcon,
-  ZapIcon,
+  BellIcon,
 } from "lucide-react"
 
 import {
@@ -40,35 +40,30 @@ const SETTINGS_CATEGORIES: {
   icon: React.ComponentType<{ className?: string }>
   separated?: boolean
 }[] = [
-  { id: "appearance", label: "Appearance", icon: BrushIcon },
-  { id: "behavior", label: "Behavior", icon: ZapIcon },
-  { id: "highlights", label: "Highlights", icon: SparklesIcon },
+  { id: "appearance", label: "Appearance", icon: PaintbrushIcon },
+  { id: "behavior", label: "Behavior", icon: SlidersHorizontalIcon },
+  { id: "highlights", label: "Highlights", icon: BellIcon },
   { id: "data", label: "Data Management", icon: DatabaseIcon },
   { id: "changelog", label: "Changelog", icon: ScrollTextIcon, separated: true },
   { id: "about", label: "About", icon: InfoIcon, separated: true },
 ]
 
 function useTooltipPointerOnlyGuard(enabled: boolean) {
-  const lastInteraction = React.useRef<"unknown" | "pointer" | "keyboard">(
-    "unknown"
-  )
-  const [, forceRender] = React.useReducer((x) => x + 1, 0)
+  const [pointerMode, setPointerMode] = React.useState(false)
 
   React.useEffect(() => {
-    if (!enabled) return
+    if (!enabled) {
+      setPointerMode(false)
+      return
+    }
 
-    lastInteraction.current = "unknown"
-    forceRender()
+    setPointerMode(false)
 
     const onPointer = () => {
-      if (lastInteraction.current === "pointer") return
-      lastInteraction.current = "pointer"
-      forceRender()
+      setPointerMode(true)
     }
     const onKeyDown = () => {
-      if (lastInteraction.current === "keyboard") return
-      lastInteraction.current = "keyboard"
-      forceRender()
+      setPointerMode(false)
     }
 
     window.addEventListener("pointerdown", onPointer, { capture: true })
@@ -82,7 +77,7 @@ function useTooltipPointerOnlyGuard(enabled: boolean) {
     }
   }, [enabled])
 
-  return lastInteraction.current === "pointer"
+  return enabled && pointerMode
 }
 
 function CategoryIconButton({

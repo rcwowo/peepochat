@@ -5,13 +5,19 @@ import type { TwitchTimelineItem } from "@/hooks/use-twitch-chat"
 import type { CachedChatView } from "@/hooks/use-chat-layout"
 import type { ChatBadgeCatalog } from "@/lib/chat-badges"
 import { useChatFontFamily } from "@/hooks/use-chat-font"
-import type { ChatConfig, MessageTimestampFormat, TwitchChannel } from "@/lib/peepochat-config"
+import type {
+  ChatConfig,
+  MessageQuickActionsConfig,
+  MessageTimestampFormat,
+  TwitchChannel,
+} from "@/lib/peepochat-config"
 import { usePeepochat } from "@/lib/peepochat-context"
 import type { TwitchChatRoomState } from "@/hooks/use-twitch-chat"
 import { cn } from "@/lib/utils"
 
 type ChatPaneBindings = {
   timestampFormat: MessageTimestampFormat
+  messageQuickActions: MessageQuickActionsConfig
   channelMeta: Map<string, TwitchChannel>
   getTimeline: (login: string) => TwitchTimelineItem[]
   getRoom: (login: string) => TwitchChatRoomState | null
@@ -40,6 +46,7 @@ function SingleChannelPane({
         profileImageUrl={meta?.profileImageUrl}
         timeline={bindings.getTimeline(login)}
         timestampFormat={bindings.timestampFormat}
+        messageQuickActions={bindings.messageQuickActions}
         badgeCatalog={bindings.getBadgeCatalog(login)}
         showBadgeFallback={!bindings.hasBadgeSupport}
         joined={room?.joined ?? false}
@@ -72,6 +79,7 @@ function SplitChannelPanes({
             profileImageUrl={meta?.profileImageUrl}
             timeline={bindings.getTimeline(login)}
             timestampFormat={bindings.timestampFormat}
+            messageQuickActions={bindings.messageQuickActions}
             badgeCatalog={bindings.getBadgeCatalog(login)}
             showBadgeFallback={!bindings.hasBadgeSupport}
             joined={room?.joined ?? false}
@@ -159,6 +167,7 @@ export function ChatPage() {
   } = usePeepochat()
 
   const timestampFormat = config.chat.messageTimestampFormat
+  const messageQuickActions = config.chat.messageQuickActions
   const chatPresentation = useChatPresentationProps(config.chat)
 
   const channelMeta = React.useMemo(() => {
@@ -168,6 +177,7 @@ export function ChatPage() {
   const bindings = React.useMemo<ChatPaneBindings>(
     () => ({
       timestampFormat,
+      messageQuickActions,
       channelMeta,
       getTimeline,
       getRoom,
@@ -177,6 +187,7 @@ export function ChatPage() {
     }),
     [
       timestampFormat,
+      messageQuickActions,
       channelMeta,
       getTimeline,
       getRoom,

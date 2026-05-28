@@ -27,6 +27,9 @@ import {
   RECENT_MESSAGES_UNAVAILABLE_TEXT,
 } from "@/lib/recent-messages"
 import {
+  LIVE_MESSAGES_PER_CHANNEL_DEFAULT,
+} from "@/lib/peepochat-config"
+import {
   createLocalChatMessage,
   TwitchChatClient,
   type TwitchBadge,
@@ -35,8 +38,6 @@ import {
   type TwitchConnectionState,
   type TwitchSystemMessage,
 } from "@/lib/twitch-chat"
-
-const LIVE_MESSAGE_LIMIT = 60
 /** Back off automatic emote reloads after a failed fetch (avoids 429 retry storms). */
 const EMOTE_LOAD_RETRY_MS = 60_000
 
@@ -113,6 +114,7 @@ export function useTwitchChat() {
   const hasAnnouncedConnectedRef = React.useRef(false)
   const syncedChannelsRef = React.useRef<string[]>([])
   const recentMessagesEnabledRef = React.useRef(true)
+  const liveMessageLimitRef = React.useRef(LIVE_MESSAGES_PER_CHANNEL_DEFAULT)
   const historyLoadedRef = React.useRef(new Set<string>())
   const historyLoadingRef = React.useRef(new Set<string>())
   const historyErrorNotifiedRef = React.useRef(new Set<string>())
@@ -168,12 +170,9 @@ export function useTwitchChat() {
     return { historical, live }
   }, [])
 
-  const mergeTimeline = React.useCallback(
-    (historical: TwitchTimelineItem[], live: TwitchTimelineItem[]) => {
-      return [...historical, ...live.slice(-LIVE_MESSAGE_LIMIT)]
-    },
-    []
-  )
+  const trimTimeline = React.useCallback((timeline: TwitchTimelineItem[]) => {
+    return timeline.slice(-liveMessageLimitRef.current)
+  }, [])
 
   const getTimelineMessageIds = React.useCallback(
     (timeline: TwitchTimelineItem[]) => {
@@ -210,11 +209,11 @@ export function useTwitchChat() {
 
         return {
           ...room,
-          timeline: mergeTimeline(historical, nextLive),
+          timeline: trimTimeline([...historical, ...nextLive]),
         }
       })
     },
-    [getTimelineMessageIds, mergeTimeline, partitionTimeline, updateRoom]
+    [getTimelineMessageIds, partitionTimeline, trimTimeline, updateRoom]
   )
 
   const prependHistoricalTimeline = React.useCallback(
@@ -237,11 +236,11 @@ export function useTwitchChat() {
 
         return {
           ...room,
-          timeline: mergeTimeline(nextHistorical, live),
+          timeline: trimTimeline([...nextHistorical, ...live]),
         }
       })
     },
-    [getTimelineMessageIds, mergeTimeline, partitionTimeline, updateRoom]
+    [getTimelineMessageIds, partitionTimeline, trimTimeline, updateRoom]
   )
 
   const clearHistoricalTimeline = React.useCallback(
@@ -576,7 +575,8 @@ export function useTwitchChat() {
           const { historical, live } = partitionTimeline(room.timeline)
           next[channelLogin] = {
             ...room,
-            timeline: mergeTimeline(historical, [
+            timeline: trimTimeline([
+              ...historical,
               ...live,
               { kind: "system" as const, message },
             ]),
@@ -588,8 +588,8 @@ export function useTwitchChat() {
     [
       appendRoomSystemMessage,
       hydrateRoomMessage,
-      mergeTimeline,
       partitionTimeline,
+      trimTimeline,
       updateRoom,
     ]
   )
@@ -967,6 +967,37 @@ export function useTwitchChat() {
     [clearRecentMessagesQueue, ensureRooms, getClient, loadRecentMessages]
   )
 
+  const setLiveMessageLimit = React.useCallback(
+    (limit: number) => {
+      const previous = liveMessageLimitRef.current
+      liveMessageLimitRef.current = limit
+      if (limit >= previous) {
+        return
+      }
+
+      setRooms((current) => {
+        let changed = false
+        const next: Record<string, TwitchChatRoomState> = { ...current }
+
+        for (const [login, room] of Object.entries(current)) {
+          const trimmed = trimTimeline(room.timeline)
+          if (trimmed.length === room.timeline.length) {
+            continue
+          }
+
+          changed = true
+          next[login] = {
+            ...room,
+            timeline: trimmed,
+          }
+        }
+
+        return changed ? next : current
+      })
+    },
+    [trimTimeline]
+  )
+
   const setRecentMessagesEnabled = React.useCallback(
     (enabled: boolean) => {
       const wasEnabled = recentMessagesEnabledRef.current
@@ -1216,6 +1247,7 @@ export function useTwitchChat() {
     getRoomId,
     setEmoteLoadContext,
     setRecentMessagesEnabled,
+    setLiveMessageLimit,
     getComposerEmoteCatalog,
     ensureComposerEmotes,
     isComposerEmotesLoading,

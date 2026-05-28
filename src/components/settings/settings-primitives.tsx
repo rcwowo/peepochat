@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { PickerIcon } from "@/components/chat/picker-icon"
 import { Separator } from "@/components/ui/separator"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
@@ -143,20 +144,43 @@ export function SettingsSwitchRow({
   description,
   checked,
   onCheckedChange,
+  icon: Icon,
+  iconSrc,
 }: {
   title: string
   description?: string
   checked: boolean
   onCheckedChange: (checked: boolean) => void
+  icon?: React.ComponentType<{ className?: string }>
+  iconSrc?: string
 }) {
+  const showLeading = Boolean(Icon || iconSrc)
+
   return (
-    <SettingsRow
-      title={title}
-      description={description}
-      control={
+    <div className="flex items-center justify-between gap-3 px-2.5 py-2">
+      <div className="flex min-w-0 flex-1 items-start gap-2.5">
+        {showLeading ? (
+          <div className="flex shrink-0 items-center justify-center rounded-md border border-border bg-muted/40 p-1">
+            {iconSrc ? (
+              <PickerIcon src={iconSrc} className="size-3.5" />
+            ) : Icon ? (
+              <Icon className="size-3.5 text-muted-foreground" />
+            ) : null}
+          </div>
+        ) : null}
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-medium leading-tight">{title}</div>
+          {description ? (
+            <div className="mt-0.5 text-xs leading-snug text-muted-foreground">
+              {description}
+            </div>
+          ) : null}
+        </div>
+      </div>
+      <div className="shrink-0">
         <Switch checked={checked} onCheckedChange={onCheckedChange} />
-      }
-    />
+      </div>
+    </div>
   )
 }
 
@@ -424,12 +448,14 @@ export function SettingsRange({
 
 export function SettingsSliderRow({
   title,
+  description,
   value,
   onChange,
   min,
   max,
 }: {
   title: string
+  description?: string
   value: number
   onChange: (value: number) => void
   min: number
@@ -437,9 +463,16 @@ export function SettingsSliderRow({
 }) {
   return (
     <div className="space-y-2 px-2.5 py-2">
-      <div className="flex items-center justify-between gap-2 text-sm">
-        <span className="font-medium leading-tight">{title}</span>
-        <span className="text-xs tabular-nums text-muted-foreground">
+      <div className="flex items-start justify-between gap-2 text-sm">
+        <div className="min-w-0">
+          <span className="font-medium leading-tight">{title}</span>
+          {description ? (
+            <p className="mt-0.5 text-xs leading-snug text-muted-foreground">
+              {description}
+            </p>
+          ) : null}
+        </div>
+        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
           {value}
         </span>
       </div>

@@ -4,7 +4,11 @@ import { migrateChatFontFamilyInput } from "@/lib/chat-fonts"
 import { normalizeSidebarOrder } from "@/lib/sidebar-order"
 
 export const PEEPOCHAT_STORAGE_KEY = "peepochat::config"
-export const PEEPOCHAT_SCHEMA_VERSION = 5
+export const PEEPOCHAT_SCHEMA_VERSION = 6
+
+export const LIVE_MESSAGES_PER_CHANNEL_MIN = 20
+export const LIVE_MESSAGES_PER_CHANNEL_MAX = 500
+export const LIVE_MESSAGES_PER_CHANNEL_DEFAULT = 60
 export const PEEPOCHAT_APP_VERSION: string = __APP_VERSION__
 
 const messageTimestampFormatSchema = z
@@ -19,6 +23,11 @@ const chatEmotesSchema = z.object({
   seventvEnabled: z.boolean().default(true),
 })
 
+const messageQuickActionsSchema = z.object({
+  copyEnabled: z.boolean().default(true),
+  replyEnabled: z.boolean().default(true),
+})
+
 const chatSchema = z.object({
   messageTimestampFormat: messageTimestampFormatSchema,
   recentMessagesEnabled: z.boolean().default(true),
@@ -27,6 +36,13 @@ const chatSchema = z.object({
   messageSeparators: z.boolean().default(false),
   fontFamily: chatFontFamilySchema,
   fontSizePx: z.number().int().min(10).max(24).default(13),
+  maxLiveMessagesPerChannel: z
+    .number()
+    .int()
+    .min(LIVE_MESSAGES_PER_CHANNEL_MIN)
+    .max(LIVE_MESSAGES_PER_CHANNEL_MAX)
+    .default(LIVE_MESSAGES_PER_CHANNEL_DEFAULT),
+  messageQuickActions: messageQuickActionsSchema,
   emotes: chatEmotesSchema,
 })
 
@@ -82,6 +98,7 @@ const backupEnvelopeSchema = z.object({
 export type MessageTimestampFormat = z.infer<typeof messageTimestampFormatSchema>
 export type ChatFontFamilySetting = z.infer<typeof chatFontFamilySchema>
 export type ChatEmotesConfig = z.infer<typeof chatEmotesSchema>
+export type MessageQuickActionsConfig = z.infer<typeof messageQuickActionsSchema>
 export type ChatSplit = z.infer<typeof chatSplitSchema>
 export type ChatLayoutConfig = z.infer<typeof chatLayoutSchema>
 export type ChatConfig = z.infer<typeof chatSchema>
@@ -114,6 +131,11 @@ export function createDefaultConfig(): AppConfig {
       messageSeparators: false,
       fontFamily: "",
       fontSizePx: 13,
+      maxLiveMessagesPerChannel: LIVE_MESSAGES_PER_CHANNEL_DEFAULT,
+      messageQuickActions: {
+        copyEnabled: true,
+        replyEnabled: true,
+      },
       emotes: {
         bttvEnabled: true,
         ffzEnabled: true,

@@ -23,7 +23,10 @@ import {
 import { EmptyState } from "@/components/dashboard-primitives"
 import type { TwitchTimelineItem } from "@/hooks/use-twitch-chat"
 import type { ChatBadgeCatalog } from "@/lib/chat-badges"
-import type { MessageTimestampFormat } from "@/lib/peepochat-config"
+import type {
+  MessageQuickActionsConfig,
+  MessageTimestampFormat,
+} from "@/lib/peepochat-config"
 import { usePeepochat } from "@/lib/peepochat-context"
 import { cn } from "@/lib/utils"
 
@@ -64,6 +67,7 @@ type ChatPaneProps = {
   profileImageUrl?: string
   timeline: TwitchTimelineItem[]
   timestampFormat: MessageTimestampFormat
+  messageQuickActions: MessageQuickActionsConfig
   badgeCatalog: ChatBadgeCatalog
   showBadgeFallback: boolean
   joined?: boolean
@@ -79,6 +83,7 @@ function ChatPaneInner({
   profileImageUrl,
   timeline,
   timestampFormat,
+  messageQuickActions,
   badgeCatalog,
   showBadgeFallback,
   joined = true,
@@ -273,6 +278,8 @@ function ChatPaneInner({
                       key={entry.message.id}
                       message={entry.message}
                       timestampFormat={timestampFormat}
+                      showCopyButton={messageQuickActions.copyEnabled}
+                      showReplyButton={messageQuickActions.replyEnabled}
                       badgeCatalog={badgeCatalog}
                       showBadgeFallback={showBadgeFallback}
                       isHistorical={entry.isHistorical}

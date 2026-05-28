@@ -20,7 +20,7 @@ export function PickerIcon({ src, className, rounded = false }: PickerIconProps)
       <span
         aria-hidden
         className={cn(
-          "inline-block shrink-0 bg-foreground",
+          "block shrink-0 bg-foreground",
           rounded ? "rounded-full" : "rounded-sm",
           className
         )}

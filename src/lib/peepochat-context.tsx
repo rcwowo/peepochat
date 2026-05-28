@@ -158,6 +158,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     getRoomId,
     setEmoteLoadContext,
     setRecentMessagesEnabled,
+    setLiveMessageLimit,
     getComposerEmoteCatalog,
     ensureComposerEmotes,
     isComposerEmotesLoading,
@@ -279,6 +280,10 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     setRecentMessagesEnabled(config.chat.recentMessagesEnabled)
   }, [config.chat.recentMessagesEnabled, setRecentMessagesEnabled])
+
+  React.useEffect(() => {
+    setLiveMessageLimit(config.chat.maxLiveMessagesPerChannel)
+  }, [config.chat.maxLiveMessagesPerChannel, setLiveMessageLimit])
 
   const emotesOptionsReadyRef = React.useRef(false)
   const emoteProviderFlagsRef = React.useRef("")
