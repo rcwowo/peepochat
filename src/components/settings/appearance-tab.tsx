@@ -43,6 +43,8 @@ export function AppearanceTab() {
       title="Appearance"
       description="Theme, typography, timestamps, and performance-related display options."
     >
+      <SettingsDivider className="mt-4 mb-4" />
+
       <SettingsSection
         title="Theme"
         description="Which color scheme the app uses."
@@ -58,8 +60,6 @@ export function AppearanceTab() {
           ]}
         />
       </SettingsSection>
-
-      <SettingsDivider />
 
       <SettingsSection
         title="Typography"
@@ -94,8 +94,6 @@ export function AppearanceTab() {
           />
         </div>
       </SettingsSection>
-
-      <SettingsDivider />
 
       <SettingsSection
         title="Timestamps"

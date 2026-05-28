@@ -31,6 +31,8 @@ export function BehaviorTab() {
       title="Behavior"
       description="Feature toggles and preferences for how Peeepochat works."
     >
+      <SettingsDivider className="mt-4 mb-4" />
+
       <SettingsSection
         title="Chat history"
         description="Load recent messages when you open a channel."
@@ -51,8 +53,6 @@ export function BehaviorTab() {
           }
         />
       </SettingsSection>
-
-      <SettingsDivider />
 
       <SettingsSection
         title="Emote services"
@@ -75,9 +75,7 @@ export function BehaviorTab() {
             title="7TV"
             description="Channel emotes from 7TV."
             checked={config.chat.emotes.seventvEnabled}
-            onCheckedChange={(checked) =>
-              setEmoteProvider("seventvEnabled", checked)
-            }
+            onCheckedChange={(checked) => setEmoteProvider("seventvEnabled", checked)}
           />
         </SettingsGroup>
       </SettingsSection>

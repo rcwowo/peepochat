@@ -107,10 +107,10 @@ export function AboutTab() {
                 href={credit.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group flex items-start justify-between gap-3 px-2.5 py-2.5 transition-colors hover:bg-muted/40"
+                className="group flex items-start justify-between gap-3 px-2.5 py-2.5 transition-colors hover:bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
                 <div className="min-w-0">
-                  <div className="text-sm font-medium leading-tight group-hover:text-primary">
+                  <div className="text-sm font-medium leading-tight group-hover:text-foreground">
                     {credit.name}
                   </div>
                   <p className="mt-0.5 text-xs leading-snug text-muted-foreground">

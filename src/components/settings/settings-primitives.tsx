@@ -716,7 +716,7 @@ export function SettingsTab({
   return (
     <div className={cn("pb-2", className)}>
       <SettingsTabHeader title={title} description={description} />
-      <div className="mt-5 space-y-0">{children}</div>
+      <div className="mt-5 space-y-6">{children}</div>
     </div>
   )
 }
