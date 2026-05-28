@@ -526,6 +526,8 @@ export function SettingsInputRow({
   onChange,
   placeholder,
   type = "text",
+  onBlur,
+  onKeyDown,
 }: {
   label: string
   description?: string
@@ -533,6 +535,8 @@ export function SettingsInputRow({
   onChange: (value: string) => void
   placeholder?: string
   type?: React.HTMLInputTypeAttribute
+  onBlur?: React.FocusEventHandler<HTMLInputElement>
+  onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>
 }) {
   return (
     <div className="space-y-1.5 px-2.5 py-2">
@@ -547,6 +551,8 @@ export function SettingsInputRow({
         value={value}
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
+        onBlur={onBlur}
+        onKeyDown={onKeyDown}
       />
     </div>
   )

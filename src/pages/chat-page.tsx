@@ -4,7 +4,8 @@ import { ChatPane } from "@/components/chat/chat-pane"
 import type { TwitchTimelineItem } from "@/hooks/use-twitch-chat"
 import type { CachedChatView } from "@/hooks/use-chat-layout"
 import type { ChatBadgeCatalog } from "@/lib/chat-badges"
-import type { MessageTimestampFormat, TwitchChannel } from "@/lib/peepochat-config"
+import { useChatFontFamily } from "@/hooks/use-chat-font"
+import type { ChatConfig, MessageTimestampFormat, TwitchChannel } from "@/lib/peepochat-config"
 import { usePeepochat } from "@/lib/peepochat-context"
 import type { TwitchChatRoomState } from "@/hooks/use-twitch-chat"
 import { cn } from "@/lib/utils"
@@ -118,20 +119,25 @@ function CachedChatViewLayer({
   )
 }
 
-function useChatPresentationStyle(config: {
-  chat: { fontFamily: "default" | "mono"; fontSizePx: number }
-}) {
-  return React.useMemo(
+function useChatPresentationProps(chat: ChatConfig) {
+  const cssFontFamily = useChatFontFamily(chat.fontFamily)
+
+  const style = React.useMemo(
     () =>
       ({
-        "--chat-font-size": `${config.chat.fontSizePx}px`,
-        fontFamily:
-          config.chat.fontFamily === "mono"
-            ? "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
-            : undefined,
+        "--chat-font-size": `${chat.fontSizePx}px`,
+        ...(cssFontFamily ? { fontFamily: cssFontFamily } : {}),
       }) as React.CSSProperties,
-    [config.chat.fontFamily, config.chat.fontSizePx]
+    [chat.fontSizePx, cssFontFamily]
   )
+
+  const className = cn(
+    "chat-presentation flex h-full min-h-0 min-w-0 flex-1",
+    chat.alternatingRowBackgrounds && "chat-presentation--alternating-rows",
+    chat.messageSeparators && "chat-presentation--message-separators"
+  )
+
+  return { style, className }
 }
 
 export function ChatPage() {
@@ -153,7 +159,7 @@ export function ChatPage() {
   } = usePeepochat()
 
   const timestampFormat = config.chat.messageTimestampFormat
-  const chatPresentationStyle = useChatPresentationStyle(config)
+  const chatPresentation = useChatPresentationProps(config.chat)
 
   const channelMeta = React.useMemo(() => {
     return new Map(channels.map((channel) => [channel.login, channel]))
@@ -183,8 +189,11 @@ export function ChatPage() {
   if (visibleChannelLogins.length === 0) {
     return (
       <div
-        className="chat-presentation flex h-full min-h-0 min-w-0 flex-1 items-center justify-center text-sm text-muted-foreground"
-        style={chatPresentationStyle}
+        className={cn(
+          chatPresentation.className,
+          "items-center justify-center text-sm text-muted-foreground"
+        )}
+        style={chatPresentation.style}
       >
         Add a channel from the sidebar to start chatting.
       </div>
@@ -194,8 +203,8 @@ export function ChatPage() {
   if (keepChatViewsMounted && cachedChatViews.length > 0) {
     return (
       <div
-        className="chat-presentation relative flex h-full min-h-0 min-w-0 flex-1"
-        style={chatPresentationStyle}
+        className={cn(chatPresentation.className, "relative")}
+        style={chatPresentation.style}
       >
         {cachedChatViews.map((view) => (
           <CachedChatViewLayer
@@ -212,8 +221,8 @@ export function ChatPage() {
   if (isSplitView) {
     return (
       <div
-        className="chat-presentation flex h-full min-h-0 min-w-0 flex-1"
-        style={chatPresentationStyle}
+        className={chatPresentation.className}
+        style={chatPresentation.style}
       >
         <SplitChannelPanes
           channels={splitChannels}
@@ -226,8 +235,8 @@ export function ChatPage() {
 
   return (
     <div
-      className="chat-presentation flex h-full min-h-0 min-w-0 flex-1"
-      style={chatPresentationStyle}
+      className={chatPresentation.className}
+      style={chatPresentation.style}
     >
       <SingleChannelPane
         login={activeChannelLogin}

@@ -1,16 +1,17 @@
 import { z } from "zod"
 
+import { migrateChatFontFamilyInput } from "@/lib/chat-fonts"
 import { normalizeSidebarOrder } from "@/lib/sidebar-order"
 
 export const PEEPOCHAT_STORAGE_KEY = "peepochat::config"
-export const PEEPOCHAT_SCHEMA_VERSION = 4
+export const PEEPOCHAT_SCHEMA_VERSION = 5
 export const PEEPOCHAT_APP_VERSION: string = __APP_VERSION__
 
 const messageTimestampFormatSchema = z
   .enum(["24-hour", "12-hour", "12-hour-meridiem", "none"])
   .default("24-hour")
 
-const chatFontFamilySchema = z.enum(["default", "mono"]).default("default")
+const chatFontFamilySchema = z.string().max(200).default("")
 
 const chatEmotesSchema = z.object({
   bttvEnabled: z.boolean().default(true),
@@ -22,8 +23,10 @@ const chatSchema = z.object({
   messageTimestampFormat: messageTimestampFormatSchema,
   recentMessagesEnabled: z.boolean().default(true),
   keepChatViewsMounted: z.boolean().default(true),
+  alternatingRowBackgrounds: z.boolean().default(false),
+  messageSeparators: z.boolean().default(false),
   fontFamily: chatFontFamilySchema,
-  fontSizePx: z.number().int().min(12).max(20).default(13),
+  fontSizePx: z.number().int().min(10).max(24).default(13),
   emotes: chatEmotesSchema,
 })
 
@@ -77,7 +80,7 @@ const backupEnvelopeSchema = z.object({
 })
 
 export type MessageTimestampFormat = z.infer<typeof messageTimestampFormatSchema>
-export type ChatFontFamily = z.infer<typeof chatFontFamilySchema>
+export type ChatFontFamilySetting = z.infer<typeof chatFontFamilySchema>
 export type ChatEmotesConfig = z.infer<typeof chatEmotesSchema>
 export type ChatSplit = z.infer<typeof chatSplitSchema>
 export type ChatLayoutConfig = z.infer<typeof chatLayoutSchema>
@@ -107,7 +110,9 @@ export function createDefaultConfig(): AppConfig {
       messageTimestampFormat: "24-hour",
       recentMessagesEnabled: true,
       keepChatViewsMounted: true,
-      fontFamily: "default",
+      alternatingRowBackgrounds: false,
+      messageSeparators: false,
+      fontFamily: "",
       fontSizePx: 13,
       emotes: {
         bttvEnabled: true,
@@ -436,11 +441,17 @@ function normalizeConfig(config: AppConfig): AppConfig {
     layout: layoutBase,
   })
 
+  const chat = {
+    ...config.chat,
+    fontFamily: migrateChatFontFamilyInput(config.chat.fontFamily),
+  }
+
   return {
     ...config,
     updatedAt: config.updatedAt || new Date().toISOString(),
     schemaVersion: PEEPOCHAT_SCHEMA_VERSION,
     twitch,
+    chat,
     layout: {
       activeSplitId,
       splits,

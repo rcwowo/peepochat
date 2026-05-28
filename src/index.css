@@ -166,6 +166,22 @@
     background: var(--chat-row-hover);
   }
 
+  .chat-presentation--alternating-rows .chat-message:nth-child(even) {
+    background: var(--chat-row-alt);
+  }
+
+  .chat-presentation--alternating-rows .chat-message:nth-child(even):hover {
+    background: var(--chat-row-hover);
+  }
+
+  .chat-presentation--message-separators .chat-message {
+    border-bottom: 1px solid var(--chat-row-separator);
+  }
+
+  .chat-presentation--message-separators .chat-message:last-child {
+    border-bottom: none;
+  }
+
   .chat-timestamp {
     color: var(--chat-timestamp);
   }
@@ -231,6 +247,8 @@
 
 :root {
   --chat-background: oklch(0.985 0.002 325.6);
+  --chat-row-alt: oklch(0.955 0.004 325.6);
+  --chat-row-separator: oklch(0.9 0.004 325.6 / 65%);
   --chat-row-hover: oklch(0.96 0.003 325.6 / 70%);
   --chat-message-foreground: oklch(0.24 0.02 322.12);
   --chat-timestamp: oklch(0.58 0.03 322.5 / 75%);
@@ -250,6 +268,8 @@
 
 .dark {
   --chat-background: oklch(0.17 0.014 322.12);
+  --chat-row-alt: oklch(0.215 0.017 322.12);
+  --chat-row-separator: oklch(0.28 0.018 322.12 / 70%);
   --chat-row-hover: oklch(0.22 0.018 322.12 / 85%);
   --chat-message-foreground: oklch(0.93 0.004 325.6);
   --chat-timestamp: oklch(0.68 0.02 323.02 / 70%);

@@ -1,3 +1,4 @@
+import * as React from "react"
 import {
   LayersIcon,
   MonitorIcon,
@@ -5,16 +6,17 @@ import {
   SunIcon,
 } from "lucide-react"
 
-import type { ChatFontFamily, MessageTimestampFormat } from "@/lib/peepochat-config"
+import type { MessageTimestampFormat } from "@/lib/peepochat-config"
 import { usePeepochatSettings } from "@/lib/peepochat-context"
 import { useTheme } from "@/components/theme-provider"
 import {
   SettingsDivider,
   SettingsGroup,
-  SettingsRange,
+  SettingsInputRow,
+  SettingsSliderRow,
   SettingsSection,
   SettingsSegmented,
-  SettingsSelectRow,
+  SettingsSwitchRow,
   SettingsTab,
   SettingsToggle,
 } from "@/components/settings/settings-primitives"
@@ -29,14 +31,23 @@ const MESSAGE_TIMESTAMP_FORMAT_OPTIONS: {
   { value: "none", preview: "None" },
 ]
 
-const FONT_FAMILY_OPTIONS: { value: ChatFontFamily; label: string }[] = [
-  { value: "default", label: "System default" },
-  { value: "mono", label: "Monospace" },
-]
-
 export function AppearanceTab() {
   const { config, updateConfig } = usePeepochatSettings()
   const { theme, setTheme } = useTheme()
+  const [fontDraft, setFontDraft] = React.useState(config.chat.fontFamily)
+
+  React.useEffect(() => {
+    setFontDraft(config.chat.fontFamily)
+  }, [config.chat.fontFamily])
+
+  const commitFontFamily = React.useCallback(() => {
+    const next = fontDraft.trim()
+    if (next === config.chat.fontFamily) return
+    updateConfig((current) => ({
+      ...current,
+      chat: { ...current.chat, fontFamily: next },
+    }))
+  }, [config.chat.fontFamily, fontDraft, updateConfig])
 
   return (
     <SettingsTab
@@ -62,29 +73,58 @@ export function AppearanceTab() {
       </SettingsSection>
 
       <SettingsSection
+        title="Message list"
+        description="How rows are laid out in the chat timeline."
+      >
+        <SettingsGroup>
+          <SettingsSwitchRow
+            title="Alternating row backgrounds"
+            description="Use a subtle stripe on every other message for easier scanning."
+            checked={config.chat.alternatingRowBackgrounds}
+            onCheckedChange={(checked) =>
+              updateConfig((current) => ({
+                ...current,
+                chat: { ...current.chat, alternatingRowBackgrounds: checked },
+              }))
+            }
+          />
+          <SettingsSwitchRow
+            title="Separators between messages"
+            description="Draw a light border under each message row."
+            checked={config.chat.messageSeparators}
+            onCheckedChange={(checked) =>
+              updateConfig((current) => ({
+                ...current,
+                chat: { ...current.chat, messageSeparators: checked },
+              }))
+            }
+          />
+        </SettingsGroup>
+      </SettingsSection>
+
+      <SettingsSection
         title="Typography"
         description="How chat messages are displayed."
       >
         <SettingsGroup>
-          <SettingsSelectRow
-            title="Font family"
-            description="Applies to chat message text."
-            value={config.chat.fontFamily}
-            onChange={(fontFamily) =>
-              updateConfig((current) => ({
-                ...current,
-                chat: { ...current.chat, fontFamily },
-              }))
-            }
-            options={FONT_FAMILY_OPTIONS}
+          <SettingsInputRow
+            label="Font family"
+            description='Google or system font name. Leave empty for the app default.'
+            value={fontDraft}
+            placeholder="Inter, sans-serif, monospace, etc."
+            onChange={setFontDraft}
+            onBlur={commitFontFamily}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.currentTarget.blur()
+              }
+            }}
           />
-        </SettingsGroup>
-        <div className="mt-2">
-          <SettingsRange
-            label="Font size"
+          <SettingsSliderRow
+            title="Font size"
             value={config.chat.fontSizePx}
-            min={12}
-            max={20}
+            min={10}
+            max={24}
             onChange={(fontSizePx) =>
               updateConfig((current) => ({
                 ...current,
@@ -92,7 +132,7 @@ export function AppearanceTab() {
               }))
             }
           />
-        </div>
+        </SettingsGroup>
       </SettingsSection>
 
       <SettingsSection
@@ -121,7 +161,7 @@ export function AppearanceTab() {
         <SettingsToggle
           icon={LayersIcon}
           title="Keep chat views mounted"
-          description="Leave off-screen channels and splits in the DOM (hidden) so switching back is instant. Uses more memory on busy channels."
+          description="Leaves channels loaded but hidden in the DOM. Switching channels is instant, but uses more memory on busy channels."
           checked={config.chat.keepChatViewsMounted}
           onCheckedChange={(checked) =>
             updateConfig((current) => ({
