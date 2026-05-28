@@ -69,7 +69,7 @@ function InlineSystemLine({
         receivedAt={message.receivedAt}
         timestampFormat={timestampFormat}
       />
-      <span className="chat-system-text text-[13px] leading-5 italic">
+      <span className="chat-message-size chat-system-text italic">
         {message.text}
       </span>
     </div>
@@ -98,7 +98,7 @@ function NoticeBlock({
         timestampFormat={timestampFormat}
       />
 
-      <span className="inline-block min-w-0 align-top text-[13px] leading-5">
+      <span className="chat-message-size inline-block min-w-0 align-top">
         <span
           className="chat-notice-block inline-block border-l-4 py-1 pr-2 pl-2 align-top"
           style={{ borderColor }}
@@ -228,7 +228,7 @@ function AnnouncementNotice({
             Announcement
           </span>
 
-          <span className="chat-announcement-body block px-2.5 py-1.5 text-[13px] leading-5">
+          <span className="chat-message-size chat-announcement-body block px-2.5 py-1.5">
             {message.actor ? (
               <>
                 <ChatUsername

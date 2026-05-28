@@ -2,7 +2,7 @@ import * as React from "react"
 import {
   BrushIcon,
   InfoIcon,
-  SettingsIcon,
+  ScrollTextIcon,
   SparklesIcon,
   ZapIcon,
 } from "lucide-react"
@@ -19,13 +19,16 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { GeneralTab } from "@/components/settings/general-tab"
-
-type SettingsCategory =
-  | "general"
+import { AboutTab } from "@/components/settings/about-tab"
+import { AppearanceTab } from "@/components/settings/appearance-tab"
+import { BehaviorTab } from "@/components/settings/behavior-tab"
+import { ChangelogTab } from "@/components/settings/changelog-tab"
+import { HighlightsTab } from "@/components/settings/highlights-tab"
+export type SettingsCategory =
   | "appearance"
   | "behavior"
   | "highlights"
+  | "changelog"
   | "about"
 
 const SETTINGS_CATEGORIES: {
@@ -34,10 +37,10 @@ const SETTINGS_CATEGORIES: {
   icon: React.ComponentType<{ className?: string }>
   separated?: boolean
 }[] = [
-  { id: "general", label: "General", icon: SettingsIcon },
   { id: "appearance", label: "Appearance", icon: BrushIcon },
   { id: "behavior", label: "Behavior", icon: ZapIcon },
   { id: "highlights", label: "Highlights", icon: SparklesIcon },
+  { id: "changelog", label: "Changelog", icon: ScrollTextIcon, separated: true },
   { id: "about", label: "About", icon: InfoIcon, separated: true },
 ]
 
@@ -50,7 +53,6 @@ function useTooltipPointerOnlyGuard(enabled: boolean) {
   React.useEffect(() => {
     if (!enabled) return
 
-    // Reset each time the sheet opens so focus can't pop tooltips.
     lastInteraction.current = "unknown"
     forceRender()
 
@@ -127,13 +129,21 @@ function CategoryIconButton({
 export function SettingsDialog({
   open,
   onOpenChange,
+  initialCategory,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
+  initialCategory?: SettingsCategory
 }) {
   const [activeCategory, setActiveCategory] =
-    React.useState<SettingsCategory>("general")
+    React.useState<SettingsCategory>("appearance")
   const allowTooltipOpen = useTooltipPointerOnlyGuard(open)
+
+  React.useEffect(() => {
+    if (open && initialCategory) {
+      setActiveCategory(initialCategory)
+    }
+  }, [open, initialCategory])
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
@@ -176,67 +186,15 @@ export function SettingsDialog({
 
           <div className="min-h-0 min-w-0 flex-1 overflow-auto">
             <div className="p-4">
-              {activeCategory === "general" && <GeneralTab />}
-              {activeCategory === "appearance" && (
-                <PlaceholderCategory
-                  title="Appearance"
-                  description="Theme, colors, font, and visual density."
-                />
-              )}
-              {activeCategory === "behavior" && (
-                <PlaceholderCategory
-                  title="Behavior"
-                  description="Chat behavior, timestamps, and connection defaults."
-                />
-              )}
-              {activeCategory === "highlights" && (
-                <PlaceholderCategory
-                  title="Highlights"
-                  description="Highlight rules and visual emphasis."
-                />
-              )}
-              {activeCategory === "about" && <AboutCategory />}
+              {activeCategory === "appearance" && <AppearanceTab />}
+              {activeCategory === "behavior" && <BehaviorTab />}
+              {activeCategory === "highlights" && <HighlightsTab />}
+              {activeCategory === "changelog" && <ChangelogTab />}
+              {activeCategory === "about" && <AboutTab />}
             </div>
           </div>
         </div>
       </SheetContent>
     </Sheet>
-  )
-}
-
-function PlaceholderCategory({
-  title,
-  description,
-}: {
-  title: string
-  description: string
-}) {
-  return (
-    <div className="space-y-2">
-      <div>
-        <div className="text-sm font-semibold">{title}</div>
-        <div className="mt-0.5 text-sm text-muted-foreground">{description}</div>
-      </div>
-      <div className="rounded-xl border border-border bg-muted/20 p-3 text-sm text-muted-foreground">
-        This category is a stub in the first draft. Next we’ll move the relevant
-        settings here and compact the layout for the drawer.
-      </div>
-    </div>
-  )
-}
-
-function AboutCategory() {
-  return (
-    <div className="space-y-3">
-      <div>
-        <div className="text-sm font-semibold">About</div>
-        <div className="mt-0.5 text-sm text-muted-foreground">
-          Info, links, and version details.
-        </div>
-      </div>
-      <div className="rounded-xl border border-border bg-muted/20 p-3 text-sm text-muted-foreground">
-        Version <span className="font-mono">{__APP_VERSION__}</span>
-      </div>
-    </div>
   )
 }

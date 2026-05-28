@@ -118,6 +118,22 @@ function CachedChatViewLayer({
   )
 }
 
+function useChatPresentationStyle(config: {
+  chat: { fontFamily: "default" | "mono"; fontSizePx: number }
+}) {
+  return React.useMemo(
+    () =>
+      ({
+        "--chat-font-size": `${config.chat.fontSizePx}px`,
+        fontFamily:
+          config.chat.fontFamily === "mono"
+            ? "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+            : undefined,
+      }) as React.CSSProperties,
+    [config.chat.fontFamily, config.chat.fontSizePx]
+  )
+}
+
 export function ChatPage() {
   const {
     config,
@@ -137,6 +153,7 @@ export function ChatPage() {
   } = usePeeepochat()
 
   const timestampFormat = config.chat.messageTimestampFormat
+  const chatPresentationStyle = useChatPresentationStyle(config)
 
   const channelMeta = React.useMemo(() => {
     return new Map(channels.map((channel) => [channel.login, channel]))
@@ -165,7 +182,10 @@ export function ChatPage() {
 
   if (visibleChannelLogins.length === 0) {
     return (
-      <div className="flex h-full min-h-0 min-w-0 flex-1 items-center justify-center text-sm text-muted-foreground">
+      <div
+        className="chat-presentation flex h-full min-h-0 min-w-0 flex-1 items-center justify-center text-sm text-muted-foreground"
+        style={chatPresentationStyle}
+      >
         Add a channel from the sidebar to start chatting.
       </div>
     )
@@ -173,7 +193,10 @@ export function ChatPage() {
 
   if (keepChatViewsMounted && cachedChatViews.length > 0) {
     return (
-      <div className="relative flex h-full min-h-0 min-w-0 flex-1">
+      <div
+        className="chat-presentation relative flex h-full min-h-0 min-w-0 flex-1"
+        style={chatPresentationStyle}
+      >
         {cachedChatViews.map((view) => (
           <CachedChatViewLayer
             key={view.key}
@@ -188,19 +211,29 @@ export function ChatPage() {
 
   if (isSplitView) {
     return (
-      <SplitChannelPanes
-        channels={splitChannels}
-        isActive
-        bindings={bindings}
-      />
+      <div
+        className="chat-presentation flex h-full min-h-0 min-w-0 flex-1"
+        style={chatPresentationStyle}
+      >
+        <SplitChannelPanes
+          channels={splitChannels}
+          isActive
+          bindings={bindings}
+        />
+      </div>
     )
   }
 
   return (
-    <SingleChannelPane
-      login={activeChannelLogin}
-      isActive
-      bindings={bindings}
-    />
+    <div
+      className="chat-presentation flex h-full min-h-0 min-w-0 flex-1"
+      style={chatPresentationStyle}
+    >
+      <SingleChannelPane
+        login={activeChannelLogin}
+        isActive
+        bindings={bindings}
+      />
+    </div>
   )
 }

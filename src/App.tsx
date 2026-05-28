@@ -9,14 +9,17 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { AppHeader } from "@/components/app-header"
 import { ChannelSidebar } from "@/components/channel-sidebar"
 import { OnboardingDialog } from "@/components/onboarding-dialog"
-import { SettingsDialog } from "@/components/settings-dialog"
-import { ChangelogDialog } from "@/components/changelog-dialog"
+import {
+  SettingsDialog,
+  type SettingsCategory,
+} from "@/components/settings-dialog"
 import { ChatPage } from "@/pages/chat-page"
 
 function DashboardLayout() {
   const { ready, needsOnboarding, completeOnboarding } = usePeeepochatSettings()
   const [settingsOpen, setSettingsOpen] = React.useState(false)
-  const [changelogOpen, setChangelogOpen] = React.useState(false)
+  const [settingsInitialCategory, setSettingsInitialCategory] =
+    React.useState<SettingsCategory | undefined>(undefined)
 
   React.useEffect(() => {
     if (!ready || needsOnboarding) return
@@ -27,7 +30,11 @@ function DashboardLayout() {
         duration: 10_000,
         action: {
           label: "What's new",
-          onClick: () => setChangelogOpen(true),
+          onClick: () => {
+            setSettingsInitialCategory("changelog")
+            setSettingsOpen(true)
+            markVersionSeen()
+          },
         },
         onDismiss: () => markVersionSeen(),
       })
@@ -61,7 +68,12 @@ function DashboardLayout() {
         { "--sidebar-width-icon": "4.5rem" } as React.CSSProperties
       }
     >
-      <AppHeader onSettingsClick={() => setSettingsOpen(true)} />
+      <AppHeader
+        onSettingsClick={() => {
+          setSettingsInitialCategory(undefined)
+          setSettingsOpen(true)
+        }}
+      />
       <div className="flex min-h-0 w-full flex-1">
         <ChannelSidebar />
         <SidebarInset className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
@@ -75,8 +87,11 @@ function DashboardLayout() {
           style={{ backgroundColor: "rgba(0, 0, 0, 0.55)" }}
         />
       )}
-      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
-      <ChangelogDialog open={changelogOpen} onOpenChange={setChangelogOpen} />
+      <SettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        initialCategory={settingsInitialCategory}
+      />
     </SidebarProvider>
   )
 }

@@ -10,10 +10,21 @@ const messageTimestampFormatSchema = z
   .enum(["24-hour", "12-hour", "12-hour-meridiem", "none"])
   .default("24-hour")
 
+const chatFontFamilySchema = z.enum(["default", "mono"]).default("default")
+
+const chatEmotesSchema = z.object({
+  bttvEnabled: z.boolean().default(true),
+  ffzEnabled: z.boolean().default(true),
+  seventvEnabled: z.boolean().default(true),
+})
+
 const chatSchema = z.object({
   messageTimestampFormat: messageTimestampFormatSchema,
   recentMessagesEnabled: z.boolean().default(true),
   keepChatViewsMounted: z.boolean().default(true),
+  fontFamily: chatFontFamilySchema,
+  fontSizePx: z.number().int().min(12).max(20).default(13),
+  emotes: chatEmotesSchema,
 })
 
 const chatSplitSchema = z.object({
@@ -47,7 +58,6 @@ const twitchSchema = z.object({
   account: twitchAccountSchema.nullable(),
   channels: z.array(twitchChannelSchema),
   activeChannelLogin: z.string(),
-  autoConnect: z.boolean(),
 })
 
 const appConfigSchema = z.object({
@@ -67,6 +77,8 @@ const backupEnvelopeSchema = z.object({
 })
 
 export type MessageTimestampFormat = z.infer<typeof messageTimestampFormatSchema>
+export type ChatFontFamily = z.infer<typeof chatFontFamilySchema>
+export type ChatEmotesConfig = z.infer<typeof chatEmotesSchema>
 export type ChatSplit = z.infer<typeof chatSplitSchema>
 export type ChatLayoutConfig = z.infer<typeof chatLayoutSchema>
 export type ChatConfig = z.infer<typeof chatSchema>
@@ -84,12 +96,18 @@ export function createDefaultConfig(): AppConfig {
       account: null,
       channels: [],
       activeChannelLogin: "",
-      autoConnect: true,
     },
     chat: {
       messageTimestampFormat: "24-hour",
       recentMessagesEnabled: true,
       keepChatViewsMounted: true,
+      fontFamily: "default",
+      fontSizePx: 13,
+      emotes: {
+        bttvEnabled: true,
+        ffzEnabled: true,
+        seventvEnabled: true,
+      },
     },
     layout: {
       activeSplitId: null,

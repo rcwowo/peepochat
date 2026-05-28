@@ -143,6 +143,11 @@
     scrollbar-color: var(--chat-scrollbar-thumb) transparent;
   }
 
+  .chat-presentation .chat-message-size {
+    font-size: var(--chat-font-size, 13px);
+    line-height: 1.25;
+  }
+
   .chat-message {
     word-wrap: break-word;
     overflow-wrap: anywhere;

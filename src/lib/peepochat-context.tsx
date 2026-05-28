@@ -22,6 +22,9 @@ import type {
   TwitchAccount,
   TwitchChannel,
 } from "@/lib/peepochat-config"
+import {
+  setThirdPartyEmoteFetchOptions,
+} from "@/lib/chat-emotes"
 import type { ComposerEmoteCatalog } from "@/lib/chat-emote-catalog"
 import type { TwitchConnectionState } from "@/lib/twitch-chat"
 
@@ -272,6 +275,31 @@ export function PeeepochatProvider({ children }: { children: React.ReactNode }) 
     setRecentMessagesEnabled(config.chat.recentMessagesEnabled)
   }, [config.chat.recentMessagesEnabled, setRecentMessagesEnabled])
 
+  const emotesOptionsReadyRef = React.useRef(false)
+
+  React.useEffect(() => {
+    setThirdPartyEmoteFetchOptions({
+      bttvEnabled: config.chat.emotes.bttvEnabled,
+      ffzEnabled: config.chat.emotes.ffzEnabled,
+      seventvEnabled: config.chat.emotes.seventvEnabled,
+    })
+
+    if (!emotesOptionsReadyRef.current) {
+      emotesOptionsReadyRef.current = true
+      return
+    }
+
+    for (const channel of channels) {
+      void refreshEmotes(channel.login)
+    }
+  }, [
+    channels,
+    config.chat.emotes.bttvEnabled,
+    config.chat.emotes.ffzEnabled,
+    config.chat.emotes.seventvEnabled,
+    refreshEmotes,
+  ])
+
   const canSendChat = Boolean(account?.accessToken && connectionState.connected)
 
   const getBadgeCatalogForChannel = React.useCallback(
@@ -295,7 +323,6 @@ export function PeeepochatProvider({ children }: { children: React.ReactNode }) 
 
     if (
       channelLogins.length > 0 &&
-      config.twitch.autoConnect &&
       !connectionState.connected &&
       !connectionState.connecting
     ) {

@@ -10,7 +10,6 @@ const RECENT_MESSAGES_BASE =
   "https://recent-messages.robotty.de/api/v2/recent-messages"
 
 export const RECENT_MESSAGES_DEFAULT_LIMIT = 100
-export const RECENT_MESSAGES_WEBSITE = "https://recent-messages.robotty.de/"
 export const RECENT_MESSAGES_CONCURRENCY = 3
 
 export const RECENT_MESSAGES_UNAVAILABLE_TEXT =

@@ -87,7 +87,7 @@ function ChatMessageRowInner({
         </div>
       ) : null}
 
-      <div className="min-w-0 text-[13px] leading-5">
+      <div className="chat-message-size min-w-0">
         {timestamp ? (
           <time
             className="chat-timestamp mr-1.5 inline whitespace-nowrap text-xs tabular-nums select-none"

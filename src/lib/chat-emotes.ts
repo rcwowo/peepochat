@@ -19,7 +19,34 @@ export type ThirdPartyEmoteSets = Record<
   ThirdPartyProviderEmotes
 >
 
+export type ThirdPartyEmoteFetchOptions = {
+  bttvEnabled: boolean
+  ffzEnabled: boolean
+  seventvEnabled: boolean
+}
+
+const defaultThirdPartyEmoteFetchOptions: ThirdPartyEmoteFetchOptions = {
+  bttvEnabled: true,
+  ffzEnabled: true,
+  seventvEnabled: true,
+}
+
+let thirdPartyEmoteFetchOptions: ThirdPartyEmoteFetchOptions =
+  defaultThirdPartyEmoteFetchOptions
+
 const thirdPartySetsCache = new Map<string, Promise<ThirdPartyEmoteSets>>()
+
+const emptyProviderEmotes: ThirdPartyProviderEmotes = {
+  channel: [],
+  global: [],
+}
+
+export function setThirdPartyEmoteFetchOptions(
+  options: ThirdPartyEmoteFetchOptions
+) {
+  thirdPartyEmoteFetchOptions = options
+  clearThirdPartyEmoteCache()
+}
 
 /** Drop cached third-party fetches (all rooms, or one room). */
 export function clearThirdPartyEmoteCache(roomId?: string) {
@@ -106,17 +133,24 @@ export function createEmptyEmoteCatalog(): ThirdPartyEmoteCatalog {
 async function fetchThirdPartyEmoteSetsUncached(
   roomId: string
 ): Promise<ThirdPartyEmoteSets> {
+  const { bttvEnabled, ffzEnabled, seventvEnabled } = thirdPartyEmoteFetchOptions
+
   const [bttv, ffz, sevenTv] = await Promise.allSettled([
-    fetchBetterTtvEmoteSets(roomId),
-    fetchFrankerFaceZEmoteSets(roomId),
-    fetchSevenTvEmoteSets(roomId),
+    bttvEnabled
+      ? fetchBetterTtvEmoteSets(roomId)
+      : Promise.resolve(emptyProviderEmotes),
+    ffzEnabled
+      ? fetchFrankerFaceZEmoteSets(roomId)
+      : Promise.resolve(emptyProviderEmotes),
+    seventvEnabled
+      ? fetchSevenTvEmoteSets(roomId)
+      : Promise.resolve(emptyProviderEmotes),
   ])
 
   return {
-    bttv: bttv.status === "fulfilled" ? bttv.value : { channel: [], global: [] },
-    ffz: ffz.status === "fulfilled" ? ffz.value : { channel: [], global: [] },
-    "7tv":
-      sevenTv.status === "fulfilled" ? sevenTv.value : { channel: [], global: [] },
+    bttv: bttv.status === "fulfilled" ? bttv.value : emptyProviderEmotes,
+    ffz: ffz.status === "fulfilled" ? ffz.value : emptyProviderEmotes,
+    "7tv": sevenTv.status === "fulfilled" ? sevenTv.value : emptyProviderEmotes,
   }
 }
 
