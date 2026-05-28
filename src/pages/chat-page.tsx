@@ -5,7 +5,7 @@ import type { TwitchTimelineItem } from "@/hooks/use-twitch-chat"
 import type { CachedChatView } from "@/hooks/use-chat-layout"
 import type { ChatBadgeCatalog } from "@/lib/chat-badges"
 import type { MessageTimestampFormat, TwitchChannel } from "@/lib/peepochat-config"
-import { usePeeepochat } from "@/lib/peepochat-context"
+import { usePeepochat } from "@/lib/peepochat-context"
 import type { TwitchChatRoomState } from "@/hooks/use-twitch-chat"
 import { cn } from "@/lib/utils"
 
@@ -150,7 +150,7 @@ export function ChatPage() {
     getBadgeCatalog,
     hasBadgeSupport,
     removeSplitChannel,
-  } = usePeeepochat()
+  } = usePeepochat()
 
   const timestampFormat = config.chat.messageTimestampFormat
   const chatPresentationStyle = useChatPresentationStyle(config)

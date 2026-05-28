@@ -2,7 +2,7 @@ import * as React from "react"
 import { ChevronDownIcon, LogOutIcon, UserIcon } from "lucide-react"
 import { toast } from "sonner"
 
-import { usePeeepochatSettings } from "@/lib/peepochat-context"
+import { usePeepochatSettings } from "@/lib/peepochat-context"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
@@ -14,7 +14,7 @@ export function AccountMenu() {
     isOAuthConfigured,
     loginWithTwitch,
     logout,
-  } = usePeeepochatSettings()
+  } = usePeepochatSettings()
 
   const [open, setOpen] = React.useState(false)
   const containerRef = React.useRef<HTMLDivElement>(null)

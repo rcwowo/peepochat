@@ -1,6 +1,6 @@
 import { HistoryIcon } from "lucide-react"
 
-import { usePeeepochatSettings } from "@/lib/peepochat-context"
+import { usePeepochatSettings } from "@/lib/peepochat-context"
 import {
   SettingsDivider,
   SettingsGroup,
@@ -11,7 +11,7 @@ import {
 } from "@/components/settings/settings-primitives"
 
 export function BehaviorTab() {
-  const { config, updateConfig } = usePeeepochatSettings()
+  const { config, updateConfig } = usePeepochatSettings()
 
   const setEmoteProvider = (
     provider: "bttvEnabled" | "ffzEnabled" | "seventvEnabled",
@@ -29,7 +29,7 @@ export function BehaviorTab() {
   return (
     <SettingsTab
       title="Behavior"
-      description="Feature toggles and preferences for how Peeepochat works."
+      description="Feature toggles and preferences for how Peepochat works."
     >
       <SettingsDivider className="mt-4 mb-4" />
 

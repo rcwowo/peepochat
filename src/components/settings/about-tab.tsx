@@ -98,7 +98,7 @@ export function AboutTab() {
       <section className="space-y-2">
         <SectionHeading
           title="Services we rely on"
-          description="Peeepochat wouldn't work without these projects and APIs. We're grateful they exist."
+          description="Peepochat wouldn't work without these projects and APIs. We're grateful they exist."
         />
         <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-background">
           {SERVICE_CREDITS.map((credit) => (

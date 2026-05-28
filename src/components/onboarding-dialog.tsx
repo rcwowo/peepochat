@@ -10,7 +10,7 @@ import { toast } from "sonner"
 
 import iconSrc from "/icon.svg"
 import logoSrc from "/logo.svg"
-import { usePeeepochatSettings } from "@/lib/peepochat-context"
+import { usePeepochatSettings } from "@/lib/peepochat-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -33,7 +33,7 @@ export function OnboardingDialog({
     loginWithTwitch,
     addChannel,
     restoreBackup,
-  } = usePeeepochatSettings()
+  } = usePeepochatSettings()
   const [step, setStep] = React.useState<OnboardingStep>("welcome")
   const [channel, setChannel] = React.useState("")
   const [addingChannel, setAddingChannel] = React.useState(false)

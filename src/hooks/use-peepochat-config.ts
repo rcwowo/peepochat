@@ -30,7 +30,7 @@ const cancelIdle: IdleCanceler =
       ).cancelIdleCallback.bind(window)
     : (handle) => window.clearTimeout(handle)
 
-export function usePeeepochatConfig() {
+export function usePeepochatConfig() {
   const [config, setConfig] = React.useState<AppConfig>(() =>
     createDefaultConfig()
   )

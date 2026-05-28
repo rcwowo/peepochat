@@ -24,7 +24,7 @@ import { EmptyState } from "@/components/dashboard-primitives"
 import type { TwitchTimelineItem } from "@/hooks/use-twitch-chat"
 import type { ChatBadgeCatalog } from "@/lib/chat-badges"
 import type { MessageTimestampFormat } from "@/lib/peepochat-config"
-import { usePeeepochat } from "@/lib/peepochat-context"
+import { usePeepochat } from "@/lib/peepochat-context"
 import { cn } from "@/lib/utils"
 
 const CHATVOICE_URL = "https://chatvoice.rcw.lol"
@@ -87,7 +87,7 @@ function ChatPaneInner({
   onRemoveSplit,
   className,
 }: ChatPaneProps) {
-  const { refreshEmotes } = usePeeepochat()
+  const { refreshEmotes } = usePeepochat()
   const chatContainerRef = React.useRef<HTMLDivElement>(null)
   const messageListRef = React.useRef<HTMLDivElement>(null)
   const isProgrammaticScrollRef = React.useRef(false)

@@ -7,7 +7,7 @@ import { EmotePicker } from "@/components/chat/emote-picker"
 import { ChatReplyPreview } from "@/components/chat/chat-reply-preview"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { usePeeepochat } from "@/lib/peepochat-context"
+import { usePeepochat } from "@/lib/peepochat-context"
 import type { TwitchChatReply } from "@/lib/twitch-chat"
 import {
   applyEmoteSuggestion,
@@ -47,7 +47,7 @@ export function ChatComposer({
     getRoomId,
     sendChatMessage,
     connectionState,
-  } = usePeeepochat()
+  } = usePeepochat()
 
   const [value, setValue] = React.useState("")
   const [error, setError] = React.useState("")

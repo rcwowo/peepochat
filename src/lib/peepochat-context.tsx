@@ -5,7 +5,7 @@ import {
   useChatLayout,
   type CachedChatView,
 } from "@/hooks/use-chat-layout"
-import { usePeeepochatConfig } from "@/hooks/use-peepochat-config"
+import { usePeepochatConfig } from "@/hooks/use-peepochat-config"
 import { useTwitchAuth } from "@/hooks/use-twitch-auth"
 import { useTwitchChannels } from "@/hooks/use-twitch-channels"
 import { useChatBadges } from "@/hooks/use-chat-badges"
@@ -30,14 +30,14 @@ import type { TwitchConnectionState } from "@/lib/twitch-chat"
 
 export type { TwitchTimelineItem }
 
-export type PeeepochatConfigContextValue = {
+export type PeepochatConfigContextValue = {
   config: AppConfig
   ready: boolean
   needsOnboarding: boolean
   completeOnboarding: () => void
   requireOnboarding: () => void
-  updateConfig: ReturnType<typeof usePeeepochatConfig>["updateConfig"]
-  restoreBackup: ReturnType<typeof usePeeepochatConfig>["restoreBackup"]
+  updateConfig: ReturnType<typeof usePeepochatConfig>["updateConfig"]
+  restoreBackup: ReturnType<typeof usePeepochatConfig>["restoreBackup"]
   account: TwitchAccount | null
   oauthBusy: boolean
   isOAuthConfigured: boolean
@@ -50,7 +50,7 @@ export type PeeepochatConfigContextValue = {
   removeChannel: (login: string) => void
 }
 
-export type PeeepochatLayoutContextValue = {
+export type PeepochatLayoutContextValue = {
   savedSplits: ChatSplit[]
   activeSplitId: string | null
   sidebarOrder: string[]
@@ -70,7 +70,7 @@ export type PeeepochatLayoutContextValue = {
   reorderSidebar: (activeId: string, overId: string) => void
 }
 
-export type PeeepochatChatContextValue = {
+export type PeepochatChatContextValue = {
   connectionState: TwitchConnectionState
   rooms: Record<string, TwitchChatRoomState>
   logs: string[]
@@ -91,49 +91,49 @@ export type PeeepochatChatContextValue = {
   hasBadgeSupport: boolean
 }
 
-export type PeeepochatContextValue = PeeepochatConfigContextValue &
-  PeeepochatLayoutContextValue &
-  PeeepochatChatContextValue
+export type PeepochatContextValue = PeepochatConfigContextValue &
+  PeepochatLayoutContextValue &
+  PeepochatChatContextValue
 
-const PeeepochatConfigContext =
-  React.createContext<PeeepochatConfigContextValue | null>(null)
-const PeeepochatLayoutContext =
-  React.createContext<PeeepochatLayoutContextValue | null>(null)
-const PeeepochatChatContext =
-  React.createContext<PeeepochatChatContextValue | null>(null)
+const PeepochatConfigContext =
+  React.createContext<PeepochatConfigContextValue | null>(null)
+const PeepochatLayoutContext =
+  React.createContext<PeepochatLayoutContextValue | null>(null)
+const PeepochatChatContext =
+  React.createContext<PeepochatChatContextValue | null>(null)
 
-export function usePeeepochatSettings() {
-  const context = React.useContext(PeeepochatConfigContext)
+export function usePeepochatSettings() {
+  const context = React.useContext(PeepochatConfigContext)
   if (!context) {
     throw new Error(
-      "usePeeepochatSettings must be used within a PeeepochatProvider"
+      "usePeepochatSettings must be used within a PeepochatProvider"
     )
   }
   return context
 }
 
-export function usePeeepochatLayout() {
-  const config = React.useContext(PeeepochatConfigContext)
-  const layout = React.useContext(PeeepochatLayoutContext)
+export function usePeepochatLayout() {
+  const config = React.useContext(PeepochatConfigContext)
+  const layout = React.useContext(PeepochatLayoutContext)
   if (!config || !layout) {
     throw new Error(
-      "usePeeepochatLayout must be used within a PeeepochatProvider"
+      "usePeepochatLayout must be used within a PeepochatProvider"
     )
   }
   return { ...config, ...layout }
 }
 
-export function usePeeepochat() {
-  const config = React.useContext(PeeepochatConfigContext)
-  const layout = React.useContext(PeeepochatLayoutContext)
-  const chat = React.useContext(PeeepochatChatContext)
+export function usePeepochat() {
+  const config = React.useContext(PeepochatConfigContext)
+  const layout = React.useContext(PeepochatLayoutContext)
+  const chat = React.useContext(PeepochatChatContext)
   if (!config || !layout || !chat) {
-    throw new Error("usePeeepochat must be used within a PeeepochatProvider")
+    throw new Error("usePeepochat must be used within a PeepochatProvider")
   }
   return { ...config, ...layout, ...chat }
 }
 
-export function PeeepochatProvider({ children }: { children: React.ReactNode }) {
+export function PeepochatProvider({ children }: { children: React.ReactNode }) {
   const {
     config,
     ready,
@@ -142,7 +142,7 @@ export function PeeepochatProvider({ children }: { children: React.ReactNode }) 
     requireOnboarding,
     updateConfig,
     restoreBackup,
-  } = usePeeepochatConfig()
+  } = usePeepochatConfig()
   const { account, oauthBusy, login, logout, isOAuthConfigured } = useTwitchAuth({
     config,
     updateConfig,
@@ -354,7 +354,7 @@ export function PeeepochatProvider({ children }: { children: React.ReactNode }) 
     }
   }, [ready, needsOnboarding]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const configValue = React.useMemo<PeeepochatConfigContextValue>(
+  const configValue = React.useMemo<PeepochatConfigContextValue>(
     () => ({
       config,
       ready,
@@ -395,7 +395,7 @@ export function PeeepochatProvider({ children }: { children: React.ReactNode }) 
     ]
   )
 
-  const layoutValue = React.useMemo<PeeepochatLayoutContextValue>(
+  const layoutValue = React.useMemo<PeepochatLayoutContextValue>(
     () => ({
       savedSplits,
       activeSplitId,
@@ -436,7 +436,7 @@ export function PeeepochatProvider({ children }: { children: React.ReactNode }) 
     ]
   )
 
-  const chatValue = React.useMemo<PeeepochatChatContextValue>(
+  const chatValue = React.useMemo<PeepochatChatContextValue>(
     () => ({
       connectionState,
       rooms,
@@ -472,13 +472,13 @@ export function PeeepochatProvider({ children }: { children: React.ReactNode }) 
   )
 
   return (
-    <PeeepochatConfigContext.Provider value={configValue}>
-      <PeeepochatLayoutContext.Provider value={layoutValue}>
-        <PeeepochatChatContext.Provider value={chatValue}>
+    <PeepochatConfigContext.Provider value={configValue}>
+      <PeepochatLayoutContext.Provider value={layoutValue}>
+        <PeepochatChatContext.Provider value={chatValue}>
           {children}
-        </PeeepochatChatContext.Provider>
-      </PeeepochatLayoutContext.Provider>
-    </PeeepochatConfigContext.Provider>
+        </PeepochatChatContext.Provider>
+      </PeepochatLayoutContext.Provider>
+    </PeepochatConfigContext.Provider>
   )
 }
 

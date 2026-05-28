@@ -6,7 +6,7 @@ import {
 } from "lucide-react"
 
 import type { ChatFontFamily, MessageTimestampFormat } from "@/lib/peepochat-config"
-import { usePeeepochatSettings } from "@/lib/peepochat-context"
+import { usePeepochatSettings } from "@/lib/peepochat-context"
 import { useTheme } from "@/components/theme-provider"
 import {
   SettingsDivider,
@@ -35,7 +35,7 @@ const FONT_FAMILY_OPTIONS: { value: ChatFontFamily; label: string }[] = [
 ]
 
 export function AppearanceTab() {
-  const { config, updateConfig } = usePeeepochatSettings()
+  const { config, updateConfig } = usePeepochatSettings()
   const { theme, setTheme } = useTheme()
 
   return (

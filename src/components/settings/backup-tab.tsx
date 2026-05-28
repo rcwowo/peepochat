@@ -2,14 +2,14 @@ import * as React from "react"
 import { CloudDownloadIcon, CloudUploadIcon } from "lucide-react"
 import { toast } from "sonner"
 
-import { usePeeepochatSettings } from "@/lib/peepochat-context"
+import { usePeepochatSettings } from "@/lib/peepochat-context"
 import { exportConfigBackup } from "@/lib/peepochat-config"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { SectionHeading } from "@/components/settings/settings-primitives"
 
 export function BackupTab() {
-  const { config, restoreBackup } = usePeeepochatSettings()
+  const { config, restoreBackup } = usePeepochatSettings()
   const fileInputRef = React.useRef<HTMLInputElement | null>(null)
 
   const downloadBackup = () => {

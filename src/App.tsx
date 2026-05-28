@@ -2,7 +2,7 @@ import * as React from "react"
 import { toast } from "sonner"
 import { SparklesIcon } from "lucide-react"
 
-import { PeeepochatProvider, usePeeepochatSettings } from "@/lib/peepochat-context"
+import { PeepochatProvider, usePeepochatSettings } from "@/lib/peepochat-context"
 import { hasNewVersion, initLastSeenVersion, markVersionSeen } from "@/lib/changelog"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
@@ -16,7 +16,7 @@ import {
 import { ChatPage } from "@/pages/chat-page"
 
 function DashboardLayout() {
-  const { ready, needsOnboarding, completeOnboarding } = usePeeepochatSettings()
+  const { ready, needsOnboarding, completeOnboarding } = usePeepochatSettings()
   const [settingsOpen, setSettingsOpen] = React.useState(false)
   const [settingsInitialCategory, setSettingsInitialCategory] =
     React.useState<SettingsCategory | undefined>(undefined)
@@ -99,9 +99,9 @@ function DashboardLayout() {
 export function App() {
   return (
     <TooltipProvider>
-      <PeeepochatProvider>
+      <PeepochatProvider>
         <DashboardLayout />
-      </PeeepochatProvider>
+      </PeepochatProvider>
     </TooltipProvider>
   )
 }
