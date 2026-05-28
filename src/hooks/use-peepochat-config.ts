@@ -5,9 +5,11 @@ import {
   createDefaultConfig,
   importConfigBackup,
   loadConfig,
+  mergeRestoredConfig,
   needsOnboardingForConfig,
   saveConfig,
 } from "@/lib/peepochat-config"
+import { getTwitchClientId } from "@/lib/twitch-oauth"
 
 type IdleScheduler = (cb: () => void) => number
 type IdleCanceler = (handle: number) => void
@@ -112,21 +114,23 @@ export function usePeepochatConfig() {
     [queueSave]
   )
 
-  const restoreBackup = React.useCallback(
-    async (payload: string) => {
-      const restored = importConfigBackup(payload)
-      pendingSaveRef.current = null
-      if (saveHandleRef.current !== null) {
-        cancelIdle(saveHandleRef.current)
-        saveHandleRef.current = null
-      }
-      saveConfig(restored)
-      setConfig(restored)
-      setNeedsOnboarding(needsOnboardingForConfig(restored))
-      return restored
-    },
-    []
-  )
+  const restoreBackup = React.useCallback(async (payload: string) => {
+    const restored = importConfigBackup(payload)
+    pendingSaveRef.current = null
+    if (saveHandleRef.current !== null) {
+      cancelIdle(saveHandleRef.current)
+      saveHandleRef.current = null
+    }
+
+    let merged = restored
+    setConfig((current) => {
+      merged = mergeRestoredConfig(restored, current, getTwitchClientId())
+      return merged
+    })
+    saveConfig(merged)
+    setNeedsOnboarding(needsOnboardingForConfig(merged))
+    return merged
+  }, [])
 
   const completeOnboarding = React.useCallback(() => {
     setNeedsOnboarding(false)

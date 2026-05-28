@@ -1,6 +1,7 @@
 import * as React from "react"
 import {
   BrushIcon,
+  DatabaseIcon,
   InfoIcon,
   ScrollTextIcon,
   SparklesIcon,
@@ -23,11 +24,13 @@ import { AboutTab } from "@/components/settings/about-tab"
 import { AppearanceTab } from "@/components/settings/appearance-tab"
 import { BehaviorTab } from "@/components/settings/behavior-tab"
 import { ChangelogTab } from "@/components/settings/changelog-tab"
+import { DataManagementTab } from "@/components/settings/data-management-tab"
 import { HighlightsTab } from "@/components/settings/highlights-tab"
 export type SettingsCategory =
   | "appearance"
   | "behavior"
   | "highlights"
+  | "data"
   | "changelog"
   | "about"
 
@@ -40,6 +43,7 @@ const SETTINGS_CATEGORIES: {
   { id: "appearance", label: "Appearance", icon: BrushIcon },
   { id: "behavior", label: "Behavior", icon: ZapIcon },
   { id: "highlights", label: "Highlights", icon: SparklesIcon },
+  { id: "data", label: "Data Management", icon: DatabaseIcon },
   { id: "changelog", label: "Changelog", icon: ScrollTextIcon, separated: true },
   { id: "about", label: "About", icon: InfoIcon, separated: true },
 ]
@@ -189,6 +193,7 @@ export function SettingsDialog({
               {activeCategory === "appearance" && <AppearanceTab />}
               {activeCategory === "behavior" && <BehaviorTab />}
               {activeCategory === "highlights" && <HighlightsTab />}
+              {activeCategory === "data" && <DataManagementTab />}
               {activeCategory === "changelog" && <ChangelogTab />}
               {activeCategory === "about" && <AboutTab />}
             </div>

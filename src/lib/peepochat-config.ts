@@ -87,6 +87,12 @@ export type TwitchChannel = z.infer<typeof twitchChannelSchema>
 export type TwitchConfig = z.infer<typeof twitchSchema>
 export type AppConfig = z.infer<typeof appConfigSchema>
 export type BackupEnvelope = z.infer<typeof backupEnvelopeSchema>
+export type TwitchAccountBackup = Omit<TwitchAccount, "accessToken" | "clientId">
+export type AppConfigBackup = Omit<AppConfig, "twitch"> & {
+  twitch: Omit<TwitchConfig, "account"> & {
+    account: TwitchAccountBackup | null
+  }
+}
 
 export function createDefaultConfig(): AppConfig {
   return {
@@ -255,7 +261,7 @@ export function exportConfigBackup(config: AppConfig): string {
     appVersion: PEEPOCHAT_APP_VERSION,
     exportedAt: new Date().toISOString(),
     schemaVersion: PEEPOCHAT_SCHEMA_VERSION,
-    data: redactTokensForExport(normalizeConfig(config)),
+    data: sanitizeConfigForExport(normalizeConfig(config)),
   }
 
   return JSON.stringify(envelope, null, 2)
@@ -264,6 +270,42 @@ export function exportConfigBackup(config: AppConfig): string {
 export function importConfigBackup(payload: string): AppConfig {
   const parsed = JSON.parse(payload)
   return parseConfig(parsed)
+}
+
+/** Keep an active session when restoring a backup for the same Twitch account. */
+export function mergeRestoredConfig(
+  restored: AppConfig,
+  existing: AppConfig,
+  envClientId = ""
+): AppConfig {
+  const restoredAccount = restored.twitch.account
+  if (!restoredAccount) {
+    return restored
+  }
+
+  const existingAccount = existing.twitch.account
+  const sameAccount =
+    existingAccount !== null && existingAccount.id === restoredAccount.id
+
+  const accessToken =
+    restoredAccount.accessToken.trim() ||
+    (sameAccount ? existingAccount.accessToken : "")
+  const clientId =
+    restoredAccount.clientId.trim() ||
+    (sameAccount ? existingAccount.clientId : "") ||
+    envClientId
+
+  return normalizeConfig({
+    ...restored,
+    twitch: {
+      ...restored.twitch,
+      account: {
+        ...restoredAccount,
+        accessToken,
+        clientId,
+      },
+    },
+  })
 }
 
 function parseConfig(input: unknown): AppConfig {
@@ -276,11 +318,45 @@ function parseConfig(input: unknown): AppConfig {
 
   return normalizeConfig(
     appConfigSchema.parse({
-      ...object,
+      ...coerceConfigCredentials(object),
       layout: coerceLayoutShape(object.layout),
       schemaVersion: PEEPOCHAT_SCHEMA_VERSION,
     })
   )
+}
+
+function coerceConfigCredentials(
+  input: Record<string, unknown>
+): Record<string, unknown> {
+  const twitch = input.twitch
+  if (!twitch || typeof twitch !== "object") {
+    return input
+  }
+
+  const twitchRecord = twitch as Record<string, unknown>
+  const account = twitchRecord.account
+  if (!account || typeof account !== "object") {
+    return input
+  }
+
+  const accountRecord = account as Record<string, unknown>
+  return {
+    ...input,
+    twitch: {
+      ...twitchRecord,
+      account: {
+        ...accountRecord,
+        accessToken:
+          typeof accountRecord.accessToken === "string"
+            ? accountRecord.accessToken
+            : "",
+        clientId:
+          typeof accountRecord.clientId === "string"
+            ? accountRecord.clientId
+            : "",
+      },
+    },
+  }
 }
 
 const MESSAGE_URL_PATTERN = /https?:\/\/\S+/g
@@ -373,14 +449,20 @@ function normalizeConfig(config: AppConfig): AppConfig {
   }
 }
 
-function redactTokensForExport(config: AppConfig): AppConfig {
+function sanitizeConfigForExport(config: AppConfig): AppConfigBackup {
+  const account = config.twitch.account
+  if (!account) {
+    return config
+  }
+
+  const { accessToken: _accessToken, clientId: _clientId, ...accountExport } =
+    account
+
   return {
     ...config,
     twitch: {
       ...config.twitch,
-      account: config.twitch.account
-        ? { ...config.twitch.account, accessToken: "" }
-        : null,
+      account: accountExport,
     },
   }
 }
