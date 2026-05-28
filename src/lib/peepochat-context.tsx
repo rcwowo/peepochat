@@ -252,8 +252,14 @@ export function PeeepochatProvider({ children }: { children: React.ReactNode }) 
     [channels]
   )
 
+  const channelLoginsRef = React.useRef(channelLogins)
+  channelLoginsRef.current = channelLogins
+
+  const setEmoteLoadContextRef = React.useRef(setEmoteLoadContext)
+  setEmoteLoadContextRef.current = setEmoteLoadContext
+
   React.useEffect(() => {
-    setEmoteLoadContext({
+    setEmoteLoadContextRef.current({
       accessToken: account?.accessToken,
       clientId: account?.clientId,
       userId: account?.id,
@@ -264,11 +270,10 @@ export function PeeepochatProvider({ children }: { children: React.ReactNode }) 
   }, [
     account?.accessToken,
     account?.clientId,
-    account?.displayName,
     account?.id,
     account?.login,
+    account?.displayName,
     channelHints,
-    setEmoteLoadContext,
   ])
 
   React.useEffect(() => {
@@ -276,8 +281,17 @@ export function PeeepochatProvider({ children }: { children: React.ReactNode }) 
   }, [config.chat.recentMessagesEnabled, setRecentMessagesEnabled])
 
   const emotesOptionsReadyRef = React.useRef(false)
+  const emoteProviderFlagsRef = React.useRef("")
+  const refreshEmotesRef = React.useRef(refreshEmotes)
+  refreshEmotesRef.current = refreshEmotes
 
   React.useEffect(() => {
+    const flagsKey = [
+      config.chat.emotes.bttvEnabled,
+      config.chat.emotes.ffzEnabled,
+      config.chat.emotes.seventvEnabled,
+    ].join(":")
+
     setThirdPartyEmoteFetchOptions({
       bttvEnabled: config.chat.emotes.bttvEnabled,
       ffzEnabled: config.chat.emotes.ffzEnabled,
@@ -286,18 +300,23 @@ export function PeeepochatProvider({ children }: { children: React.ReactNode }) 
 
     if (!emotesOptionsReadyRef.current) {
       emotesOptionsReadyRef.current = true
+      emoteProviderFlagsRef.current = flagsKey
       return
     }
 
-    for (const channel of channels) {
-      void refreshEmotes(channel.login)
+    if (emoteProviderFlagsRef.current === flagsKey) {
+      return
+    }
+
+    emoteProviderFlagsRef.current = flagsKey
+
+    for (const login of channelLoginsRef.current) {
+      void refreshEmotesRef.current(login)
     }
   }, [
-    channels,
     config.chat.emotes.bttvEnabled,
     config.chat.emotes.ffzEnabled,
     config.chat.emotes.seventvEnabled,
-    refreshEmotes,
   ])
 
   const canSendChat = Boolean(account?.accessToken && connectionState.connected)

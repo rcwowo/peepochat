@@ -1,23 +1,38 @@
 import {
+  buildThirdPartyEmoteCatalog,
   getThirdPartyEmoteSets,
   type EmoteCatalogEntry,
+  type ThirdPartyEmoteCatalog,
   type ThirdPartyEmoteSets,
   type TwitchEmoteHydration,
 } from "@/lib/chat-emotes"
 import {
-  fetchAllUserChatEmotes,
-  fetchChannelChatEmotes,
-  fetchGlobalChatEmotes,
-  fetchTwitchUsersById,
-  fetchTwitchUsersByLogin,
-  fetchUserChatEmotes,
   isFollowerChannelEmote,
   isSubscriptionChannelEmote,
   type TwitchChatEmote,
   type TwitchUser,
 } from "@/lib/twitch-api"
+import { resolveBroadcasterProfiles } from "@/lib/twitch-broadcaster-profiles"
+import { loadTwitchEmotesForComposer } from "@/lib/twitch-emote-session"
+
+export {
+  clearChannelTwitchEmoteCache,
+  clearTwitchEmoteSessionCache,
+} from "@/lib/twitch-emote-session"
+export { clearBroadcasterProfileCache } from "@/lib/twitch-broadcaster-profiles"
 import { sortPickerEmotes } from "@/lib/emote-picker-layout"
 import type { TwitchEmoteProvider } from "@/lib/twitch-chat"
+
+/**
+ * Emote cache invalidation (keep layers in sync):
+ *
+ * | Event | third-party (`chat-emotes`) | Helix (`twitch-emote-session`) | profiles | room bundle (this file) |
+ * |-------|------------------------------|--------------------------------|----------|-------------------------|
+ * | Logout / disconnect all channels | clear all | clear all | clear all | clear all |
+ * | Auth token / user change | — | clear all | clear all | clear all |
+ * | Emote provider toggles | — | — | — | refresh per channel via hook |
+ * | Manual refresh / per-room reload | clear room | clear room channel | — | clear room |
+ */
 
 export type ComposerEmote = EmoteCatalogEntry
 
@@ -86,30 +101,111 @@ export function createEmptyComposerCatalog(): ComposerEmoteCatalog {
   return { platforms: [], byCode: new Map(), twitchById: new Map() }
 }
 
+export type RoomEmoteBundle = {
+  composer: ComposerEmoteCatalog
+  thirdParty: ThirdPartyEmoteCatalog
+}
+
+const roomEmoteBundleCache = new Map<string, RoomEmoteBundle>()
+const roomEmoteBundleInflight = new Map<string, Promise<RoomEmoteBundle>>()
+
+export function clearRoomEmoteBundleCache(roomId?: string) {
+  if (roomId) {
+    for (const key of roomEmoteBundleCache.keys()) {
+      if (key.startsWith(`${roomId}:`)) {
+        roomEmoteBundleCache.delete(key)
+      }
+    }
+    for (const key of roomEmoteBundleInflight.keys()) {
+      if (key.startsWith(`${roomId}:`)) {
+        roomEmoteBundleInflight.delete(key)
+      }
+    }
+    return
+  }
+
+  roomEmoteBundleCache.clear()
+  roomEmoteBundleInflight.clear()
+}
+
+/** @deprecated Use clearRoomEmoteBundleCache */
+export function clearRoomEmoteBundleInflight() {
+  clearRoomEmoteBundleCache()
+}
+
+function roomEmoteBundleKey(options: ComposerEmoteLoadOptions) {
+  const userId = options.userId?.trim() ?? ""
+  return `${options.roomId}:${userId}`
+}
+
+/** One network pass per room: third-party + Twitch Helix + profiles (deduped in-flight). */
+export async function fetchRoomEmoteBundle(
+  options: ComposerEmoteLoadOptions
+): Promise<RoomEmoteBundle> {
+  const key = roomEmoteBundleKey(options)
+
+  const cached = roomEmoteBundleCache.get(key)
+  if (cached) {
+    return cached
+  }
+
+  const pending = roomEmoteBundleInflight.get(key)
+  if (pending) {
+    return pending
+  }
+
+  const promise = buildRoomEmoteBundle(options)
+    .then((bundle) => {
+      roomEmoteBundleCache.set(key, bundle)
+      return bundle
+    })
+    .finally(() => {
+      if (roomEmoteBundleInflight.get(key) === promise) {
+        roomEmoteBundleInflight.delete(key)
+      }
+    })
+
+  roomEmoteBundleInflight.set(key, promise)
+  return promise
+}
+
 export async function fetchComposerEmoteCatalog(
   options: ComposerEmoteLoadOptions
 ): Promise<ComposerEmoteCatalog> {
+  return (await fetchRoomEmoteBundle(options)).composer
+}
+
+async function buildRoomEmoteBundle(
+  options: ComposerEmoteLoadOptions
+): Promise<RoomEmoteBundle> {
   const { roomId, channelLogin, accessToken, clientId, userId } = options
   const canLoadTwitch = Boolean(accessToken?.trim() && clientId?.trim())
 
-  const [thirdPartySets, twitchGlobal, twitchChannelRaw, twitchUserAll, twitchUserChannel] =
-    await Promise.all([
-      getThirdPartyEmoteSets(roomId),
-      canLoadTwitch
-        ? fetchGlobalChatEmotes(accessToken!, clientId!).catch(() => [])
-        : Promise.resolve([]),
-      canLoadTwitch
-        ? fetchChannelChatEmotes(roomId, accessToken!, clientId!).catch(() => [])
-        : Promise.resolve([]),
-      canLoadTwitch && userId
-        ? fetchAllUserChatEmotes(userId, accessToken!, clientId!).catch(() => [])
-        : Promise.resolve([]),
-      canLoadTwitch && userId
-        ? fetchUserChatEmotes(userId, accessToken!, clientId!, roomId).catch(
-            () => []
-          )
-        : Promise.resolve([]),
-    ])
+  const [thirdPartySets, twitchEmotes] = await Promise.all([
+    getThirdPartyEmoteSets(roomId),
+    canLoadTwitch
+      ? loadTwitchEmotesForComposer({
+          roomId,
+          accessToken,
+          clientId,
+          userId,
+        })
+      : Promise.resolve({
+          global: [],
+          userAll: [],
+          channel: [],
+          userChannel: [],
+        }),
+  ])
+
+  const thirdParty = buildThirdPartyEmoteCatalog(thirdPartySets)
+
+  const {
+    global: twitchGlobal,
+    channel: twitchChannelRaw,
+    userAll: twitchUserAll,
+    userChannel: twitchUserChannel,
+  } = twitchEmotes
 
   const twitchDrafts = partitionTwitchEmotes({
     roomId,
@@ -136,12 +232,14 @@ export async function fetchComposerEmoteCatalog(
     channelLogin
   )
 
-  return buildComposerCatalog({
+  const composer = buildComposerCatalog({
     channelLogin,
     thirdPartySets: dedupeThirdPartySets(thirdPartySets),
     twitchCategories,
     currentChannelProfile: profiles.get(roomId),
   })
+
+  return { composer, thirdParty }
 }
 
 function collectBroadcasterOwnerIds(drafts: CategoryDraft[]): string[] {
@@ -154,60 +252,6 @@ function collectBroadcasterOwnerIds(drafts: CategoryDraft[]): string[] {
   }
 
   return [...new Set(ownerIds)]
-}
-
-async function resolveBroadcasterProfiles(options: {
-  accessToken: string
-  clientId: string
-  roomId: string
-  channelLogin: string
-  hints: ChannelProfileHint[]
-  ownerIds: string[]
-}): Promise<Map<string, TwitchUser>> {
-  const profiles = new Map<string, TwitchUser>()
-
-  const loginsToFetch = [
-    ...new Set(
-      [
-        options.channelLogin,
-        ...options.hints.map((hint) => hint.login),
-      ]
-        .map((login) => login.trim().replace(/^#/, "").toLowerCase())
-        .filter(Boolean)
-    ),
-  ]
-
-  const byLogin = await fetchTwitchUsersByLogin(
-    loginsToFetch,
-    options.accessToken,
-    options.clientId
-  ).catch(() => [] as TwitchUser[])
-
-  for (const user of byLogin) {
-    profiles.set(user.id, user)
-  }
-
-  const missingOwnerIds = options.ownerIds.filter((id) => !profiles.has(id))
-  if (missingOwnerIds.length > 0) {
-    const byId = await fetchTwitchUsersById(
-      missingOwnerIds,
-      options.accessToken,
-      options.clientId
-    ).catch(() => [] as TwitchUser[])
-
-    for (const user of byId) {
-      profiles.set(user.id, user)
-    }
-  }
-
-  const currentByLogin = [...profiles.values()].find(
-    (user) => user.login === options.channelLogin.toLowerCase()
-  )
-  if (currentByLogin) {
-    profiles.set(options.roomId, currentByLogin)
-  }
-
-  return profiles
 }
 
 function reorderTwitchCategories(
