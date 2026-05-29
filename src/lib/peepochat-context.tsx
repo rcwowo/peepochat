@@ -9,11 +9,17 @@ import { usePeepochatConfig } from "@/hooks/use-peepochat-config"
 import { useTwitchAuth } from "@/hooks/use-twitch-auth"
 import { useTwitchChannels } from "@/hooks/use-twitch-channels"
 import { useChatBadges } from "@/hooks/use-chat-badges"
+import { useHighlightActivity } from "@/hooks/use-highlight-activity"
+import { useStreamLiveStatus } from "@/hooks/use-stream-live-status"
 import {
   useTwitchChat,
   type TwitchChatRoomState,
   type TwitchTimelineItem,
 } from "@/hooks/use-twitch-chat"
+import {
+  canShowDesktopNotifications,
+  showDesktopNotification,
+} from "@/lib/desktop-notifications"
 import type { ChatBadgeCatalog } from "@/lib/chat-badges"
 import type {
   AppConfig,
@@ -70,6 +76,16 @@ export type PeepochatLayoutContextValue = {
   reorderSidebar: (activeId: string, overId: string) => void
 }
 
+export type PeepochatSidebarHighlightsContextValue = {
+  hasUnreadForChannel: (login: string) => boolean
+  hasUnreadForSplit: (splitId: string, channelLogins: string[]) => boolean
+  hasPingForChannel: (login: string) => boolean
+  hasPingForSplit: (splitId: string, channelLogins: string[]) => boolean
+  isChannelLive: (login: string) => boolean
+  isSplitLive: (channelLogins: string[]) => boolean
+  liveIndicatorsEnabled: boolean
+}
+
 export type PeepochatChatContextValue = {
   connectionState: TwitchConnectionState
   rooms: Record<string, TwitchChatRoomState>
@@ -101,6 +117,8 @@ const PeepochatLayoutContext =
   React.createContext<PeepochatLayoutContextValue | null>(null)
 const PeepochatChatContext =
   React.createContext<PeepochatChatContextValue | null>(null)
+const PeepochatSidebarHighlightsContext =
+  React.createContext<PeepochatSidebarHighlightsContextValue | null>(null)
 
 export function usePeepochatSettings() {
   const context = React.useContext(PeepochatConfigContext)
@@ -123,14 +141,36 @@ export function usePeepochatLayout() {
   return { ...config, ...layout }
 }
 
+export function usePeepochatSidebarHighlights() {
+  const context = React.useContext(PeepochatSidebarHighlightsContext)
+  if (!context) {
+    throw new Error(
+      "usePeepochatSidebarHighlights must be used within a PeepochatProvider"
+    )
+  }
+  return context
+}
+
+/** @deprecated Prefer `usePeepochatSidebarHighlights` for sidebar-only state. */
+export const usePeepochatHighlights = usePeepochatSidebarHighlights
+
+export function usePeepochatChat() {
+  const context = React.useContext(PeepochatChatContext)
+  if (!context) {
+    throw new Error("usePeepochatChat must be used within a PeepochatProvider")
+  }
+  return context
+}
+
 export function usePeepochat() {
   const config = React.useContext(PeepochatConfigContext)
   const layout = React.useContext(PeepochatLayoutContext)
   const chat = React.useContext(PeepochatChatContext)
-  if (!config || !layout || !chat) {
+  const highlights = React.useContext(PeepochatSidebarHighlightsContext)
+  if (!config || !layout || !chat || !highlights) {
     throw new Error("usePeepochat must be used within a PeepochatProvider")
   }
-  return { ...config, ...layout, ...chat }
+  return { ...config, ...layout, ...chat, ...highlights }
 }
 
 export function PeepochatProvider({ children }: { children: React.ReactNode }) {
@@ -148,6 +188,14 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     updateConfig,
   })
   const hasAccountValue = account !== null
+  const onChatMessageRef = React.useRef<
+    ((message: import("@/lib/twitch-chat").TwitchChatMessage) => void) | null
+  >(null)
+  const onChatMessagesRef = React.useRef<
+    | ((messages: import("@/lib/twitch-chat").TwitchChatMessage[]) => void)
+    | null
+  >(null)
+
   const {
     connectionState,
     rooms,
@@ -164,7 +212,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     isComposerEmotesLoading,
     refreshEmotes,
     sendMessage,
-  } = useTwitchChat()
+  } = useTwitchChat({ onChatMessageRef, onChatMessagesRef })
   const { getBadgeCatalog, loadBadgesForRoom, hasBadgeSupport } =
     useChatBadges(account)
 
@@ -206,7 +254,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
   const {
     channels,
     activeChannelLogin,
-    setActiveChannel,
+    setActiveChannel: setActiveChannelBase,
     addChannel,
     removeChannel,
   } = useTwitchChannels({
@@ -217,6 +265,56 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
   const channelLogins = React.useMemo(
     () => channels.map((channel) => channel.login),
     [channels]
+  )
+
+  const highlightActivity = useHighlightActivity({
+    config,
+    accountLogin: account?.login ?? null,
+    visibleChannelLogins,
+    isSplitView,
+    activeSplitId,
+    splits: savedSplits,
+    onFocusChannel: (login) => {
+      setActiveChannelBase(login)
+    },
+  })
+
+  onChatMessageRef.current = highlightActivity.handleIncomingMessage
+  onChatMessagesRef.current = highlightActivity.handleIncomingMessages
+
+  const { isLive: isChannelLive } = useStreamLiveStatus({
+    channelLogins,
+    enabled: config.highlights.liveIndicatorsEnabled && hasAccountValue,
+    accessToken: account?.accessToken,
+    clientId: account?.clientId,
+    onChannelWentLive: (login, title) => {
+      if (!config.highlights.livePushNotificationsEnabled) return
+      if (!canShowDesktopNotifications()) return
+      if (document.visibilityState !== "hidden") return
+
+      showDesktopNotification({
+        title: `#${login} is live`,
+        body: title,
+        tag: `live:${login}`,
+        onClick: () => setActiveChannelBase(login),
+      })
+    },
+  })
+
+  const setActiveChannel = React.useCallback(
+    (login: string) => {
+      highlightActivity.markChannelRead(login)
+      setActiveChannelBase(login)
+    },
+    [highlightActivity, setActiveChannelBase]
+  )
+
+  const selectSplitWithRead = React.useCallback(
+    (splitId: string) => {
+      highlightActivity.markSplitRead(splitId)
+      selectSplit(splitId)
+    },
+    [highlightActivity, selectSplit]
   )
 
   React.useEffect(() => {
@@ -413,7 +511,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       cachedChatViews,
       activeChatViewKey,
       mountedChannelLogins,
-      selectSplit,
+      selectSplit: selectSplitWithRead,
       openSplitView,
       addSplitChannel,
       removeSplitChannel,
@@ -432,7 +530,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       cachedChatViews,
       activeChatViewKey,
       mountedChannelLogins,
-      selectSplit,
+      selectSplitWithRead,
       openSplitView,
       addSplitChannel,
       removeSplitChannel,
@@ -440,6 +538,36 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       reorderSidebar,
     ]
   )
+
+  const isSplitLive = React.useCallback(
+    (logins: string[]) =>
+      config.highlights.liveIndicatorsEnabled &&
+      logins.some((login) => isChannelLive(login)),
+    [config.highlights.liveIndicatorsEnabled, isChannelLive]
+  )
+
+  const sidebarHighlightsValue =
+    React.useMemo<PeepochatSidebarHighlightsContextValue>(
+      () => ({
+        hasUnreadForChannel: highlightActivity.hasUnreadForChannel,
+        hasUnreadForSplit: highlightActivity.hasUnreadForSplit,
+        hasPingForChannel: highlightActivity.hasPingForChannel,
+        hasPingForSplit: highlightActivity.hasPingForSplit,
+        isChannelLive: (login) =>
+          config.highlights.liveIndicatorsEnabled && isChannelLive(login),
+        isSplitLive,
+        liveIndicatorsEnabled: config.highlights.liveIndicatorsEnabled,
+      }),
+      [
+        config.highlights.liveIndicatorsEnabled,
+        highlightActivity.hasUnreadForChannel,
+        highlightActivity.hasUnreadForSplit,
+        highlightActivity.hasPingForChannel,
+        highlightActivity.hasPingForSplit,
+        isChannelLive,
+        isSplitLive,
+      ]
+    )
 
   const chatValue = React.useMemo<PeepochatChatContextValue>(
     () => ({
@@ -479,9 +607,13 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
   return (
     <PeepochatConfigContext.Provider value={configValue}>
       <PeepochatLayoutContext.Provider value={layoutValue}>
-        <PeepochatChatContext.Provider value={chatValue}>
-          {children}
-        </PeepochatChatContext.Provider>
+        <PeepochatSidebarHighlightsContext.Provider
+          value={sidebarHighlightsValue}
+        >
+          <PeepochatChatContext.Provider value={chatValue}>
+            {children}
+          </PeepochatChatContext.Provider>
+        </PeepochatSidebarHighlightsContext.Provider>
       </PeepochatLayoutContext.Provider>
     </PeepochatConfigContext.Provider>
   )

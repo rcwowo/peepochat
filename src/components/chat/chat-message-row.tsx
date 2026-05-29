@@ -23,6 +23,7 @@ function ChatMessageRowInner({
   isHistorical = false,
   showCopyButton = true,
   showReplyButton = true,
+  pingHighlighted = false,
 }: {
   message: TwitchChatMessage
   timestampFormat: MessageTimestampFormat
@@ -31,6 +32,7 @@ function ChatMessageRowInner({
   isHistorical?: boolean
   showCopyButton?: boolean
   showReplyButton?: boolean
+  pingHighlighted?: boolean
 }) {
   const timestamp = formatMessageTimestamp(message.receivedAt, timestampFormat)
   const badges = resolveMessageBadges(message.badges, badgeCatalog)
@@ -41,7 +43,8 @@ function ChatMessageRowInner({
     <div
       className={cn(
         "chat-message group relative px-3 py-1 leading-5",
-        isHistorical && "chat-message--historical"
+        isHistorical && "chat-message--historical",
+        pingHighlighted && "chat-message--ping-highlight"
       )}
     >
       {showQuickActions ? (

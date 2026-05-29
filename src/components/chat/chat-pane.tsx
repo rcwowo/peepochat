@@ -27,7 +27,8 @@ import type {
   MessageQuickActionsConfig,
   MessageTimestampFormat,
 } from "@/lib/peepochat-config"
-import { usePeepochat } from "@/lib/peepochat-context"
+import { useChannelHighlightedMessageIds } from "@/hooks/use-highlight-activity"
+import { usePeepochatChat } from "@/lib/peepochat-context"
 import { cn } from "@/lib/utils"
 
 const CHATVOICE_URL = "https://chatvoice.rcw.lol"
@@ -92,7 +93,8 @@ function ChatPaneInner({
   onRemoveSplit,
   className,
 }: ChatPaneProps) {
-  const { refreshEmotes } = usePeepochat()
+  const { refreshEmotes } = usePeepochatChat()
+  const highlightedMessageIds = useChannelHighlightedMessageIds(channelLogin)
   const chatContainerRef = React.useRef<HTMLDivElement>(null)
   const messageListRef = React.useRef<HTMLDivElement>(null)
   const isProgrammaticScrollRef = React.useRef(false)
@@ -283,6 +285,9 @@ function ChatPaneInner({
                       badgeCatalog={badgeCatalog}
                       showBadgeFallback={showBadgeFallback}
                       isHistorical={entry.isHistorical}
+                      pingHighlighted={highlightedMessageIds.has(
+                        entry.message.id
+                      )}
                     />
                   )
                 })}

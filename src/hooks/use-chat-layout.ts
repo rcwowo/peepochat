@@ -2,6 +2,7 @@ import * as React from "react"
 
 import type { AppConfig, ChatSplit } from "@/lib/peepochat-config"
 import {
+  createChatSplit,
   createSplitId,
   findSplitByChannels,
   getActiveChannelLogin,
@@ -156,7 +157,7 @@ export function useChatLayout({
           ? current.layout.splits
           : [
               ...current.layout.splits,
-              { id: splitId, channels: normalized },
+              createChatSplit(normalized, splitId),
             ]
 
         const pruned = pruneSplits(splits)
@@ -231,7 +232,7 @@ export function useChatLayout({
           ? current.layout.splits
           : [
               ...current.layout.splits,
-              { id: splitId, channels: nextChannels },
+              createChatSplit(nextChannels, splitId),
             ]
         const pruned = pruneSplits(splits)
         const order = existing

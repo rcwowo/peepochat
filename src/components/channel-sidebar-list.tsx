@@ -53,7 +53,7 @@ function SortableSidebarRow({
       style={style}
       data-dragging={isDragging ? "true" : "false"}
       className={cn(
-        "group-data-[collapsible=icon]:w-auto",
+        "w-full group-data-[collapsible=icon]:w-full",
         "touch-none",
         "[&_button]:cursor-pointer [&_img]:cursor-pointer",
         "data-[dragging=true]:cursor-grabbing data-[dragging=true]:[&_button]:cursor-grabbing data-[dragging=true]:[&_img]:cursor-grabbing",

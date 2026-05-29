@@ -508,6 +508,77 @@ function resolveEmoteImageUrl(
   return buildTwitchEmoteCdnUrl(emote.id, format)
 }
 
+export type TwitchLiveStream = {
+  id: string
+  userId: string
+  userLogin: string
+  userName: string
+  title: string
+  viewerCount: number
+  startedAt: string
+}
+
+export async function fetchLiveStreamsByLogin(
+  logins: string[],
+  accessToken: string,
+  clientId: string
+): Promise<TwitchLiveStream[]> {
+  const normalized = [
+    ...new Set(
+      logins.map((login) => login.trim().replace(/^#/, "").toLowerCase()).filter(Boolean)
+    ),
+  ]
+
+  if (normalized.length === 0) {
+    return []
+  }
+
+  const streams: TwitchLiveStream[] = []
+
+  for (let index = 0; index < normalized.length; index += 100) {
+    const chunk = normalized.slice(index, index + 100)
+    const params = new URLSearchParams()
+    for (const login of chunk) {
+      params.append("user_login", login)
+    }
+
+    const response = await fetch(
+      `https://api.twitch.tv/helix/streams?${params.toString()}`,
+      { headers: helixHeaders(accessToken, clientId) }
+    )
+
+    if (!response.ok) {
+      throw new TwitchApiError("Could not load live streams.", response.status)
+    }
+
+    const payload = (await response.json()) as {
+      data?: Array<{
+        id: string
+        user_id: string
+        user_login: string
+        user_name: string
+        title: string
+        viewer_count: number
+        started_at: string
+      }>
+    }
+
+    streams.push(
+      ...(payload.data ?? []).map((stream) => ({
+        id: stream.id,
+        userId: stream.user_id,
+        userLogin: stream.user_login.toLowerCase(),
+        userName: stream.user_name,
+        title: stream.title,
+        viewerCount: stream.viewer_count,
+        startedAt: stream.started_at,
+      }))
+    )
+  }
+
+  return streams
+}
+
 function helixHeaders(accessToken: string, clientId: string): HeadersInit {
   return {
     Authorization: `Bearer ${accessToken}`,

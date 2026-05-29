@@ -4,7 +4,7 @@ import { migrateChatFontFamilyInput } from "@/lib/chat-fonts"
 import { normalizeSidebarOrder } from "@/lib/sidebar-order"
 
 export const PEEPOCHAT_STORAGE_KEY = "peepochat::config"
-export const PEEPOCHAT_SCHEMA_VERSION = 6
+export const PEEPOCHAT_SCHEMA_VERSION = 7
 
 export const LIVE_MESSAGES_PER_CHANNEL_MIN = 20
 export const LIVE_MESSAGES_PER_CHANNEL_MAX = 500
@@ -46,9 +46,25 @@ const chatSchema = z.object({
   emotes: chatEmotesSchema,
 })
 
+const highlightPingRuleSchema = z.object({
+  id: z.string().min(1),
+  pattern: z.string().max(500),
+  enabled: z.boolean().default(true),
+  notify: z.boolean().default(true),
+})
+
+const highlightsSchema = z.object({
+  unreadIndicatorsEnabled: z.boolean().default(true),
+  liveIndicatorsEnabled: z.boolean().default(true),
+  livePushNotificationsEnabled: z.boolean().default(false),
+  pingPushNotificationsEnabled: z.boolean().default(true),
+  pings: z.array(highlightPingRuleSchema).default([]),
+})
+
 const chatSplitSchema = z.object({
   id: z.string().min(1),
   channels: z.array(z.string()),
+  unreadIndicatorEnabled: z.boolean().nullable().default(null),
 })
 
 const chatLayoutSchema = z.object({
@@ -71,6 +87,7 @@ export const twitchChannelSchema = z.object({
   login: z.string(),
   displayName: z.string().optional(),
   profileImageUrl: z.string().optional(),
+  unreadIndicatorEnabled: z.boolean().nullable().default(null),
 })
 
 const twitchSchema = z.object({
@@ -85,6 +102,13 @@ const appConfigSchema = z.object({
   twitch: twitchSchema,
   chat: chatSchema,
   layout: chatLayoutSchema,
+  highlights: highlightsSchema.default({
+    unreadIndicatorsEnabled: true,
+    liveIndicatorsEnabled: true,
+    livePushNotificationsEnabled: false,
+    pingPushNotificationsEnabled: true,
+    pings: [],
+  }),
 })
 
 const backupEnvelopeSchema = z.object({
@@ -95,6 +119,8 @@ const backupEnvelopeSchema = z.object({
   data: z.unknown(),
 })
 
+export type HighlightPingRule = z.infer<typeof highlightPingRuleSchema>
+export type HighlightsConfig = z.infer<typeof highlightsSchema>
 export type MessageTimestampFormat = z.infer<typeof messageTimestampFormatSchema>
 export type ChatFontFamilySetting = z.infer<typeof chatFontFamilySchema>
 export type ChatEmotesConfig = z.infer<typeof chatEmotesSchema>
@@ -147,7 +173,38 @@ export function createDefaultConfig(): AppConfig {
       splits: [],
       sidebarOrder: [],
     },
+    highlights: {
+      unreadIndicatorsEnabled: true,
+      liveIndicatorsEnabled: true,
+      livePushNotificationsEnabled: false,
+      pingPushNotificationsEnabled: true,
+      pings: [],
+    },
   }
+}
+
+export function isUnreadIndicatorEnabledForChannel(
+  config: AppConfig,
+  login: string
+): boolean {
+  const globalEnabled = config.highlights.unreadIndicatorsEnabled
+  const channel = config.twitch.channels.find((c) => c.login === login)
+  if (channel?.unreadIndicatorEnabled !== null && channel?.unreadIndicatorEnabled !== undefined) {
+    return channel.unreadIndicatorEnabled
+  }
+  return globalEnabled
+}
+
+export function isUnreadIndicatorEnabledForSplit(
+  config: AppConfig,
+  splitId: string
+): boolean {
+  const globalEnabled = config.highlights.unreadIndicatorsEnabled
+  const split = config.layout.splits.find((s) => s.id === splitId)
+  if (split?.unreadIndicatorEnabled !== null && split?.unreadIndicatorEnabled !== undefined) {
+    return split.unreadIndicatorEnabled
+  }
+  return globalEnabled
 }
 
 export function getChatLayout(config: AppConfig): ChatLayoutConfig {
@@ -164,6 +221,28 @@ export function normalizeSplitChannels(channels: string[]): string[] {
 
 export function createSplitId() {
   return `split-${crypto.randomUUID()}`
+}
+
+export function createTwitchChannel(
+  login: string,
+  partial?: Omit<TwitchChannel, "login" | "unreadIndicatorEnabled">
+): TwitchChannel {
+  return {
+    login: login.trim().replace(/^#/, "").toLowerCase(),
+    unreadIndicatorEnabled: null,
+    ...partial,
+  }
+}
+
+export function createChatSplit(
+  channels: string[],
+  id = createSplitId()
+): ChatSplit {
+  return {
+    id,
+    channels: normalizeSplitChannels(channels),
+    unreadIndicatorEnabled: null,
+  }
 }
 
 export function splitChannelsKey(channels: string[]) {
@@ -417,6 +496,11 @@ function normalizeConfig(config: AppConfig): AppConfig {
     channels: config.twitch.channels.map((channel) => ({
       ...channel,
       login: channel.login.trim().replace(/^#/, "").toLowerCase(),
+      unreadIndicatorEnabled:
+        channel.unreadIndicatorEnabled === true ||
+        channel.unreadIndicatorEnabled === false
+          ? channel.unreadIndicatorEnabled
+          : null,
     })),
     account: config.twitch.account
       ? {
@@ -434,7 +518,7 @@ function normalizeConfig(config: AppConfig): AppConfig {
   ) {
     twitch.channels = [
       ...twitch.channels,
-      { login: twitch.activeChannelLogin },
+      createTwitchChannel(twitch.activeChannelLogin),
     ]
   }
 
@@ -443,6 +527,11 @@ function normalizeConfig(config: AppConfig): AppConfig {
     .map((split) => ({
       id: split.id.trim(),
       channels: normalizeSplitChannels(split.channels),
+      unreadIndicatorEnabled:
+        split.unreadIndicatorEnabled === true ||
+        split.unreadIndicatorEnabled === false
+          ? split.unreadIndicatorEnabled
+          : null,
     }))
     .filter((split) => split.id && split.channels.length >= 2)
 
@@ -468,12 +557,24 @@ function normalizeConfig(config: AppConfig): AppConfig {
     fontFamily: migrateChatFontFamilyInput(config.chat.fontFamily),
   }
 
+  const highlights = {
+    ...createDefaultConfig().highlights,
+    ...config.highlights,
+    pings: (config.highlights?.pings ?? []).map((rule) => ({
+      id: rule.id.trim(),
+      pattern: rule.pattern,
+      enabled: rule.enabled ?? true,
+      notify: rule.notify ?? true,
+    })),
+  }
+
   return {
     ...config,
     updatedAt: config.updatedAt || new Date().toISOString(),
     schemaVersion: PEEPOCHAT_SCHEMA_VERSION,
     twitch,
     chat,
+    highlights,
     layout: {
       activeSplitId,
       splits,

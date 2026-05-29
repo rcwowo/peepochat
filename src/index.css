@@ -166,6 +166,15 @@
     background: var(--chat-row-hover);
   }
 
+  .chat-message--ping-highlight {
+    background: color-mix(in oklch, var(--primary) 14%, transparent);
+    box-shadow: inset 3px 0 0 var(--primary);
+  }
+
+  .chat-message--ping-highlight:hover {
+    background: color-mix(in oklch, var(--primary) 20%, transparent);
+  }
+
   .chat-presentation--alternating-rows .chat-message:nth-child(even) {
     background: var(--chat-row-alt);
   }

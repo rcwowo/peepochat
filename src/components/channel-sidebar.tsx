@@ -3,12 +3,27 @@ import { Columns2Icon, PlusIcon, Trash2Icon, UngroupIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { SortableSidebarList } from "@/components/channel-sidebar-list"
-import { usePeepochatLayout } from "@/lib/peepochat-context"
+import {
+  SidebarChannelAvatar,
+  SidebarChannelRow,
+  SidebarIconTile,
+  SidebarSplitAvatarCluster,
+  sidebarIconButtonClass,
+} from "@/components/sidebar-channel-icon"
+import {
+  usePeepochatHighlights,
+  usePeepochatLayout,
+  usePeepochatSettings,
+} from "@/lib/peepochat-context"
+import {
+  isUnreadIndicatorEnabledForChannel,
+  isUnreadIndicatorEnabledForSplit,
+} from "@/lib/peepochat-config"
 import { CHANNEL_ORDER_PREFIX, SPLIT_ORDER_PREFIX } from "@/lib/sidebar-order"
-import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
   ContextMenu,
+  ContextMenuCheckboxItem,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
@@ -47,121 +62,17 @@ function splitGroupLabel(
   return channels.map((c) => channelLabel(c.login, c.displayName)).join(", ")
 }
 
-function ChannelAvatar({
-  login,
-  profileImageUrl,
-  className,
-}: {
-  login: string
-  profileImageUrl?: string
-  className?: string
-}) {
-  const classes = cn(
-    "pointer-events-none size-10 shrink-0 rounded-full object-cover aspect-square",
-    className
-  )
-
-  if (profileImageUrl) {
-    return (
-      <img
-        src={profileImageUrl}
-        alt=""
-        draggable={false}
-        className={classes}
-      />
-    )
-  }
-
-  return (
-    <span
-      className={cn(
-        classes,
-        "flex items-center justify-center bg-primary/15 text-xs font-semibold uppercase text-primary"
-      )}
-    >
-      {login.slice(0, 2)}
-    </span>
-  )
-}
-
-function splitClusterAvatarSize(count: number) {
-  if (count <= 2) return "size-6"
-  if (count === 3) return "size-[1.2rem]"
-  return "size-[1.125rem]"
-}
-
-function splitClusterAvatarPosition(index: number, count: number) {
-  if (count === 2) {
-    return cn(
-      index === 0 && "left-0 top-1/2 z-[2] -translate-y-1/2",
-      index === 1 && "left-3 top-1/2 z-[1] -translate-y-1/2"
-    )
-  }
-
-  if (count === 3) {
-    return cn(
-      index === 0 && "left-1/2 top-0 -translate-x-1/2 z-[4]",
-      index === 1 && "bottom-0 left-0 z-[3]",
-      index === 2 && "bottom-0 right-0 z-[2]"
-    )
-  }
-
-  return cn(
-    index === 0 && "left-0 top-0 z-[4]",
-    index === 1 && "right-0 top-0 z-[3]",
-    index === 2 && "left-0 bottom-0 z-[2]",
-    index === 3 && "right-0 bottom-0 z-[1]"
-  )
-}
-
-function SplitAvatarCluster({
-  channels,
-  ringClass = "ring-sidebar",
-  isActive = false,
-}: {
-  channels: Array<{
-    login: string
-    profileImageUrl?: string
-  }>
-  ringClass?: string
-  isActive?: boolean
-}) {
-  const visible = channels.slice(0, 4)
-  const count = visible.length
-  const avatarSize = splitClusterAvatarSize(count)
-  const clusteredRing = isActive ? "ring-sidebar-ring/25" : ringClass
-
-  return (
-    <span className="relative size-9 shrink-0 rounded-full">
-      {visible.map((channel, index) => (
-        <ChannelAvatar
-          key={channel.login}
-          login={channel.login}
-          profileImageUrl={channel.profileImageUrl}
-          className={cn(
-            avatarSize,
-            "absolute ring-2",
-            clusteredRing,
-            splitClusterAvatarPosition(index, count)
-          )}
-        />
-      ))}
-    </span>
-  )
-}
-
-const sidebarIconButtonClass =
-  "flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
-
 function SidebarIconContextMenu({
   label,
-  buttonClassName,
+  isActive,
+  showUnread,
   onSelect,
   menu,
   children,
 }: {
   label: string
-  buttonClassName: string
+  isActive: boolean
+  showUnread: boolean
   onSelect: () => void
   menu: React.ReactNode
   children: React.ReactNode
@@ -187,26 +98,29 @@ function SidebarIconContextMenu({
   }, [])
 
   return (
-    <ContextMenu onOpenChange={suppressTooltip}>
-      <Tooltip open={tooltipOpen} onOpenChange={handleTooltipOpenChange}>
-        <ContextMenuTrigger asChild>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              aria-label={label}
-              onClick={onSelect}
-              onContextMenu={suppressTooltip}
-              onPointerLeave={handlePointerLeave}
-              className={buttonClassName}
-            >
-              {children}
-            </button>
-          </TooltipTrigger>
-        </ContextMenuTrigger>
-        <TooltipContent side="right">{label}</TooltipContent>
-      </Tooltip>
-      {menu}
-    </ContextMenu>
+    <SidebarChannelRow isActive={isActive} showUnread={showUnread}>
+      <ContextMenu onOpenChange={suppressTooltip}>
+        <Tooltip open={tooltipOpen} onOpenChange={handleTooltipOpenChange}>
+          <ContextMenuTrigger asChild>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                aria-label={label}
+                aria-current={isActive ? "true" : undefined}
+                onClick={onSelect}
+                onContextMenu={suppressTooltip}
+                onPointerLeave={handlePointerLeave}
+                className={sidebarIconButtonClass()}
+              >
+                {children}
+              </button>
+            </TooltipTrigger>
+          </ContextMenuTrigger>
+          <TooltipContent side="right">{label}</TooltipContent>
+        </Tooltip>
+        {menu}
+      </ContextMenu>
+    </SidebarChannelRow>
   )
 }
 
@@ -216,18 +130,28 @@ function ChannelContextMenu({
   profileImageUrl,
   isActive,
   activeChannelLogin,
+  unreadEnabled,
+  showUnread,
+  showPing,
+  showLive,
   onSelect,
   onRemove,
   onSplit,
+  onUnreadEnabledChange,
 }: {
   login: string
   displayName?: string
   profileImageUrl?: string
   isActive: boolean
   activeChannelLogin: string
+  unreadEnabled: boolean
+  showUnread: boolean
+  showPing: boolean
+  showLive: boolean
   onSelect: () => void
   onRemove: () => void
   onSplit: () => void
+  onUnreadEnabledChange: (enabled: boolean) => void
 }) {
   const label = channelLabel(login, displayName)
   const activeLabel = channelLabel(activeChannelLogin)
@@ -237,15 +161,18 @@ function ChannelContextMenu({
   return (
     <SidebarIconContextMenu
       label={label}
+      isActive={isActive}
+      showUnread={showUnread}
       onSelect={onSelect}
-      buttonClassName={cn(
-        sidebarIconButtonClass,
-        isActive
-          ? "bg-sidebar-accent ring-2 ring-sidebar-ring"
-          : "hover:bg-sidebar-accent"
-      )}
       menu={
         <ContextMenuContent>
+          <ContextMenuCheckboxItem
+            checked={unreadEnabled}
+            onCheckedChange={onUnreadEnabledChange}
+          >
+            Enable unread indicator
+          </ContextMenuCheckboxItem>
+          <ContextMenuSeparator />
           {canSplit ? (
             <ContextMenuItem onSelect={onSplit}>
               <Columns2Icon />
@@ -260,7 +187,13 @@ function ChannelContextMenu({
         </ContextMenuContent>
       }
     >
-      <ChannelAvatar login={login} profileImageUrl={profileImageUrl} />
+      <SidebarIconTile
+        isActive={isActive}
+        showPing={showPing}
+        showLive={showLive}
+      >
+        <SidebarChannelAvatar login={login} profileImageUrl={profileImageUrl} />
+      </SidebarIconTile>
     </SidebarIconContextMenu>
   )
 }
@@ -268,9 +201,14 @@ function ChannelContextMenu({
 function SplitContextMenu({
   channels,
   isActive,
+  unreadEnabled,
+  showUnread,
+  showPing,
+  showLive,
   onSelect,
   onUngroup,
   onDelete,
+  onUnreadEnabledChange,
 }: {
   channels: Array<{
     login: string
@@ -278,24 +216,32 @@ function SplitContextMenu({
     profileImageUrl?: string
   }>
   isActive: boolean
+  unreadEnabled: boolean
+  showUnread: boolean
+  showPing: boolean
+  showLive: boolean
   onSelect: () => void
   onUngroup: () => void
   onDelete: () => void
+  onUnreadEnabledChange: (enabled: boolean) => void
 }) {
   const label = splitGroupLabel(channels)
 
   return (
     <SidebarIconContextMenu
       label={label}
+      isActive={isActive}
+      showUnread={showUnread}
       onSelect={onSelect}
-      buttonClassName={cn(
-        sidebarIconButtonClass,
-        isActive
-          ? "bg-sidebar-ring/25 shadow-[0_0_0_2px_var(--color-sidebar-ring)]"
-          : "bg-secondary shadow-[0_0_0_1px_var(--color-sidebar-border)] hover:bg-sidebar-accent hover:shadow-[0_0_0_2px_var(--color-sidebar-ring)]"
-      )}
       menu={
         <ContextMenuContent>
+          <ContextMenuCheckboxItem
+            checked={unreadEnabled}
+            onCheckedChange={onUnreadEnabledChange}
+          >
+            Enable unread indicator
+          </ContextMenuCheckboxItem>
+          <ContextMenuSeparator />
           <ContextMenuItem onSelect={onUngroup}>
             <UngroupIcon />
             Ungroup split
@@ -308,11 +254,13 @@ function SplitContextMenu({
         </ContextMenuContent>
       }
     >
-      <SplitAvatarCluster
-        channels={channels}
+      <SidebarIconTile
         isActive={isActive}
-        ringClass="ring-secondary"
-      />
+        showPing={showPing}
+        showLive={showLive}
+      >
+        <SidebarSplitAvatarCluster channels={channels} />
+      </SidebarIconTile>
     </SidebarIconContextMenu>
   )
 }
@@ -399,6 +347,15 @@ function AddChannelDialog({
 }
 
 export function ChannelSidebar() {
+  const { config, updateConfig } = usePeepochatSettings()
+  const {
+    hasUnreadForChannel,
+    hasUnreadForSplit,
+    hasPingForChannel,
+    hasPingForSplit,
+    isChannelLive,
+    isSplitLive,
+  } = usePeepochatHighlights()
   const {
     channels,
     activeChannelLogin,
@@ -488,6 +445,34 @@ export function ChannelSidebar() {
     toast.success(`Split view: #${activeChannelLogin} + #${login}`)
   }
 
+  const setChannelUnreadEnabled = (login: string, enabled: boolean) => {
+    updateConfig((current) => ({
+      ...current,
+      twitch: {
+        ...current.twitch,
+        channels: current.twitch.channels.map((channel) =>
+          channel.login === login
+            ? { ...channel, unreadIndicatorEnabled: enabled }
+            : channel
+        ),
+      },
+    }))
+  }
+
+  const setSplitUnreadEnabled = (splitId: string, enabled: boolean) => {
+    updateConfig((current) => ({
+      ...current,
+      layout: {
+        ...current.layout,
+        splits: current.layout.splits.map((split) =>
+          split.id === splitId
+            ? { ...split, unreadIndicatorEnabled: enabled }
+            : split
+        ),
+      },
+    }))
+  }
+
   const handleDeleteSplit = (splitChannels: string[]) => {
     for (const login of splitChannels) {
       removeChannel(login)
@@ -511,15 +496,15 @@ export function ChannelSidebar() {
     <>
       <Sidebar
         collapsible="icon"
-        className="top-12 h-[calc(100svh-3rem)] border-r border-sidebar-border"
+        className="top-12 h-[calc(100svh-3rem)] overflow-visible border-r border-sidebar-border"
       >
-        <SidebarContent className="overflow-x-hidden overflow-y-auto">
-          <SidebarGroup className="px-2 py-3">
-            <SidebarGroupContent>
+        <SidebarContent className="min-h-0 flex-1 overflow-y-auto overflow-x-visible group-data-[collapsible=icon]:overflow-y-auto group-data-[collapsible=icon]:overflow-x-visible">
+          <SidebarGroup className="px-0 py-3">
+            <SidebarGroupContent className="flex flex-col items-stretch">
               <SortableSidebarList
                 itemIds={sidebarEntries.map((entry) => entry.key)}
                 onReorder={reorderSidebar}
-                className="items-center gap-3"
+                className="w-full gap-2"
               >
                 {(itemId) => {
                   const entry = sidebarEntries.find((e) => e.key === itemId)
@@ -529,13 +514,28 @@ export function ChannelSidebar() {
 
                   if (entry.kind === "split") {
                     return (
-                      <div className="flex w-full items-center justify-center">
-                        <SplitContextMenu
+                      <SplitContextMenu
                           channels={entry.channels}
                           isActive={
                             isSplitView && activeSplitId === entry.split.id
                           }
+                          unreadEnabled={isUnreadIndicatorEnabledForSplit(
+                            config,
+                            entry.split.id
+                          )}
+                          showUnread={hasUnreadForSplit(
+                            entry.split.id,
+                            entry.split.channels
+                          )}
+                          showPing={hasPingForSplit(
+                            entry.split.id,
+                            entry.split.channels
+                          )}
+                          showLive={isSplitLive(entry.split.channels)}
                           onSelect={() => selectSplit(entry.split.id)}
+                          onUnreadEnabledChange={(enabled) =>
+                            setSplitUnreadEnabled(entry.split.id, enabled)
+                          }
                           onUngroup={() => {
                             unsplit(entry.split.id)
                             toast.info("Split ungrouped")
@@ -544,13 +544,11 @@ export function ChannelSidebar() {
                             handleDeleteSplit(entry.split.channels)
                           }
                         />
-                      </div>
                     )
                   }
 
                   return (
-                    <div className="flex w-full items-center justify-center">
-                      <ChannelContextMenu
+                    <ChannelContextMenu
                         login={entry.channel.login}
                         displayName={entry.channel.displayName}
                         profileImageUrl={entry.channel.profileImageUrl}
@@ -559,14 +557,23 @@ export function ChannelSidebar() {
                           entry.channel.login === activeChannelLogin
                         }
                         activeChannelLogin={activeChannelLogin}
+                        unreadEnabled={isUnreadIndicatorEnabledForChannel(
+                          config,
+                          entry.channel.login
+                        )}
+                        showUnread={hasUnreadForChannel(entry.channel.login)}
+                        showPing={hasPingForChannel(entry.channel.login)}
+                        showLive={isChannelLive(entry.channel.login)}
                         onSelect={() => setActiveChannel(entry.channel.login)}
+                        onUnreadEnabledChange={(enabled) =>
+                          setChannelUnreadEnabled(entry.channel.login, enabled)
+                        }
                         onRemove={() => {
                           removeChannel(entry.channel.login)
                           toast.info(`Removed #${entry.channel.login}`)
                         }}
                         onSplit={() => handleSplitWith(entry.channel.login)}
                       />
-                    </div>
                   )
                 }}
               </SortableSidebarList>

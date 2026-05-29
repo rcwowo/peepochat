@@ -77,7 +77,14 @@ function createEmptyRoom(login: string): TwitchChatRoomState {
   }
 }
 
-export function useTwitchChat() {
+export function useTwitchChat(options?: {
+  onChatMessageRef?: React.RefObject<((message: TwitchChatMessage) => void) | null>
+  onChatMessagesRef?: React.RefObject<
+    ((messages: TwitchChatMessage[]) => void) | null
+  >
+}) {
+  const onChatMessageRef = options?.onChatMessageRef
+  const onChatMessagesRef = options?.onChatMessagesRef
   const clientRef = React.useRef<TwitchChatClient | null>(null)
   const pendingConnectRef = React.useRef<PendingConnect | null>(null)
   const pendingRoomMessagesRef = React.useRef(
@@ -312,27 +319,31 @@ export function useTwitchChat() {
         ? (emoteCatalogsRef.current.get(roomId) ?? null)
         : null
 
+      const hydrated = pending.map((message) =>
+        hydrateRoomMessage(message, catalog)
+      )
       appendRoomTimeline(
         login,
-        pending.map((message) => ({
-          kind: "chat" as const,
-          message: hydrateRoomMessage(message, catalog),
-        }))
+        hydrated.map((message) => ({ kind: "chat" as const, message }))
       )
+      onChatMessagesRef?.current?.(hydrated) ??
+        hydrated.forEach((message) => onChatMessageRef?.current?.(message))
     },
-    [appendRoomTimeline, hydrateRoomMessage]
+    [
+      appendRoomTimeline,
+      hydrateRoomMessage,
+      onChatMessageRef,
+      onChatMessagesRef,
+    ]
   )
 
   const queuePendingRoomMessage = React.useCallback(
     (login: string, message: TwitchChatMessage) => {
       const roomId = message.roomId
       if (!roomId) {
-        appendRoomTimeline(login, [
-          {
-            kind: "chat",
-            message: hydrateRoomMessage(message, null),
-          },
-        ])
+        const hydrated = hydrateRoomMessage(message, null)
+        appendRoomTimeline(login, [{ kind: "chat", message: hydrated }])
+        onChatMessageRef?.current?.(hydrated)
         return
       }
 
@@ -344,7 +355,7 @@ export function useTwitchChat() {
       roomPending.set(roomId, pending)
       pendingRoomMessagesRef.current.set(login, roomPending)
     },
-    [appendRoomTimeline, hydrateRoomMessage]
+    [appendRoomTimeline, hydrateRoomMessage, onChatMessageRef]
   )
 
   const rehydrateRoomTimeline = React.useCallback(
@@ -498,14 +509,15 @@ export function useTwitchChat() {
         ? (emoteCatalogsRef.current.get(roomId) ?? null)
         : null
 
-      appendRoomTimeline(login, [
-        { kind: "chat", message: hydrateRoomMessage(message, catalog) },
-      ])
+      const hydrated = hydrateRoomMessage(message, catalog)
+      appendRoomTimeline(login, [{ kind: "chat", message: hydrated }])
+      onChatMessageRef?.current?.(hydrated)
     },
     [
       appendRoomTimeline,
       ensureRoomEmotes,
       hydrateRoomMessage,
+      onChatMessageRef,
       queuePendingRoomMessage,
       updateRoom,
     ]

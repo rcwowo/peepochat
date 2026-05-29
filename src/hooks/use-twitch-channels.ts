@@ -3,6 +3,7 @@ import { toast } from "sonner"
 
 import type { AppConfig, TwitchChannel } from "@/lib/peepochat-config"
 import {
+  createTwitchChannel,
   getAccount,
   getActiveChannelLogin,
   normalizeSplitChannels,
@@ -71,7 +72,7 @@ export function useTwitchChannels({
             activeChannelLogin: normalized,
             channels: hasChannel
               ? current.twitch.channels
-              : [...current.twitch.channels, { login: normalized }],
+              : [...current.twitch.channels, createTwitchChannel(normalized)],
           },
           layout: { ...current.layout, activeSplitId: null },
         }
@@ -88,7 +89,7 @@ export function useTwitchChannels({
       }
 
       const account = getAccount(config)
-      let profile: TwitchChannel = { login: normalized }
+      let profile: TwitchChannel = createTwitchChannel(normalized)
 
       if (account?.accessToken) {
         try {
@@ -98,11 +99,10 @@ export function useTwitchChannels({
             account.clientId
           )
           if (user) {
-            profile = {
-              login: user.login,
+            profile = createTwitchChannel(user.login, {
               displayName: user.displayName,
               profileImageUrl: user.profileImageUrl,
-            }
+            })
           }
         } catch {
           toast.message("Channel added without profile details.")
