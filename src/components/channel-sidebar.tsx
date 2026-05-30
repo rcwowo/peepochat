@@ -423,7 +423,6 @@ export function ChannelSidebar() {
   const handleAddChannel = async (login: string) => {
     try {
       await addChannel(login)
-      toast.success(`Added #${login.replace(/^#/, "").toLowerCase()}`)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not add channel")
       throw error
@@ -433,7 +432,6 @@ export function ChannelSidebar() {
   const handleSplitWith = (login: string) => {
     if (isSplitView) {
       addSplitChannel(login)
-      toast.success(`Added #${login} to split`)
       return
     }
 
@@ -442,7 +440,6 @@ export function ChannelSidebar() {
     }
 
     openSplitView([activeChannelLogin, login])
-    toast.success(`Split view: #${activeChannelLogin} + #${login}`)
   }
 
   const setChannelUnreadEnabled = (login: string, enabled: boolean) => {
@@ -477,7 +474,6 @@ export function ChannelSidebar() {
     for (const login of splitChannels) {
       removeChannel(login)
     }
-    toast.info("Split deleted")
   }
 
   const addButton = (
@@ -536,10 +532,7 @@ export function ChannelSidebar() {
                           onUnreadEnabledChange={(enabled) =>
                             setSplitUnreadEnabled(entry.split.id, enabled)
                           }
-                          onUngroup={() => {
-                            unsplit(entry.split.id)
-                            toast.info("Split ungrouped")
-                          }}
+                          onUngroup={() => unsplit(entry.split.id)}
                           onDelete={() =>
                             handleDeleteSplit(entry.split.channels)
                           }
@@ -568,10 +561,7 @@ export function ChannelSidebar() {
                         onUnreadEnabledChange={(enabled) =>
                           setChannelUnreadEnabled(entry.channel.login, enabled)
                         }
-                        onRemove={() => {
-                          removeChannel(entry.channel.login)
-                          toast.info(`Removed #${entry.channel.login}`)
-                        }}
+                        onRemove={() => removeChannel(entry.channel.login)}
                         onSplit={() => handleSplitWith(entry.channel.login)}
                       />
                   )

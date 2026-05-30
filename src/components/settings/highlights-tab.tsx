@@ -87,7 +87,6 @@ export function HighlightsTab() {
   const requestNotifications = async () => {
     const result = await requestDesktopNotificationPermission()
     if (result === "granted") {
-      toast.success("Desktop notifications enabled")
       return
     }
     if (result === "denied") {

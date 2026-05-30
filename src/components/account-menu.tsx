@@ -1,6 +1,5 @@
 import * as React from "react"
 import { ChevronDownIcon, LogOutIcon, UserIcon } from "lucide-react"
-import { toast } from "sonner"
 
 import { usePeepochatSettings } from "@/lib/peepochat-context"
 import { cn } from "@/lib/utils"
@@ -35,7 +34,6 @@ export function AccountMenu() {
 
   const handleLogout = () => {
     logout()
-    toast.info("You have been signed out.")
     setOpen(false)
   }
 

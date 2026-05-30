@@ -448,11 +448,10 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       !connectionState.connected &&
       !connectionState.connecting
     ) {
-      toast.promise(syncAllChannels(channelLogins), {
-        loading: "Connecting to Twitch chat…",
-        success: "Connected to Twitch chat",
-        error: (err) =>
-          err instanceof Error ? err.message : "Connection failed",
+      void syncAllChannels(channelLogins).catch((err) => {
+        toast.error(
+          err instanceof Error ? err.message : "Connection failed"
+        )
       })
     }
   }, [ready, needsOnboarding]) // eslint-disable-line react-hooks/exhaustive-deps

@@ -1,5 +1,4 @@
 import * as React from "react"
-import { toast } from "sonner"
 
 import type { AppConfig, TwitchChannel } from "@/lib/peepochat-config"
 import {
@@ -105,7 +104,7 @@ export function useTwitchChannels({
             })
           }
         } catch {
-          toast.message("Channel added without profile details.")
+          // Profile fetch failed; channel is still added with login only.
         }
       }
 

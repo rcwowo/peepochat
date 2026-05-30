@@ -56,7 +56,6 @@ export function OnboardingDialog({
     try {
       const payload = await file.text()
       await restoreBackup(payload)
-      toast.success("Backup restored. Welcome back!")
       onComplete()
     } catch (error) {
       toast.error(
@@ -77,7 +76,6 @@ export function OnboardingDialog({
     setAddingChannel(true)
     try {
       await addChannel(trimmed)
-      toast.success("You're all set!")
       onComplete()
     } catch (error) {
       toast.error(

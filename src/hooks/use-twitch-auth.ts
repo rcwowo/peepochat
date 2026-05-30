@@ -103,8 +103,7 @@ export function useTwitchAuth({
           throw new Error(formatTwitchOAuthError(parsed))
         }
 
-        const signedIn = await setAccountFromToken(parsed.accessToken)
-        toast.success(`Signed in as ${signedIn.displayName}`)
+        await setAccountFromToken(parsed.accessToken)
       } catch (error) {
         toast.error(
           error instanceof Error ? error.message : "Twitch login failed"

@@ -48,7 +48,6 @@ export function DataManagementTab() {
     link.download = `peepochat-backup-${new Date().toISOString().slice(0, 10)}.json`
     link.click()
     URL.revokeObjectURL(url)
-    toast.success("Backup downloaded.")
   }
 
   const handleRestoreBackup = async (
@@ -60,7 +59,6 @@ export function DataManagementTab() {
     try {
       const payload = await file.text()
       await restoreBackup(payload)
-      toast.success("Backup restored successfully.")
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Backup restore failed"
