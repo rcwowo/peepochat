@@ -34,6 +34,44 @@ import { cn } from "@/lib/utils"
 const CHATVOICE_URL = "https://chatvoice.rcw.lol"
 const CHATLOGS_URL = "https://tv.supa.sh/logs"
 
+function reconcileStableRowStripes(
+  rowStripes: Map<string, boolean>,
+  timeline: TwitchTimelineItem[]
+) {
+  const visibleIds = timeline.map((entry) => entry.message.id)
+  const visibleIdSet = new Set(visibleIds)
+
+  for (const id of rowStripes.keys()) {
+    if (!visibleIdSet.has(id)) {
+      rowStripes.delete(id)
+    }
+  }
+
+  const firstKnownIndex = visibleIds.findIndex((id) => rowStripes.has(id))
+
+  if (firstKnownIndex === -1) {
+    visibleIds.forEach((id, index) => {
+      rowStripes.set(id, index % 2 === 1)
+    })
+    return rowStripes
+  }
+
+  for (let index = firstKnownIndex - 1; index >= 0; index -= 1) {
+    const nextStripe = rowStripes.get(visibleIds[index + 1]) ?? false
+    rowStripes.set(visibleIds[index], !nextStripe)
+  }
+
+  for (let index = firstKnownIndex + 1; index < visibleIds.length; index += 1) {
+    const id = visibleIds[index]
+    if (!rowStripes.has(id)) {
+      const previousStripe = rowStripes.get(visibleIds[index - 1]) ?? false
+      rowStripes.set(id, !previousStripe)
+    }
+  }
+
+  return rowStripes
+}
+
 function openExternalTool(url: string) {
   window.open(url, "_blank", "noopener,noreferrer")
 }
@@ -100,9 +138,14 @@ function ChatPaneInner({
   const chatContainerRef = React.useRef<HTMLDivElement>(null)
   const messageListRef = React.useRef<HTMLDivElement>(null)
   const isProgrammaticScrollRef = React.useRef(false)
+  const [rowStripeCache] = React.useState(() => new Map<string, boolean>())
   const [isScrollPaused, setIsScrollPaused] = React.useState(false)
 
   const label = displayName ?? channelLogin
+  const rowStripes = React.useMemo(
+    () => reconcileStableRowStripes(rowStripeCache, timeline),
+    [rowStripeCache, timeline]
+  )
 
   const scrollToBottom = React.useCallback((behavior: ScrollBehavior = "auto") => {
     const el = chatContainerRef.current
@@ -275,6 +318,9 @@ function ChatPaneInner({
             >
               <div ref={messageListRef} className="mt-auto py-1">
                 {timeline.map((entry) => {
+                  const isAlternateRow =
+                    rowStripes.get(entry.message.id) ?? false
+
                   if (entry.kind === "system") {
                     return (
                       <ChatSystemMessage
@@ -282,6 +328,7 @@ function ChatPaneInner({
                         message={entry.message}
                         timestampFormat={timestampFormat}
                         isHistorical={entry.isHistorical}
+                        isAlternateRow={isAlternateRow}
                       />
                     )
                   }
@@ -296,6 +343,7 @@ function ChatPaneInner({
                       badgeCatalog={badgeCatalog}
                       showBadgeFallback={showBadgeFallback}
                       isHistorical={entry.isHistorical}
+                      isAlternateRow={isAlternateRow}
                       pingHighlighted={highlightedMessageIds.has(
                         entry.message.id
                       )}

@@ -21,6 +21,7 @@ function ChatMessageRowInner({
   badgeCatalog,
   showBadgeFallback = false,
   isHistorical = false,
+  isAlternateRow = false,
   showCopyButton = true,
   showReplyButton = true,
   pingHighlighted = false,
@@ -30,6 +31,7 @@ function ChatMessageRowInner({
   badgeCatalog: ChatBadgeCatalog
   showBadgeFallback?: boolean
   isHistorical?: boolean
+  isAlternateRow?: boolean
   showCopyButton?: boolean
   showReplyButton?: boolean
   pingHighlighted?: boolean
@@ -44,6 +46,7 @@ function ChatMessageRowInner({
       className={cn(
         "chat-message group relative px-3 py-1 leading-5",
         isHistorical && "chat-message--historical",
+        isAlternateRow && "chat-message--alternate",
         pingHighlighted && "chat-message--ping-highlight"
       )}
     >

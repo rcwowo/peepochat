@@ -59,12 +59,14 @@ function ChatTimestamp({
 function InlineSystemLine({
   message,
   timestampFormat,
+  className,
 }: {
   message: TwitchSystemMessage
   timestampFormat: MessageTimestampFormat
+  className?: string
 }) {
   return (
-    <div className="chat-message group px-3 py-1 leading-5">
+    <div className={cn("chat-message group px-3 py-1 leading-5", className)}>
       <ChatTimestamp
         receivedAt={message.receivedAt}
         timestampFormat={timestampFormat}
@@ -82,6 +84,7 @@ function NoticeBlock({
   borderColor,
   icon,
   showDetails = true,
+  className,
   children,
 }: {
   message: TwitchSystemMessage
@@ -89,10 +92,11 @@ function NoticeBlock({
   borderColor: string
   icon: React.ReactNode
   showDetails?: boolean
+  className?: string
   children: React.ReactNode
 }) {
   return (
-    <div className="chat-message group px-3 py-1 leading-5">
+    <div className={cn("chat-message group px-3 py-1 leading-5", className)}>
       <ChatTimestamp
         receivedAt={message.receivedAt}
         timestampFormat={timestampFormat}
@@ -122,9 +126,11 @@ function NoticeBlock({
 function SubscriptionNotice({
   message,
   timestampFormat,
+  className,
 }: {
   message: TwitchSystemMessage
   timestampFormat: MessageTimestampFormat
+  className?: string
 }) {
   const borderColor = message.actor?.color ?? "var(--chat-notice-sub-border)"
   const gift = isGiftNotice(message.msgId)
@@ -134,6 +140,7 @@ function SubscriptionNotice({
       message={message}
       timestampFormat={timestampFormat}
       borderColor={borderColor}
+      className={className}
       icon={
         gift ? (
           <Gift className="size-4" aria-hidden />
@@ -159,9 +166,11 @@ function SubscriptionNotice({
 function RaidNotice({
   message,
   timestampFormat,
+  className,
 }: {
   message: TwitchSystemMessage
   timestampFormat: MessageTimestampFormat
+  className?: string
 }) {
   const borderColor = message.actor?.color ?? "var(--chat-notice-raid-border)"
   const viewerLabel =
@@ -174,6 +183,7 @@ function RaidNotice({
       message={message}
       timestampFormat={timestampFormat}
       borderColor={borderColor}
+      className={className}
       icon={<Users className="size-4" aria-hidden />}
     >
       <span className="chat-notice-body">
@@ -200,9 +210,11 @@ function RaidNotice({
 function AnnouncementNotice({
   message,
   timestampFormat,
+  className,
 }: {
   message: TwitchSystemMessage
   timestampFormat: MessageTimestampFormat
+  className?: string
 }) {
   const [start, end] = getAnnouncementGradient(
     message.announcementTheme,
@@ -210,7 +222,7 @@ function AnnouncementNotice({
   )
 
   return (
-    <div className="chat-message group px-3 py-1 leading-5">
+    <div className={cn("chat-message group px-3 py-1 leading-5", className)}>
       <ChatTimestamp
         receivedAt={message.receivedAt}
         timestampFormat={timestampFormat}
@@ -254,27 +266,46 @@ function ChatSystemMessageInner({
   message,
   timestampFormat,
   isHistorical = false,
+  isAlternateRow = false,
 }: {
   message: TwitchSystemMessage
   timestampFormat: MessageTimestampFormat
   isHistorical?: boolean
+  isAlternateRow?: boolean
 }) {
-  const historicalClass = isHistorical ? "chat-message--historical" : undefined
+  const rowClassName = cn(
+    isHistorical && "chat-message--historical",
+    isAlternateRow && "chat-message--alternate"
+  )
 
   let content: React.ReactNode
 
   switch (message.event) {
     case "subscription":
       content = (
-        <SubscriptionNotice message={message} timestampFormat={timestampFormat} />
+        <SubscriptionNotice
+          message={message}
+          timestampFormat={timestampFormat}
+          className={rowClassName}
+        />
       )
       break
     case "raid":
-      content = <RaidNotice message={message} timestampFormat={timestampFormat} />
+      content = (
+        <RaidNotice
+          message={message}
+          timestampFormat={timestampFormat}
+          className={rowClassName}
+        />
+      )
       break
     case "announcement":
       content = (
-        <AnnouncementNotice message={message} timestampFormat={timestampFormat} />
+        <AnnouncementNotice
+          message={message}
+          timestampFormat={timestampFormat}
+          className={rowClassName}
+        />
       )
       break
     case "connection":
@@ -282,15 +313,15 @@ function ChatSystemMessageInner({
     case "status":
     default:
       content = (
-        <InlineSystemLine message={message} timestampFormat={timestampFormat} />
+        <InlineSystemLine
+          message={message}
+          timestampFormat={timestampFormat}
+          className={rowClassName}
+        />
       )
   }
 
-  if (!historicalClass) {
-    return content
-  }
-
-  return <div className={cn(historicalClass)}>{content}</div>
+  return content
 }
 
 export const ChatSystemMessage = React.memo(ChatSystemMessageInner)
