@@ -1,5 +1,5 @@
 import * as React from "react"
-import { AlertCircleIcon, XIcon } from "lucide-react"
+import { AlertCircleIcon, SendHorizontalIcon, XIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { ChatSuggestions } from "@/components/chat/chat-suggestions"
@@ -452,64 +452,67 @@ export function ChatComposer({
         </div>
       ) : null}
 
-      <div className="relative flex items-center gap-1 px-2 py-2">
-        <ChatSuggestions
-          open={showSuggestions}
-          index={completer.current}
-          suggestions={completer.suggestions}
-          onSelect={(suggestion) =>
-            completeSuggestion(suggestion, { reset: true })
-          }
-        />
-        <Textarea
-          ref={inputRef}
-          value={value}
-          disabled={disabled}
-          maxLength={MESSAGE_LIMIT}
-          placeholder={placeholder}
-          autoCapitalize="off"
-          autoCorrect="off"
-          spellCheck={false}
-          rows={1}
-          className="min-h-9 max-h-40 flex-1 resize-none overflow-y-hidden border-border/50 bg-background/40 py-2 text-sm leading-5 shadow-none backdrop-blur-sm focus-visible:ring-1 focus-visible:ring-border/40 dark:bg-input/30"
-          onChange={(event) => {
-            const nextValue = event.target.value
-            setValue(nextValue)
+      <div className="relative flex items-end gap-1 px-2 py-2">
+        <div className="relative min-w-0 flex-1">
+          <ChatSuggestions
+            open={showSuggestions}
+            index={completer.current}
+            suggestions={completer.suggestions}
+            onSelect={(suggestion) =>
+              completeSuggestion(suggestion, { reset: true })
+            }
+          />
+          <Textarea
+            ref={inputRef}
+            value={value}
+            disabled={disabled}
+            maxLength={MESSAGE_LIMIT}
+            placeholder={placeholder}
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+            rows={1}
+            className="min-h-9 max-h-40 resize-none overflow-y-hidden border-border/50 bg-background/40 py-2 pr-10 text-sm leading-5 shadow-none backdrop-blur-sm field-sizing-fixed focus-visible:ring-1 focus-visible:ring-border/40 dark:bg-input/30"
+            onChange={(event) => {
+              const nextValue = event.target.value
+              setValue(nextValue)
 
-            const cursor =
-              event.target.selectionStart ?? nextValue.length
-            updateColonCompleter(nextValue, cursor)
-          }}
-          onKeyDown={handleKeyDown}
-          onSelect={(event) => {
-            const cursor = event.currentTarget.selectionStart ?? value.length
-            updateColonCompleter(event.currentTarget.value, cursor)
-          }}
-          onClick={(event) => {
-            const cursor = event.currentTarget.selectionStart ?? value.length
-            updateColonCompleter(event.currentTarget.value, cursor)
-          }}
-        />
+              const cursor =
+                event.target.selectionStart ?? nextValue.length
+              updateColonCompleter(nextValue, cursor)
+            }}
+            onKeyDown={handleKeyDown}
+            onSelect={(event) => {
+              const cursor = event.currentTarget.selectionStart ?? value.length
+              updateColonCompleter(event.currentTarget.value, cursor)
+            }}
+            onClick={(event) => {
+              const cursor = event.currentTarget.selectionStart ?? value.length
+              updateColonCompleter(event.currentTarget.value, cursor)
+            }}
+          />
 
-        <EmotePicker
-          catalog={catalog}
-          loading={emotesLoading}
-          disabled={disabled}
-          onSelect={(code) => {
-            setValue((current) => insertEmoteAtEnd(current, code))
-            setCompleter(createEmoteCompleterState())
-            inputRef.current?.focus()
-          }}
-        />
+          <EmotePicker
+            catalog={catalog}
+            loading={emotesLoading}
+            disabled={disabled}
+            onSelect={(code) => {
+              setValue((current) => insertEmoteAtEnd(current, code))
+              setCompleter(createEmoteCompleterState())
+              inputRef.current?.focus()
+            }}
+          />
+        </div>
 
         <Button
           type="button"
-          size="sm"
+          size="icon-lg"
           disabled={disabled || !value.trim()}
+          aria-label="Send chat message"
           onClick={sendCurrentMessage}
           className="shrink-0"
         >
-          Chat
+          <SendHorizontalIcon className="size-4" />
         </Button>
       </div>
     </div>

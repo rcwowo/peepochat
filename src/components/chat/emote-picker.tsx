@@ -124,7 +124,7 @@ export function EmotePicker({
           size="icon-sm"
           disabled={disabled}
           aria-label="Open emote picker"
-          className="shrink-0 text-muted-foreground hover:text-foreground"
+          className="absolute right-1 bottom-1 text-muted-foreground hover:bg-muted/70 hover:text-foreground"
         >
           <SmileIcon className="size-4" />
         </Button>
