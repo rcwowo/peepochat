@@ -7,6 +7,7 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
+  type Modifier,
 } from "@dnd-kit/core"
 import {
   SortableContext,
@@ -18,6 +19,31 @@ import { CSS } from "@dnd-kit/utilities"
 
 import { cn } from "@/lib/utils"
 import { SidebarMenu, SidebarMenuItem } from "@/components/ui/sidebar"
+
+const restrictSidebarDrag: Modifier = ({
+  activeNodeRect,
+  containerNodeRect,
+  transform,
+}) => {
+  const nextTransform = { ...transform, x: 0 }
+
+  if (!activeNodeRect || !containerNodeRect) {
+    return nextTransform
+  }
+
+  return {
+    ...nextTransform,
+    y: Math.min(
+      Math.max(
+        nextTransform.y,
+        containerNodeRect.top - activeNodeRect.top
+      ),
+      containerNodeRect.bottom - activeNodeRect.bottom
+    ),
+  }
+}
+
+const sidebarDragModifiers: Modifier[] = [restrictSidebarDrag]
 
 type SortableSidebarListProps = {
   itemIds: string[]
@@ -93,6 +119,8 @@ export function SortableSidebarList({
     <DndContext
       sensors={sensors}
       collisionDetection={closestCenter}
+      modifiers={sidebarDragModifiers}
+      autoScroll={false}
       onDragEnd={handleDragEnd}
     >
       <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>

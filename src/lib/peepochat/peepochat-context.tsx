@@ -96,6 +96,8 @@ export type PeepochatSidebarHighlightsContextValue = {
   hasUnreadForSplit: (splitId: string, channelLogins: string[]) => boolean
   hasPingForChannel: (login: string) => boolean
   hasPingForSplit: (splitId: string, channelLogins: string[]) => boolean
+  markChannelRead: (login: string) => void
+  markSplitRead: (splitId: string) => void
   isChannelLive: (login: string) => boolean
   isSplitLive: (channelLogins: string[]) => boolean
   liveIndicatorsEnabled: boolean
@@ -590,6 +592,8 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
         hasUnreadForSplit: highlightActivity.hasUnreadForSplit,
         hasPingForChannel: highlightActivity.hasPingForChannel,
         hasPingForSplit: highlightActivity.hasPingForSplit,
+        markChannelRead: highlightActivity.markChannelRead,
+        markSplitRead: highlightActivity.markSplitRead,
         isChannelLive: (login) =>
           config.highlights.liveIndicatorsEnabled && isChannelLive(login),
         isSplitLive,
@@ -601,6 +605,8 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
         highlightActivity.hasUnreadForSplit,
         highlightActivity.hasPingForChannel,
         highlightActivity.hasPingForSplit,
+        highlightActivity.markChannelRead,
+        highlightActivity.markSplitRead,
         isChannelLive,
         isSplitLive,
       ]

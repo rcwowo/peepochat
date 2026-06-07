@@ -1,5 +1,11 @@
 import * as React from "react"
-import { Columns2Icon, PlusIcon, Trash2Icon, UngroupIcon } from "lucide-react"
+import {
+  CheckCheckIcon,
+  Columns2Icon,
+  PlusIcon,
+  Trash2Icon,
+  UngroupIcon,
+} from "lucide-react"
 import { toast } from "sonner"
 
 import { SortableSidebarList } from "@/components/sidebar/channel-sidebar-list"
@@ -144,6 +150,7 @@ function ChannelContextMenu({
   onSelect,
   onRemove,
   onSplit,
+  onMarkRead,
   onUnreadEnabledChange,
 }: {
   login: string
@@ -159,10 +166,12 @@ function ChannelContextMenu({
   onSelect: () => void
   onRemove: () => void
   onSplit: () => void
+  onMarkRead: () => void
   onUnreadEnabledChange: (enabled: boolean) => void
 }) {
   const label = channelLabel(login, displayName)
   const activeLabel = channelLabel(activeChannelLogin)
+  const hasNewMessages = showUnread || showPing
   const canSplit =
     canAddToActiveSplit ||
     (Boolean(activeChannelLogin) && activeChannelLogin !== login)
@@ -178,6 +187,10 @@ function ChannelContextMenu({
       onSelect={onSelect}
       menu={
         <ContextMenuContent>
+          <ContextMenuItem disabled={!hasNewMessages} onSelect={onMarkRead}>
+            <CheckCheckIcon />
+            Mark as read
+          </ContextMenuItem>
           <ContextMenuCheckboxItem
             checked={unreadEnabled}
             onCheckedChange={onUnreadEnabledChange}
@@ -220,6 +233,7 @@ function SplitContextMenu({
   onSelect,
   onUngroup,
   onDelete,
+  onMarkRead,
   onUnreadEnabledChange,
 }: {
   channels: Array<{
@@ -235,9 +249,11 @@ function SplitContextMenu({
   onSelect: () => void
   onUngroup: () => void
   onDelete: () => void
+  onMarkRead: () => void
   onUnreadEnabledChange: (enabled: boolean) => void
 }) {
   const label = splitGroupLabel(channels)
+  const hasNewMessages = showUnread || showPing
 
   return (
     <SidebarIconContextMenu
@@ -247,6 +263,10 @@ function SplitContextMenu({
       onSelect={onSelect}
       menu={
         <ContextMenuContent>
+          <ContextMenuItem disabled={!hasNewMessages} onSelect={onMarkRead}>
+            <CheckCheckIcon />
+            Mark as read
+          </ContextMenuItem>
           <ContextMenuCheckboxItem
             checked={unreadEnabled}
             onCheckedChange={onUnreadEnabledChange}
@@ -365,6 +385,8 @@ export function ChannelSidebar() {
     hasUnreadForSplit,
     hasPingForChannel,
     hasPingForSplit,
+    markChannelRead,
+    markSplitRead,
     isChannelLive,
     isSplitLive,
   } = usePeepochatHighlights()
@@ -525,66 +547,74 @@ export function ChannelSidebar() {
                   }
 
                   if (entry.kind === "split") {
+                    const showUnread = hasUnreadForSplit(
+                      entry.split.id,
+                      entry.split.channels
+                    )
+                    const showPing = hasPingForSplit(
+                      entry.split.id,
+                      entry.split.channels
+                    )
+
                     return (
                       <SplitContextMenu
-                          channels={entry.channels}
-                          isActive={
-                            isSplitView && activeSplitId === entry.split.id
-                          }
-                          unreadEnabled={isUnreadIndicatorEnabledForSplit(
-                            config,
-                            entry.split.id
-                          )}
-                          showUnread={hasUnreadForSplit(
-                            entry.split.id,
-                            entry.split.channels
-                          )}
-                          showPing={hasPingForSplit(
-                            entry.split.id,
-                            entry.split.channels
-                          )}
-                          showLive={isSplitLive(entry.split.channels)}
-                          onSelect={() => selectSplit(entry.split.id)}
-                          onUnreadEnabledChange={(enabled) =>
-                            setSplitUnreadEnabled(entry.split.id, enabled)
-                          }
-                          onUngroup={() => unsplit(entry.split.id)}
-                          onDelete={() =>
-                            handleDeleteSplit(entry.split.channels)
-                          }
-                        />
+                        channels={entry.channels}
+                        isActive={
+                          isSplitView && activeSplitId === entry.split.id
+                        }
+                        unreadEnabled={isUnreadIndicatorEnabledForSplit(
+                          config,
+                          entry.split.id
+                        )}
+                        showUnread={showUnread}
+                        showPing={showPing}
+                        showLive={isSplitLive(entry.split.channels)}
+                        onSelect={() => selectSplit(entry.split.id)}
+                        onUnreadEnabledChange={(enabled) =>
+                          setSplitUnreadEnabled(entry.split.id, enabled)
+                        }
+                        onMarkRead={() => markSplitRead(entry.split.id)}
+                        onUngroup={() => unsplit(entry.split.id)}
+                        onDelete={() =>
+                          handleDeleteSplit(entry.split.channels)
+                        }
+                      />
                     )
                   }
 
+                  const showUnread = hasUnreadForChannel(entry.channel.login)
+                  const showPing = hasPingForChannel(entry.channel.login)
+
                   return (
                     <ChannelContextMenu
-                        login={entry.channel.login}
-                        displayName={entry.channel.displayName}
-                        profileImageUrl={entry.channel.profileImageUrl}
-                        isActive={
-                          !isSplitView &&
-                          entry.channel.login === activeChannelLogin
-                        }
-                        activeChannelLogin={activeChannelLogin}
-                        unreadEnabled={isUnreadIndicatorEnabledForChannel(
-                          config,
-                          entry.channel.login
-                        )}
-                        showUnread={hasUnreadForChannel(entry.channel.login)}
-                        showPing={hasPingForChannel(entry.channel.login)}
-                        showLive={isChannelLive(entry.channel.login)}
-                        canAddToActiveSplit={
-                          isSplitView &&
-                          Boolean(activeSplitId) &&
-                          !activeSplitChannelSet.has(entry.channel.login)
-                        }
-                        onSelect={() => setActiveChannel(entry.channel.login)}
-                        onUnreadEnabledChange={(enabled) =>
-                          setChannelUnreadEnabled(entry.channel.login, enabled)
-                        }
-                        onRemove={() => removeChannel(entry.channel.login)}
-                        onSplit={() => handleSplitWith(entry.channel.login)}
-                      />
+                      login={entry.channel.login}
+                      displayName={entry.channel.displayName}
+                      profileImageUrl={entry.channel.profileImageUrl}
+                      isActive={
+                        !isSplitView &&
+                        entry.channel.login === activeChannelLogin
+                      }
+                      activeChannelLogin={activeChannelLogin}
+                      unreadEnabled={isUnreadIndicatorEnabledForChannel(
+                        config,
+                        entry.channel.login
+                      )}
+                      showUnread={showUnread}
+                      showPing={showPing}
+                      showLive={isChannelLive(entry.channel.login)}
+                      canAddToActiveSplit={
+                        isSplitView &&
+                        Boolean(activeSplitId) &&
+                        !activeSplitChannelSet.has(entry.channel.login)
+                      }
+                      onSelect={() => setActiveChannel(entry.channel.login)}
+                      onUnreadEnabledChange={(enabled) =>
+                        setChannelUnreadEnabled(entry.channel.login, enabled)
+                      }
+                      onMarkRead={() => markChannelRead(entry.channel.login)}
+                      onRemove={() => removeChannel(entry.channel.login)}
+                      onSplit={() => handleSplitWith(entry.channel.login)}
+                    />
                   )
                 }}
               </SortableSidebarList>
