@@ -435,13 +435,15 @@ export function SettingsRange({
           {value}
         </span>
       </div>
-      <Slider
-        min={min}
-        max={max}
-        step={1}
-        value={[value]}
-        onValueChange={(values) => onChange(values[0] ?? min)}
-      />
+      <div className="py-1.5">
+        <Slider
+          min={min}
+          max={max}
+          step={1}
+          value={[value]}
+          onValueChange={(values) => onChange(values[0] ?? min)}
+        />
+      </div>
     </div>
   )
 }
@@ -450,6 +452,7 @@ export function SettingsSliderRow({
   title,
   description,
   value,
+  valueLabel,
   onChange,
   min,
   max,
@@ -457,12 +460,13 @@ export function SettingsSliderRow({
   title: string
   description?: string
   value: number
+  valueLabel?: React.ReactNode
   onChange: (value: number) => void
   min: number
   max: number
 }) {
   return (
-    <div className="space-y-2 px-2.5 py-2">
+    <div className="px-2.5 py-2">
       <div className="flex items-start justify-between gap-2 text-sm">
         <div className="min-w-0">
           <span className="font-medium leading-tight">{title}</span>
@@ -472,17 +476,21 @@ export function SettingsSliderRow({
             </p>
           ) : null}
         </div>
-        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-          {value}
-        </span>
+        <div className="flex shrink-0 items-center">
+          <span className="text-xs tabular-nums text-muted-foreground">
+            {valueLabel ?? value}
+          </span>
+        </div>
       </div>
-      <Slider
-        min={min}
-        max={max}
-        step={1}
-        value={[value]}
-        onValueChange={(values) => onChange(values[0] ?? min)}
-      />
+      <div className="pt-3 pb-2">
+        <Slider
+          min={min}
+          max={max}
+          step={1}
+          value={[value]}
+          onValueChange={(values) => onChange(values[0] ?? min)}
+        />
+      </div>
     </div>
   )
 }

@@ -6,13 +6,14 @@ import type { TwitchTimelineItem } from "@/hooks/twitch/use-twitch-chat"
 import type { CachedChatView } from "@/hooks/chat/use-chat-layout"
 import type { ChatBadgeCatalog } from "@/lib/chat/chat-badges"
 import { useChatFontFamily } from "@/hooks/chat/use-chat-font"
-import type {
-  ChatConfig,
-  ChatSplitLayoutNode,
-  SplitLayoutEdge,
-  MessageQuickActionsConfig,
-  MessageTimestampFormat,
-  TwitchChannel,
+import {
+  CHAT_EMOTE_SCALE_DEFAULT,
+  type ChatConfig,
+  type ChatSplitLayoutNode,
+  type SplitLayoutEdge,
+  type MessageQuickActionsConfig,
+  type MessageTimestampFormat,
+  type TwitchChannel,
 } from "@/lib/peepochat/peepochat-config"
 import { usePeepochat } from "@/lib/peepochat/peepochat-context"
 import type { TwitchChatRoomState } from "@/hooks/twitch/use-twitch-chat"
@@ -173,12 +174,17 @@ function useChatPresentationProps(chat: ChatConfig) {
   const cssFontFamily = useChatFontFamily(chat.fontFamily)
 
   const style = React.useMemo(
-    () =>
-      ({
+    () => {
+      const emoteScale = chat.emoteScale / CHAT_EMOTE_SCALE_DEFAULT
+
+      return {
         "--chat-font-size": `${chat.fontSizePx}px`,
+        "--chat-emote-size": `${Math.round(28 * emoteScale)}px`,
+        "--chat-emote-margin": `${(-0.35 * emoteScale).toFixed(3)}rem`,
         ...(cssFontFamily ? { fontFamily: cssFontFamily } : {}),
-      }) as React.CSSProperties,
-    [chat.fontSizePx, cssFontFamily]
+      } as React.CSSProperties
+    },
+    [chat.emoteScale, chat.fontSizePx, cssFontFamily]
   )
 
   const className = cn(

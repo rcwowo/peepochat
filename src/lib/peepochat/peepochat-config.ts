@@ -10,11 +10,17 @@ import {
 import { normalizeSidebarOrder } from "@/lib/sidebar/sidebar-order"
 
 export const PEEPOCHAT_STORAGE_KEY = "peepochat::config"
-export const PEEPOCHAT_SCHEMA_VERSION = 7
+export const PEEPOCHAT_SCHEMA_VERSION = 8
 
 export const LIVE_MESSAGES_PER_CHANNEL_MIN = 20
 export const LIVE_MESSAGES_PER_CHANNEL_MAX = 500
 export const LIVE_MESSAGES_PER_CHANNEL_DEFAULT = 60
+export const CHAT_FONT_SIZE_MIN = 10
+export const CHAT_FONT_SIZE_MAX = 24
+export const CHAT_FONT_SIZE_DEFAULT = 13
+export const CHAT_EMOTE_SCALE_MIN = 10
+export const CHAT_EMOTE_SCALE_MAX = 24
+export const CHAT_EMOTE_SCALE_DEFAULT = 13
 export const PEEPOCHAT_APP_VERSION: string = __APP_VERSION__
 
 const messageTimestampFormatSchema = z
@@ -41,7 +47,19 @@ const chatSchema = z.object({
   alternatingRowBackgrounds: z.boolean().default(false),
   messageSeparators: z.boolean().default(false),
   fontFamily: chatFontFamilySchema,
-  fontSizePx: z.number().int().min(10).max(24).default(13),
+  fontSizePx: z
+    .number()
+    .int()
+    .min(CHAT_FONT_SIZE_MIN)
+    .max(CHAT_FONT_SIZE_MAX)
+    .default(CHAT_FONT_SIZE_DEFAULT),
+  emoteScale: z
+    .number()
+    .int()
+    .min(CHAT_EMOTE_SCALE_MIN)
+    .max(CHAT_EMOTE_SCALE_MAX)
+    .default(CHAT_EMOTE_SCALE_DEFAULT),
+  linkEmoteScaleToFontSize: z.boolean().default(true),
   maxLiveMessagesPerChannel: z
     .number()
     .int()
@@ -188,7 +206,9 @@ export function createDefaultConfig(): AppConfig {
       alternatingRowBackgrounds: false,
       messageSeparators: false,
       fontFamily: "",
-      fontSizePx: 13,
+      fontSizePx: CHAT_FONT_SIZE_DEFAULT,
+      emoteScale: CHAT_EMOTE_SCALE_DEFAULT,
+      linkEmoteScaleToFontSize: true,
       maxLiveMessagesPerChannel: LIVE_MESSAGES_PER_CHANNEL_DEFAULT,
       messageQuickActions: {
         copyEnabled: true,
@@ -590,6 +610,10 @@ function normalizeConfig(config: AppConfig): AppConfig {
   const chat = {
     ...config.chat,
     fontFamily: migrateChatFontFamilyInput(config.chat.fontFamily),
+  }
+
+  if (chat.linkEmoteScaleToFontSize) {
+    chat.emoteScale = chat.fontSizePx
   }
 
   const highlights = {
