@@ -75,6 +75,7 @@ type ChatPaneProps = {
   isActive?: boolean
   showRemoveSplit?: boolean
   onRemoveSplit?: (channelLogin: string) => void
+  dragHandleProps?: React.HTMLAttributes<HTMLDivElement>
   className?: string
 }
 
@@ -91,6 +92,7 @@ function ChatPaneInner({
   isActive = true,
   showRemoveSplit = false,
   onRemoveSplit,
+  dragHandleProps,
   className,
 }: ChatPaneProps) {
   const { refreshEmotes } = usePeepochatChat()
@@ -161,7 +163,13 @@ function ChatPaneInner({
         className
       )}
     >
-      <div className="flex h-9 shrink-0 items-center justify-between gap-2 border-b border-border px-3">
+      <div
+        {...dragHandleProps}
+        className={cn(
+          "flex h-9 shrink-0 items-center justify-between gap-2 border-b border-border px-3",
+          dragHandleProps?.className
+        )}
+      >
         <div className="flex min-w-0 items-center gap-2">
           <ChannelPaneAvatar
             login={channelLogin}
@@ -169,7 +177,10 @@ function ChatPaneInner({
           />
           <span className="truncate text-sm font-medium">{label}</span>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div
+          className="flex shrink-0 items-center gap-2"
+          onPointerDown={(event) => event.stopPropagation()}
+        >
           {!joined ? (
             <span className="text-xs text-muted-foreground">Connecting…</span>
           ) : null}

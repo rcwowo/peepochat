@@ -54,12 +54,6 @@ function SidebarUnreadIndicator() {
   )
 }
 
-export function sidebarIconButtonClass() {
-  return cn(
-    "group/icon flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-transparent p-0 outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-sidebar-ring"
-  )
-}
-
 export function SidebarIconTile({
   children,
   isActive,

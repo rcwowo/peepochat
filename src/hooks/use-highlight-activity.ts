@@ -70,13 +70,15 @@ export function useHighlightActivity({
   const [pingUnreadLogins, setPingUnreadLogins] = React.useState<
     ReadonlySet<string>
   >(() => new Set())
+  const normalizedVisibleChannelLogins = React.useMemo(
+    () => visibleChannelLogins.map((login) => normalizeChannelLogin(login)),
+    [visibleChannelLogins]
+  )
 
   const visibleRef = React.useRef<ReadonlySet<string>>(new Set())
   React.useEffect(() => {
-    visibleRef.current = new Set(
-      visibleChannelLogins.map((login) => normalizeChannelLogin(login))
-    )
-  }, [visibleChannelLogins.join("\0")])
+    visibleRef.current = new Set(normalizedVisibleChannelLogins)
+  }, [normalizedVisibleChannelLogins])
 
   const compiledPingsRef = React.useRef<CompiledPingRule[]>([])
   const pingRulesKey = buildPingRulesKey(config.highlights.pings)
@@ -87,24 +89,33 @@ export function useHighlightActivity({
   const unreadEnabledByLoginRef = React.useRef<Map<string, boolean>>(new Map())
   React.useEffect(() => {
     unreadEnabledByLoginRef.current = buildUnreadEnabledByLogin(config)
-  }, [
-    config.highlights.unreadIndicatorsEnabled,
-    config.twitch.channels,
-  ])
+  }, [config])
 
   const accountLoginRef = React.useRef(accountLogin)
-  accountLoginRef.current = accountLogin
 
   const pingPushEnabledRef = React.useRef(
     config.highlights.pingPushNotificationsEnabled
   )
-  pingPushEnabledRef.current = config.highlights.pingPushNotificationsEnabled
 
   const onFocusChannelRef = React.useRef(onFocusChannel)
-  onFocusChannelRef.current = onFocusChannel
 
   const configRef = React.useRef(config)
-  configRef.current = config
+
+  React.useEffect(() => {
+    accountLoginRef.current = accountLogin
+  }, [accountLogin])
+
+  React.useEffect(() => {
+    pingPushEnabledRef.current = config.highlights.pingPushNotificationsEnabled
+  }, [config.highlights.pingPushNotificationsEnabled])
+
+  React.useEffect(() => {
+    onFocusChannelRef.current = onFocusChannel
+  }, [onFocusChannel])
+
+  React.useEffect(() => {
+    configRef.current = config
+  }, [config])
 
   const clearUnreadForLogins = React.useCallback((logins: string[]) => {
     if (logins.length === 0) return
@@ -156,11 +167,11 @@ export function useHighlightActivity({
   )
 
   React.useEffect(() => {
-    clearUnreadForLogins(visibleChannelLogins)
-    for (const login of visibleChannelLogins) {
+    clearUnreadForLogins(normalizedVisibleChannelLogins)
+    for (const login of normalizedVisibleChannelLogins) {
       clearChannelMessageHighlights(login)
     }
-  }, [clearUnreadForLogins, visibleChannelLogins.join("\0")])
+  }, [clearUnreadForLogins, normalizedVisibleChannelLogins])
 
   const processIncomingMessages = React.useCallback(
     (messages: TwitchChatMessage[]) => {

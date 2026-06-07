@@ -1,12 +1,15 @@
 import * as React from "react"
 
 import { ChatPane } from "@/components/chat/chat-pane"
+import { ChatSplitLayout } from "@/components/chat/chat-split-layout"
 import type { TwitchTimelineItem } from "@/hooks/use-twitch-chat"
 import type { CachedChatView } from "@/hooks/use-chat-layout"
 import type { ChatBadgeCatalog } from "@/lib/chat-badges"
 import { useChatFontFamily } from "@/hooks/use-chat-font"
 import type {
   ChatConfig,
+  ChatSplitLayoutNode,
+  SplitLayoutEdge,
   MessageQuickActionsConfig,
   MessageTimestampFormat,
   TwitchChannel,
@@ -24,6 +27,17 @@ type ChatPaneBindings = {
   getBadgeCatalog: (login: string) => ChatBadgeCatalog
   hasBadgeSupport: boolean
   removeSplitChannel: (login: string) => void
+  moveSplitPane: (
+    splitId: string,
+    sourceChannel: string,
+    targetChannel: string,
+    edge: SplitLayoutEdge
+  ) => void
+  resizeSplitPanePath: (
+    splitId: string,
+    path: number[],
+    sizes: number[]
+  ) => void
 }
 
 function SingleChannelPane({
@@ -57,39 +71,65 @@ function SingleChannelPane({
 }
 
 function SplitChannelPanes({
+  splitId,
   channels,
+  layout,
   isActive,
   bindings,
 }: {
+  splitId: string
   channels: string[]
+  layout?: ChatSplitLayoutNode
   isActive: boolean
   bindings: ChatPaneBindings
 }) {
-  return (
-    <div className="flex h-full min-h-0 min-w-0 flex-1 divide-x divide-border">
-      {channels.map((login) => {
-        const meta = bindings.channelMeta.get(login)
-        const room = bindings.getRoom(login)
+  const renderPane = React.useCallback(
+    (login: string, dragHandleProps: React.HTMLAttributes<HTMLDivElement>) => {
+      const meta = bindings.channelMeta.get(login)
+      const room = bindings.getRoom(login)
 
-        return (
-          <ChatPane
-            key={login}
-            channelLogin={login}
-            displayName={meta?.displayName}
-            profileImageUrl={meta?.profileImageUrl}
-            timeline={bindings.getTimeline(login)}
-            timestampFormat={bindings.timestampFormat}
-            messageQuickActions={bindings.messageQuickActions}
-            badgeCatalog={bindings.getBadgeCatalog(login)}
-            showBadgeFallback={!bindings.hasBadgeSupport}
-            joined={room?.joined ?? false}
-            showRemoveSplit
-            onRemoveSplit={bindings.removeSplitChannel}
-            isActive={isActive}
-          />
-        )
-      })}
-    </div>
+      return (
+        <ChatPane
+          key={login}
+          channelLogin={login}
+          displayName={meta?.displayName}
+          profileImageUrl={meta?.profileImageUrl}
+          timeline={bindings.getTimeline(login)}
+          timestampFormat={bindings.timestampFormat}
+          messageQuickActions={bindings.messageQuickActions}
+          badgeCatalog={bindings.getBadgeCatalog(login)}
+          showBadgeFallback={!bindings.hasBadgeSupport}
+          joined={room?.joined ?? false}
+          showRemoveSplit
+          onRemoveSplit={bindings.removeSplitChannel}
+          isActive={isActive}
+          dragHandleProps={dragHandleProps}
+        />
+      )
+    },
+    [bindings, isActive]
+  )
+  const getPanePreview = React.useCallback(
+    (login: string) => {
+      const meta = bindings.channelMeta.get(login)
+      return {
+        label: meta?.displayName ?? login,
+        profileImageUrl: meta?.profileImageUrl,
+      }
+    },
+    [bindings]
+  )
+
+  return (
+    <ChatSplitLayout
+      splitId={splitId}
+      channels={channels}
+      layout={layout}
+      getPanePreview={getPanePreview}
+      renderPane={renderPane}
+      onMovePane={bindings.moveSplitPane}
+      onResizePath={bindings.resizeSplitPanePath}
+    />
   )
 }
 
@@ -118,7 +158,9 @@ function CachedChatViewLayer({
         />
       ) : (
         <SplitChannelPanes
+          splitId={view.splitId}
           channels={view.channels}
+          layout={view.layout}
           isActive={isActive}
           bindings={bindings}
         />
@@ -153,6 +195,8 @@ export function ChatPage() {
     config,
     channels,
     activeChannelLogin,
+    activeSplitId,
+    activeSplitLayout,
     isSplitView,
     splitChannels,
     visibleChannelLogins,
@@ -164,6 +208,8 @@ export function ChatPage() {
     getBadgeCatalog,
     hasBadgeSupport,
     removeSplitChannel,
+    moveSplitPane,
+    resizeSplitPanePath,
   } = usePeepochat()
 
   const timestampFormat = config.chat.messageTimestampFormat
@@ -184,6 +230,8 @@ export function ChatPage() {
       getBadgeCatalog,
       hasBadgeSupport,
       removeSplitChannel,
+      moveSplitPane,
+      resizeSplitPanePath,
     }),
     [
       timestampFormat,
@@ -194,6 +242,8 @@ export function ChatPage() {
       getBadgeCatalog,
       hasBadgeSupport,
       removeSplitChannel,
+      moveSplitPane,
+      resizeSplitPanePath,
     ]
   )
 
@@ -229,14 +279,16 @@ export function ChatPage() {
     )
   }
 
-  if (isSplitView) {
+  if (isSplitView && activeSplitId) {
     return (
       <div
         className={chatPresentation.className}
         style={chatPresentation.style}
       >
         <SplitChannelPanes
+          splitId={activeSplitId}
           channels={splitChannels}
+          layout={activeSplitLayout}
           isActive
           bindings={bindings}
         />

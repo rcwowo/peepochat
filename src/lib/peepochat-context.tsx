@@ -24,6 +24,8 @@ import type { ChatBadgeCatalog } from "@/lib/chat-badges"
 import type {
   AppConfig,
   ChatSplit,
+  ChatSplitLayoutNode,
+  SplitLayoutEdge,
   MessageTimestampFormat,
   TwitchAccount,
   TwitchChannel,
@@ -59,6 +61,7 @@ export type PeepochatConfigContextValue = {
 export type PeepochatLayoutContextValue = {
   savedSplits: ChatSplit[]
   activeSplitId: string | null
+  activeSplitLayout?: ChatSplitLayoutNode
   sidebarOrder: string[]
   splitChannels: string[]
   isSplitView: boolean
@@ -74,6 +77,17 @@ export type PeepochatLayoutContextValue = {
   removeSplitChannel: (login: string) => void
   unsplit: (splitId: string) => void
   reorderSidebar: (activeId: string, overId: string) => void
+  moveSplitPane: (
+    splitId: string,
+    sourceChannel: string,
+    targetChannel: string,
+    edge: SplitLayoutEdge
+  ) => void
+  resizeSplitPanePath: (
+    splitId: string,
+    path: number[],
+    sizes: number[]
+  ) => void
 }
 
 export type PeepochatSidebarHighlightsContextValue = {
@@ -234,6 +248,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
   const {
     savedSplits,
     activeSplitId,
+    activeSplitLayout,
     sidebarOrder,
     splitChannels,
     isSplitView,
@@ -249,6 +264,8 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     removeSplitChannel,
     unsplit,
     reorderSidebar,
+    moveSplitPane,
+    resizeSplitPanePath,
   } = useChatLayout({ config, updateConfig })
 
   const {
@@ -279,8 +296,13 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     },
   })
 
-  onChatMessageRef.current = highlightActivity.handleIncomingMessage
-  onChatMessagesRef.current = highlightActivity.handleIncomingMessages
+  React.useEffect(() => {
+    onChatMessageRef.current = highlightActivity.handleIncomingMessage
+    onChatMessagesRef.current = highlightActivity.handleIncomingMessages
+  }, [
+    highlightActivity.handleIncomingMessage,
+    highlightActivity.handleIncomingMessages,
+  ])
 
   const { isLive: isChannelLive } = useStreamLiveStatus({
     channelLogins,
@@ -352,10 +374,16 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
   )
 
   const channelLoginsRef = React.useRef(channelLogins)
-  channelLoginsRef.current = channelLogins
 
   const setEmoteLoadContextRef = React.useRef(setEmoteLoadContext)
-  setEmoteLoadContextRef.current = setEmoteLoadContext
+
+  React.useEffect(() => {
+    channelLoginsRef.current = channelLogins
+  }, [channelLogins])
+
+  React.useEffect(() => {
+    setEmoteLoadContextRef.current = setEmoteLoadContext
+  }, [setEmoteLoadContext])
 
   React.useEffect(() => {
     setEmoteLoadContextRef.current({
@@ -386,7 +414,10 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
   const emotesOptionsReadyRef = React.useRef(false)
   const emoteProviderFlagsRef = React.useRef("")
   const refreshEmotesRef = React.useRef(refreshEmotes)
-  refreshEmotesRef.current = refreshEmotes
+
+  React.useEffect(() => {
+    refreshEmotesRef.current = refreshEmotes
+  }, [refreshEmotes])
 
   React.useEffect(() => {
     const flagsKey = [
@@ -501,6 +532,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     () => ({
       savedSplits,
       activeSplitId,
+      activeSplitLayout,
       sidebarOrder,
       splitChannels,
       isSplitView,
@@ -516,10 +548,13 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       removeSplitChannel,
       unsplit,
       reorderSidebar,
+      moveSplitPane,
+      resizeSplitPanePath,
     }),
     [
       savedSplits,
       activeSplitId,
+      activeSplitLayout,
       sidebarOrder,
       splitChannels,
       isSplitView,
@@ -535,6 +570,8 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       removeSplitChannel,
       unsplit,
       reorderSidebar,
+      moveSplitPane,
+      resizeSplitPanePath,
     ]
   )
 

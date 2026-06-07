@@ -1,6 +1,12 @@
 import { z } from "zod"
 
 import { migrateChatFontFamilyInput } from "@/lib/chat-fonts"
+import {
+  createDefaultSplitLayout,
+  normalizeSplitLayout,
+  type ChatSplitLayoutChild,
+  type ChatSplitLayoutNode,
+} from "@/lib/chat-split-layout"
 import { normalizeSidebarOrder } from "@/lib/sidebar-order"
 
 export const PEEPOCHAT_STORAGE_KEY = "peepochat::config"
@@ -61,10 +67,30 @@ const highlightsSchema = z.object({
   pings: z.array(highlightPingRuleSchema).default([]),
 })
 
+const chatSplitLayoutNodeSchema: z.ZodType<ChatSplitLayoutNode> = z.lazy(() =>
+  z.discriminatedUnion("type", [
+    z.object({
+      type: z.literal("pane"),
+      channel: z.string(),
+    }),
+    z.object({
+      type: z.literal("split"),
+      direction: z.enum(["row", "column"]),
+      children: z.array(chatSplitLayoutChildSchema),
+    }),
+  ])
+)
+
+const chatSplitLayoutChildSchema: z.ZodType<ChatSplitLayoutChild> = z.object({
+  node: chatSplitLayoutNodeSchema,
+  size: z.number(),
+})
+
 const chatSplitSchema = z.object({
   id: z.string().min(1),
   channels: z.array(z.string()),
   unreadIndicatorEnabled: z.boolean().nullable().default(null),
+  layout: chatSplitLayoutNodeSchema.optional(),
 })
 
 const chatLayoutSchema = z.object({
@@ -126,6 +152,12 @@ export type ChatFontFamilySetting = z.infer<typeof chatFontFamilySchema>
 export type ChatEmotesConfig = z.infer<typeof chatEmotesSchema>
 export type MessageQuickActionsConfig = z.infer<typeof messageQuickActionsSchema>
 export type ChatSplit = z.infer<typeof chatSplitSchema>
+export type {
+  ChatSplitLayoutChild,
+  ChatSplitLayoutNode,
+  SplitLayoutDirection,
+  SplitLayoutEdge,
+} from "@/lib/chat-split-layout"
 export type ChatLayoutConfig = z.infer<typeof chatLayoutSchema>
 export type ChatConfig = z.infer<typeof chatSchema>
 export type TwitchAccount = z.infer<typeof twitchAccountSchema>
@@ -238,10 +270,12 @@ export function createChatSplit(
   channels: string[],
   id = createSplitId()
 ): ChatSplit {
+  const normalizedChannels = normalizeSplitChannels(channels)
   return {
     id,
-    channels: normalizeSplitChannels(channels),
+    channels: normalizedChannels,
     unreadIndicatorEnabled: null,
+    layout: createDefaultSplitLayout(normalizedChannels),
   }
 }
 
@@ -532,6 +566,7 @@ function normalizeConfig(config: AppConfig): AppConfig {
         split.unreadIndicatorEnabled === false
           ? split.unreadIndicatorEnabled
           : null,
+      layout: normalizeSplitLayout(split.layout, split.channels),
     }))
     .filter((split) => split.id && split.channels.length >= 2)
 

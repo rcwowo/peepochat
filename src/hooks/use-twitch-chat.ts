@@ -326,8 +326,11 @@ export function useTwitchChat(options?: {
         login,
         hydrated.map((message) => ({ kind: "chat" as const, message }))
       )
-      onChatMessagesRef?.current?.(hydrated) ??
+      if (onChatMessagesRef?.current) {
+        onChatMessagesRef.current(hydrated)
+      } else {
         hydrated.forEach((message) => onChatMessageRef?.current?.(message))
+      }
     },
     [
       appendRoomTimeline,

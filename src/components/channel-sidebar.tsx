@@ -8,7 +8,6 @@ import {
   SidebarChannelRow,
   SidebarIconTile,
   SidebarSplitAvatarCluster,
-  sidebarIconButtonClass,
 } from "@/components/sidebar-channel-icon"
 import {
   usePeepochatHighlights,
@@ -51,6 +50,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { cn } from "@/lib/utils"
 
 function channelLabel(login: string, displayName?: string) {
   return displayName ?? login
@@ -60,6 +60,12 @@ function splitGroupLabel(
   channels: Array<{ login: string; displayName?: string }>
 ) {
   return channels.map((c) => channelLabel(c.login, c.displayName)).join(", ")
+}
+
+function sidebarIconButtonClass() {
+  return cn(
+    "group/icon flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-transparent p-0 outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+  )
 }
 
 function SidebarIconContextMenu({
@@ -134,6 +140,7 @@ function ChannelContextMenu({
   showUnread,
   showPing,
   showLive,
+  canAddToActiveSplit,
   onSelect,
   onRemove,
   onSplit,
@@ -148,6 +155,7 @@ function ChannelContextMenu({
   showUnread: boolean
   showPing: boolean
   showLive: boolean
+  canAddToActiveSplit: boolean
   onSelect: () => void
   onRemove: () => void
   onSplit: () => void
@@ -156,7 +164,11 @@ function ChannelContextMenu({
   const label = channelLabel(login, displayName)
   const activeLabel = channelLabel(activeChannelLogin)
   const canSplit =
-    Boolean(activeChannelLogin) && activeChannelLogin !== login
+    canAddToActiveSplit ||
+    (Boolean(activeChannelLogin) && activeChannelLogin !== login)
+  const splitActionLabel = canAddToActiveSplit
+    ? "Add to current split"
+    : `Split with ${activeLabel}`
 
   return (
     <SidebarIconContextMenu
@@ -176,7 +188,7 @@ function ChannelContextMenu({
           {canSplit ? (
             <ContextMenuItem onSelect={onSplit}>
               <Columns2Icon />
-              Split with {activeLabel}
+              {splitActionLabel}
             </ContextMenuItem>
           ) : null}
           {canSplit ? <ContextMenuSeparator /> : null}
@@ -384,7 +396,11 @@ export function ChannelSidebar() {
     () => new Map(channels.map((channel) => [channel.login, channel])),
     [channels]
   )
-
+  const activeSplit = activeSplitId ? splitById.get(activeSplitId) : undefined
+  const activeSplitChannelSet = React.useMemo(
+    () => new Set(activeSplit?.channels ?? []),
+    [activeSplit]
+  )
   const sidebarEntries = React.useMemo(() => {
     return sidebarOrder
       .map((key) => {
@@ -557,6 +573,11 @@ export function ChannelSidebar() {
                         showUnread={hasUnreadForChannel(entry.channel.login)}
                         showPing={hasPingForChannel(entry.channel.login)}
                         showLive={isChannelLive(entry.channel.login)}
+                        canAddToActiveSplit={
+                          isSplitView &&
+                          Boolean(activeSplitId) &&
+                          !activeSplitChannelSet.has(entry.channel.login)
+                        }
                         onSelect={() => setActiveChannel(entry.channel.login)}
                         onUnreadEnabledChange={(enabled) =>
                           setChannelUnreadEnabled(entry.channel.login, enabled)

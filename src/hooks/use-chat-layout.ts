@@ -1,6 +1,11 @@
 import * as React from "react"
 
-import type { AppConfig, ChatSplit } from "@/lib/peepochat-config"
+import type {
+  AppConfig,
+  ChatSplit,
+  ChatSplitLayoutNode,
+  SplitLayoutEdge,
+} from "@/lib/peepochat-config"
 import {
   createChatSplit,
   createSplitId,
@@ -12,6 +17,11 @@ import {
   isSplitViewActive,
   normalizeSplitChannels,
 } from "@/lib/peepochat-config"
+import {
+  moveSplitLayoutPane,
+  normalizeSplitLayout,
+  resizeSplitLayoutChildren,
+} from "@/lib/chat-split-layout"
 
 export type CachedChannelChatView = {
   key: string
@@ -24,6 +34,7 @@ export type CachedSplitChatView = {
   kind: "split"
   splitId: string
   channels: string[]
+  layout?: ChatSplitLayoutNode
 }
 
 export type CachedChatView = CachedChannelChatView | CachedSplitChatView
@@ -53,6 +64,7 @@ function buildCachedChatViews(
         kind: "split",
         splitId: split.id,
         channels,
+        layout: normalizeSplitLayout(split.layout, channels),
       })
     }
   }
@@ -71,10 +83,14 @@ import {
 
 function pruneSplits(splits: ChatSplit[]): ChatSplit[] {
   return splits
-    .map((split) => ({
-      ...split,
-      channels: normalizeSplitChannels(split.channels),
-    }))
+    .map((split) => {
+      const channels = normalizeSplitChannels(split.channels)
+      return {
+        ...split,
+        channels,
+        layout: normalizeSplitLayout(split.layout, channels),
+      }
+    })
     .filter((split) => split.channels.length >= 2)
 }
 
@@ -119,6 +135,14 @@ export function useChatLayout({
   )
   const splitChannels = getActiveSplitChannels(config)
   const isSplitView = isSplitViewActive(config)
+  const activeSplitLayout = React.useMemo(() => {
+    if (!activeSplitId) {
+      return undefined
+    }
+
+    const split = savedSplits.find((entry) => entry.id === activeSplitId)
+    return split ? normalizeSplitLayout(split.layout, split.channels) : undefined
+  }, [activeSplitId, savedSplits])
   const channelsInSplits = React.useMemo(
     () => getChannelsUsedInSplits(savedSplits),
     [savedSplits]
@@ -282,6 +306,10 @@ export function useChatLayout({
           const splitKey = splitOrderKey(activeId)
           const removedKey = channelOrderKey(normalized)
           const splitIndex = currentOrder.indexOf(splitKey)
+          const nextActiveChannelLogin =
+            getActiveChannelLogin(current) === normalized
+              ? nextChannels[0]
+              : current.twitch.activeChannelLogin
 
           const order = currentOrder.filter((key) => key !== removedKey)
           if (splitIndex >= 0) {
@@ -296,7 +324,13 @@ export function useChatLayout({
           }
 
           return commitLayout(
-            current,
+            {
+              ...current,
+              twitch: {
+                ...current.twitch,
+                activeChannelLogin: nextActiveChannelLogin,
+              },
+            },
             {
               activeSplitId: activeId,
               splits: current.layout.splits.map((split) =>
@@ -401,6 +435,70 @@ export function useChatLayout({
     [updateConfig]
   )
 
+  const moveSplitPane = React.useCallback(
+    (
+      splitId: string,
+      sourceChannel: string,
+      targetChannel: string,
+      edge: SplitLayoutEdge
+    ) => {
+      updateConfig((current) => {
+        const nextSplits = current.layout.splits.map((split) => {
+          if (split.id !== splitId) {
+            return split
+          }
+
+          const channels = normalizeSplitChannels(split.channels)
+          return {
+            ...split,
+            layout: moveSplitLayoutPane({
+              layout: split.layout,
+              channels,
+              sourceChannel,
+              targetChannel,
+              edge,
+            }),
+          }
+        })
+
+        return commitLayout(current, {
+          activeSplitId: current.layout.activeSplitId,
+          splits: pruneSplits(nextSplits),
+        })
+      })
+    },
+    [updateConfig]
+  )
+
+  const resizeSplitPanePath = React.useCallback(
+    (splitId: string, path: number[], sizes: number[]) => {
+      updateConfig((current) => {
+        const nextSplits = current.layout.splits.map((split) => {
+          if (split.id !== splitId) {
+            return split
+          }
+
+          const channels = normalizeSplitChannels(split.channels)
+          return {
+            ...split,
+            layout: resizeSplitLayoutChildren({
+              layout: split.layout,
+              channels,
+              path,
+              sizes,
+            }),
+          }
+        })
+
+        return commitLayout(current, {
+          activeSplitId: current.layout.activeSplitId,
+          splits: pruneSplits(nextSplits),
+        })
+      })
+    },
+    [updateConfig]
+  )
+
   const visibleChannelLogins = React.useMemo(() => {
     if (isSplitView) {
       return splitChannels
@@ -456,6 +554,7 @@ export function useChatLayout({
   return {
     savedSplits,
     activeSplitId,
+    activeSplitLayout,
     sidebarOrder,
     splitChannels,
     isSplitView,
@@ -471,5 +570,7 @@ export function useChatLayout({
     removeSplitChannel,
     unsplit,
     reorderSidebar,
+    moveSplitPane,
+    resizeSplitPanePath,
   }
 }
