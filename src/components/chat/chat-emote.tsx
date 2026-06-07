@@ -3,7 +3,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import type { TwitchEmote } from "@/lib/twitch-chat"
+import type { TwitchEmote } from "@/lib/twitch/twitch-chat"
 
 function getEmoteSrcSet(emote: TwitchEmote) {
   if (emote.provider !== "twitch") {

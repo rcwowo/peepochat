@@ -1,7 +1,7 @@
 import { CornerDownRight } from "lucide-react"
 
 import { ChatUsername } from "@/components/chat/chat-username"
-import type { TwitchChatReply } from "@/lib/twitch-chat"
+import type { TwitchChatReply } from "@/lib/twitch/twitch-chat"
 
 export function ChatReplyPreview({ reply }: { reply: TwitchChatReply }) {
   return (

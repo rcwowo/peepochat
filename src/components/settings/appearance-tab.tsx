@@ -6,9 +6,9 @@ import {
   SunIcon,
 } from "lucide-react"
 
-import type { MessageTimestampFormat } from "@/lib/peepochat-config"
-import { usePeepochatSettings } from "@/lib/peepochat-context"
-import { useTheme } from "@/components/theme-provider"
+import type { MessageTimestampFormat } from "@/lib/peepochat/peepochat-config"
+import { usePeepochatSettings } from "@/lib/peepochat/peepochat-context"
+import { useTheme } from "@/components/shell/theme-provider"
 import {
   SettingsDivider,
   SettingsGroup,

@@ -2,8 +2,8 @@ import * as React from "react"
 import { CloudDownloadIcon, CloudUploadIcon } from "lucide-react"
 import { toast } from "sonner"
 
-import { usePeepochatSettings } from "@/lib/peepochat-context"
-import { exportConfigBackup } from "@/lib/peepochat-config"
+import { usePeepochatSettings } from "@/lib/peepochat/peepochat-context"
+import { exportConfigBackup } from "@/lib/peepochat/peepochat-config"
 import {
   SettingsActionButton,
   SettingsActions,

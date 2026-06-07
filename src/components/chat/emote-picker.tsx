@@ -20,11 +20,11 @@ import type {
   ComposerEmoteCatalog,
   EmotePickerCategory,
   EmotePickerPlatformId,
-} from "@/lib/chat-emote-catalog"
+} from "@/lib/chat/chat-emote-catalog"
 import {
   findPickerCategory,
   getDefaultPickerSelection,
-} from "@/lib/chat-emote-catalog"
+} from "@/lib/chat/chat-emote-catalog"
 import { PickerIcon } from "@/components/chat/picker-icon"
 import {
   determineEmoteRatioBucket,
@@ -32,7 +32,7 @@ import {
   emotePickerEmoteKey,
   sortPickerEmotes,
   type EmoteRatioBucket,
-} from "@/lib/emote-picker-layout"
+} from "@/lib/chat/emote-picker-layout"
 import { cn } from "@/lib/utils"
 
 type EmotePickerProps = {

@@ -20,15 +20,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { EmptyState } from "@/components/dashboard-primitives"
-import type { TwitchTimelineItem } from "@/hooks/use-twitch-chat"
-import type { ChatBadgeCatalog } from "@/lib/chat-badges"
+import { EmptyState } from "@/components/shared/dashboard-primitives"
+import type { TwitchTimelineItem } from "@/hooks/twitch/use-twitch-chat"
+import type { ChatBadgeCatalog } from "@/lib/chat/chat-badges"
 import type {
   MessageQuickActionsConfig,
   MessageTimestampFormat,
-} from "@/lib/peepochat-config"
-import { useChannelHighlightedMessageIds } from "@/hooks/use-highlight-activity"
-import { usePeepochatChat } from "@/lib/peepochat-context"
+} from "@/lib/peepochat/peepochat-config"
+import { useChannelHighlightedMessageIds } from "@/hooks/chat/use-highlight-activity"
+import { usePeepochatChat } from "@/lib/peepochat/peepochat-context"
 import { cn } from "@/lib/utils"
 
 const CHATVOICE_URL = "https://chatvoice.rcw.lol"

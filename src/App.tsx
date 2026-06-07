@@ -2,17 +2,17 @@ import * as React from "react"
 import { toast } from "sonner"
 import { SparklesIcon } from "lucide-react"
 
-import { PeepochatProvider, usePeepochatSettings } from "@/lib/peepochat-context"
+import { PeepochatProvider, usePeepochatSettings } from "@/lib/peepochat/peepochat-context"
 import { hasNewVersion, initLastSeenVersion, markVersionSeen } from "@/lib/changelog"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
-import { AppHeader } from "@/components/app-header"
-import { ChannelSidebar } from "@/components/channel-sidebar"
-import { OnboardingDialog } from "@/components/onboarding-dialog"
+import { AppHeader } from "@/components/shell/app-header"
+import { ChannelSidebar } from "@/components/sidebar/channel-sidebar"
+import { OnboardingDialog } from "@/components/onboarding/onboarding-dialog"
 import {
   SettingsDialog,
   type SettingsCategory,
-} from "@/components/settings-dialog"
+} from "@/components/settings/settings-dialog"
 import { ChatPage } from "@/pages/chat-page"
 
 function DashboardLayout() {

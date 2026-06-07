@@ -22,13 +22,13 @@ import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import {
   createPingRuleId,
-} from "@/lib/highlight-rules"
+} from "@/lib/highlights/highlight-rules"
 import {
   getDesktopNotificationPermission,
   requestDesktopNotificationPermission,
-} from "@/lib/desktop-notifications"
-import type { HighlightPingRule } from "@/lib/peepochat-config"
-import { usePeepochatSettings } from "@/lib/peepochat-context"
+} from "@/lib/highlights/desktop-notifications"
+import type { HighlightPingRule } from "@/lib/peepochat/peepochat-config"
+import { usePeepochatSettings } from "@/lib/peepochat/peepochat-context"
 
 const pingListColumns =
   "grid grid-cols-[2.25rem_minmax(0,1fr)_2.75rem_2rem] items-center gap-x-3"

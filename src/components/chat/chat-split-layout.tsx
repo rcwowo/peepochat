@@ -17,7 +17,7 @@ import {
   normalizeSplitLayout,
   type ChatSplitLayoutNode,
   type SplitLayoutEdge,
-} from "@/lib/chat-split-layout"
+} from "@/lib/chat/chat-split-layout"
 import { cn } from "@/lib/utils"
 
 type ChatSplitLayoutProps = {

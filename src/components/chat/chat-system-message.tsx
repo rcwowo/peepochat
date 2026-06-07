@@ -8,9 +8,9 @@ import {
 
 import { ChatMessageBody } from "@/components/chat/chat-message-body"
 import { ChatUsername } from "@/components/chat/chat-username"
-import type { MessageTimestampFormat } from "@/lib/peepochat-config"
-import { formatMessageTimestamp } from "@/lib/peepochat-context"
-import type { TwitchSystemMessage } from "@/lib/twitch-chat"
+import type { MessageTimestampFormat } from "@/lib/peepochat/peepochat-config"
+import { formatMessageTimestamp } from "@/lib/peepochat/peepochat-context"
+import type { TwitchSystemMessage } from "@/lib/twitch/twitch-chat"
 import { cn } from "@/lib/utils"
 
 const ANNOUNCEMENT_GRADIENTS: Record<string, [string, string]> = {

@@ -1,6 +1,6 @@
 import * as React from "react"
 
-import type { EmoteSuggestion } from "@/lib/emote-completion"
+import type { EmoteSuggestion } from "@/lib/chat/emote-completion"
 import { cn } from "@/lib/utils"
 
 type ChatSuggestionsProps = {

@@ -1,4 +1,4 @@
-import { getReadableUsernameColor } from "@/lib/chat-username"
+import { getReadableUsernameColor } from "@/lib/chat/chat-username"
 
 export function ChatUsername({
   displayName,

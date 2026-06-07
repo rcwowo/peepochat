@@ -3,8 +3,8 @@ import { CopyIcon, CornerUpLeftIcon, HistoryIcon } from "lucide-react"
 import {
   LIVE_MESSAGES_PER_CHANNEL_MAX,
   LIVE_MESSAGES_PER_CHANNEL_MIN,
-} from "@/lib/peepochat-config"
-import { usePeepochatSettings } from "@/lib/peepochat-context"
+} from "@/lib/peepochat/peepochat-config"
+import { usePeepochatSettings } from "@/lib/peepochat/peepochat-context"
 import {
   SettingsDivider,
   SettingsGroup,

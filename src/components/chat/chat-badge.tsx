@@ -15,8 +15,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import type { ResolvedChatBadge } from "@/lib/chat-badges"
-import type { TwitchBadge } from "@/lib/twitch-chat"
+import type { ResolvedChatBadge } from "@/lib/chat/chat-badges"
+import type { TwitchBadge } from "@/lib/twitch/twitch-chat"
 
 const ROLE_BADGE_FALLBACK: Record<
   string,

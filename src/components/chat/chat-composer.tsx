@@ -7,8 +7,8 @@ import { EmotePicker } from "@/components/chat/emote-picker"
 import { ChatReplyPreview } from "@/components/chat/chat-reply-preview"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { usePeepochat } from "@/lib/peepochat-context"
-import type { TwitchChatReply } from "@/lib/twitch-chat"
+import { usePeepochat } from "@/lib/peepochat/peepochat-context"
+import type { TwitchChatReply } from "@/lib/twitch/twitch-chat"
 import {
   applyEmoteSuggestion,
   createEmoteCompleterState,
@@ -25,7 +25,7 @@ import {
   type EmoteReplaceRange,
   type EmoteSuggestion,
   type EmoteTabCompleterState,
-} from "@/lib/emote-completion"
+} from "@/lib/chat/emote-completion"
 
 const MESSAGE_LIMIT = 500
 

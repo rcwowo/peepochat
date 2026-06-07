@@ -1,8 +1,8 @@
 import * as React from "react"
 
 import { ChatEmote } from "@/components/chat/chat-emote"
-import { findMessageUrls } from "@/lib/peepochat-config"
-import type { TwitchEmote } from "@/lib/twitch-chat"
+import { findMessageUrls } from "@/lib/peepochat/peepochat-config"
+import type { TwitchEmote } from "@/lib/twitch/twitch-chat"
 
 const MENTION_PATTERN = /(@[A-Za-z0-9_]+)/g
 

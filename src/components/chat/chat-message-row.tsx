@@ -7,11 +7,11 @@ import { Button } from "@/components/ui/button"
 import {
   resolveMessageBadges,
   type ChatBadgeCatalog,
-} from "@/lib/chat-badges"
-import { getReadableUsernameColor } from "@/lib/chat-username"
-import type { MessageTimestampFormat } from "@/lib/peepochat-config"
-import { formatMessageTimestamp } from "@/lib/peepochat-context"
-import type { TwitchChatMessage } from "@/lib/twitch-chat"
+} from "@/lib/chat/chat-badges"
+import { getReadableUsernameColor } from "@/lib/chat/chat-username"
+import type { MessageTimestampFormat } from "@/lib/peepochat/peepochat-config"
+import { formatMessageTimestamp } from "@/lib/peepochat/peepochat-context"
+import type { TwitchChatMessage } from "@/lib/twitch/twitch-chat"
 import { cn } from "@/lib/utils"
 import { CopyIcon, CornerUpLeftIcon } from "lucide-react"
 

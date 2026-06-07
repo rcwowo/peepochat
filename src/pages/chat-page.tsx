@@ -2,10 +2,10 @@ import * as React from "react"
 
 import { ChatPane } from "@/components/chat/chat-pane"
 import { ChatSplitLayout } from "@/components/chat/chat-split-layout"
-import type { TwitchTimelineItem } from "@/hooks/use-twitch-chat"
-import type { CachedChatView } from "@/hooks/use-chat-layout"
-import type { ChatBadgeCatalog } from "@/lib/chat-badges"
-import { useChatFontFamily } from "@/hooks/use-chat-font"
+import type { TwitchTimelineItem } from "@/hooks/twitch/use-twitch-chat"
+import type { CachedChatView } from "@/hooks/chat/use-chat-layout"
+import type { ChatBadgeCatalog } from "@/lib/chat/chat-badges"
+import { useChatFontFamily } from "@/hooks/chat/use-chat-font"
 import type {
   ChatConfig,
   ChatSplitLayoutNode,
@@ -13,9 +13,9 @@ import type {
   MessageQuickActionsConfig,
   MessageTimestampFormat,
   TwitchChannel,
-} from "@/lib/peepochat-config"
-import { usePeepochat } from "@/lib/peepochat-context"
-import type { TwitchChatRoomState } from "@/hooks/use-twitch-chat"
+} from "@/lib/peepochat/peepochat-config"
+import { usePeepochat } from "@/lib/peepochat/peepochat-context"
+import type { TwitchChatRoomState } from "@/hooks/twitch/use-twitch-chat"
 import { cn } from "@/lib/utils"
 
 type ChatPaneBindings = {
