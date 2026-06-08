@@ -340,13 +340,13 @@ export function EmoteShowcaseSection() {
 
       <div
         ref={stageRef}
-        className="landing-emote-splash-stage relative mx-auto flex min-h-[min(44rem,94svh)] w-full max-w-[76rem] items-center justify-center px-[clamp(1rem,4vw,2rem)] py-[clamp(3rem,8vh,5rem)] max-sm:min-h-[min(36rem,90svh)]"
+        className="landing-emote-splash-stage relative mx-auto flex min-h-[min(44rem,94svh)] w-full max-w-304 items-center justify-center px-[clamp(1rem,4vw,2rem)] py-[clamp(3rem,8vh,5rem)] max-sm:min-h-[min(36rem,90svh)]"
       >
         {SPLASH_EMOTES.map((layout) => (
           <SplashEmote key={layout.key} layout={layout} />
         ))}
 
-        <div className="relative z-3 mx-auto max-w-[30rem] px-[clamp(1.75rem,5vw,2.75rem)] py-[clamp(1.75rem,4.5vw,2.5rem)] text-center [transform:scale(calc(0.94+var(--splash-motion)*0.06))] motion-reduce:transform-none">
+        <div className="relative z-3 mx-auto max-w-120 px-[clamp(1.75rem,5vw,2.75rem)] py-[clamp(1.75rem,4.5vw,2.5rem)] text-center transform-[scale(calc(0.94+var(--splash-motion)*0.06))] motion-reduce:transform-none">
           <h2 className="font-landing-display text-3xl font-semibold tracking-tight text-balance text-shadow-[0_2px_14px_oklch(0_0_0/92%),0_0_36px_oklch(0_0_0/72%)] sm:text-4xl">
             Support for
             <br />
@@ -363,7 +363,7 @@ export function EmoteShowcaseSection() {
                   <img
                     src={provider.iconSrc}
                     alt=""
-                    className="h-10 w-auto opacity-94 max-[480px]:h-8 [filter:brightness(0)_invert(1)_drop-shadow(0_2px_10px_oklch(0_0_0/90%))_drop-shadow(0_0_22px_oklch(0_0_0/65%))]"
+                    className="h-10 w-auto opacity-94 max-[480px]:h-8 filter-[brightness(0)_invert(1)_drop-shadow(0_2px_10px_oklch(0_0_0/90%))_drop-shadow(0_0_22px_oklch(0_0_0/65%))]"
                   />
                 </span>
                 <span className="text-[0.65rem] font-semibold tracking-widest text-[color-mix(in_oklch,white_62%,transparent)] uppercase text-shadow-[0_1px_10px_oklch(0_0_0/88%),0_0_20px_oklch(0_0_0/60%)]">

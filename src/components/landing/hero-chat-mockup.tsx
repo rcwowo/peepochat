@@ -608,14 +608,14 @@ export function HeroChatMockup() {
         aria-hidden
       />
 
-      <div className="relative z-2 w-full [transform-style:preserve-3d] animate-landing-mockup-float motion-reduce:animate-none">
+      <div className="relative z-2 w-full transform-3d animate-landing-mockup-float motion-reduce:animate-none">
         <div
           className="landing-mockup-tilt"
           style={{
             transform: `rotateY(${rotateY}deg) rotateX(${rotateX}deg) translateZ(20px)`,
           }}
         >
-          <div className="relative overflow-hidden rounded-lg border border-border bg-background shadow-[0_2px_4px_oklch(0_0_0/25%),0_16px_32px_-8px_oklch(0_0_0/45%),0_32px_64px_-16px_oklch(0_0_0/35%)] [transform-style:preserve-3d]">
+          <div className="relative overflow-hidden rounded-lg border border-border bg-background shadow-[0_2px_4px_oklch(0_0_0/25%),0_16px_32px_-8px_oklch(0_0_0/45%),0_32px_64px_-16px_oklch(0_0_0/35%)] transform-3d">
             <header className="relative flex h-12 items-center justify-between border-b border-border bg-sidebar px-4">
               <img src={logoSrc} alt="" className="h-6 w-auto brand-mark" />
               <div className="flex items-center gap-2">

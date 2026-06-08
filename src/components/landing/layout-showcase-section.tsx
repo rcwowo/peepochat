@@ -585,10 +585,12 @@ const PROGRESS_RENDER_INTERVAL_MS = 32
 
 function useLayoutShowcaseAnimation(reducedMotion: boolean, active: boolean) {
   const [phaseIndex, setPhaseIndex] = React.useState(0)
-  const progressRef = React.useRef(0)
-  const [renderTick, bumpRender] = React.useReducer((count: number) => count + 1, 0)
+  const [progress, setProgress] = React.useState(0)
   const activeRef = React.useRef(active)
-  activeRef.current = active
+
+  React.useEffect(() => {
+    activeRef.current = active
+  }, [active])
 
   const phase = PHASES[phaseIndex % PHASES.length] ?? PHASES[0]
 
@@ -598,8 +600,7 @@ function useLayoutShowcaseAnimation(reducedMotion: boolean, active: boolean) {
     }
 
     if (reducedMotion) {
-      progressRef.current = 1
-      bumpRender()
+      setProgress(1)
 
       const timer = window.setInterval(() => {
         setPhaseIndex((current) => (current + 1) % PHASES.length)
@@ -634,14 +635,13 @@ function useLayoutShowcaseAnimation(reducedMotion: boolean, active: boolean) {
 
       const elapsed = now - start
       const linear = Math.min(elapsed / duration, 1)
-      progressRef.current = linear
 
       if (
         now - lastRender >= PROGRESS_RENDER_INTERVAL_MS ||
         linear >= 1
       ) {
         lastRender = now
-        bumpRender()
+        setProgress(linear)
       }
 
       if (linear < 1) {
@@ -650,7 +650,7 @@ function useLayoutShowcaseAnimation(reducedMotion: boolean, active: boolean) {
       }
 
       setPhaseIndex((current) => (current + 1) % PHASES.length)
-      progressRef.current = 0
+      setProgress(0)
     }
 
     frame = requestAnimationFrame(tick)
@@ -666,9 +666,8 @@ function useLayoutShowcaseAnimation(reducedMotion: boolean, active: boolean) {
       return metricsFromLayout(phase.to)
     }
 
-    return computeFrameMetrics(phase, progressRef.current)
-    // renderTick drives recomputation without storing progress in React state
-  }, [phase, reducedMotion, renderTick])
+    return computeFrameMetrics(phase, progress)
+  }, [phase, reducedMotion, progress])
 
   return frameMetrics
 }
@@ -728,7 +727,7 @@ function ShowcasePane({
   return (
     <div
       className={cn(
-        "absolute isolate z-0 flex min-h-0 min-w-0 flex-col overflow-hidden bg-(--chat-background) [contain:paint] transition-[opacity,box-shadow,transform] duration-300",
+        "absolute isolate z-0 flex min-h-0 min-w-0 flex-col overflow-hidden bg-(--chat-background) contain-[paint] transition-[opacity,box-shadow,transform] duration-300",
         dimmed && "opacity-40",
         elevated &&
           "z-4 scale-[1.02] shadow-[0_10px_28px_-8px_oklch(0_0_0/55%)] ring-1 ring-primary/45"
