@@ -1,0 +1,164 @@
+@import "@fontsource-variable/syne";
+
+.landing-page {
+  --font-landing-display: "Syne Variable", "Outfit Variable", sans-serif;
+}
+
+@utility font-landing-display {
+  font-family: var(--font-landing-display);
+}
+
+@keyframes landing-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes landing-mockup-float {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+
+  50% {
+    translate: 0 -8px;
+  }
+}
+
+@keyframes landing-emote-splash-drift {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+
+  50% {
+    translate: 0 calc(var(--float-amplitude) * -1 * var(--splash-motion));
+  }
+}
+
+@utility animate-landing-fade-up {
+  animation: landing-fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@utility animate-landing-fade-up-short {
+  animation: landing-fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@utility animate-landing-mockup-float {
+  animation: landing-mockup-float 7s ease-in-out infinite;
+}
+
+.landing-grain {
+  opacity: 0.35;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+}
+
+.landing-mockup-stage {
+  position: relative;
+  width: 100%;
+  min-height: min(24rem, 48vw);
+  perspective: 1200px;
+  perspective-origin: 50% 40%;
+  transform-style: preserve-3d;
+}
+
+.landing-mockup-depth {
+  position: absolute;
+  inset: 6% 5%;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--card);
+  opacity: 0.5;
+  pointer-events: none;
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  transform-style: preserve-3d;
+}
+
+.landing-mockup-depth--far {
+  opacity: 0.25;
+}
+
+.landing-mockup-depth--near {
+  opacity: 0.4;
+  inset: 3% 2.5%;
+}
+
+.landing-mockup-tilt {
+  transform-style: preserve-3d;
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.landing-emote-splash-stage {
+  --splash-motion: 0;
+  --spread-x: 0px;
+  --spread-y: 0px;
+}
+
+.landing-emote-splash-item {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 1;
+  width: var(--emote-width);
+  height: var(--emote-height);
+  opacity: calc(0.35 + var(--splash-motion) * 0.65);
+  transform: translate(
+      calc(-50% + var(--burst-nx) * var(--spread-x) * var(--splash-motion)),
+      calc(-50% + var(--burst-ny) * var(--spread-y) * var(--splash-motion))
+    )
+    scale(calc(0.35 + var(--burst-scale) * 0.92 * var(--splash-motion)))
+    rotate(calc(var(--burst-rotate) * var(--splash-motion)));
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+.landing-emote-splash-float {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 10px 20px oklch(0 0 0 / 40%));
+  animation: landing-emote-splash-drift var(--float-duration) ease-in-out infinite;
+}
+
+.landing-emote-splash-glow {
+  position: absolute;
+  inset: 18%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in oklch, var(--provider-accent) 28%, transparent),
+    transparent 72%
+  );
+  opacity: 0.55;
+  filter: blur(6px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-emote-splash-item {
+    opacity: 1;
+    transform: translate(
+        calc(-50% + var(--burst-nx) * var(--spread-x)),
+        calc(-50% + var(--burst-ny) * var(--spread-y))
+      )
+      scale(var(--burst-scale)) rotate(var(--burst-rotate));
+    will-change: auto;
+  }
+
+  .landing-emote-splash-float {
+    animation: none;
+  }
+
+  .animate-landing-mockup-float {
+    animation: none;
+  }
+}

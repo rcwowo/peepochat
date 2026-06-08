@@ -8,7 +8,9 @@ import {
   SidebarSplitAvatarCluster,
 } from "@/components/sidebar/sidebar-channel-icon"
 import { Button } from "@/components/ui/button"
+import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion"
 import logoSrc from "/logo.svg"
+import { LANDING_CHANNELS } from "@/lib/landing/landing-channels"
 import { LANDING_EMOTES } from "@/lib/landing/landing-emotes"
 import { cn } from "@/lib/utils"
 
@@ -50,27 +52,13 @@ function formatMockTimestamp(sentAt: number) {
 }
 
 const SPLIT_CHANNELS: MockChannel[] = [
-  {
-    displayName: "rcwOwO",
-    profileImageUrl: "/landing/channels/rcwowo.png",
-  },
-  {
-    displayName: "Dhinkha",
-    profileImageUrl: "/landing/channels/dhinkha.png",
-  },
+  LANDING_CHANNELS.rcwOwO,
+  LANDING_CHANNELS.dhinkha,
 ]
 
 const STANDALONE_CHANNELS: MockChannel[] = [
-  {
-    displayName: "toastercat_",
-    profileImageUrl: "/landing/channels/toastercat_.png",
-    live: true,
-    unread: true,
-  },
-  {
-    displayName: "XRayC4",
-    profileImageUrl: "/landing/channels/xrayc4.png",
-  },
+  LANDING_CHANNELS.toastercat,
+  LANDING_CHANNELS.xrayc4,
 ]
 
 const LEFT_SPLIT_POOL: MockMessageTemplate[] = [
@@ -341,7 +329,7 @@ function MockChannelAvatar({
   )
 }
 
-function MockChatPane({
+const MockChatPane = React.memo(function MockChatPane({
   channel,
   messages,
 }: {
@@ -383,7 +371,7 @@ function MockChatPane({
       </div>
     </div>
   )
-}
+})
 
 function MockSidebarChannelIcon({
   channel,
@@ -427,7 +415,7 @@ function MockSidebarSplit({ channels }: { channels: MockChannel[] }) {
   )
 }
 
-function MockSidebar() {
+const MockSidebar = React.memo(function MockSidebar() {
   return (
     <aside
       className="flex w-18 shrink-0 flex-col border-r border-sidebar-border bg-sidebar"
@@ -458,12 +446,13 @@ function MockSidebar() {
       </div>
     </aside>
   )
-}
+})
 
 function useChannelTicker(
   pool: MockMessageTemplate[],
   seedPrefix: string,
   intervalMs: number,
+  active: boolean,
   startDelayMs = 0
 ) {
   const [messages, setMessages] = React.useState<MockMessage[]>(() =>
@@ -472,6 +461,10 @@ function useChannelTicker(
   const poolIndexRef = React.useRef(INITIAL_SEED_COUNT)
 
   React.useEffect(() => {
+    if (!active) {
+      return
+    }
+
     let interval = 0
     const startTimer = window.setTimeout(() => {
       interval = window.setInterval(() => {
@@ -499,29 +492,75 @@ function useChannelTicker(
       window.clearTimeout(startTimer)
       window.clearInterval(interval)
     }
-  }, [intervalMs, pool, seedPrefix, startDelayMs])
+  }, [active, intervalMs, pool, seedPrefix, startDelayMs])
 
   return messages
 }
 
 export function HeroChatMockup() {
   const stageRef = React.useRef<HTMLDivElement>(null)
+  const tiltFrameRef = React.useRef(0)
+  const pendingTiltRef = React.useRef({ x: 0, y: 0 })
   const [tilt, setTilt] = React.useState({ x: 0, y: 0 })
+  const [visible, setVisible] = React.useState(true)
+  const reducedMotion = usePrefersReducedMotion()
+
+  React.useEffect(() => {
+    const element = stageRef.current
+    if (!element) {
+      return
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setVisible(entry?.isIntersecting ?? false)
+      },
+      { rootMargin: "80px" }
+    )
+
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
 
   const leftSplitMessages = useChannelTicker(
     LEFT_SPLIT_POOL,
     "left-split",
-    MESSAGE_INTERVAL_MS
+    MESSAGE_INTERVAL_MS,
+    visible
   )
   const rightSplitMessages = useChannelTicker(
     RIGHT_SPLIT_POOL,
     "right-split",
     MESSAGE_INTERVAL_MS + 400,
+    visible,
     1100
   )
 
+  const scheduleTiltUpdate = React.useCallback(() => {
+    if (tiltFrameRef.current !== 0) {
+      return
+    }
+
+    tiltFrameRef.current = window.requestAnimationFrame(() => {
+      tiltFrameRef.current = 0
+      setTilt(pendingTiltRef.current)
+    })
+  }, [])
+
+  React.useEffect(() => {
+    return () => {
+      if (tiltFrameRef.current !== 0) {
+        window.cancelAnimationFrame(tiltFrameRef.current)
+      }
+    }
+  }, [])
+
   const handlePointerMove = React.useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
+      if (reducedMotion) {
+        return
+      }
+
       const stage = stageRef.current
       if (!stage) return
 
@@ -529,17 +568,19 @@ export function HeroChatMockup() {
       const x = (event.clientX - rect.left) / rect.width - 0.5
       const y = (event.clientY - rect.top) / rect.height - 0.5
 
-      setTilt({
+      pendingTiltRef.current = {
         x: Math.max(-1, Math.min(1, x)),
         y: Math.max(-1, Math.min(1, y)),
-      })
+      }
+      scheduleTiltUpdate()
     },
-    []
+    [reducedMotion, scheduleTiltUpdate]
   )
 
   const handlePointerLeave = React.useCallback(() => {
-    setTilt({ x: 0, y: 0 })
-  }, [])
+    pendingTiltRef.current = { x: 0, y: 0 }
+    scheduleTiltUpdate()
+  }, [scheduleTiltUpdate])
 
   const rotateY = -6 + tilt.x * 8
   const rotateX = 3 - tilt.y * 6
@@ -567,14 +608,14 @@ export function HeroChatMockup() {
         aria-hidden
       />
 
-      <div className="landing-mockup-float">
+      <div className="relative z-2 w-full [transform-style:preserve-3d] animate-landing-mockup-float motion-reduce:animate-none">
         <div
           className="landing-mockup-tilt"
           style={{
             transform: `rotateY(${rotateY}deg) rotateX(${rotateX}deg) translateZ(20px)`,
           }}
         >
-          <div className="landing-mockup-frame">
+          <div className="relative overflow-hidden rounded-lg border border-border bg-background shadow-[0_2px_4px_oklch(0_0_0/25%),0_16px_32px_-8px_oklch(0_0_0/45%),0_32px_64px_-16px_oklch(0_0_0/35%)] [transform-style:preserve-3d]">
             <header className="relative flex h-12 items-center justify-between border-b border-border bg-sidebar px-4">
               <img src={logoSrc} alt="" className="h-6 w-auto brand-mark" />
               <div className="flex items-center gap-2">

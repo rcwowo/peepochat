@@ -1,12 +1,13 @@
 import * as React from "react"
 
+import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion"
 import {
   LANDING_EMOTES,
   LANDING_EMOTE_PROVIDERS,
   type LandingEmote,
   type LandingEmoteKey,
 } from "@/lib/landing/landing-emotes"
-import { cn } from "@/lib/utils"
+import { clamp, cn } from "@/lib/utils"
 
 type SplashEmoteLayout = {
   key: LandingEmoteKey
@@ -146,10 +147,6 @@ function LandingEmoteImg({
   )
 }
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value))
-}
-
 // Fast out of the gate, then decelerates smoothly toward a plateau.
 const SPRING_RATE = 4.8
 const SPRING_PLATEAU = 1 - Math.exp(-SPRING_RATE)
@@ -187,9 +184,7 @@ function getMaxEmoteHalfSizes(rootFontSize: number) {
   return { halfWidth, halfHeight }
 }
 
-function getSplashSpread(stageRect: DOMRect) {
-  const rootFontSize =
-    Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+function getSplashSpread(stageRect: DOMRect, rootFontSize: number) {
   const { halfWidth, halfHeight } = getMaxEmoteHalfSizes(rootFontSize)
   const edgePadding = 12
 
@@ -226,53 +221,47 @@ function getViewportSplashMotion(
   return springMotion(linear)
 }
 
-type SplashScrollState = {
-  motion: number
-  spreadX: number
+function applySplashMotionVars(
+  stage: HTMLElement,
+  motion: number,
+  spreadX: number,
   spreadY: number
-}
-
-const INITIAL_SPLASH_SCROLL_STATE: SplashScrollState = {
-  motion: 0,
-  spreadX: 0,
-  spreadY: 0,
+) {
+  stage.style.setProperty("--splash-motion", String(motion))
+  stage.style.setProperty("--spread-x", `${spreadX}px`)
+  stage.style.setProperty("--spread-y", `${spreadY}px`)
 }
 
 function useScrollSplashMotion(
-  stageRef: React.RefObject<HTMLElement | null>
+  stageRef: React.RefObject<HTMLElement | null>,
+  reducedMotion: boolean
 ) {
-  const [state, setState] = React.useState<SplashScrollState>(
-    INITIAL_SPLASH_SCROLL_STATE
-  )
-
   React.useEffect(() => {
     const stage = stageRef.current
     if (!stage) return
 
-    const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)")
+    let rootFontSize =
+      Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
     let frame = 0
 
     const update = () => {
       frame = 0
       const rect = stage.getBoundingClientRect()
       const viewportHeight = window.innerHeight
-      const { spreadX, spreadY } = getSplashSpread(rect)
+      const { spreadX, spreadY } = getSplashSpread(rect, rootFontSize)
 
-      if (motionQuery.matches) {
+      if (reducedMotion) {
         const inView = rect.top < viewportHeight && rect.bottom > 0
-        setState({
-          motion: inView ? 1 : 0,
-          spreadX,
-          spreadY,
-        })
+        applySplashMotionVars(stage, inView ? 1 : 0, spreadX, spreadY)
         return
       }
 
-      setState({
-        motion: getViewportSplashMotion(rect, viewportHeight),
+      applySplashMotionVars(
+        stage,
+        getViewportSplashMotion(rect, viewportHeight),
         spreadX,
-        spreadY,
-      })
+        spreadY
+      )
     }
 
     const scheduleUpdate = () => {
@@ -280,18 +269,23 @@ function useScrollSplashMotion(
       frame = window.requestAnimationFrame(update)
     }
 
+    const handleResize = () => {
+      rootFontSize =
+        Number.parseFloat(getComputedStyle(document.documentElement).fontSize) ||
+        16
+      scheduleUpdate()
+    }
+
     update()
     window.addEventListener("scroll", scheduleUpdate, { passive: true })
-    window.addEventListener("resize", scheduleUpdate, { passive: true })
+    window.addEventListener("resize", handleResize, { passive: true })
 
     return () => {
       window.cancelAnimationFrame(frame)
       window.removeEventListener("scroll", scheduleUpdate)
-      window.removeEventListener("resize", scheduleUpdate)
+      window.removeEventListener("resize", handleResize)
     }
-  }, [stageRef])
-
-  return state
+  }, [reducedMotion, stageRef])
 }
 
 function SplashEmote({ layout }: { layout: SplashEmoteLayout }) {
@@ -305,7 +299,7 @@ function SplashEmote({ layout }: { layout: SplashEmoteLayout }) {
     <div
       className={cn(
         "landing-emote-splash-item",
-        isWide && "landing-emote-splash-item--wide"
+        isWide && "flex items-center justify-center"
       )}
       style={
         {
@@ -331,41 +325,48 @@ function SplashEmote({ layout }: { layout: SplashEmoteLayout }) {
 
 export function EmoteShowcaseSection() {
   const stageRef = React.useRef<HTMLDivElement>(null)
-  const { motion, spreadX, spreadY } = useScrollSplashMotion(stageRef)
+  const reducedMotion = usePrefersReducedMotion()
+  useScrollSplashMotion(stageRef, reducedMotion)
 
   return (
-    <section id="emotes" className="landing-emotes">
-      <div className="landing-emotes-ambient" aria-hidden />
+    <section
+      id="emotes"
+      className="relative overflow-hidden border-y border-[color-mix(in_oklch,var(--border)_60%,transparent)]"
+    >
+      <div
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_55%_65%_at_50%_50%,color-mix(in_oklch,var(--primary)_16%,transparent),transparent_68%),radial-gradient(ellipse_40%_50%_at_12%_42%,color-mix(in_oklch,#e91916_10%,transparent),transparent_60%),radial-gradient(ellipse_38%_48%_at_88%_38%,color-mix(in_oklch,#00b5ad_12%,transparent),transparent_58%),radial-gradient(ellipse_36%_44%_at_52%_88%,color-mix(in_oklch,#9b59b6_9%,transparent),transparent_55%)]"
+        aria-hidden
+      />
 
       <div
         ref={stageRef}
-        className="landing-emote-splash-stage"
-        style={
-          {
-            "--splash-motion": motion,
-            "--spread-x": `${spreadX}px`,
-            "--spread-y": `${spreadY}px`,
-          } as React.CSSProperties
-        }
+        className="landing-emote-splash-stage relative mx-auto flex min-h-[min(44rem,94svh)] w-full max-w-[76rem] items-center justify-center px-[clamp(1rem,4vw,2rem)] py-[clamp(3rem,8vh,5rem)] max-sm:min-h-[min(36rem,90svh)]"
       >
         {SPLASH_EMOTES.map((layout) => (
           <SplashEmote key={layout.key} layout={layout} />
         ))}
 
-        <div className="landing-emote-splash-core">
-          <h2 className="landing-display text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
+        <div className="relative z-3 mx-auto max-w-[30rem] px-[clamp(1.75rem,5vw,2.75rem)] py-[clamp(1.75rem,4.5vw,2.5rem)] text-center [transform:scale(calc(0.94+var(--splash-motion)*0.06))] motion-reduce:transform-none">
+          <h2 className="font-landing-display text-3xl font-semibold tracking-tight text-balance text-shadow-[0_2px_14px_oklch(0_0_0/92%),0_0_36px_oklch(0_0_0/72%)] sm:text-4xl">
             Support for
             <br />
             <span className="text-primary">ALL of the emotes.</span>
           </h2>
 
-          <ul className="landing-emote-provider-row">
+          <ul className="mt-[1.35rem] flex items-end justify-center gap-[clamp(1.25rem,4vw,2rem)] max-[480px]:gap-4">
             {LANDING_EMOTE_PROVIDERS.map((provider) => (
-              <li key={provider.id} className="landing-emote-provider-chip">
-                <span className="landing-emote-provider-chip-icon">
-                  <img src={provider.iconSrc} alt="" />
+              <li
+                key={provider.id}
+                className="flex min-w-0 flex-1 flex-col items-center gap-2.5 p-0"
+              >
+                <span className="flex items-center justify-center">
+                  <img
+                    src={provider.iconSrc}
+                    alt=""
+                    className="h-10 w-auto opacity-94 max-[480px]:h-8 [filter:brightness(0)_invert(1)_drop-shadow(0_2px_10px_oklch(0_0_0/90%))_drop-shadow(0_0_22px_oklch(0_0_0/65%))]"
+                  />
                 </span>
-                <span className="landing-emote-provider-chip-name">
+                <span className="text-[0.65rem] font-semibold tracking-widest text-[color-mix(in_oklch,white_62%,transparent)] uppercase text-shadow-[0_1px_10px_oklch(0_0_0/88%),0_0_20px_oklch(0_0_0/60%)]">
                   {provider.shortName}
                 </span>
               </li>

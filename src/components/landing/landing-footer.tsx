@@ -53,6 +53,7 @@ export function LandingFooter() {
           {LANDING_FOOTER_LINKS.map((item) => {
             const href = getLandingFooterHref(item.href, item.label)
             const external = isLandingFooterLinkExternal(href)
+            const showExternalIcon = href.startsWith("http")
 
             return (
               <li key={item.label}>
@@ -63,7 +64,9 @@ export function LandingFooter() {
                   className="group inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
                 >
                   {item.label}
-                  <ExternalLinkIcon className="size-3.5 opacity-60 transition-opacity group-hover:opacity-100" />
+                  {showExternalIcon ? (
+                    <ExternalLinkIcon className="size-3.5 opacity-60 transition-opacity group-hover:opacity-100" />
+                  ) : null}
                 </a>
               </li>
             )
