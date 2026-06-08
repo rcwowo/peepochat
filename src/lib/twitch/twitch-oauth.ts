@@ -192,7 +192,7 @@ export function consumeTwitchOAuthState(returnedState: string | null): boolean {
 }
 
 export function consumeTwitchOAuthReturnPath(): string {
-  const path = sessionStorage.getItem(TWITCH_OAUTH_RETURN_KEY) ?? "/"
+  const path = sessionStorage.getItem(TWITCH_OAUTH_RETURN_KEY) ?? "/app"
   sessionStorage.removeItem(TWITCH_OAUTH_RETURN_KEY)
   return path
 }
@@ -209,5 +209,5 @@ export function clearTwitchOAuthCallbackUrl(): void {
   url.hash = ""
 
   const next = `${url.pathname}${url.search}`
-  window.history.replaceState(null, "", next || "/")
+  window.history.replaceState(null, "", next || "/app")
 }
