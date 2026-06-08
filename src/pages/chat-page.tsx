@@ -3,6 +3,7 @@ import * as React from "react"
 import { ChatPane } from "@/components/chat/chat-pane"
 import { ChatSplitLayout } from "@/components/chat/chat-split-layout"
 import type { TwitchTimelineItem } from "@/hooks/twitch/use-twitch-chat"
+import type { TwitchSelfChatState } from "@/hooks/twitch/use-twitch-chat"
 import type { CachedChatView } from "@/hooks/chat/use-chat-layout"
 import type { ChatBadgeCatalog } from "@/lib/chat/chat-badges"
 import { useChatFontFamily } from "@/hooks/chat/use-chat-font"
@@ -25,8 +26,12 @@ type ChatPaneBindings = {
   channelMeta: Map<string, TwitchChannel>
   getTimeline: (login: string) => TwitchTimelineItem[]
   getRoom: (login: string) => TwitchChatRoomState | null
+  getRoomId: (login: string) => string | null
+  getSelfChatState: (login: string) => TwitchSelfChatState | null
   getBadgeCatalog: (login: string) => ChatBadgeCatalog
   hasBadgeSupport: boolean
+  account: ReturnType<typeof usePeepochat>["account"]
+  loginWithTwitch: ReturnType<typeof usePeepochat>["loginWithTwitch"]
   removeSplitChannel: (login: string) => void
   moveSplitPane: (
     splitId: string,
@@ -62,6 +67,10 @@ function SingleChannelPane({
         timeline={bindings.getTimeline(login)}
         timestampFormat={bindings.timestampFormat}
         messageQuickActions={bindings.messageQuickActions}
+        account={bindings.account}
+        loginWithTwitch={bindings.loginWithTwitch}
+        channelRoomId={bindings.getRoomId(login)}
+        selfChatState={bindings.getSelfChatState(login)}
         badgeCatalog={bindings.getBadgeCatalog(login)}
         showBadgeFallback={!bindings.hasBadgeSupport}
         joined={room?.joined ?? false}
@@ -98,6 +107,10 @@ function SplitChannelPanes({
           timeline={bindings.getTimeline(login)}
           timestampFormat={bindings.timestampFormat}
           messageQuickActions={bindings.messageQuickActions}
+          account={bindings.account}
+          loginWithTwitch={bindings.loginWithTwitch}
+          channelRoomId={bindings.getRoomId(login)}
+          selfChatState={bindings.getSelfChatState(login)}
           badgeCatalog={bindings.getBadgeCatalog(login)}
           showBadgeFallback={!bindings.hasBadgeSupport}
           joined={room?.joined ?? false}
@@ -211,8 +224,12 @@ export function ChatPage() {
     activeChatViewKey,
     getTimeline,
     getRoom,
+    getRoomId,
+    getSelfChatState,
     getBadgeCatalog,
     hasBadgeSupport,
+    account,
+    loginWithTwitch,
     removeSplitChannel,
     moveSplitPane,
     resizeSplitPanePath,
@@ -233,8 +250,12 @@ export function ChatPage() {
       channelMeta,
       getTimeline,
       getRoom,
+      getRoomId,
+      getSelfChatState,
       getBadgeCatalog,
       hasBadgeSupport,
+      account,
+      loginWithTwitch,
       removeSplitChannel,
       moveSplitPane,
       resizeSplitPanePath,
@@ -245,8 +266,12 @@ export function ChatPage() {
       channelMeta,
       getTimeline,
       getRoom,
+      getRoomId,
+      getSelfChatState,
       getBadgeCatalog,
       hasBadgeSupport,
+      account,
+      loginWithTwitch,
       removeSplitChannel,
       moveSplitPane,
       resizeSplitPanePath,

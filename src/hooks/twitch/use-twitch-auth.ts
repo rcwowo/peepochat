@@ -53,6 +53,7 @@ export function useTwitchAuth({
         bannerImageUrl: user.bannerImageUrl,
         accessToken,
         clientId,
+        scopes: validated.scopes,
       }
 
       updateConfig((current) => ({

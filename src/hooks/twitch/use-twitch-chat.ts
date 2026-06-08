@@ -53,6 +53,18 @@ export type TwitchChatRoomState = {
   timeline: TwitchTimelineItem[]
 }
 
+export type TwitchSelfChatState = {
+  channel: string
+  roomId: string | null
+  displayName: string
+  color: string | null
+  badges: TwitchBadge[]
+  isBroadcaster: boolean
+  isModerator: boolean
+  isSubscriber: boolean
+  isVip: boolean
+}
+
 export type TwitchChatEmoteLoadContext = {
   accessToken?: string
   clientId?: string
@@ -108,15 +120,21 @@ export function useTwitchChat(options?: {
     color: string | null
     badges: TwitchBadge[]
     displayName: string | null
+    isBroadcaster: boolean
     isModerator: boolean
     isSubscriber: boolean
+    isVip: boolean
   }>({
     color: null,
     badges: [],
     displayName: null,
+    isBroadcaster: false,
     isModerator: false,
     isSubscriber: false,
+    isVip: false,
   })
+  const selfStatesRef = React.useRef(new Map<string, TwitchSelfChatState>())
+  const [selfStates, setSelfStates] = React.useState<Record<string, TwitchSelfChatState>>({})
   const emoteCatalogGenerationRef = React.useRef(0)
   const hasAnnouncedConnectedRef = React.useRef(false)
   const syncedChannelsRef = React.useRef<string[]>([])
@@ -556,12 +574,14 @@ export function useTwitchChat(options?: {
               id: message.id,
               channel: login,
               roomId: message.roomId,
+              userId: null,
               userName: message.actor?.userName ?? "system",
               displayName: message.actor?.displayName ?? "System",
               text: message.details,
               color: message.actor?.color ?? null,
               receivedAt: message.receivedAt,
               badges: [],
+              badgeInfo: [],
               emotes: message.detailsEmotes,
               reply: null,
               flags: {
@@ -781,9 +801,13 @@ export function useTwitchChat(options?: {
             color: null,
             badges: [],
             displayName: null,
+            isBroadcaster: false,
             isModerator: false,
             isSubscriber: false,
+            isVip: false,
           }
+          selfStatesRef.current.clear()
+          setSelfStates({})
           setConnectionState((prev) => ({
             ...prev,
             connected: false,
@@ -839,12 +863,19 @@ export function useTwitchChat(options?: {
           break
         }
         case "self-state":
+          selfStatesRef.current.set(event.state.channel, event.state)
+          setSelfStates((current) => ({
+            ...current,
+            [event.state.channel]: event.state,
+          }))
           senderStateRef.current = {
             color: event.state.color,
             badges: event.state.badges,
             displayName: event.state.displayName || null,
+            isBroadcaster: event.state.isBroadcaster,
             isModerator: event.state.isModerator,
             isSubscriber: event.state.isSubscriber,
+            isVip: event.state.isVip,
           }
           break
         case "message":
@@ -927,6 +958,8 @@ export function useTwitchChat(options?: {
         clearTwitchEmoteSessionCache()
         clearBroadcasterProfileCache()
         pendingRoomMessagesRef.current.clear()
+        selfStatesRef.current.clear()
+        setSelfStates({})
         historyLoadedRef.current.clear()
         historyLoadingRef.current.clear()
         historyErrorNotifiedRef.current.clear()
@@ -1060,6 +1093,14 @@ export function useTwitchChat(options?: {
       return getRoom(login)?.roomId ?? null
     },
     [getRoom]
+  )
+
+  const getSelfChatState = React.useCallback(
+    (login: string): TwitchSelfChatState | null => {
+      const normalized = normalizeChannelLogin(login)
+      return selfStates[normalized] ?? null
+    },
+    [selfStates]
   )
 
   const setEmoteLoadContext = React.useCallback(
@@ -1225,15 +1266,17 @@ export function useTwitchChat(options?: {
       })
       if (!sent) return false
 
-      const { userLogin, userDisplayName } = emoteLoadContextRef.current
+      const { userId, userLogin, userDisplayName } = emoteLoadContextRef.current
       if (userLogin) {
-        const sender = senderStateRef.current
+        const sender =
+          selfStatesRef.current.get(normalized) ?? senderStateRef.current
         const room = roomsRef.current[normalized]
 
         routeMessageToRoom(
           createLocalChatMessage({
             channel: normalized,
             roomId: room?.roomId ?? null,
+            userId: userId ?? null,
             text,
             userName: userLogin.toLowerCase(),
             displayName:
@@ -1266,6 +1309,7 @@ export function useTwitchChat(options?: {
     getComposerEmoteCatalog,
     ensureComposerEmotes,
     isComposerEmotesLoading,
+    getSelfChatState,
     refreshEmotes,
     sendMessage,
   }

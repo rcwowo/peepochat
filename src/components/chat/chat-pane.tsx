@@ -22,13 +22,16 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { EmptyState } from "@/components/shared/dashboard-primitives"
 import type { TwitchTimelineItem } from "@/hooks/twitch/use-twitch-chat"
+import type { TwitchSelfChatState } from "@/hooks/twitch/use-twitch-chat"
 import type { ChatBadgeCatalog } from "@/lib/chat/chat-badges"
 import type {
   MessageQuickActionsConfig,
   MessageTimestampFormat,
+  TwitchAccount,
 } from "@/lib/peepochat/peepochat-config"
 import { useChannelHighlightedMessageIds } from "@/hooks/chat/use-highlight-activity"
 import { usePeepochatChat } from "@/lib/peepochat/peepochat-context"
+import { getRecentUserMessageBuckets } from "@/lib/chat/recent-user-messages"
 import { cn } from "@/lib/utils"
 
 const CHATVOICE_URL = "https://chatvoice.rcw.lol"
@@ -107,6 +110,10 @@ type ChatPaneProps = {
   timeline: TwitchTimelineItem[]
   timestampFormat: MessageTimestampFormat
   messageQuickActions: MessageQuickActionsConfig
+  account: TwitchAccount | null
+  loginWithTwitch: () => void
+  channelRoomId: string | null
+  selfChatState: TwitchSelfChatState | null
   badgeCatalog: ChatBadgeCatalog
   showBadgeFallback: boolean
   joined?: boolean
@@ -124,6 +131,10 @@ function ChatPaneInner({
   timeline,
   timestampFormat,
   messageQuickActions,
+  account,
+  loginWithTwitch,
+  channelRoomId,
+  selfChatState,
   badgeCatalog,
   showBadgeFallback,
   joined = true,
@@ -146,6 +157,9 @@ function ChatPaneInner({
     () => reconcileStableRowStripes(rowStripeCache, timeline),
     [rowStripeCache, timeline]
   )
+  const recentMessagesByUser = React.useMemo(() => {
+    return getRecentUserMessageBuckets(timeline)
+  }, [timeline])
 
   const scrollToBottom = React.useCallback((behavior: ScrollBehavior = "auto") => {
     const el = chatContainerRef.current
@@ -340,6 +354,17 @@ function ChatPaneInner({
                       timestampFormat={timestampFormat}
                       showCopyButton={messageQuickActions.copyEnabled}
                       showReplyButton={messageQuickActions.replyEnabled}
+                      account={account}
+                      loginWithTwitch={loginWithTwitch}
+                      channelRoomId={channelRoomId}
+                      selfChatState={selfChatState}
+                      recentUserMessages={
+                        entry.message.userId
+                          ? (recentMessagesByUser.get(`id:${entry.message.userId}`) ?? [])
+                          : (recentMessagesByUser.get(
+                              `login:${entry.message.userName.toLowerCase()}`
+                            ) ?? [])
+                      }
                       badgeCatalog={badgeCatalog}
                       showBadgeFallback={showBadgeFallback}
                       isHistorical={entry.isHistorical}

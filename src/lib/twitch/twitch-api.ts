@@ -12,6 +12,27 @@ export type TwitchUser = {
   displayName: string
   profileImageUrl: string
   bannerImageUrl: string
+  description: string
+  createdAt: string
+  broadcasterType: string
+  type: string
+}
+
+export type TwitchBannedUserStatus = {
+  userId: string
+  userLogin: string
+  userName: string
+  expiresAt: string | null
+  reason: string | null
+  moderatorId: string | null
+  moderatorLogin: string | null
+  moderatorName: string | null
+}
+
+export type TwitchModeratorStatus = {
+  userId: string
+  userLogin: string
+  userName: string
 }
 
 export class TwitchApiError extends Error {
@@ -67,13 +88,7 @@ export async function fetchTwitchUser(
   }
 
   const payload = (await response.json()) as {
-    data?: Array<{
-      id: string
-      login: string
-      display_name: string
-      profile_image_url: string
-      offline_image_url?: string
-    }>
+    data?: TwitchUserPayload[]
   }
 
   const user = payload.data?.[0]
@@ -81,13 +96,7 @@ export async function fetchTwitchUser(
     throw new TwitchApiError("Twitch user profile was not found.", 404)
   }
 
-  return {
-    id: user.id,
-    login: user.login,
-    displayName: user.display_name,
-    profileImageUrl: user.profile_image_url,
-    bannerImageUrl: user.offline_image_url ?? "",
-  }
+  return parseTwitchUser(user)
 }
 
 export async function fetchTwitchUsersById(
@@ -119,24 +128,9 @@ export async function fetchTwitchUsersById(
       throw new TwitchApiError("Could not load Twitch users.", response.status)
     }
 
-    const payload = (await response.json()) as {
-      data?: Array<{
-        id: string
-        login: string
-        display_name: string
-        profile_image_url: string
-      }>
-    }
+    const payload = (await response.json()) as { data?: TwitchUserPayload[] }
 
-    users.push(
-      ...(payload.data ?? []).map((user) => ({
-        id: user.id,
-        login: user.login,
-        displayName: user.display_name,
-        profileImageUrl: user.profile_image_url,
-        bannerImageUrl: "",
-      }))
-    )
+    users.push(...(payload.data ?? []).map(parseTwitchUser))
   }
 
   return users
@@ -173,22 +167,35 @@ export async function fetchTwitchUsersByLogin(
     throw new TwitchApiError("Could not load Twitch channels.", response.status)
   }
 
-  const payload = (await response.json()) as {
-    data?: Array<{
-      id: string
-      login: string
-      display_name: string
-      profile_image_url: string
-    }>
-  }
+  const payload = (await response.json()) as { data?: TwitchUserPayload[] }
 
-  return (payload.data ?? []).map((user) => ({
+  return (payload.data ?? []).map(parseTwitchUser)
+}
+
+type TwitchUserPayload = {
+  id: string
+  login: string
+  display_name: string
+  profile_image_url?: string
+  offline_image_url?: string
+  description?: string
+  created_at?: string
+  broadcaster_type?: string
+  type?: string
+}
+
+function parseTwitchUser(user: TwitchUserPayload): TwitchUser {
+  return {
     id: user.id,
     login: user.login,
     displayName: user.display_name,
-    profileImageUrl: user.profile_image_url,
-    bannerImageUrl: "",
-  }))
+    profileImageUrl: user.profile_image_url ?? "",
+    bannerImageUrl: user.offline_image_url ?? "",
+    description: user.description ?? "",
+    createdAt: user.created_at ?? "",
+    broadcasterType: user.broadcaster_type ?? "",
+    type: user.type ?? "",
+  }
 }
 
 export type TwitchChatBadgeVersion = {
@@ -266,6 +273,214 @@ export async function fetchChannelChatBadges(
   }
 
   return parseChatBadgeSets(payload.data)
+}
+
+export async function fetchTwitchBannedUserStatus({
+  broadcasterId,
+  userId,
+  accessToken,
+  clientId,
+}: {
+  broadcasterId: string
+  userId: string
+  accessToken: string
+  clientId: string
+}): Promise<TwitchBannedUserStatus | null> {
+  const params = new URLSearchParams({ broadcaster_id: broadcasterId })
+  params.append("user_id", userId)
+
+  const response = await fetch(
+    `https://api.twitch.tv/helix/moderation/banned?${params.toString()}`,
+    { headers: helixHeaders(accessToken, clientId) }
+  )
+
+  if (!response.ok) {
+    throw new TwitchApiError("Could not load ban status.", response.status)
+  }
+
+  const payload = (await response.json()) as {
+    data?: Array<{
+      user_id: string
+      user_login: string
+      user_name: string
+      expires_at?: string | null
+      reason?: string | null
+      moderator_id?: string | null
+      moderator_login?: string | null
+      moderator_name?: string | null
+    }>
+  }
+
+  const entry = payload.data?.[0]
+  if (!entry) {
+    return null
+  }
+
+  return {
+    userId: entry.user_id,
+    userLogin: entry.user_login,
+    userName: entry.user_name,
+    expiresAt: entry.expires_at || null,
+    reason: entry.reason || null,
+    moderatorId: entry.moderator_id || null,
+    moderatorLogin: entry.moderator_login || null,
+    moderatorName: entry.moderator_name || null,
+  }
+}
+
+export async function fetchTwitchModeratorStatus({
+  broadcasterId,
+  userId,
+  accessToken,
+  clientId,
+}: {
+  broadcasterId: string
+  userId: string
+  accessToken: string
+  clientId: string
+}): Promise<TwitchModeratorStatus | null> {
+  const params = new URLSearchParams({ broadcaster_id: broadcasterId })
+  params.append("user_id", userId)
+
+  const response = await fetch(
+    `https://api.twitch.tv/helix/moderation/moderators?${params.toString()}`,
+    { headers: helixHeaders(accessToken, clientId) }
+  )
+
+  if (!response.ok) {
+    throw new TwitchApiError("Could not load moderator status.", response.status)
+  }
+
+  const payload = (await response.json()) as {
+    data?: Array<{
+      user_id: string
+      user_login: string
+      user_name: string
+    }>
+  }
+
+  const entry = payload.data?.[0]
+  if (!entry) {
+    return null
+  }
+
+  return {
+    userId: entry.user_id,
+    userLogin: entry.user_login,
+    userName: entry.user_name,
+  }
+}
+
+export async function banTwitchUser({
+  broadcasterId,
+  moderatorId,
+  userId,
+  accessToken,
+  clientId,
+  reason,
+  durationSeconds,
+}: {
+  broadcasterId: string
+  moderatorId: string
+  userId: string
+  accessToken: string
+  clientId: string
+  reason?: string
+  durationSeconds?: number
+}): Promise<void> {
+  const params = new URLSearchParams({
+    broadcaster_id: broadcasterId,
+    moderator_id: moderatorId,
+  })
+  const body: { data: { user_id: string; reason?: string; duration?: number } } = {
+    data: { user_id: userId },
+  }
+
+  if (reason?.trim()) {
+    body.data.reason = reason.trim()
+  }
+  if (durationSeconds && durationSeconds > 0) {
+    body.data.duration = Math.floor(durationSeconds)
+  }
+
+  const response = await fetch(
+    `https://api.twitch.tv/helix/moderation/bans?${params.toString()}`,
+    {
+      method: "POST",
+      headers: helixJsonHeaders(accessToken, clientId),
+      body: JSON.stringify(body),
+    }
+  )
+
+  if (!response.ok) {
+    throw new TwitchApiError("Could not update ban status.", response.status)
+  }
+}
+
+export async function unbanTwitchUser({
+  broadcasterId,
+  moderatorId,
+  userId,
+  accessToken,
+  clientId,
+}: {
+  broadcasterId: string
+  moderatorId: string
+  userId: string
+  accessToken: string
+  clientId: string
+}): Promise<void> {
+  const params = new URLSearchParams({
+    broadcaster_id: broadcasterId,
+    moderator_id: moderatorId,
+    user_id: userId,
+  })
+
+  const response = await fetch(
+    `https://api.twitch.tv/helix/moderation/bans?${params.toString()}`,
+    {
+      method: "DELETE",
+      headers: helixHeaders(accessToken, clientId),
+    }
+  )
+
+  if (!response.ok) {
+    throw new TwitchApiError("Could not remove ban or timeout.", response.status)
+  }
+}
+
+export async function setTwitchModeratorStatus({
+  broadcasterId,
+  userId,
+  accessToken,
+  clientId,
+  moderated,
+}: {
+  broadcasterId: string
+  userId: string
+  accessToken: string
+  clientId: string
+  moderated: boolean
+}): Promise<void> {
+  const params = new URLSearchParams({
+    broadcaster_id: broadcasterId,
+    user_id: userId,
+  })
+
+  const response = await fetch(
+    `https://api.twitch.tv/helix/moderation/moderators?${params.toString()}`,
+    {
+      method: moderated ? "POST" : "DELETE",
+      headers: helixHeaders(accessToken, clientId),
+    }
+  )
+
+  if (!response.ok) {
+    throw new TwitchApiError(
+      moderated ? "Could not add moderator." : "Could not remove moderator.",
+      response.status
+    )
+  }
 }
 
 function parseChatBadgeSets(
@@ -583,5 +798,12 @@ function helixHeaders(accessToken: string, clientId: string): HeadersInit {
   return {
     Authorization: `Bearer ${accessToken}`,
     "Client-Id": clientId,
+  }
+}
+
+function helixJsonHeaders(accessToken: string, clientId: string): HeadersInit {
+  return {
+    ...helixHeaders(accessToken, clientId),
+    "Content-Type": "application/json",
   }
 }

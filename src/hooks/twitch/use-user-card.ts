@@ -1,0 +1,448 @@
+import * as React from "react"
+
+import {
+  fetchIvrTwitchSubage,
+  fetchIvrTwitchUserProfile,
+  IvrApiError,
+  type IvrTwitchSubage,
+  type IvrTwitchUserProfile,
+} from "@/lib/ivr/ivr-api"
+import type { TwitchAccount } from "@/lib/peepochat/peepochat-config"
+import {
+  banTwitchUser,
+  fetchTwitchBannedUserStatus,
+  fetchTwitchModeratorStatus,
+  fetchTwitchUsersById,
+  fetchTwitchUsersByLogin,
+  setTwitchModeratorStatus,
+  TwitchApiError,
+  type TwitchBannedUserStatus,
+  type TwitchModeratorStatus,
+  type TwitchUser,
+  unbanTwitchUser,
+} from "@/lib/twitch/twitch-api"
+import type { TwitchChatMessage } from "@/lib/twitch/twitch-chat"
+
+const PROFILE_TTL_MS = 10 * 60 * 1000
+const STATUS_TTL_MS = 30 * 1000
+const TIMEOUT_DURATION_SECONDS = 10 * 60
+
+export const USER_CARD_MODERATION_SCOPES = {
+  ban: "moderator:manage:banned_users",
+  moderationRead: "moderation:read",
+  manageModerators: "channel:manage:moderators",
+} as const
+
+export type UserCardTarget = {
+  userId: string | null
+  userName: string
+  displayName: string
+  color: string | null
+  flags: TwitchChatMessage["flags"]
+}
+
+export type UserCardChannelStatus = {
+  ban: StatusResult<TwitchBannedUserStatus | null>
+  moderator: StatusResult<TwitchModeratorStatus | null>
+  subage: StatusResult<IvrTwitchSubage | null>
+  ivrProfile: StatusResult<IvrTwitchUserProfile | null>
+}
+
+export type UserCardAction =
+  | "ban"
+  | "unban"
+  | "timeout"
+  | "untimeout"
+  | "mod"
+  | "unmod"
+
+type StatusResult<T> =
+  | { state: "available"; value: T }
+  | { state: "unavailable"; reason: string }
+
+type UserCardState =
+  | { status: "idle"; profile: null; channelStatus: null; error: null }
+  | { status: "loading"; profile: TwitchUser | null; channelStatus: null; error: null }
+  | {
+      status: "ready"
+      profile: TwitchUser
+      channelStatus: UserCardChannelStatus
+      error: null
+    }
+  | { status: "error"; profile: null; channelStatus: null; error: string }
+
+type CachedValue<T> = {
+  value: T
+  cachedAt: number
+}
+
+const profileCache = new Map<string, CachedValue<TwitchUser>>()
+const profileInflight = new Map<string, Promise<TwitchUser>>()
+const statusCache = new Map<string, CachedValue<UserCardChannelStatus>>()
+const statusInflight = new Map<string, Promise<UserCardChannelStatus>>()
+
+function hasScope(account: TwitchAccount | null, scope: string) {
+  return Boolean(account?.scopes?.includes(scope))
+}
+
+export function hasUserCardScope(account: TwitchAccount | null, scope: string) {
+  return hasScope(account, scope)
+}
+
+function isFresh(cachedAt: number, ttlMs: number) {
+  return Date.now() - cachedAt < ttlMs
+}
+
+function profileCacheKeys(target: UserCardTarget) {
+  const keys = [`login:${target.userName.toLowerCase()}`]
+  if (target.userId) {
+    keys.unshift(`id:${target.userId}`)
+  }
+  return keys
+}
+
+function rememberProfile(user: TwitchUser) {
+  const cached = { value: user, cachedAt: Date.now() }
+  profileCache.set(`id:${user.id}`, cached)
+  profileCache.set(`login:${user.login.toLowerCase()}`, cached)
+}
+
+async function loadUserProfile(
+  target: UserCardTarget,
+  account: TwitchAccount
+): Promise<TwitchUser> {
+  const keys = profileCacheKeys(target)
+  for (const key of keys) {
+    const cached = profileCache.get(key)
+    if (cached && isFresh(cached.cachedAt, PROFILE_TTL_MS)) {
+      return cached.value
+    }
+  }
+
+  for (const key of keys) {
+    const inflight = profileInflight.get(key)
+    if (inflight) {
+      return inflight
+    }
+  }
+
+  const request = (async () => {
+    const users = target.userId
+      ? await fetchTwitchUsersById([target.userId], account.accessToken, account.clientId)
+      : await fetchTwitchUsersByLogin(
+          [target.userName],
+          account.accessToken,
+          account.clientId
+        )
+    const profile = users[0]
+    if (!profile) {
+      throw new TwitchApiError("Twitch user profile was not found.", 404)
+    }
+    rememberProfile(profile)
+    return profile
+  })().finally(() => {
+    for (const key of keys) {
+      if (profileInflight.get(key) === request) {
+        profileInflight.delete(key)
+      }
+    }
+  })
+
+  for (const key of keys) {
+    profileInflight.set(key, request)
+  }
+  return request
+}
+
+function statusCacheKey({
+  account,
+  channelRoomId,
+  channelLogin,
+  userId,
+}: {
+  account: TwitchAccount
+  channelRoomId: string | null
+  channelLogin: string
+  userId: string
+}) {
+  return `${account.id}:${channelRoomId ?? "no-room"}:${channelLogin}:${userId}:${account.scopes.join(",")}`
+}
+
+function unavailable(reason: string): StatusResult<never> {
+  return { state: "unavailable", reason }
+}
+
+async function optionalStatus<T>(
+  enabled: boolean,
+  reason: string,
+  fetcher: () => Promise<T>
+): Promise<StatusResult<T>> {
+  if (!enabled) {
+    return unavailable(reason)
+  }
+
+  try {
+    return { state: "available", value: await fetcher() }
+  } catch (error) {
+    if (error instanceof TwitchApiError && (error.status === 401 || error.status === 403)) {
+      return unavailable("Twitch denied access for this status.")
+    }
+    if (error instanceof IvrApiError && (error.status === 401 || error.status === 403)) {
+      return unavailable("IVR denied access for this status.")
+    }
+    return unavailable(error instanceof Error ? error.message : "Status is unavailable.")
+  }
+}
+
+async function loadChannelStatus({
+  account,
+  channelRoomId,
+  channelLogin,
+  profile,
+}: {
+  account: TwitchAccount
+  channelRoomId: string | null
+  channelLogin: string
+  profile: TwitchUser
+}): Promise<UserCardChannelStatus> {
+  const key = statusCacheKey({
+    account,
+    channelRoomId,
+    channelLogin,
+    userId: profile.id,
+  })
+  const cached = statusCache.get(key)
+  if (cached && isFresh(cached.cachedAt, STATUS_TTL_MS)) {
+    return cached.value
+  }
+
+  const inflight = statusInflight.get(key)
+  if (inflight) {
+    return inflight
+  }
+
+  const request = (async () => {
+    const missingRoomReason = "Channel room ID is not available yet."
+    const canLoadBanStatus =
+      Boolean(channelRoomId) &&
+      (hasScope(account, USER_CARD_MODERATION_SCOPES.ban) ||
+        hasScope(account, USER_CARD_MODERATION_SCOPES.moderationRead))
+    const canLoadModeratorStatus =
+      Boolean(channelRoomId) &&
+      (hasScope(account, USER_CARD_MODERATION_SCOPES.moderationRead) ||
+        account.id === channelRoomId)
+    const [ban, moderator, subage, ivrProfile] = await Promise.all([
+      optionalStatus(
+        canLoadBanStatus,
+        channelRoomId
+          ? "Re-login with moderation scopes to view ban status."
+          : missingRoomReason,
+        () =>
+          fetchTwitchBannedUserStatus({
+            broadcasterId: channelRoomId!,
+            userId: profile.id,
+            accessToken: account.accessToken,
+            clientId: account.clientId,
+          })
+      ),
+      optionalStatus(
+        canLoadModeratorStatus,
+        channelRoomId
+          ? "Moderator status is not available with this token."
+          : missingRoomReason,
+        () =>
+          fetchTwitchModeratorStatus({
+            broadcasterId: channelRoomId!,
+            userId: profile.id,
+            accessToken: account.accessToken,
+            clientId: account.clientId,
+          })
+      ),
+      optionalStatus(true, "Subage is unavailable.", () =>
+        fetchIvrTwitchSubage({
+          userLogin: profile.login || profile.displayName,
+          channelLogin,
+        })
+      ),
+      optionalStatus(true, "IVR profile is unavailable.", () =>
+        fetchIvrTwitchUserProfile({
+          userLogin: profile.login || profile.displayName,
+        })
+      ),
+    ])
+    const status: UserCardChannelStatus = {
+      ban,
+      moderator,
+      subage,
+      ivrProfile,
+    }
+    statusCache.set(key, { value: status, cachedAt: Date.now() })
+    return status
+  })().finally(() => {
+    statusInflight.delete(key)
+  })
+
+  statusInflight.set(key, request)
+  return request
+}
+
+function invalidateStatus(account: TwitchAccount, channelRoomId: string, userId: string) {
+  const prefix = `${account.id}:${channelRoomId}:`
+  for (const key of statusCache.keys()) {
+    if (key.startsWith(prefix) && key.includes(`:${userId}:`)) {
+      statusCache.delete(key)
+    }
+  }
+}
+
+export function useUserCard({
+  open,
+  account,
+  target,
+  channelRoomId,
+  channelLogin,
+}: {
+  open: boolean
+  account: TwitchAccount | null
+  target: UserCardTarget
+  channelRoomId: string | null
+  channelLogin: string
+}) {
+  const [state, setState] = React.useState<UserCardState>({
+    status: "idle",
+    profile: null,
+    channelStatus: null,
+    error: null,
+  })
+  const [pendingAction, setPendingAction] = React.useState<UserCardAction | null>(null)
+  const pendingActionRef = React.useRef<UserCardAction | null>(null)
+  const requestIdRef = React.useRef(0)
+
+  const reload = React.useCallback(async () => {
+    const requestId = requestIdRef.current + 1
+    requestIdRef.current = requestId
+
+    if (!open) {
+      setState({ status: "idle", profile: null, channelStatus: null, error: null })
+      return
+    }
+    if (!account) {
+      setState({
+        status: "error",
+        profile: null,
+        channelStatus: null,
+        error: "Sign in with Twitch to load user details.",
+      })
+      return
+    }
+
+    setState((current) => ({
+      status: "loading",
+      profile: current.profile,
+      channelStatus: null,
+      error: null,
+    }))
+
+    try {
+      const profile = await loadUserProfile(target, account)
+      const channelStatus = await loadChannelStatus({
+        account,
+        channelRoomId,
+        channelLogin,
+        profile,
+      })
+
+      if (requestIdRef.current !== requestId) {
+        return
+      }
+
+      setState({ status: "ready", profile, channelStatus, error: null })
+    } catch (error) {
+      if (requestIdRef.current !== requestId) {
+        return
+      }
+      setState({
+        status: "error",
+        profile: null,
+        channelStatus: null,
+        error: error instanceof Error ? error.message : "Could not load user details.",
+      })
+    }
+  }, [account, channelLogin, channelRoomId, open, target])
+
+  React.useEffect(() => {
+    void reload()
+  }, [reload])
+
+  const runAction = React.useCallback(
+    async (action: UserCardAction) => {
+      if (pendingActionRef.current) {
+        throw new Error("Another user action is already in progress.")
+      }
+      if (!account || !channelRoomId || state.status !== "ready") {
+        throw new Error("User action is not available yet.")
+      }
+
+      const userId = state.profile.id
+      pendingActionRef.current = action
+      setPendingAction(action)
+      try {
+        switch (action) {
+          case "ban":
+            await banTwitchUser({
+              broadcasterId: channelRoomId,
+              moderatorId: account.id,
+              userId,
+              accessToken: account.accessToken,
+              clientId: account.clientId,
+            })
+            break
+          case "timeout":
+            await banTwitchUser({
+              broadcasterId: channelRoomId,
+              moderatorId: account.id,
+              userId,
+              accessToken: account.accessToken,
+              clientId: account.clientId,
+              durationSeconds: TIMEOUT_DURATION_SECONDS,
+            })
+            break
+          case "unban":
+          case "untimeout":
+            await unbanTwitchUser({
+              broadcasterId: channelRoomId,
+              moderatorId: account.id,
+              userId,
+              accessToken: account.accessToken,
+              clientId: account.clientId,
+            })
+            break
+          case "mod":
+          case "unmod":
+            await setTwitchModeratorStatus({
+              broadcasterId: channelRoomId,
+              userId,
+              accessToken: account.accessToken,
+              clientId: account.clientId,
+              moderated: action === "mod",
+            })
+            break
+        }
+
+        invalidateStatus(account, channelRoomId, userId)
+        await reload()
+      } finally {
+        pendingActionRef.current = null
+        setPendingAction(null)
+      }
+    },
+    [account, channelRoomId, reload, state]
+  )
+
+  return {
+    ...state,
+    pendingAction,
+    reload,
+    runAction,
+  }
+}

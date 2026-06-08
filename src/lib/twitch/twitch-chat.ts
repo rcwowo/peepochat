@@ -49,12 +49,14 @@ export type TwitchChatMessage = {
   id: string
   channel: string
   roomId: string | null
+  userId: string | null
   userName: string
   displayName: string
   text: string
   color: string | null
   receivedAt: string
   badges: TwitchBadge[]
+  badgeInfo: TwitchBadge[]
   emotes: TwitchEmote[]
   reply: TwitchChatReply | null
   flags: {
@@ -133,8 +135,10 @@ export type TwitchSelfUserState = {
   displayName: string
   color: string | null
   badges: TwitchBadge[]
+  isBroadcaster: boolean
   isModerator: boolean
   isSubscriber: boolean
+  isVip: boolean
 }
 
 export type TwitchChatEvent =
@@ -555,13 +559,16 @@ function parsePrivmsg(raw: string): TwitchChatMessage | null {
 
   // Extract badge info
   const badges = tags.get("badges") ?? ""
+  const badgeInfo = tags.get("badge-info") ?? ""
   const parsedBadges = parseBadgesTag(badges)
+  const parsedBadgeInfo = parseBadgesTag(badgeInfo)
   const parsedEmotes = parseEmotesTag(tags.get("emotes") ?? "", messageText)
 
   const displayName = tags.get("display-name") || userName
   const color = tags.get("color") || null
   const id = tags.get("id") || stableMessageId(channel, userName, messageText)
   const roomId = tags.get("room-id") || null
+  const userId = tags.get("user-id") || null
   const reply = parseReplyTag(tags)
 
   const receivedAt = parseMessageReceivedAt(tags)
@@ -570,12 +577,14 @@ function parsePrivmsg(raw: string): TwitchChatMessage | null {
     id,
     channel,
     roomId,
+    userId,
     userName,
     displayName,
     text: messageText,
     color,
     receivedAt,
     badges: parsedBadges,
+    badgeInfo: parsedBadgeInfo,
     emotes: parsedEmotes,
     reply,
     flags: {
@@ -617,8 +626,10 @@ function parseUserState(raw: string): TwitchSelfUserState | null {
     displayName: parsed.tags.get("display-name") || "",
     color: parsed.tags.get("color") || null,
     badges,
+    isBroadcaster: badges.some((badge) => badge.set === "broadcaster"),
     isModerator: parsed.tags.get("mod") === "1",
     isSubscriber: parsed.tags.get("subscriber") === "1",
+    isVip: badges.some((badge) => badge.set === "vip"),
   }
 }
 
@@ -626,6 +637,7 @@ function parseUserState(raw: string): TwitchSelfUserState | null {
 export function createLocalChatMessage(params: {
   channel: string
   roomId: string | null
+  userId?: string | null
   text: string
   userName: string
   displayName: string
@@ -645,12 +657,14 @@ export function createLocalChatMessage(params: {
     id,
     channel: params.channel,
     roomId: params.roomId,
+    userId: params.userId ?? null,
     userName: params.userName,
     displayName: params.displayName,
     text: params.text,
     color: params.color,
     receivedAt: new Date().toISOString(),
     badges,
+    badgeInfo: [],
     emotes: [],
     reply: params.reply ?? null,
     flags: {

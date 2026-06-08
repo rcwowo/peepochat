@@ -125,6 +125,7 @@ export const twitchAccountSchema = z.object({
   bannerImageUrl: z.string(),
   accessToken: z.string(),
   clientId: z.string(),
+  scopes: z.array(z.string()).default([]),
 })
 
 export const twitchChannelSchema = z.object({
@@ -463,6 +464,7 @@ export function mergeRestoredConfig(
         ...restoredAccount,
         accessToken,
         clientId,
+        scopes: restoredAccount.scopes ?? (sameAccount ? existingAccount.scopes : []),
       },
     },
   })
@@ -514,6 +516,11 @@ function coerceConfigCredentials(
           typeof accountRecord.clientId === "string"
             ? accountRecord.clientId
             : "",
+        scopes: Array.isArray(accountRecord.scopes)
+          ? accountRecord.scopes.filter(
+              (scope): scope is string => typeof scope === "string"
+            )
+          : [],
       },
     },
   }
@@ -560,6 +567,7 @@ function normalizeConfig(config: AppConfig): AppConfig {
       ? {
           ...config.twitch.account,
           bannerImageUrl: config.twitch.account.bannerImageUrl ?? "",
+          scopes: config.twitch.account.scopes ?? [],
         }
       : null,
   }

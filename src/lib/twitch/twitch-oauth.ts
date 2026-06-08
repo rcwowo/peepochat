@@ -13,10 +13,12 @@ const OAUTH_CALLBACK_PARAM_KEYS = [
 
 /** Scopes for implicit grant (token in redirect fragment). */
 export const TWITCH_OAUTH_SCOPES = [
-  "user:read:email",
   "user:read:emotes",
   "chat:read",
   "chat:edit",
+  "moderation:read",
+  "moderator:manage:banned_users",
+  "channel:manage:moderators",
 ] as const
 
 export type TwitchOAuthResult = {

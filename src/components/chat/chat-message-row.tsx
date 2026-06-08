@@ -3,13 +3,20 @@ import * as React from "react"
 import { ChatBadgeList } from "@/components/chat/chat-badge"
 import { ChatMessageBody } from "@/components/chat/chat-message-body"
 import { ChatReplyPreview } from "@/components/chat/chat-reply-preview"
+import { UserCardPopover } from "@/components/chat/user-card-popover"
 import { Button } from "@/components/ui/button"
+import type {
+  TwitchSelfChatState,
+} from "@/hooks/twitch/use-twitch-chat"
 import {
   resolveMessageBadges,
   type ChatBadgeCatalog,
 } from "@/lib/chat/chat-badges"
 import { getReadableUsernameColor } from "@/lib/chat/chat-username"
-import type { MessageTimestampFormat } from "@/lib/peepochat/peepochat-config"
+import type {
+  MessageTimestampFormat,
+  TwitchAccount,
+} from "@/lib/peepochat/peepochat-config"
 import { formatMessageTimestamp } from "@/lib/peepochat/peepochat-context"
 import type { TwitchChatMessage } from "@/lib/twitch/twitch-chat"
 import { cn } from "@/lib/utils"
@@ -25,6 +32,11 @@ function ChatMessageRowInner({
   showCopyButton = true,
   showReplyButton = true,
   pingHighlighted = false,
+  account,
+  loginWithTwitch,
+  channelRoomId,
+  selfChatState,
+  recentUserMessages,
 }: {
   message: TwitchChatMessage
   timestampFormat: MessageTimestampFormat
@@ -35,11 +47,32 @@ function ChatMessageRowInner({
   showCopyButton?: boolean
   showReplyButton?: boolean
   pingHighlighted?: boolean
+  account: TwitchAccount | null
+  loginWithTwitch: () => void
+  channelRoomId: string | null
+  selfChatState: TwitchSelfChatState | null
+  recentUserMessages: TwitchChatMessage[]
 }) {
   const timestamp = formatMessageTimestamp(message.receivedAt, timestampFormat)
   const badges = resolveMessageBadges(message.badges, badgeCatalog)
   const usernameColor = getReadableUsernameColor(message.color)
   const showQuickActions = showCopyButton || showReplyButton
+  const userCardTarget = React.useMemo(
+    () => ({
+      userId: message.userId,
+      userName: message.userName,
+      displayName: message.displayName,
+      color: message.color,
+      flags: message.flags,
+    }),
+    [
+      message.color,
+      message.displayName,
+      message.flags,
+      message.userId,
+      message.userName,
+    ]
+  )
 
   return (
     <div
@@ -118,12 +151,15 @@ function ChatMessageRowInner({
           unresolved={message.badges}
           showFallback={showBadgeFallback}
         />
-        <span
-          className="chat-username font-semibold"
-          style={usernameColor ? { color: usernameColor } : undefined}
-        >
-          {message.displayName}
-        </span>
+        <UserCardPopover
+          target={userCardTarget}
+          account={account}
+          channelLogin={message.channel}
+          channelRoomId={channelRoomId}
+          selfChatState={selfChatState}
+          recentMessages={recentUserMessages}
+          loginWithTwitch={loginWithTwitch}
+        />
         {message.flags.isAction ? null : (
           <span className="chat-colon text-muted-foreground">: </span>
         )}

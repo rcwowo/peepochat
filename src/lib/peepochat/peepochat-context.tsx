@@ -14,6 +14,7 @@ import { useHighlightActivity } from "@/hooks/chat/use-highlight-activity"
 import { useStreamLiveStatus } from "@/hooks/twitch/use-stream-live-status"
 import {
   useTwitchChat,
+  type TwitchSelfChatState,
   type TwitchChatRoomState,
   type TwitchTimelineItem,
 } from "@/hooks/twitch/use-twitch-chat"
@@ -110,6 +111,7 @@ export type PeepochatChatContextValue = {
   getTimeline: (login: string) => TwitchTimelineItem[]
   getRoom: (login: string) => TwitchChatRoomState | null
   getRoomId: (login: string) => string | null
+  getSelfChatState: (login: string) => TwitchSelfChatState | null
   getBadgeCatalog: (login: string) => ChatBadgeCatalog
   getComposerEmoteCatalog: (login: string) => ComposerEmoteCatalog
   ensureComposerEmotes: (login: string, roomId: string | null) => void
@@ -221,6 +223,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     getTimeline,
     getRoom,
     getRoomId,
+    getSelfChatState,
     setEmoteLoadContext,
     setRecentMessagesEnabled,
     setLiveMessageLimit,
@@ -620,6 +623,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       getTimeline,
       getRoom,
       getRoomId,
+      getSelfChatState,
       getBadgeCatalog: getBadgeCatalogForChannel,
       getComposerEmoteCatalog,
       ensureComposerEmotes,
@@ -636,6 +640,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       getTimeline,
       getRoom,
       getRoomId,
+      getSelfChatState,
       getBadgeCatalogForChannel,
       getComposerEmoteCatalog,
       ensureComposerEmotes,

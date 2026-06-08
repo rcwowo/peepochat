@@ -36,6 +36,11 @@ const SERVICE_CREDITS = [
     description: "Provides chat history when you join a channel.",
     href: "https://recent-messages.robotty.de/",
   },
+  {
+    name: "api.ivr.fi",
+    description: "Provides some extra info in user cards.",
+    href: "https://api.ivr.fi/v2/docs",
+  },
 ] as const
 
 export function AboutTab() {
