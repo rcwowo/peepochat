@@ -2,19 +2,42 @@
 
 ![Logo](public/social-banner.webp)
 # Peepochat
-A full featured Twitch chat client for the web. Connect to a channel, follow live chat with emotes and badges.
+A fully-featured Twitch chat clilent that runs entirely within your browser.
 
 </div>
 
-## Development
+## About this repo.
 
-Built with React, Vite, TypeScript, and Tailwind.
+This project is a Twitch chat client that lives entirely within your browser. Complete with customizable layouts, pings, message history, and support for all of the third-party emote services like BetterTTV, FrankerFaceZ, and 7TV.
+
+Intended to be a truly cross-platform chat client, the client is customizable and fully stored within the confines of your browser of choice.
+
+- **Channels and splits** - the sidebar is where you switch between either **channels** or **splits**. Splits are groups of multiple channels that can be arranged in any way you see fit. Have a tightly knit group of friends that you want to keep an eye on? You can keep them all in one split to get a view at all of them.
+- **Pings and notifications** - you're already going to keep the tab open, why not get properly notified when someone mentions your name or triggers keywords that you set? Maybe you want to get notifications for when one of the channels you're connected to goes live. You'll never miss a thing again!
+- **Completely local** - all of your settings and layouts are stored locally in your browser. The app includes the same backup and restore feature from [Chatvoice](https://chatvoice.rcw.lol) so that you can quickly get back to a configuration and **actually own your data**.
+
+You can view more of the history behind Peepochat and how it came to be over on my [website (soon)](https://rcw.lol/project/peepochat).
+
+## How do I modify this?
+
+This project is a heavily modified fork of [Chatvoice](https://gitlab.com/rcw.lol/chatvoice), and is built with React + Vite + TypeScript, as well as Tailwind.
+
+To get up and running, make sure you've created a **public client type** app via the [Twitch developer console](https://dev.twitch.tv/console) in order to get a client ID. Make sure you add the necessary OAuth redirect URLs for your deployment.
 
 ```sh
+# Clone the repo
 git clone https://gitlab.com/rcw.lol/peepochat
+
+# Install dependencies
 cd peepochat && bun install
-cp .env.example .env   # add your Twitch app Client ID
+
+# Setup and add environment variables
+cp .env.example .env
+
+# Run the test server
 bun dev
 ```
 
-Create a [Twitch application](https://dev.twitch.tv/console/apps) and add an **OAuth Redirect URL** that matches exactly what the app sends — by default `http://localhost:5173` (origin only, no trailing slash). If your console entry differs, set `VITE_TWITCH_REDIRECT_URI` to that same string. Copy the Client ID into `.env` as `VITE_TWITCH_CLIENT_ID`.
+## Responsible disclosure!
+
+Some assistance from LLM-models **have been used** in the process of this project. I have been [very vocal](https://owo.rcw.lol/watch/8650bd18-85da-4374-b54f-a470ac1752fe/) (~around 1:40:58) about the use of AI as a tool instead of being a replacement for human creativity. I also think that is my responsibility to disclose when these tools were used to help create a project.
