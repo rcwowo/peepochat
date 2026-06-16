@@ -1,3 +1,4 @@
+import { devChatLogger } from "@/lib/dev-logger"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 
 /**
@@ -189,6 +190,11 @@ export class TwitchChatClient {
     this.handler = handler
   }
 
+  private emit(event: TwitchChatEvent) {
+    devChatLogger.debug("event", summarizeChatEvent(event))
+    this.handler(event)
+  }
+
   /** Open an IRC session (anonymous or authenticated read). */
   open(options: TwitchChatConnectOptions = {}) {
     if (this.ws && this.ws.readyState <= WebSocket.OPEN) {
@@ -236,17 +242,17 @@ export class TwitchChatClient {
       const parted = [...this.joinedChannels]
       this.joinedChannels.clear()
       for (const channel of parted) {
-        this.handler({ type: "channel-parted", channel })
+        this.emit({ type: "channel-parted", channel })
       }
 
       if (!this.intentionalClose && this.sessionOpen) {
-        this.handler({
+        this.emit({
           type: "disconnected",
           reason: event.reason || "Connection lost",
         })
         this.scheduleReconnect()
       } else {
-        this.handler({ type: "disconnected", reason: null })
+        this.emit({ type: "disconnected", reason: null })
       }
     })
 
@@ -255,7 +261,7 @@ export class TwitchChatClient {
         return
       }
 
-      this.handler({ type: "error", text: "WebSocket error" })
+      this.emit({ type: "error", text: "WebSocket error" })
     })
   }
 
@@ -365,20 +371,20 @@ export class TwitchChatClient {
     }
 
     this.ws.send(`JOIN #${channel}`)
-    this.handler({ type: "log", text: `Joining #${channel}…` })
+    this.emit({ type: "log", text: `Joining #${channel}…` })
   }
 
   private partChannel(channel: string) {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       this.joinedChannels.delete(channel)
-      this.handler({ type: "channel-parted", channel })
+      this.emit({ type: "channel-parted", channel })
       return
     }
 
     this.ws.send(`PART #${channel}`)
     this.joinedChannels.delete(channel)
-    this.handler({ type: "channel-parted", channel })
-    this.handler({ type: "log", text: `Left #${channel}` })
+    this.emit({ type: "channel-parted", channel })
+    this.emit({ type: "log", text: `Left #${channel}` })
   }
 
   private markChannelJoined(channel: string) {
@@ -387,8 +393,8 @@ export class TwitchChatClient {
     }
 
     this.joinedChannels.add(channel)
-    this.handler({ type: "channel-joined", channel })
-    this.handler({ type: "log", text: `Joined #${channel}` })
+    this.emit({ type: "channel-joined", channel })
+    this.emit({ type: "log", text: `Joined #${channel}` })
   }
 
   // -----------------------------------------------------------------------
@@ -396,8 +402,11 @@ export class TwitchChatClient {
   // -----------------------------------------------------------------------
 
   private handleLine(raw: string) {
+    devChatLogger.debug("irc:line", raw)
+
     // PING keep-alive
     if (raw.startsWith("PING")) {
+      devChatLogger.debug("irc:kind", "ping")
       this.ws?.send(raw.replace("PING", "PONG"))
       this.resetPingTimer()
       return
@@ -405,68 +414,94 @@ export class TwitchChatClient {
 
     // Successful welcome — join all desired channels
     if (raw.includes("001")) {
+      devChatLogger.debug("irc:kind", "welcome")
       this.welcomeReceived = true
-      this.handler({ type: "connected" })
+      this.emit({ type: "connected" })
       this.syncJoins()
       return
     }
 
     // JOIN confirmation for our nick
     if (raw.includes(" JOIN #")) {
+      devChatLogger.debug("irc:kind", "join")
       const joinMatch = raw.match(/ JOIN #(\S+)/)
       if (joinMatch) {
         this.markChannelJoined(normalizeChannelLogin(joinMatch[1]))
+      } else {
+        devChatLogger.warn("irc:parse-failed", "JOIN", raw)
       }
       return
     }
 
     // ROOMSTATE - channel metadata including room-id, sent on join and updates
     if (raw.includes(" ROOMSTATE ")) {
+      devChatLogger.debug("irc:kind", "roomstate")
       const state = parseRoomState(raw)
       if (state) {
-        this.handler({ type: "room-state", state })
+        this.emit({ type: "room-state", state })
+      } else {
+        devChatLogger.warn("irc:parse-failed", "ROOMSTATE", raw)
       }
       return
     }
 
     // USERSTATE - local user state after join or sending a message (no PRIVMSG echo)
     if (raw.includes(" USERSTATE ")) {
+      devChatLogger.debug("irc:kind", "userstate")
       const state = parseUserState(raw)
       if (state) {
-        this.handler({ type: "self-state", state })
+        this.emit({ type: "self-state", state })
+      } else {
+        devChatLogger.warn("irc:parse-failed", "USERSTATE", raw)
       }
       return
     }
 
-    // PRIVMSG - chat message
-    if (raw.includes("PRIVMSG")) {
+    const rest = raw.startsWith("@")
+      ? (splitTaggedLine(raw)?.rest ?? raw)
+      : raw
+
+    // Match the IRC command in the line body, not substrings in tag values or
+    // message text (e.g. a USERNOTICE whose body mentions "PRIVMSG").
+    if (/ PRIVMSG #/i.test(rest)) {
+      devChatLogger.debug("irc:kind", "privmsg")
       const message = parsePrivmsg(raw)
       if (message) {
-        this.handler({ type: "message", message })
+        this.emit({ type: "message", message })
+      } else {
+        devChatLogger.warn("irc:parse-failed", "PRIVMSG", raw)
       }
       return
     }
 
-    // USERNOTICE - subscriptions, gift subs, raids, etc.
-    if (raw.includes(" USERNOTICE ")) {
+    // USERNOTICE - subscriptions, gift subs, raids, announcements, etc.
+    if (/ USERNOTICE #/i.test(rest)) {
+      devChatLogger.debug("irc:kind", "usernotice")
       const message = parseUserNotice(raw)
       if (message) {
-        this.handler({ type: "system", message })
+        this.emit({ type: "system", message })
+      } else {
+        devChatLogger.warn("irc:parse-failed", "USERNOTICE", raw)
       }
       return
     }
 
     // NOTICE - e.g. "No such channel"
-    if (raw.includes("NOTICE")) {
+    if (/ NOTICE #/i.test(rest)) {
+      devChatLogger.debug("irc:kind", "notice")
       const noticeMessage = parseNotice(raw)
       if (noticeMessage) {
-        this.handler({ type: "system", message: noticeMessage })
-        this.handler({ type: "log", text: noticeMessage.text })
+        this.emit({ type: "system", message: noticeMessage })
+        this.emit({ type: "log", text: noticeMessage.text })
       } else {
         const noticeText = raw.split(" :").pop() ?? raw
-        this.handler({ type: "log", text: noticeText })
+        devChatLogger.warn("irc:parse-failed", "NOTICE", raw)
+        this.emit({ type: "log", text: noticeText })
       }
+      return
     }
+
+    devChatLogger.warn("irc:unhandled", raw)
   }
 
   // -----------------------------------------------------------------------
@@ -476,7 +511,7 @@ export class TwitchChatClient {
   private resetPingTimer() {
     if (this.pingTimer) clearTimeout(this.pingTimer)
     this.pingTimer = setTimeout(() => {
-      this.handler({
+      this.emit({
         type: "error",
         text: "No PING from Twitch - reconnecting",
       })
@@ -489,7 +524,7 @@ export class TwitchChatClient {
     if (!this.sessionOpen || this.intentionalClose) return
     if (this.desiredChannels.size === 0) return
 
-    this.handler({
+    this.emit({
       type: "log",
       text: `Reconnecting in ${RECONNECT_DELAY_MS / 1000}s...`,
     })
@@ -540,7 +575,7 @@ function parsePrivmsg(raw: string): TwitchChatMessage | null {
 
   // Parse prefix to get userName
   // :foo!foo@foo.tmi.twitch.tv PRIVMSG #channel [:message]
-  const prefixMatch = rest.match(/^:([^!]+)!\S+ PRIVMSG #(\S+)(?:\s(.*))?$/)
+  const prefixMatch = rest.match(/^:([^!\s]+)(?:!\S+)? PRIVMSG #(\S+)(?:\s(.*))?$/)
   if (!prefixMatch) return null
 
   const userName = prefixMatch[1]
@@ -564,7 +599,7 @@ function parsePrivmsg(raw: string): TwitchChatMessage | null {
   const parsedBadgeInfo = parseBadgesTag(badgeInfo)
   const parsedEmotes = parseEmotesTag(tags.get("emotes") ?? "", messageText)
 
-  const displayName = tags.get("display-name") || userName
+  const displayName = decodeTagValue(tags.get("display-name") || "") || userName
   const color = tags.get("color") || null
   const id = tags.get("id") || stableMessageId(channel, userName, messageText)
   const roomId = tags.get("room-id") || null
@@ -680,6 +715,10 @@ export function createLocalChatMessage(params: {
       isAction: false,
     },
   }
+}
+
+export function parseIrcUserNotice(raw: string): TwitchSystemMessage | null {
+  return parseUserNotice(raw)
 }
 
 function parseUserNotice(raw: string): TwitchSystemMessage | null {
@@ -966,4 +1005,52 @@ function stableSystemMessageId(
   text: string
 ): string {
   return `${channel}:system:${eventType}:${Date.now()}:${text.slice(0, 24)}`
+}
+
+function summarizeChatEvent(event: TwitchChatEvent): Record<string, unknown> {
+  switch (event.type) {
+    case "message":
+      return {
+        type: event.type,
+        channel: event.message.channel,
+        id: event.message.id,
+        user: event.message.displayName,
+        text: event.message.text.slice(0, 120),
+        roomId: event.message.roomId,
+      }
+    case "system":
+      return {
+        type: event.type,
+        channel: event.message.channel,
+        event: event.message.event,
+        msgId: event.message.msgId,
+        text: event.message.text.slice(0, 120),
+        roomId: event.message.roomId,
+      }
+    case "room-state":
+      return {
+        type: event.type,
+        channel: event.state.channel,
+        roomId: event.state.roomId,
+      }
+    case "self-state":
+      return {
+        type: event.type,
+        channel: event.state.channel,
+        roomId: event.state.roomId,
+        displayName: event.state.displayName,
+      }
+    case "channel-joined":
+    case "channel-parted":
+      return { type: event.type, channel: event.channel }
+    case "disconnected":
+      return { type: event.type, reason: event.reason }
+    case "connected":
+      return { type: event.type }
+    case "log":
+    case "error":
+      return { type: event.type, text: event.text }
+    default:
+      return { type: (event as TwitchChatEvent).type }
+  }
 }

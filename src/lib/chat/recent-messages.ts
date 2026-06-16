@@ -1,3 +1,4 @@
+import { devLoggedFetch } from "@/lib/dev-logger"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 import {
   EMPTY_SYSTEM_MESSAGE_META,
@@ -81,7 +82,7 @@ export async function fetchRecentMessages(
   url.searchParams.set("hide_moderated_messages", "true")
 
   try {
-    const response = await fetch(url)
+    const response = await devLoggedFetch(url, undefined, `recent-messages:${login}`)
 
     if (response.status === 403 || response.status === 400) {
       return { status: "unavailable" }

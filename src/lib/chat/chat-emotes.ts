@@ -1,3 +1,4 @@
+import { devLoggedFetch } from "@/lib/dev-logger"
 import type { TwitchChatMessage, TwitchEmote, TwitchEmoteProvider } from "@/lib/twitch/twitch-chat"
 
 export type EmoteCatalogEntry = {
@@ -532,7 +533,7 @@ function buildSevenTvImageUrl(host: SevenTvHost | undefined): string {
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
-  const response = await fetch(url)
+  const response = await devLoggedFetch(url)
   if (!response.ok) {
     throw new Error(`Failed to fetch ${url}: ${response.status}`)
   }

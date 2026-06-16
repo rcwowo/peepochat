@@ -1,3 +1,5 @@
+import { devLoggedFetch } from "@/lib/dev-logger"
+
 export type TwitchValidatedToken = {
   clientId: string
   login: string
@@ -48,7 +50,7 @@ export class TwitchApiError extends Error {
 export async function validateTwitchToken(
   accessToken: string
 ): Promise<TwitchValidatedToken> {
-  const response = await fetch("https://id.twitch.tv/oauth2/validate", {
+  const response = await devLoggedFetch("https://id.twitch.tv/oauth2/validate", {
     headers: {
       Authorization: `OAuth ${accessToken}`,
     },
@@ -79,7 +81,7 @@ export async function fetchTwitchUser(
   accessToken: string,
   clientId: string
 ): Promise<TwitchUser> {
-  const response = await fetch("https://api.twitch.tv/helix/users", {
+  const response = await devLoggedFetch("https://api.twitch.tv/helix/users", {
     headers: helixHeaders(accessToken, clientId),
   })
 
@@ -119,7 +121,7 @@ export async function fetchTwitchUsersById(
       params.append("id", id)
     }
 
-    const response = await fetch(
+    const response = await devLoggedFetch(
       `https://api.twitch.tv/helix/users?${params.toString()}`,
       { headers: helixHeaders(accessToken, clientId) }
     )
@@ -156,7 +158,7 @@ export async function fetchTwitchUsersByLogin(
     params.append("login", login)
   }
 
-  const response = await fetch(
+  const response = await devLoggedFetch(
     `https://api.twitch.tv/helix/users?${params.toString()}`,
     {
       headers: helixHeaders(accessToken, clientId),
@@ -216,7 +218,7 @@ export async function fetchGlobalChatBadges(
   accessToken: string,
   clientId: string
 ): Promise<TwitchChatBadgeSet[]> {
-  const response = await fetch("https://api.twitch.tv/helix/chat/badges/global", {
+  const response = await devLoggedFetch("https://api.twitch.tv/helix/chat/badges/global", {
     headers: helixHeaders(accessToken, clientId),
   })
 
@@ -247,7 +249,7 @@ export async function fetchChannelChatBadges(
   clientId: string
 ): Promise<TwitchChatBadgeSet[]> {
   const params = new URLSearchParams({ broadcaster_id: broadcasterId })
-  const response = await fetch(
+  const response = await devLoggedFetch(
     `https://api.twitch.tv/helix/chat/badges?${params.toString()}`,
     {
       headers: helixHeaders(accessToken, clientId),
@@ -289,7 +291,7 @@ export async function fetchTwitchBannedUserStatus({
   const params = new URLSearchParams({ broadcaster_id: broadcasterId })
   params.append("user_id", userId)
 
-  const response = await fetch(
+  const response = await devLoggedFetch(
     `https://api.twitch.tv/helix/moderation/banned?${params.toString()}`,
     { headers: helixHeaders(accessToken, clientId) }
   )
@@ -342,7 +344,7 @@ export async function fetchTwitchModeratorStatus({
   const params = new URLSearchParams({ broadcaster_id: broadcasterId })
   params.append("user_id", userId)
 
-  const response = await fetch(
+  const response = await devLoggedFetch(
     `https://api.twitch.tv/helix/moderation/moderators?${params.toString()}`,
     { headers: helixHeaders(accessToken, clientId) }
   )
@@ -403,7 +405,7 @@ export async function banTwitchUser({
     body.data.duration = Math.floor(durationSeconds)
   }
 
-  const response = await fetch(
+  const response = await devLoggedFetch(
     `https://api.twitch.tv/helix/moderation/bans?${params.toString()}`,
     {
       method: "POST",
@@ -436,7 +438,7 @@ export async function unbanTwitchUser({
     user_id: userId,
   })
 
-  const response = await fetch(
+  const response = await devLoggedFetch(
     `https://api.twitch.tv/helix/moderation/bans?${params.toString()}`,
     {
       method: "DELETE",
@@ -467,7 +469,7 @@ export async function setTwitchModeratorStatus({
     user_id: userId,
   })
 
-  const response = await fetch(
+  const response = await devLoggedFetch(
     `https://api.twitch.tv/helix/moderation/moderators?${params.toString()}`,
     {
       method: moderated ? "POST" : "DELETE",
@@ -530,7 +532,7 @@ export async function fetchGlobalChatEmotes(
   accessToken: string,
   clientId: string
 ): Promise<TwitchChatEmote[]> {
-  const response = await fetch("https://api.twitch.tv/helix/chat/emotes/global", {
+  const response = await devLoggedFetch("https://api.twitch.tv/helix/chat/emotes/global", {
     headers: helixHeaders(accessToken, clientId),
   })
 
@@ -549,7 +551,7 @@ export async function fetchChannelChatEmotes(
   clientId: string
 ): Promise<TwitchChatEmote[]> {
   const params = new URLSearchParams({ broadcaster_id: broadcasterId })
-  const response = await fetch(
+  const response = await devLoggedFetch(
     `https://api.twitch.tv/helix/chat/emotes?${params.toString()}`,
     {
       headers: helixHeaders(accessToken, clientId),
@@ -637,7 +639,7 @@ async function fetchPaginatedUserEmotes(
       params.set("after", cursor)
     }
 
-    const response = await fetch(
+    const response = await devLoggedFetch(
       `https://api.twitch.tv/helix/chat/emotes/user?${params.toString()}`,
       { headers: helixHeaders(accessToken, clientId) }
     )
@@ -757,7 +759,7 @@ export async function fetchLiveStreamsByLogin(
       params.append("user_login", login)
     }
 
-    const response = await fetch(
+    const response = await devLoggedFetch(
       `https://api.twitch.tv/helix/streams?${params.toString()}`,
       { headers: helixHeaders(accessToken, clientId) }
     )

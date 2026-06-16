@@ -1,3 +1,5 @@
+import { devLoggedFetch } from "@/lib/dev-logger"
+
 const IVR_BASE_URL = "https://api.ivr.fi/v2/twitch"
 
 export type IvrTwitchIdentity = {
@@ -54,7 +56,7 @@ export async function fetchIvrTwitchSubage({
     return null
   }
 
-  const response = await fetch(
+  const response = await devLoggedFetch(
     `${IVR_BASE_URL}/subage/${encodeURIComponent(user)}/${encodeURIComponent(channel)}`
   )
 
@@ -81,7 +83,7 @@ export async function fetchIvrTwitchUserProfile({
   const url = new URL(`${IVR_BASE_URL}/user`)
   url.searchParams.set("login", login)
 
-  const response = await fetch(url)
+  const response = await devLoggedFetch(url)
   if (response.status === 404) {
     return null
   }
