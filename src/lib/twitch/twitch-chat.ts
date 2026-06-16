@@ -1,4 +1,16 @@
 import { devChatLogger } from "@/lib/dev-logger"
+import {
+  getIrcLineBody,
+  isIrcJoinLine,
+  isIrcNoticeLine,
+  isIrcPrivmsgLine,
+  isIrcRoomStateLine,
+  isIrcUsernoticeLine,
+  isIrcUserStateLine,
+  isIrcWelcomeLine,
+  parseIrcJoinChannel,
+  splitTaggedLine,
+} from "@/lib/twitch/irc-line"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 
 /**
@@ -412,8 +424,10 @@ export class TwitchChatClient {
       return
     }
 
-    // Successful welcome — join all desired channels
-    if (raw.includes("001")) {
+    const rest = getIrcLineBody(raw)
+
+    // Successful welcome — join all desired channels (RPL_WELCOME / 001).
+    if (isIrcWelcomeLine(rest)) {
       devChatLogger.debug("irc:kind", "welcome")
       this.welcomeReceived = true
       this.emit({ type: "connected" })
@@ -422,11 +436,11 @@ export class TwitchChatClient {
     }
 
     // JOIN confirmation for our nick
-    if (raw.includes(" JOIN #")) {
+    if (isIrcJoinLine(rest)) {
       devChatLogger.debug("irc:kind", "join")
-      const joinMatch = raw.match(/ JOIN #(\S+)/)
-      if (joinMatch) {
-        this.markChannelJoined(normalizeChannelLogin(joinMatch[1]))
+      const channel = parseIrcJoinChannel(rest)
+      if (channel) {
+        this.markChannelJoined(normalizeChannelLogin(channel))
       } else {
         devChatLogger.warn("irc:parse-failed", "JOIN", raw)
       }
@@ -434,7 +448,7 @@ export class TwitchChatClient {
     }
 
     // ROOMSTATE - channel metadata including room-id, sent on join and updates
-    if (raw.includes(" ROOMSTATE ")) {
+    if (isIrcRoomStateLine(rest)) {
       devChatLogger.debug("irc:kind", "roomstate")
       const state = parseRoomState(raw)
       if (state) {
@@ -446,7 +460,7 @@ export class TwitchChatClient {
     }
 
     // USERSTATE - local user state after join or sending a message (no PRIVMSG echo)
-    if (raw.includes(" USERSTATE ")) {
+    if (isIrcUserStateLine(rest)) {
       devChatLogger.debug("irc:kind", "userstate")
       const state = parseUserState(raw)
       if (state) {
@@ -457,13 +471,7 @@ export class TwitchChatClient {
       return
     }
 
-    const rest = raw.startsWith("@")
-      ? (splitTaggedLine(raw)?.rest ?? raw)
-      : raw
-
-    // Match the IRC command in the line body, not substrings in tag values or
-    // message text (e.g. a USERNOTICE whose body mentions "PRIVMSG").
-    if (/ PRIVMSG #/i.test(rest)) {
+    if (isIrcPrivmsgLine(rest)) {
       devChatLogger.debug("irc:kind", "privmsg")
       const message = parsePrivmsg(raw)
       if (message) {
@@ -475,7 +483,7 @@ export class TwitchChatClient {
     }
 
     // USERNOTICE - subscriptions, gift subs, raids, announcements, etc.
-    if (/ USERNOTICE #/i.test(rest)) {
+    if (isIrcUsernoticeLine(rest)) {
       devChatLogger.debug("irc:kind", "usernotice")
       const message = parseUserNotice(raw)
       if (message) {
@@ -487,7 +495,7 @@ export class TwitchChatClient {
     }
 
     // NOTICE - e.g. "No such channel"
-    if (/ NOTICE #/i.test(rest)) {
+    if (isIrcNoticeLine(rest)) {
       devChatLogger.debug("irc:kind", "notice")
       const noticeMessage = parseNotice(raw)
       if (noticeMessage) {
@@ -965,29 +973,6 @@ function resolveAnnouncementColor(value: string | null): string | null {
 
 function isSubscriptionNotice(msgId: string): boolean {
   return /sub|gift|primepaidupgrade|anongiftpaidupgrade/i.test(msgId)
-}
-
-function splitTaggedLine(raw: string): {
-  tags: Map<string, string>
-  rest: string
-} | null {
-  const spaceAfterTags = raw.indexOf(" ")
-  if (spaceAfterTags === -1) return null
-
-  const tagsSection = raw.slice(1, spaceAfterTags)
-  const rest = raw.slice(spaceAfterTags + 1)
-  const tags = new Map<string, string>()
-
-  for (const pair of tagsSection.split(";")) {
-    const eqIdx = pair.indexOf("=")
-    if (eqIdx === -1) {
-      tags.set(pair, "")
-    } else {
-      tags.set(pair.slice(0, eqIdx), pair.slice(eqIdx + 1))
-    }
-  }
-
-  return { tags, rest }
 }
 
 function stableMessageId(
