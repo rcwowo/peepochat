@@ -1,8 +1,8 @@
 import {
   Tooltip,
-  TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { EmoteTooltipContent } from "@/components/chat/emote-tooltip-content"
 import type { TwitchEmote } from "@/lib/twitch/twitch-chat"
 
 function getEmoteSrcSet(emote: TwitchEmote) {
@@ -31,7 +31,7 @@ export function ChatEmote({
   const srcSet = getEmoteSrcSet(emote)
 
   return (
-    <Tooltip>
+    <Tooltip disableHoverableContent>
       <TooltipTrigger asChild>
         <span className="chat-emote inline-grid align-middle">
           <img
@@ -52,10 +52,7 @@ export function ChatEmote({
           />
         </span>
       </TooltipTrigger>
-      <TooltipContent side="top" sideOffset={4} className="px-2 py-1 text-xs">
-        {label}
-        <span className="text-muted-foreground"> · {emote.provider}</span>
-      </TooltipContent>
+      <EmoteTooltipContent name={label} provider={emote.provider} />
     </Tooltip>
   )
 }

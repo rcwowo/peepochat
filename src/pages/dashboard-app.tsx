@@ -80,10 +80,11 @@ function DashboardLayout() {
         </SidebarInset>
       </div>
       {settingsOpen && (
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 z-50 hidden sm:block"
-          style={{ backgroundColor: "rgba(0, 0, 0, 0.55)" }}
+        <button
+          type="button"
+          aria-label="Close settings"
+          className="absolute inset-0 z-50 hidden cursor-default border-0 bg-black/55 sm:block"
+          onClick={() => setSettingsOpen(false)}
         />
       )}
       <SettingsDialog

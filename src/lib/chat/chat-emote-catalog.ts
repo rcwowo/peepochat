@@ -22,6 +22,7 @@ export {
 } from "@/lib/twitch/twitch-emote-session"
 export { clearBroadcasterProfileCache } from "@/lib/twitch/twitch-broadcaster-profiles"
 import { sortPickerEmotes } from "@/lib/chat/emote-picker-layout"
+import { EMOTE_PLATFORM_META } from "@/lib/chat/emote-platform-meta"
 import type { TwitchEmoteProvider } from "@/lib/twitch/twitch-chat"
 
 /**
@@ -88,15 +89,7 @@ type CategoryDraft = {
   icon: CategoryIconRef
 }
 
-const PLATFORM_META: Record<
-  EmotePickerPlatformId,
-  { label: string; iconSrc: string }
-> = {
-  twitch: { label: "Twitch", iconSrc: "/icons/twitch.svg" },
-  "7tv": { label: "7TV", iconSrc: "/icons/7tv.svg" },
-  bttv: { label: "BTTV", iconSrc: "/icons/bttv.svg" },
-  ffz: { label: "FFZ", iconSrc: "/icons/ffz.svg" },
-}
+const PLATFORM_META = EMOTE_PLATFORM_META
 
 export function createEmptyComposerCatalog(): ComposerEmoteCatalog {
   return { platforms: [], byCode: new Map(), twitchById: new Map() }

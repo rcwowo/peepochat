@@ -5,9 +5,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
   Tooltip,
-  TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { EmoteTooltipContent } from "@/components/chat/emote-tooltip-content"
 import { Spinner } from "@/components/ui/spinner"
 import {
   Popover,
@@ -374,13 +374,7 @@ function EmoteGridItem({
             />
           </button>
         </TooltipTrigger>
-        <TooltipContent
-          side="top"
-          sideOffset={4}
-          className="pointer-events-none px-2 py-1 text-xs"
-        >
-          {emote.code}
-        </TooltipContent>
+        <EmoteTooltipContent name={emote.code} provider={emote.provider} />
       </Tooltip>
     </div>
   )
