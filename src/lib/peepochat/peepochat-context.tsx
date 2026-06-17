@@ -210,10 +210,6 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
   const onChatMessageRef = React.useRef<
     ((message: import("@/lib/twitch/twitch-chat").TwitchChatMessage) => void) | null
   >(null)
-  const onChatMessagesRef = React.useRef<
-    | ((messages: import("@/lib/twitch/twitch-chat").TwitchChatMessage[]) => void)
-    | null
-  >(null)
 
   const {
     connectionState,
@@ -232,7 +228,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     isComposerEmotesLoading,
     refreshEmotes,
     sendMessage,
-  } = useTwitchChat({ onChatMessageRef, onChatMessagesRef })
+  } = useTwitchChat({ onChatMessageRef })
   const { getBadgeCatalog, loadBadgesForRoom, hasBadgeSupport } =
     useChatBadges(account)
 
@@ -304,11 +300,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     onChatMessageRef.current = highlightActivity.handleIncomingMessage
-    onChatMessagesRef.current = highlightActivity.handleIncomingMessages
-  }, [
-    highlightActivity.handleIncomingMessage,
-    highlightActivity.handleIncomingMessages,
-  ])
+  }, [highlightActivity.handleIncomingMessage])
 
   const { isLive: isChannelLive } = useStreamLiveStatus({
     channelLogins,

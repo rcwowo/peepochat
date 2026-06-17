@@ -1,12 +1,17 @@
 /**
- * Development-only logging. All exports are no-ops in production builds so
- * Vite can tree-shake the call sites when `import.meta.env.DEV` is false.
+ * Development-only logging. In production, lazy log builders are never invoked
+ * and `import.meta.env.DEV` branches fold to no-ops at build time.
  */
 
 const IS_DEV = import.meta.env.DEV
 
+/** Enable in devtools: `localStorage.setItem("peepochat:dev:irc", "1")` */
+const DEV_IRC_LOG_KEY = "peepochat:dev:irc"
+
 export type DevLogger = {
   debug: (...args: unknown[]) => void
+  /** Avoids evaluating payload when logging is disabled (including production). */
+  debugLazy: (build: () => readonly unknown[]) => void
   info: (...args: unknown[]) => void
   warn: (...args: unknown[]) => void
   error: (...args: unknown[]) => void
@@ -15,12 +20,13 @@ export type DevLogger = {
 function createDevLogger(scope: string): DevLogger {
   if (!IS_DEV) {
     const noop = () => {}
-    return { debug: noop, info: noop, warn: noop, error: noop }
+    return { debug: noop, debugLazy: noop, info: noop, warn: noop, error: noop }
   }
 
   const prefix = `[peepochat:${scope}]`
   return {
     debug: (...args: unknown[]) => console.debug(prefix, ...args),
+    debugLazy: (build) => console.debug(prefix, ...build()),
     info: (...args: unknown[]) => console.info(prefix, ...args),
     warn: (...args: unknown[]) => console.warn(prefix, ...args),
     error: (...args: unknown[]) => console.error(prefix, ...args),
@@ -29,6 +35,16 @@ function createDevLogger(scope: string): DevLogger {
 
 export const devChatLogger = createDevLogger("chat")
 export const devFetchLogger = createDevLogger("fetch")
+
+/** Verbose IRC line/kind logging (off by default even in dev). */
+export function isDevIrcLoggingEnabled(): boolean {
+  if (!IS_DEV) return false
+  try {
+    return localStorage.getItem(DEV_IRC_LOG_KEY) === "1"
+  } catch {
+    return false
+  }
+}
 
 const SENSITIVE_QUERY_KEYS = new Set([
   "access_token",

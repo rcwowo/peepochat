@@ -92,17 +92,10 @@ function createEmptyRoom(login: string): TwitchChatRoomState {
 
 export function useTwitchChat(options?: {
   onChatMessageRef?: React.RefObject<((message: TwitchChatMessage) => void) | null>
-  onChatMessagesRef?: React.RefObject<
-    ((messages: TwitchChatMessage[]) => void) | null
-  >
 }) {
   const onChatMessageRef = options?.onChatMessageRef
-  const onChatMessagesRef = options?.onChatMessagesRef
   const clientRef = React.useRef<TwitchChatClient | null>(null)
   const pendingConnectRef = React.useRef<PendingConnect | null>(null)
-  const pendingRoomMessagesRef = React.useRef(
-    new Map<string, Map<string, TwitchChatMessage[]>>()
-  )
   const emoteCatalogsRef = React.useRef(new Map<string, ThirdPartyEmoteCatalog>())
   const composerCatalogsRef = React.useRef(new Map<string, ComposerEmoteCatalog>())
   const [composerCatalogs, setComposerCatalogs] = React.useState<
@@ -230,22 +223,28 @@ export function useTwitchChat(options?: {
             (entry) => entry.message.id === item.message.id
           )
           if (historicalIndex !== -1) {
-            devChatLogger.debug("timeline:promote-historical", {
-              login,
-              id: item.message.id,
-              kind: item.kind,
-            })
+            devChatLogger.debugLazy(() => [
+              "timeline:promote-historical",
+              {
+                login,
+                id: item.message.id,
+                kind: item.kind,
+              },
+            ])
             nextHistorical.splice(historicalIndex, 1)
             nextLive.push(item)
             continue
           }
 
           if (knownIds.has(item.message.id)) {
-            devChatLogger.debug("timeline:skip-dedup", {
-              login,
-              id: item.message.id,
-              kind: item.kind,
-            })
+            devChatLogger.debugLazy(() => [
+              "timeline:skip-dedup",
+              {
+                login,
+                id: item.message.id,
+                kind: item.kind,
+              },
+            ])
             continue
           }
 
@@ -253,11 +252,14 @@ export function useTwitchChat(options?: {
           nextLive.push(item)
         }
 
-        devChatLogger.debug("timeline:append-live", {
-          login,
-          added: nextLive.length - live.length,
-          total: nextHistorical.length + nextLive.length,
-        })
+        devChatLogger.debugLazy(() => [
+          "timeline:append-live",
+          {
+            login,
+            added: nextLive.length - live.length,
+            total: nextHistorical.length + nextLive.length,
+          },
+        ])
 
         return {
           ...room,
@@ -279,11 +281,14 @@ export function useTwitchChat(options?: {
 
         for (const item of items) {
           if (knownIds.has(item.message.id)) {
-            devChatLogger.debug("timeline:skip-historical-dedup", {
-              login,
-              id: item.message.id,
-              kind: item.kind,
-            })
+            devChatLogger.debugLazy(() => [
+              "timeline:skip-historical-dedup",
+              {
+                login,
+                id: item.message.id,
+                kind: item.kind,
+              },
+            ])
             continue
           }
 
@@ -291,11 +296,14 @@ export function useTwitchChat(options?: {
           nextHistorical.push({ ...item, isHistorical: true })
         }
 
-        devChatLogger.debug("timeline:prepend-historical", {
-          login,
-          added: nextHistorical.length - historical.length,
-          total: nextHistorical.length + live.length,
-        })
+        devChatLogger.debugLazy(() => [
+          "timeline:prepend-historical",
+          {
+            login,
+            added: nextHistorical.length - historical.length,
+            total: nextHistorical.length + live.length,
+          },
+        ])
 
         return {
           ...room,
@@ -362,47 +370,6 @@ export function useTwitchChat(options?: {
     [getTwitchHydration]
   )
 
-  const flushPendingRoomMessages = React.useCallback(
-    (login: string, roomId: string, useCatalog: boolean) => {
-      const roomPending = pendingRoomMessagesRef.current.get(login)
-      const pending = roomPending?.get(roomId)
-      if (!pending || pending.length === 0) {
-        return
-      }
-
-      devChatLogger.debug("timeline:flush-pending", {
-        login,
-        roomId,
-        count: pending.length,
-        useCatalog,
-      })
-
-      roomPending?.delete(roomId)
-      const catalog = useCatalog
-        ? (emoteCatalogsRef.current.get(roomId) ?? null)
-        : null
-
-      const hydrated = pending.map((message) =>
-        hydrateRoomMessage(message, catalog)
-      )
-      appendRoomTimeline(
-        login,
-        hydrated.map((message) => ({ kind: "chat" as const, message }))
-      )
-      if (onChatMessagesRef?.current) {
-        onChatMessagesRef.current(hydrated)
-      } else {
-        hydrated.forEach((message) => onChatMessageRef?.current?.(message))
-      }
-    },
-    [
-      appendRoomTimeline,
-      hydrateRoomMessage,
-      onChatMessageRef,
-      onChatMessagesRef,
-    ]
-  )
-
   const rehydrateRoomTimeline = React.useCallback(
     (login: string, roomId: string) => {
       const thirdPartyCatalog = emoteCatalogsRef.current.get(roomId) ?? null
@@ -416,24 +383,31 @@ export function useTwitchChat(options?: {
         const room = current[login]
         if (!room) return current
 
+        let changed = false
+        const timeline = room.timeline.map((entry) => {
+          if (entry.kind !== "chat") return entry
+          if (entry.message.roomId !== roomId) return entry
+
+          const message = hydrateMessageEmotes(
+            entry.message,
+            thirdPartyCatalog,
+            twitchHydration
+          )
+          if (message === entry.message) {
+            return entry
+          }
+
+          changed = true
+          return { ...entry, message }
+        })
+
+        if (!changed) {
+          return current
+        }
+
         return {
           ...current,
-          [login]: {
-            ...room,
-            timeline: room.timeline.map((entry) => {
-              if (entry.kind !== "chat") return entry
-              if (entry.message.roomId !== roomId) return entry
-
-              return {
-                ...entry,
-                message: hydrateMessageEmotes(
-                  entry.message,
-                  thirdPartyCatalog,
-                  twitchHydration
-                ),
-              }
-            }),
-          },
+          [login]: { ...room, timeline },
         }
       })
     },
@@ -470,7 +444,7 @@ export function useTwitchChat(options?: {
       composerCatalogLoadingRef.current.set(roomId, true)
       setComposerCatalogLoading((current) => ({ ...current, [roomId]: true }))
 
-      devFetchLogger.debug("emotes:start", { login, roomId })
+      devFetchLogger.debugLazy(() => ["emotes:start", { login, roomId }])
 
       const generation = emoteCatalogGenerationRef.current
       const context = emoteLoadContextRef.current
@@ -498,12 +472,14 @@ export function useTwitchChat(options?: {
             [roomId]: bundle.composer,
           }))
           rehydrateRoomTimeline(login, roomId)
-          flushPendingRoomMessages(login, roomId, true)
-          devFetchLogger.debug("emotes:success", {
-            login,
-            roomId,
-            emoteCount: bundle.composer.byCode.size,
-          })
+          devFetchLogger.debugLazy(() => [
+            "emotes:success",
+            {
+              login,
+              roomId,
+              emoteCount: bundle.composer.byCode.size,
+            },
+          ])
           appendLog(
             `Loaded ${bundle.composer.byCode.size} emotes for #${login}`
           )
@@ -514,7 +490,6 @@ export function useTwitchChat(options?: {
           }
 
           roomEmotesFailedAtRef.current.set(roomId, Date.now())
-          flushPendingRoomMessages(login, roomId, false)
           devFetchLogger.warn("emotes:error", { login, roomId })
           appendLog(`Emotes could not be loaded for #${login}.`)
         })
@@ -536,7 +511,6 @@ export function useTwitchChat(options?: {
     },
     [
       appendLog,
-      flushPendingRoomMessages,
       rehydrateRoomTimeline,
     ]
   )
@@ -559,13 +533,16 @@ export function useTwitchChat(options?: {
         : null
 
       const hydrated = hydrateRoomMessage(message, catalog)
-      devChatLogger.debug("route:message", {
-        login,
-        id: message.id,
-        roomId,
-        user: message.displayName,
-        text: message.text.slice(0, 120),
-      })
+      devChatLogger.debugLazy(() => [
+        "route:message",
+        {
+          login,
+          id: message.id,
+          roomId,
+          user: message.displayName,
+          text: message.text.slice(0, 120),
+        },
+      ])
       appendRoomTimeline(login, [{ kind: "chat", message: hydrated }])
       onChatMessageRef?.current?.(hydrated)
     },
@@ -634,13 +611,16 @@ export function useTwitchChat(options?: {
         }
 
         appendRoomSystemMessage(login, message)
-        devChatLogger.debug("route:system", {
-          login,
-          id: message.id,
-          event: message.event,
-          msgId: message.msgId,
-          text: message.text.slice(0, 120),
-        })
+        devChatLogger.debugLazy(() => [
+          "route:system",
+          {
+            login,
+            id: message.id,
+            event: message.event,
+            msgId: message.msgId,
+            text: message.text.slice(0, 120),
+          },
+        ])
         return
       }
 
@@ -708,26 +688,33 @@ export function useTwitchChat(options?: {
 
           historyLoadingRef.current.add(normalized)
 
-          devFetchLogger.debug("recent-messages:start", { channel: normalized })
+          devFetchLogger.debugLazy(() => [
+            "recent-messages:start",
+            { channel: normalized },
+          ])
 
           try {
             const outcome = await fetchRecentMessages(normalized)
 
             if (!shouldApplyRecentMessagesFetch(normalized, generation)) {
-              devFetchLogger.debug("recent-messages:stale", {
-                channel: normalized,
-              })
+              devFetchLogger.debugLazy(() => [
+                "recent-messages:stale",
+                { channel: normalized },
+              ])
               return
             }
 
-            devFetchLogger.debug("recent-messages:outcome", {
-              channel: normalized,
-              status: outcome.status,
-              messageCount:
-                outcome.status === "success" ? outcome.messages.length : 0,
-              error:
-                outcome.status === "error" ? outcome.message : undefined,
-            })
+            devFetchLogger.debugLazy(() => [
+              "recent-messages:outcome",
+              {
+                channel: normalized,
+                status: outcome.status,
+                messageCount:
+                  outcome.status === "success" ? outcome.messages.length : 0,
+                error:
+                  outcome.status === "error" ? outcome.message : undefined,
+              },
+            ])
 
             switch (outcome.status) {
               case "success": {
@@ -837,7 +824,6 @@ export function useTwitchChat(options?: {
     if (clientRef.current) return clientRef.current
 
     const client = new TwitchChatClient((event) => {
-      devChatLogger.debug("hook:event", event.type)
       switch (event.type) {
         case "connected":
           setConnectionState((prev) => ({
@@ -1013,7 +999,6 @@ export function useTwitchChat(options?: {
         clearThirdPartyEmoteCache()
         clearTwitchEmoteSessionCache()
         clearBroadcasterProfileCache()
-        pendingRoomMessagesRef.current.clear()
         selfStatesRef.current.clear()
         setSelfStates({})
         historyLoadedRef.current.clear()
@@ -1275,7 +1260,6 @@ export function useTwitchChat(options?: {
       roomEmotesSettledRef.current.add(roomId)
       setComposerCatalogs((current) => ({ ...current, [roomId]: bundle.composer }))
       rehydrateRoomTimeline(normalized, roomId)
-      flushPendingRoomMessages(normalized, roomId, true)
     } catch {
       if (generation === emoteCatalogGenerationRef.current) {
         const emptyThirdParty = createEmptyEmoteCatalog()
@@ -1288,7 +1272,6 @@ export function useTwitchChat(options?: {
           ...current,
           [roomId]: emptyComposer,
         }))
-        flushPendingRoomMessages(normalized, roomId, false)
       }
     } finally {
       roomEmotesLoadingRef.current.delete(roomId)
@@ -1305,7 +1288,7 @@ export function useTwitchChat(options?: {
     }
 
     return true
-  }, [flushPendingRoomMessages, rehydrateRoomTimeline])
+  }, [rehydrateRoomTimeline])
 
   const sendMessage = React.useCallback(
     (

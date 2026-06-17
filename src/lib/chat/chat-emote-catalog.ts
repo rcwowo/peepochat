@@ -140,38 +140,50 @@ export async function fetchRoomEmoteBundle(
 
   const cached = roomEmoteBundleCache.get(key)
   if (cached) {
-    devFetchLogger.debug("room-emotes:cache-hit", {
-      roomId: options.roomId,
-      channel: options.channelLogin,
-      emoteCount: cached.composer.byCode.size,
-    })
+    devFetchLogger.debugLazy(() => [
+      "room-emotes:cache-hit",
+      {
+        roomId: options.roomId,
+        channel: options.channelLogin,
+        emoteCount: cached.composer.byCode.size,
+      },
+    ])
     return cached
   }
 
   const pending = roomEmoteBundleInflight.get(key)
   if (pending) {
-    devFetchLogger.debug("room-emotes:inflight", {
-      roomId: options.roomId,
-      channel: options.channelLogin,
-    })
+    devFetchLogger.debugLazy(() => [
+      "room-emotes:inflight",
+      {
+        roomId: options.roomId,
+        channel: options.channelLogin,
+      },
+    ])
     return pending
   }
 
-  devFetchLogger.debug("room-emotes:start", {
-    roomId: options.roomId,
-    channel: options.channelLogin,
-    hasAuth: Boolean(options.accessToken?.trim() && options.clientId?.trim()),
-  })
+  devFetchLogger.debugLazy(() => [
+    "room-emotes:start",
+    {
+      roomId: options.roomId,
+      channel: options.channelLogin,
+      hasAuth: Boolean(options.accessToken?.trim() && options.clientId?.trim()),
+    },
+  ])
 
   const promise = buildRoomEmoteBundle(options)
     .then((bundle) => {
       roomEmoteBundleCache.set(key, bundle)
-      devFetchLogger.debug("room-emotes:success", {
-        roomId: options.roomId,
-        channel: options.channelLogin,
-        emoteCount: bundle.composer.byCode.size,
-        thirdPartyEmoteCount: bundle.thirdParty.size,
-      })
+      devFetchLogger.debugLazy(() => [
+        "room-emotes:success",
+        {
+          roomId: options.roomId,
+          channel: options.channelLogin,
+          emoteCount: bundle.composer.byCode.size,
+          thirdPartyEmoteCount: bundle.thirdParty.size,
+        },
+      ])
       return bundle
     })
     .finally(() => {

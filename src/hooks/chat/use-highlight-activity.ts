@@ -273,13 +273,6 @@ export function useHighlightActivity({
     [processIncomingMessages]
   )
 
-  const handleIncomingMessages = React.useCallback(
-    (messages: TwitchChatMessage[]) => {
-      processIncomingMessages(messages)
-    },
-    [processIncomingMessages]
-  )
-
   const hasUnreadForChannel = React.useCallback(
     (login: string) => {
       if (!isUnreadIndicatorEnabledForChannel(configRef.current, login)) {
@@ -334,6 +327,5 @@ export function useHighlightActivity({
     markChannelRead,
     markSplitRead,
     handleIncomingMessage,
-    handleIncomingMessages,
   }
 }

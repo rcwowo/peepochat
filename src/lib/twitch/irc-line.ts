@@ -6,10 +6,12 @@
  * be mistaken for RPL_WELCOME.
  */
 
-export function splitTaggedLine(raw: string): {
+export type IrcTaggedLine = {
   tags: Map<string, string>
   rest: string
-} | null {
+}
+
+export function splitTaggedLine(raw: string): IrcTaggedLine | null {
   const spaceAfterTags = raw.indexOf(" ")
   if (spaceAfterTags === -1) return null
 

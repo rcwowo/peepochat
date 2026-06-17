@@ -1,6 +1,6 @@
-import { devChatLogger } from "@/lib/dev-logger"
+import { devChatLogger, isDevIrcLoggingEnabled } from "@/lib/dev-logger"
 import {
-  getIrcLineBody,
+  type IrcTaggedLine,
   isIrcJoinLine,
   isIrcNoticeLine,
   isIrcPrivmsgLine,
@@ -203,7 +203,7 @@ export class TwitchChatClient {
   }
 
   private emit(event: TwitchChatEvent) {
-    devChatLogger.debug("event", summarizeChatEvent(event))
+    devChatLogger.debugLazy(() => ["event", summarizeChatEvent(event)])
     this.handler(event)
   }
 
@@ -414,21 +414,28 @@ export class TwitchChatClient {
   // -----------------------------------------------------------------------
 
   private handleLine(raw: string) {
-    devChatLogger.debug("irc:line", raw)
+    if (isDevIrcLoggingEnabled()) {
+      devChatLogger.debug("irc:line", raw)
+    }
 
     // PING keep-alive
     if (raw.startsWith("PING")) {
-      devChatLogger.debug("irc:kind", "ping")
+      if (isDevIrcLoggingEnabled()) {
+        devChatLogger.debug("irc:kind", "ping")
+      }
       this.ws?.send(raw.replace("PING", "PONG"))
       this.resetPingTimer()
       return
     }
 
-    const rest = getIrcLineBody(raw)
+    const tagged = raw.startsWith("@") ? splitTaggedLine(raw) : null
+    const rest = tagged?.rest ?? raw
 
     // Successful welcome — join all desired channels (RPL_WELCOME / 001).
     if (isIrcWelcomeLine(rest)) {
-      devChatLogger.debug("irc:kind", "welcome")
+      if (isDevIrcLoggingEnabled()) {
+        devChatLogger.debug("irc:kind", "welcome")
+      }
       this.welcomeReceived = true
       this.emit({ type: "connected" })
       this.syncJoins()
@@ -437,7 +444,9 @@ export class TwitchChatClient {
 
     // JOIN confirmation for our nick
     if (isIrcJoinLine(rest)) {
-      devChatLogger.debug("irc:kind", "join")
+      if (isDevIrcLoggingEnabled()) {
+        devChatLogger.debug("irc:kind", "join")
+      }
       const channel = parseIrcJoinChannel(rest)
       if (channel) {
         this.markChannelJoined(normalizeChannelLogin(channel))
@@ -449,8 +458,10 @@ export class TwitchChatClient {
 
     // ROOMSTATE - channel metadata including room-id, sent on join and updates
     if (isIrcRoomStateLine(rest)) {
-      devChatLogger.debug("irc:kind", "roomstate")
-      const state = parseRoomState(raw)
+      if (isDevIrcLoggingEnabled()) {
+        devChatLogger.debug("irc:kind", "roomstate")
+      }
+      const state = tagged ? parseRoomState(tagged) : null
       if (state) {
         this.emit({ type: "room-state", state })
       } else {
@@ -461,8 +472,10 @@ export class TwitchChatClient {
 
     // USERSTATE - local user state after join or sending a message (no PRIVMSG echo)
     if (isIrcUserStateLine(rest)) {
-      devChatLogger.debug("irc:kind", "userstate")
-      const state = parseUserState(raw)
+      if (isDevIrcLoggingEnabled()) {
+        devChatLogger.debug("irc:kind", "userstate")
+      }
+      const state = tagged ? parseUserState(tagged) : null
       if (state) {
         this.emit({ type: "self-state", state })
       } else {
@@ -472,8 +485,10 @@ export class TwitchChatClient {
     }
 
     if (isIrcPrivmsgLine(rest)) {
-      devChatLogger.debug("irc:kind", "privmsg")
-      const message = parsePrivmsg(raw)
+      if (isDevIrcLoggingEnabled()) {
+        devChatLogger.debug("irc:kind", "privmsg")
+      }
+      const message = tagged ? parsePrivmsg(tagged) : null
       if (message) {
         this.emit({ type: "message", message })
       } else {
@@ -484,8 +499,10 @@ export class TwitchChatClient {
 
     // USERNOTICE - subscriptions, gift subs, raids, announcements, etc.
     if (isIrcUsernoticeLine(rest)) {
-      devChatLogger.debug("irc:kind", "usernotice")
-      const message = parseUserNotice(raw)
+      if (isDevIrcLoggingEnabled()) {
+        devChatLogger.debug("irc:kind", "usernotice")
+      }
+      const message = tagged ? parseUserNotice(tagged) : null
       if (message) {
         this.emit({ type: "system", message })
       } else {
@@ -496,8 +513,10 @@ export class TwitchChatClient {
 
     // NOTICE - e.g. "No such channel"
     if (isIrcNoticeLine(rest)) {
-      devChatLogger.debug("irc:kind", "notice")
-      const noticeMessage = parseNotice(raw)
+      if (isDevIrcLoggingEnabled()) {
+        devChatLogger.debug("irc:kind", "notice")
+      }
+      const noticeMessage = tagged ? parseNotice(tagged) : null
       if (noticeMessage) {
         this.emit({ type: "system", message: noticeMessage })
         this.emit({ type: "log", text: noticeMessage.text })
@@ -569,17 +588,14 @@ export class TwitchChatClient {
  * may omit it when the body has no leading spaces.
  */
 export function parseIrcPrivmsg(raw: string): TwitchChatMessage | null {
-  return parsePrivmsg(raw)
+  if (!raw.startsWith("@")) return null
+  const tagged = splitTaggedLine(raw)
+  if (!tagged) return null
+  return parsePrivmsg(tagged)
 }
 
-function parsePrivmsg(raw: string): TwitchChatMessage | null {
-  // Split tags from the rest
-  if (!raw.startsWith("@")) return null
-
-  const parsed = splitTaggedLine(raw)
-  if (!parsed) return null
-
-  const { tags, rest } = parsed
+function parsePrivmsg(tagged: IrcTaggedLine): TwitchChatMessage | null {
+  const { tags, rest } = tagged
 
   // Parse prefix to get userName
   // :foo!foo@foo.tmi.twitch.tv PRIVMSG #channel [:message]
@@ -641,37 +657,31 @@ function parsePrivmsg(raw: string): TwitchChatMessage | null {
   }
 }
 
-function parseRoomState(raw: string): TwitchRoomState | null {
-  const parsed = splitTaggedLine(raw)
-  if (!parsed) return null
-
-  const match = parsed.rest.match(/^:tmi\.twitch\.tv ROOMSTATE #(\S+)$/)
+function parseRoomState(tagged: IrcTaggedLine): TwitchRoomState | null {
+  const match = tagged.rest.match(/^:tmi\.twitch\.tv ROOMSTATE #(\S+)$/)
   if (!match) return null
 
   return {
     channel: match[1],
-    roomId: parsed.tags.get("room-id") || null,
+    roomId: tagged.tags.get("room-id") || null,
   }
 }
 
-function parseUserState(raw: string): TwitchSelfUserState | null {
-  const parsed = splitTaggedLine(raw)
-  if (!parsed) return null
-
-  const match = parsed.rest.match(/^:tmi\.twitch\.tv USERSTATE #(\S+)$/)
+function parseUserState(tagged: IrcTaggedLine): TwitchSelfUserState | null {
+  const match = tagged.rest.match(/^:tmi\.twitch\.tv USERSTATE #(\S+)$/)
   if (!match) return null
 
-  const badges = parseBadgesTag(parsed.tags.get("badges") ?? "")
+  const badges = parseBadgesTag(tagged.tags.get("badges") ?? "")
 
   return {
     channel: match[1],
-    roomId: parsed.tags.get("room-id") || null,
-    displayName: parsed.tags.get("display-name") || "",
-    color: parsed.tags.get("color") || null,
+    roomId: tagged.tags.get("room-id") || null,
+    displayName: tagged.tags.get("display-name") || "",
+    color: tagged.tags.get("color") || null,
     badges,
     isBroadcaster: badges.some((badge) => badge.set === "broadcaster"),
-    isModerator: parsed.tags.get("mod") === "1",
-    isSubscriber: parsed.tags.get("subscriber") === "1",
+    isModerator: tagged.tags.get("mod") === "1",
+    isSubscriber: tagged.tags.get("subscriber") === "1",
     isVip: badges.some((badge) => badge.set === "vip"),
   }
 }
@@ -726,36 +736,36 @@ export function createLocalChatMessage(params: {
 }
 
 export function parseIrcUserNotice(raw: string): TwitchSystemMessage | null {
-  return parseUserNotice(raw)
+  if (!raw.startsWith("@")) return null
+  const tagged = splitTaggedLine(raw)
+  if (!tagged) return null
+  return parseUserNotice(tagged)
 }
 
-function parseUserNotice(raw: string): TwitchSystemMessage | null {
-  const parsed = splitTaggedLine(raw)
-  if (!parsed) return null
-
-  const match = parsed.rest.match(/^:\S+ USERNOTICE #(\S+)(?: :(.*))?$/)
+function parseUserNotice(tagged: IrcTaggedLine): TwitchSystemMessage | null {
+  const match = tagged.rest.match(/^:\S+ USERNOTICE #(\S+)(?: :(.*))?$/)
   if (!match) return null
 
   const channel = match[1]
-  const roomId = parsed.tags.get("room-id") || null
+  const roomId = tagged.tags.get("room-id") || null
   const trailingText = match[2] ? decodeTagValue(match[2]) : ""
-  const systemText = decodeTagValue(parsed.tags.get("system-msg") ?? "")
-  const msgId = parsed.tags.get("msg-id") ?? ""
+  const systemText = decodeTagValue(tagged.tags.get("system-msg") ?? "")
+  const msgId = tagged.tags.get("msg-id") ?? ""
   const event = getUserNoticeEvent(msgId)
   const headline = systemText || getUserNoticeHeadline(msgId)
   const details = trailingText.trim() || null
   const detailsEmotes =
-    details && (parsed.tags.get("emotes") ?? "").trim()
-      ? parseEmotesTag(parsed.tags.get("emotes") ?? "", details)
+    details && (tagged.tags.get("emotes") ?? "").trim()
+      ? parseEmotesTag(tagged.tags.get("emotes") ?? "", details)
       : []
-  const announcementTheme = parsed.tags.get("msg-param-color") ?? null
+  const announcementTheme = tagged.tags.get("msg-param-color") ?? null
 
   const text = [headline, details].filter(Boolean).join(" ").trim() ||
     "Channel event"
 
   return {
     id:
-      parsed.tags.get("id") ||
+      tagged.tags.get("id") ||
       stableSystemMessageId(channel, msgId || "usernotice", text),
     channel,
     roomId,
@@ -763,7 +773,7 @@ function parseUserNotice(raw: string): TwitchSystemMessage | null {
     headline,
     details,
     detailsEmotes,
-    receivedAt: parseTmiTimestamp(parsed.tags),
+    receivedAt: parseTmiTimestamp(tagged.tags),
     event,
     level: event === "subscription" || event === "raid" ? "success" : "info",
     accentColor:
@@ -771,27 +781,24 @@ function parseUserNotice(raw: string): TwitchSystemMessage | null {
         ? resolveAnnouncementColor(announcementTheme)
         : null,
     msgId: msgId || null,
-    actor: parseNoticeActor(parsed.tags),
-    viewerCount: parseOptionalInt(parsed.tags.get("msg-param-viewerCount")),
+    actor: parseNoticeActor(tagged.tags),
+    viewerCount: parseOptionalInt(tagged.tags.get("msg-param-viewerCount")),
     cumulativeMonths: parseOptionalInt(
-      parsed.tags.get("msg-param-cumulative-months") ??
-        parsed.tags.get("msg-param-months")
+      tagged.tags.get("msg-param-cumulative-months") ??
+        tagged.tags.get("msg-param-months")
     ),
-    streakMonths: parseOptionalInt(parsed.tags.get("msg-param-streak-months")),
+    streakMonths: parseOptionalInt(tagged.tags.get("msg-param-streak-months")),
     giftCount: parseOptionalInt(
-      parsed.tags.get("msg-param-mass-gift-count") ??
-        parsed.tags.get("msg-param-sender-count")
+      tagged.tags.get("msg-param-mass-gift-count") ??
+        tagged.tags.get("msg-param-sender-count")
     ),
-    subPlan: parsed.tags.get("msg-param-sub-plan") || null,
+    subPlan: tagged.tags.get("msg-param-sub-plan") || null,
     announcementTheme,
   }
 }
 
-function parseNotice(raw: string): TwitchSystemMessage | null {
-  const parsed = splitTaggedLine(raw)
-  if (!parsed) return null
-
-  const match = parsed.rest.match(/^:\S+ NOTICE #(\S+) :(.*)$/)
+function parseNotice(tagged: IrcTaggedLine): TwitchSystemMessage | null {
+  const match = tagged.rest.match(/^:\S+ NOTICE #(\S+) :(.*)$/)
   if (!match) return null
 
   const channel = match[1]
@@ -801,11 +808,11 @@ function parseNotice(raw: string): TwitchSystemMessage | null {
   return {
     id: stableSystemMessageId(channel, "notice", text),
     channel,
-    roomId: parsed.tags.get("room-id") || null,
+    roomId: tagged.tags.get("room-id") || null,
     text,
     headline: text,
     details: null,
-    receivedAt: parseTmiTimestamp(parsed.tags),
+    receivedAt: parseTmiTimestamp(tagged.tags),
     event: "notice",
     level: "warning",
     accentColor: null,

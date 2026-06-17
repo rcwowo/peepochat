@@ -284,6 +284,29 @@ export type TwitchEmoteHydration = {
   byId: Map<string, EmoteCatalogEntry>
 }
 
+function emotesEqual(left: TwitchEmote[], right: TwitchEmote[]): boolean {
+  if (left.length !== right.length) {
+    return false
+  }
+
+  for (let index = 0; index < left.length; index += 1) {
+    const a = left[index]!
+    const b = right[index]!
+    if (
+      a.id !== b.id ||
+      a.code !== b.code ||
+      a.provider !== b.provider ||
+      a.imageUrl !== b.imageUrl ||
+      a.start !== b.start ||
+      a.end !== b.end
+    ) {
+      return false
+    }
+  }
+
+  return true
+}
+
 export function hydrateMessageEmotes(
   message: TwitchChatMessage,
   catalog: ThirdPartyEmoteCatalog | null,
@@ -307,6 +330,10 @@ export function hydrateMessageEmotes(
       twitchCatalog.byCode,
       (entry) => entry.provider === "twitch"
     )
+  }
+
+  if (emotesEqual(emotes, message.emotes)) {
+    return message
   }
 
   return { ...message, emotes }
