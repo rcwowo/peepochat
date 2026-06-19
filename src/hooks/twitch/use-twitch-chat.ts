@@ -20,6 +20,7 @@ import {
   type TwitchEmoteHydration,
 } from "@/lib/chat/chat-emotes"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
+import { clearTwitchEmoteIvrCache } from "@/lib/twitch/twitch-emote-ivr"
 import {
   createRecentMessagesStatusMessage,
   fetchRecentMessages,
@@ -374,6 +375,7 @@ export function useTwitchChat(options?: {
     (login: string, roomId: string) => {
       const thirdPartyCatalog = emoteCatalogsRef.current.get(roomId) ?? null
       const twitchHydration = getTwitchHydration(roomId)
+      const normalizedLogin = normalizeChannelLogin(login)
 
       if (!thirdPartyCatalog && !twitchHydration) {
         return
@@ -386,19 +388,33 @@ export function useTwitchChat(options?: {
         let changed = false
         const timeline = room.timeline.map((entry) => {
           if (entry.kind !== "chat") return entry
-          if (entry.message.roomId !== roomId) return entry
 
-          const message = hydrateMessageEmotes(
-            entry.message,
+          const messageChannel = normalizeChannelLogin(entry.message.channel)
+          if (messageChannel !== normalizedLogin) {
+            return entry
+          }
+
+          const messageRoomId = entry.message.roomId
+          if (messageRoomId !== null && messageRoomId !== roomId) {
+            return entry
+          }
+
+          const message =
+            messageRoomId === null
+              ? { ...entry.message, roomId }
+              : entry.message
+
+          const hydrated = hydrateMessageEmotes(
+            message,
             thirdPartyCatalog,
             twitchHydration
           )
-          if (message === entry.message) {
+          if (message === entry.message && hydrated === entry.message) {
             return entry
           }
 
           changed = true
-          return { ...entry, message }
+          return { ...entry, message: hydrated }
         })
 
         if (!changed) {
@@ -726,6 +742,7 @@ export function useTwitchChat(options?: {
 
                 const roomId =
                   outcome.messages.find((message) => message.roomId)?.roomId ??
+                  roomsRef.current[normalized]?.roomId ??
                   null
 
                 if (roomId) {
@@ -744,11 +761,18 @@ export function useTwitchChat(options?: {
 
                 prependHistoricalTimeline(
                   normalized,
-                  outcome.messages.map((message) => ({
-                    kind: "chat" as const,
-                    message: hydrateRoomMessage(message, catalog),
-                    isHistorical: true,
-                  }))
+                  outcome.messages.map((message) => {
+                    const resolvedMessage =
+                      roomId && !message.roomId
+                        ? { ...message, roomId }
+                        : message
+
+                    return {
+                      kind: "chat" as const,
+                      message: hydrateRoomMessage(resolvedMessage, catalog),
+                      isHistorical: true,
+                    }
+                  })
                 )
                 return
               }
@@ -999,6 +1023,7 @@ export function useTwitchChat(options?: {
         clearThirdPartyEmoteCache()
         clearTwitchEmoteSessionCache()
         clearBroadcasterProfileCache()
+        clearTwitchEmoteIvrCache()
         selfStatesRef.current.clear()
         setSelfStates({})
         historyLoadedRef.current.clear()
@@ -1160,6 +1185,7 @@ export function useTwitchChat(options?: {
 
       clearTwitchEmoteSessionCache()
       clearBroadcasterProfileCache()
+      clearTwitchEmoteIvrCache()
       clearRoomEmoteBundleCache()
       emoteCatalogGenerationRef.current += 1
       roomEmotesSettledRef.current.clear()

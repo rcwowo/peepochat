@@ -3,11 +3,8 @@ import { SearchIcon, SmileIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import {
-  Tooltip,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
-import { EmoteTooltipContent } from "@/components/chat/emote-tooltip-content"
+import { EmoteCardPopover } from "@/components/chat/emote-card-popover"
+import { toEmoteCardTarget } from "@/lib/chat/emote-card"
 import { Spinner } from "@/components/ui/spinner"
 import {
   Popover,
@@ -346,6 +343,11 @@ function EmoteGridItem({
   onDimensions: (emote: ComposerEmote, width: number, height: number) => void
   onSelect: (code: string) => void
 }) {
+  const target = React.useMemo(
+    () => toEmoteCardTarget(emote),
+    [emote.code, emote.id, emote.imageUrl, emote.provider]
+  )
+
   return (
     <div
       className={cn(
@@ -353,29 +355,26 @@ function EmoteGridItem({
         emotePickerCellWidthClass(ratioBucket)
       )}
     >
-      <Tooltip disableHoverableContent>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            aria-label={emote.code}
-            className="grid h-9 w-full min-w-0 cursor-pointer overflow-hidden rounded-md bg-muted/15 transition-colors hover:bg-muted/50"
-            onClick={() => onSelect(emote.code)}
-          >
-            <img
-              src={emote.imageUrl}
-              alt=""
-              className="m-auto max-h-9 max-w-full object-contain"
-              loading="lazy"
-              decoding="async"
-              onLoad={(event) => {
-                const img = event.currentTarget
-                onDimensions(emote, img.naturalWidth, img.naturalHeight)
-              }}
-            />
-          </button>
-        </TooltipTrigger>
-        <EmoteTooltipContent name={emote.code} provider={emote.provider} />
-      </Tooltip>
+      <EmoteCardPopover target={target} openOnClick={false}>
+        <button
+          type="button"
+          aria-label={emote.code}
+          className="grid h-9 w-full min-w-0 cursor-pointer overflow-hidden rounded-md bg-muted/15 transition-colors hover:bg-muted/50"
+          onClick={() => onSelect(emote.code)}
+        >
+          <img
+            src={emote.imageUrl}
+            alt=""
+            className="m-auto max-h-9 max-w-full object-contain"
+            loading="lazy"
+            decoding="async"
+            onLoad={(event) => {
+              const img = event.currentTarget
+              onDimensions(emote, img.naturalWidth, img.naturalHeight)
+            }}
+          />
+        </button>
+      </EmoteCardPopover>
     </div>
   )
 }

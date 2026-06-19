@@ -56,3 +56,50 @@ export function emotePickerCellWidthClass(bucket: EmoteRatioBucket): string {
       return "w-[calc(2.25rem*3+1rem)]"
   }
 }
+
+/** Max image height inside the card preview (container is h-20 with p-2). */
+export const EMOTE_CARD_PREVIEW_IMAGE_CLASS = "max-h-16 max-w-full object-contain"
+
+/** Card preview: fixed height, width scales by aspect ratio (same buckets as picker). */
+export function emoteCardPreviewSizeClass(bucket: EmoteRatioBucket): string {
+  switch (bucket) {
+    case 1:
+      return "h-20 w-20"
+    case 2:
+      return "h-20 w-[calc(5rem*1.5+0.25rem)]"
+    case 3:
+      return "h-20 w-[calc(5rem*2+0.5rem)]"
+    case 4:
+      return "h-20 w-[calc(5rem*3+1rem)]"
+  }
+}
+
+/** Minimum card width: preview column + content column + padding. */
+export function emoteCardMinWidthClass(bucket: EmoteRatioBucket): string {
+  switch (bucket) {
+    case 1:
+      return "min-w-[13.5rem]"
+    case 2:
+      return "min-w-[15rem]"
+    case 3:
+      return "min-w-[17rem]"
+    case 4:
+      return "min-w-[20rem]"
+  }
+}
+
+/** Widest card bucket — used when clamping anchor position to the viewport. */
+export const EMOTE_CARD_ANCHOR_BUCKET: EmoteRatioBucket = 4
+
+export function emoteCardWidthPx(bucket: EmoteRatioBucket): number {
+  switch (bucket) {
+    case 1:
+      return 216
+    case 2:
+      return 240
+    case 3:
+      return 272
+    case 4:
+      return 320
+  }
+}

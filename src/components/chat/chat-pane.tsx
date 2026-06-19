@@ -8,6 +8,7 @@ import {
 } from "lucide-react"
 
 import { ChatComposer } from "@/components/chat/chat-composer"
+import { EmoteCardProvider } from "@/components/chat/emote-card-context"
 import { ChatMessageRow } from "@/components/chat/chat-message-row"
 import { ChatSystemMessage } from "@/components/chat/chat-system-message"
 import { Button } from "@/components/ui/button"
@@ -144,8 +145,9 @@ function ChatPaneInner({
   dragHandleProps,
   className,
 }: ChatPaneProps) {
-  const { refreshEmotes } = usePeepochatChat()
+  const { refreshEmotes, getComposerEmoteCatalog } = usePeepochatChat()
   const highlightedMessageIds = useChannelHighlightedMessageIds(channelLogin)
+  const composerCatalog = getComposerEmoteCatalog(channelLogin)
   const chatContainerRef = React.useRef<HTMLDivElement>(null)
   const messageListRef = React.useRef<HTMLDivElement>(null)
   const isProgrammaticScrollRef = React.useRef(false)
@@ -214,12 +216,13 @@ function ChatPaneInner({
   }, [isActive, isScrollPaused, scrollToBottom])
 
   return (
-    <div
-      className={cn(
-        "flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
-        className
-      )}
-    >
+    <EmoteCardProvider catalog={composerCatalog}>
+      <div
+        className={cn(
+          "flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
+          className
+        )}
+      >
       <div
         {...dragHandleProps}
         className={cn(
@@ -399,6 +402,7 @@ function ChatPaneInner({
         <ChatComposer channelLogin={channelLogin} joined={joined} />
       </div>
     </div>
+    </EmoteCardProvider>
   )
 }
 

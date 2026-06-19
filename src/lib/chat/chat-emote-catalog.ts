@@ -60,6 +60,7 @@ export type ComposerEmoteCatalog = {
   platforms: EmotePickerPlatform[]
   byCode: Map<string, ComposerEmote>
   twitchById: Map<string, ComposerEmote>
+  thirdPartyById: Map<string, ComposerEmote>
 }
 
 export type ChannelProfileHint = {
@@ -92,7 +93,12 @@ type CategoryDraft = {
 const PLATFORM_META = EMOTE_PLATFORM_META
 
 export function createEmptyComposerCatalog(): ComposerEmoteCatalog {
-  return { platforms: [], byCode: new Map(), twitchById: new Map() }
+  return {
+    platforms: [],
+    byCode: new Map(),
+    twitchById: new Map(),
+    thirdPartyById: new Map(),
+  }
 }
 
 export type RoomEmoteBundle = {
@@ -434,7 +440,9 @@ function resolveCategoryDrafts(
 
   return drafts.map((draft) => {
     const icon = resolveCategoryIcon(draft.icon, profiles, currentProfile, channelLogin)
-    const sorted = dedupeComposerEmotes(sortPickerEmotes(draft.emotes.map(toComposerEmote)))
+    const sorted = dedupeComposerEmotes(
+      sortPickerEmotes(draft.emotes.map((emote) => toComposerEmote(emote, profiles)))
+    )
 
     return {
       id: draft.id,
@@ -504,6 +512,7 @@ export function buildComposerCatalog(sources: {
 }): ComposerEmoteCatalog {
   const byCode = new Map<string, ComposerEmote>()
   const twitchById = new Map<string, ComposerEmote>()
+  const thirdPartyById = new Map<string, ComposerEmote>()
   const login = sources.channelLogin
 
   const registerEmotes = (emotes: ComposerEmote[]) => {
@@ -511,6 +520,8 @@ export function buildComposerCatalog(sources: {
       byCode.set(emote.code, emote)
       if (emote.provider === "twitch") {
         twitchById.set(emote.id, emote)
+      } else {
+        thirdPartyById.set(`${emote.provider}:${emote.id}`, emote)
       }
     }
   }
@@ -538,7 +549,7 @@ export function buildComposerCatalog(sources: {
 
   platforms.push(...thirdPartyPlatforms)
 
-  return { platforms, byCode, twitchById }
+  return { platforms, byCode, twitchById, thirdPartyById }
 }
 
 function buildThirdPartyPlatforms(
@@ -559,7 +570,9 @@ function buildThirdPartyPlatforms(
     const meta = PLATFORM_META[provider]
 
     if (channel.length > 0) {
-      const sorted = dedupeComposerEmotes(sortPickerEmotes(channel))
+      const sorted = dedupeComposerEmotes(
+        sortPickerEmotes(channel)
+      )
       const id = `${provider}-channel-${channelLogin}`
       categories.push({
         id,
@@ -596,12 +609,21 @@ function buildThirdPartyPlatforms(
   return platforms
 }
 
-function toComposerEmote(emote: TwitchChatEmote): ComposerEmote {
+function toComposerEmote(
+  emote: TwitchChatEmote,
+  profiles?: Map<string, TwitchUser>
+): ComposerEmote {
+  const ownerId = emote.ownerId
+  const ownerProfile = ownerId ? profiles?.get(ownerId) : undefined
+
   return {
     id: emote.id,
     code: emote.name,
     provider: "twitch",
     imageUrl: emote.imageUrl,
+    ownerId,
+    ownerLogin: ownerProfile?.login,
+    ownerName: ownerProfile?.displayName || ownerProfile?.login,
   }
 }
 

@@ -1,8 +1,7 @@
-import {
-  Tooltip,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
-import { EmoteTooltipContent } from "@/components/chat/emote-tooltip-content"
+import * as React from "react"
+
+import { EmoteCardPopover } from "@/components/chat/emote-card-popover"
+import { getTwitchEmoteBaseUrl, toEmoteCardTarget } from "@/lib/chat/emote-card"
 import type { TwitchEmote } from "@/lib/twitch/twitch-chat"
 
 function getEmoteSrcSet(emote: TwitchEmote) {
@@ -10,7 +9,7 @@ function getEmoteSrcSet(emote: TwitchEmote) {
     return undefined
   }
 
-  const base = emote.imageUrl.replace(/\/1\.0$/, "")
+  const base = getTwitchEmoteBaseUrl(emote.imageUrl)
   return `${base}/1.0 1x, ${base}/2.0 2x, ${base}/3.0 3x`
 }
 
@@ -29,30 +28,31 @@ export function ChatEmote({
   label: string
 }) {
   const srcSet = getEmoteSrcSet(emote)
+  const target = React.useMemo(
+    () => toEmoteCardTarget({ ...emote, code: emote.code || label }),
+    [emote, label]
+  )
 
   return (
-    <Tooltip disableHoverableContent>
-      <TooltipTrigger asChild>
-        <span className="chat-emote inline-grid align-middle">
-          <img
-            className="col-start-1 row-start-1 object-contain"
-            src={emote.imageUrl}
-            srcSet={srcSet}
-            alt={label}
-            loading="lazy"
-            decoding="async"
-            onError={(event) => {
-              if (emote.provider !== "twitch") return
-              const img = event.currentTarget
-              const next = twitchStaticFallbackUrl(img.currentSrc || img.src)
-              if (!next || img.src === next) return
-              img.src = next
-              img.srcset = ""
-            }}
-          />
-        </span>
-      </TooltipTrigger>
-      <EmoteTooltipContent name={label} provider={emote.provider} />
-    </Tooltip>
+    <EmoteCardPopover target={target}>
+      <span className="chat-emote inline-grid align-middle">
+        <img
+          className="col-start-1 row-start-1 object-contain"
+          src={emote.imageUrl}
+          srcSet={srcSet}
+          alt={label}
+          loading="lazy"
+          decoding="async"
+          onError={(event) => {
+            if (emote.provider !== "twitch") return
+            const img = event.currentTarget
+            const next = twitchStaticFallbackUrl(img.currentSrc || img.src)
+            if (!next || img.src === next) return
+            img.src = next
+            img.srcset = ""
+          }}
+        />
+      </span>
+    </EmoteCardPopover>
   )
 }

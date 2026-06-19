@@ -6,6 +6,10 @@ export type EmoteCatalogEntry = {
   code: string
   provider: TwitchEmoteProvider
   imageUrl: string
+  aliases?: string[]
+  ownerId?: string
+  ownerName?: string
+  ownerLogin?: string
 }
 
 export type ThirdPartyEmoteCatalog = Map<string, EmoteCatalogEntry>
@@ -97,6 +101,10 @@ type FrankerFaceZEmote = {
   name: string
   urls?: Record<string, string>
   animated?: Record<string, string>
+  owner?: {
+    name?: string
+    display_name?: string
+  }
 }
 
 type FrankerFaceZSet = {
@@ -123,6 +131,16 @@ type SevenTvHost = {
 
 type SevenTvEmoteData = {
   host?: SevenTvHost
+  alias?: string[]
+  owner?: {
+    display_name?: string
+    username?: string
+    connections?: Array<{
+      platform?: string
+      username?: string
+      display_name?: string
+    }>
+  }
 }
 
 type SevenTvEmote = {
@@ -355,7 +373,10 @@ function upgradeTwitchEmoteImages(
       return emote
     }
 
-    return { ...emote, imageUrl: fromCatalog.imageUrl }
+    return {
+      ...emote,
+      imageUrl: fromCatalog.imageUrl,
+    }
   })
 }
 
@@ -446,7 +467,7 @@ async function fetchBetterTtvGlobalEmotes(): Promise<EmoteCatalogEntry[]> {
   const response = await fetchJson<BetterTtvEmote[]>(
     "https://api.betterttv.net/3/cached/emotes/global"
   )
-  return response.map(mapBetterTtvEmote)
+  return response.map((emote) => mapBetterTtvEmote(emote))
 }
 
 async function fetchBetterTtvRoomEmotes(roomId: string): Promise<EmoteCatalogEntry[]> {
@@ -457,7 +478,7 @@ async function fetchBetterTtvRoomEmotes(roomId: string): Promise<EmoteCatalogEnt
   return [
     ...(response.channelEmotes ?? []),
     ...(response.sharedEmotes ?? []),
-  ].map(mapBetterTtvEmote)
+  ].map((emote) => mapBetterTtvEmote(emote))
 }
 
 function mapFrankerFaceZEmote(emote: FrankerFaceZEmote): EmoteCatalogEntry | null {
@@ -469,6 +490,8 @@ function mapFrankerFaceZEmote(emote: FrankerFaceZEmote): EmoteCatalogEntry | nul
     code: emote.name,
     provider: "ffz",
     imageUrl,
+    ownerName: emote.owner?.display_name ?? emote.owner?.name,
+    ownerLogin: emote.owner?.name,
   }
 }
 
@@ -483,7 +506,7 @@ async function fetchFrankerFaceZGlobalEmotes(): Promise<EmoteCatalogEntry[]> {
     "https://api.frankerfacez.com/v1/set/global"
   )
   return compactFrankerFaceZEmotes(
-    extractFrankerFaceZGlobalEmotes(response).map(mapFrankerFaceZEmote)
+    extractFrankerFaceZGlobalEmotes(response).map((emote) => mapFrankerFaceZEmote(emote))
   )
 }
 
@@ -492,7 +515,7 @@ async function fetchFrankerFaceZRoomEmotes(roomId: string): Promise<EmoteCatalog
     `https://api.frankerfacez.com/v1/room/id/${encodeURIComponent(roomId)}`
   )
   return compactFrankerFaceZEmotes(
-    extractFrankerFaceZEmotes(response.sets).map(mapFrankerFaceZEmote)
+    extractFrankerFaceZEmotes(response.sets).map((emote) => mapFrankerFaceZEmote(emote))
   )
 }
 
@@ -500,11 +523,19 @@ function mapSevenTvEmote(emote: SevenTvEmote): EmoteCatalogEntry | null {
   const imageUrl = buildSevenTvImageUrl(emote.data?.host)
   if (!imageUrl) return null
 
+  const owner = emote.data?.owner
+  const twitchConnection = owner?.connections?.find(
+    (connection) => connection.platform === "TWITCH"
+  )
+
   return {
     id: emote.id,
     code: emote.name,
     provider: "7tv",
     imageUrl,
+    aliases: emote.data?.alias,
+    ownerName: owner?.display_name ?? owner?.username,
+    ownerLogin: twitchConnection?.username ?? owner?.username,
   }
 }
 
@@ -516,7 +547,7 @@ function compactSevenTvEmotes(
 
 async function fetchSevenTvGlobalEmotes(): Promise<EmoteCatalogEntry[]> {
   const response = await fetchJson<SevenTvEmoteSet>("https://7tv.io/v3/emote-sets/global")
-  return compactSevenTvEmotes((response.emotes ?? []).map(mapSevenTvEmote))
+  return compactSevenTvEmotes((response.emotes ?? []).map((emote) => mapSevenTvEmote(emote)))
 }
 
 async function fetchSevenTvRoomEmotes(roomId: string): Promise<EmoteCatalogEntry[]> {
@@ -524,7 +555,7 @@ async function fetchSevenTvRoomEmotes(roomId: string): Promise<EmoteCatalogEntry
     `https://7tv.io/v3/users/twitch/${encodeURIComponent(roomId)}`
   )
   return compactSevenTvEmotes(
-    (response.emote_set?.emotes ?? []).map(mapSevenTvEmote)
+    (response.emote_set?.emotes ?? []).map((emote) => mapSevenTvEmote(emote))
   )
 }
 
