@@ -22,6 +22,7 @@ import {
   canShowDesktopNotifications,
   showDesktopNotification,
 } from "@/lib/highlights/desktop-notifications"
+import { playAlertSound } from "@/lib/highlights/alert-sounds"
 import type { ChatBadgeCatalog } from "@/lib/chat/chat-badges"
 import type {
   AppConfig,
@@ -317,6 +318,10 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
         body: title,
         tag: `live:${login}`,
         onClick: () => setActiveChannelBase(login),
+      })
+      void playAlertSound({
+        useDefaultSounds: config.highlights.useDefaultSounds,
+        customId: config.highlights.notificationSoundCustomId,
       })
     },
   })

@@ -10,7 +10,7 @@ import {
 import { normalizeSidebarOrder } from "@/lib/sidebar/sidebar-order"
 
 export const PEEPOCHAT_STORAGE_KEY = "peepochat::config"
-export const PEEPOCHAT_SCHEMA_VERSION = 8
+export const PEEPOCHAT_SCHEMA_VERSION = 11
 
 export const LIVE_MESSAGES_PER_CHANNEL_MIN = 20
 export const LIVE_MESSAGES_PER_CHANNEL_MAX = 500
@@ -82,6 +82,10 @@ const highlightsSchema = z.object({
   liveIndicatorsEnabled: z.boolean().default(true),
   livePushNotificationsEnabled: z.boolean().default(false),
   pingPushNotificationsEnabled: z.boolean().default(true),
+  pingOnUsernameMention: z.boolean().default(true),
+  useDefaultSounds: z.boolean().default(true),
+  pingSoundCustomId: z.string().nullable().default(null),
+  notificationSoundCustomId: z.string().nullable().default(null),
   pings: z.array(highlightPingRuleSchema).default([]),
 })
 
@@ -152,6 +156,10 @@ const appConfigSchema = z.object({
     liveIndicatorsEnabled: true,
     livePushNotificationsEnabled: false,
     pingPushNotificationsEnabled: true,
+    pingOnUsernameMention: true,
+    useDefaultSounds: true,
+    pingSoundCustomId: null,
+    notificationSoundCustomId: null,
     pings: [],
   }),
 })
@@ -231,6 +239,10 @@ export function createDefaultConfig(): AppConfig {
       liveIndicatorsEnabled: true,
       livePushNotificationsEnabled: false,
       pingPushNotificationsEnabled: true,
+      pingOnUsernameMention: true,
+      useDefaultSounds: true,
+      pingSoundCustomId: null,
+      notificationSoundCustomId: null,
       pings: [],
     },
   }
@@ -547,6 +559,28 @@ export function findMessageUrls(text: string): MessageUrlMatch[] {
   })
 }
 
+function resolveUseDefaultSounds(
+  highlights: Record<string, unknown> | undefined
+): boolean {
+  if (typeof highlights?.useDefaultSounds === "boolean") {
+    return highlights.useDefaultSounds
+  }
+
+  const pingSoundUseDefault = highlights?.pingSoundUseDefault
+  const notificationSoundUseDefault = highlights?.notificationSoundUseDefault
+  const pingSoundCustomId = highlights?.pingSoundCustomId
+  const notificationSoundCustomId = highlights?.notificationSoundCustomId
+
+  const usesCustomSounds =
+    pingSoundUseDefault === false ||
+    notificationSoundUseDefault === false ||
+    (typeof pingSoundCustomId === "string" && pingSoundCustomId.trim()) ||
+    (typeof notificationSoundCustomId === "string" &&
+      notificationSoundCustomId.trim())
+
+  return !usesCustomSounds
+}
+
 function normalizeConfig(config: AppConfig): AppConfig {
   const twitch = {
     ...config.twitch,
@@ -624,9 +658,21 @@ function normalizeConfig(config: AppConfig): AppConfig {
     chat.emoteScale = chat.fontSizePx
   }
 
+  const rawHighlights = config.highlights as Record<string, unknown> | undefined
+
   const highlights = {
     ...createDefaultConfig().highlights,
     ...config.highlights,
+    pingOnUsernameMention: config.highlights?.pingOnUsernameMention ?? true,
+    useDefaultSounds: resolveUseDefaultSounds(rawHighlights),
+    pingSoundCustomId:
+      typeof config.highlights?.pingSoundCustomId === "string"
+        ? config.highlights.pingSoundCustomId.trim() || null
+        : null,
+    notificationSoundCustomId:
+      typeof config.highlights?.notificationSoundCustomId === "string"
+        ? config.highlights.notificationSoundCustomId.trim() || null
+        : null,
     pings: (config.highlights?.pings ?? []).map((rule) => ({
       id: rule.id.trim(),
       pattern: rule.pattern,

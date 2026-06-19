@@ -6,9 +6,12 @@ import {
 } from "@/lib/highlights/channel-message-highlights"
 import {
   compilePingRules,
+  getUsernameMentionRuleId,
   matchPingRules,
+  messageMentionsUsername,
   type CompiledPingRule,
 } from "@/lib/highlights/highlight-rules"
+import { playAlertSound } from "@/lib/highlights/alert-sounds"
 import {
   canShowDesktopNotifications,
   showDesktopNotification,
@@ -23,13 +26,22 @@ import type { TwitchChatMessage } from "@/lib/twitch/twitch-chat"
 
 const PING_RULES_KEY_SEPARATOR = "\u0001"
 
-function buildPingRulesKey(pings: AppConfig["highlights"]["pings"]) {
-  return pings
+function buildPingRulesKey(
+  highlights: AppConfig["highlights"],
+  accountLogin: string | null
+) {
+  const pingRules = highlights.pings
     .map(
       (rule) =>
         `${rule.id}${PING_RULES_KEY_SEPARATOR}${rule.pattern}${PING_RULES_KEY_SEPARATOR}${rule.enabled}${PING_RULES_KEY_SEPARATOR}${rule.notify}`
     )
     .join("\u0000")
+
+  return [
+    pingRules,
+    highlights.pingOnUsernameMention ? "1" : "0",
+    accountLogin?.toLowerCase() ?? "",
+  ].join("\u0002")
 }
 
 function buildUnreadEnabledByLogin(config: AppConfig): Map<string, boolean> {
@@ -81,10 +93,22 @@ export function useHighlightActivity({
   }, [normalizedVisibleChannelLogins])
 
   const compiledPingsRef = React.useRef<CompiledPingRule[]>([])
-  const pingRulesKey = buildPingRulesKey(config.highlights.pings)
+  const pingRulesKey = buildPingRulesKey(
+    config.highlights,
+    accountLogin
+  )
   React.useEffect(() => {
     compiledPingsRef.current = compilePingRules(config.highlights.pings)
   }, [pingRulesKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const pingOnUsernameMentionRef = React.useRef(
+    config.highlights.pingOnUsernameMention
+  )
+  const useDefaultSoundsRef = React.useRef(config.highlights.useDefaultSounds)
+  const pingSoundCustomIdRef = React.useRef(config.highlights.pingSoundCustomId)
+  const notificationSoundCustomIdRef = React.useRef(
+    config.highlights.notificationSoundCustomId
+  )
 
   const unreadEnabledByLoginRef = React.useRef<Map<string, boolean>>(new Map())
   React.useEffect(() => {
@@ -108,6 +132,23 @@ export function useHighlightActivity({
   React.useEffect(() => {
     pingPushEnabledRef.current = config.highlights.pingPushNotificationsEnabled
   }, [config.highlights.pingPushNotificationsEnabled])
+
+  React.useEffect(() => {
+    pingOnUsernameMentionRef.current = config.highlights.pingOnUsernameMention
+  }, [config.highlights.pingOnUsernameMention])
+
+  React.useEffect(() => {
+    useDefaultSoundsRef.current = config.highlights.useDefaultSounds
+  }, [config.highlights.useDefaultSounds])
+
+  React.useEffect(() => {
+    pingSoundCustomIdRef.current = config.highlights.pingSoundCustomId
+  }, [config.highlights.pingSoundCustomId])
+
+  React.useEffect(() => {
+    notificationSoundCustomIdRef.current =
+      config.highlights.notificationSoundCustomId
+  }, [config.highlights.notificationSoundCustomId])
 
   React.useEffect(() => {
     onFocusChannelRef.current = onFocusChannel
@@ -179,7 +220,8 @@ export function useHighlightActivity({
 
       const visible = visibleRef.current
       const compiled = compiledPingsRef.current
-      const hasPingRules = compiled.length > 0
+      const hasPingRules =
+        compiled.length > 0 || pingOnUsernameMentionRef.current
       const account = accountLoginRef.current
       const accountLower = account?.toLowerCase() ?? null
       const unreadEnabledByLogin = unreadEnabledByLoginRef.current
@@ -208,7 +250,19 @@ export function useHighlightActivity({
           continue
         }
 
-        const pingMatch = matchPingRules(compiled, message)
+        let pingMatch = matchPingRules(compiled, message)
+        if (
+          !pingMatch &&
+          pingOnUsernameMentionRef.current &&
+          account &&
+          messageMentionsUsername(message, account)
+        ) {
+          pingMatch = {
+            ruleId: getUsernameMentionRuleId(),
+            notify: true,
+          }
+        }
+
         if (!pingMatch) {
           continue
         }
@@ -231,6 +285,15 @@ export function useHighlightActivity({
             body: `${message.displayName}: ${message.text}`,
             tag: `ping:${login}:${message.id}`,
             onClick: () => onFocusChannelRef.current?.(login),
+          })
+          void playAlertSound({
+            useDefaultSounds: useDefaultSoundsRef.current,
+            customId: notificationSoundCustomIdRef.current,
+          })
+        } else {
+          void playAlertSound({
+            useDefaultSounds: useDefaultSoundsRef.current,
+            customId: pingSoundCustomIdRef.current,
           })
         }
       }

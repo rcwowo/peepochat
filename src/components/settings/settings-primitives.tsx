@@ -146,6 +146,7 @@ export function SettingsSwitchRow({
   onCheckedChange,
   icon: Icon,
   iconSrc,
+  disabled = false,
 }: {
   title: string
   description?: string
@@ -153,11 +154,17 @@ export function SettingsSwitchRow({
   onCheckedChange: (checked: boolean) => void
   icon?: React.ComponentType<{ className?: string }>
   iconSrc?: string
+  disabled?: boolean
 }) {
   const showLeading = Boolean(Icon || iconSrc)
 
   return (
-    <div className="flex items-center justify-between gap-3 px-2.5 py-2">
+    <div
+      className={cn(
+        "flex items-center justify-between gap-3 px-2.5 py-2",
+        disabled && "opacity-60"
+      )}
+    >
       <div className="flex min-w-0 flex-1 items-start gap-2.5">
         {showLeading ? (
           <div className="flex shrink-0 items-center justify-center rounded-md border border-border bg-muted/40 p-1">
@@ -178,7 +185,11 @@ export function SettingsSwitchRow({
         </div>
       </div>
       <div className="shrink-0">
-        <Switch checked={checked} onCheckedChange={onCheckedChange} />
+        <Switch
+          checked={checked}
+          disabled={disabled}
+          onCheckedChange={onCheckedChange}
+        />
       </div>
     </div>
   )

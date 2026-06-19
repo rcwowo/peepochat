@@ -59,3 +59,33 @@ export function matchPingRules(
 export function createPingRuleId() {
   return `ping-${crypto.randomUUID()}`
 }
+
+const USERNAME_MENTION_RULE_ID = "__username-mention__"
+
+export function getUsernameMentionRuleId() {
+  return USERNAME_MENTION_RULE_ID
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
+export function messageMentionsUsername(
+  message: TwitchChatMessage,
+  accountLogin: string
+): boolean {
+  const login = accountLogin.trim().replace(/^@/, "").toLowerCase()
+  if (!login) {
+    return false
+  }
+
+  const text = message.text
+  const escaped = escapeRegExp(login)
+  const mentionPattern = new RegExp(
+    `(?:@${escaped}(?![\\w-])|(?<![@\\w-])${escaped}(?![\\w-]))`,
+    "i"
+  )
+
+  mentionPattern.lastIndex = 0
+  return mentionPattern.test(text)
+}
