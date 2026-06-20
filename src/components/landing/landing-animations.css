@@ -1,11 +1,5 @@
-@import "@fontsource-variable/syne";
-
 .landing-page {
   --font-landing-display: "Syne Variable", "Outfit Variable", sans-serif;
-}
-
-@utility font-landing-display {
-  font-family: var(--font-landing-display);
 }
 
 @keyframes landing-fade-up {
@@ -40,18 +34,6 @@
   50% {
     translate: 0 calc(var(--float-amplitude) * -1 * var(--splash-motion));
   }
-}
-
-@utility animate-landing-fade-up {
-  animation: landing-fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-@utility animate-landing-fade-up-short {
-  animation: landing-fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-@utility animate-landing-mockup-float {
-  animation: landing-mockup-float 7s ease-in-out infinite;
 }
 
 .landing-grain {

@@ -36,7 +36,7 @@ type EmoteCardPanelProps = {
   onRetry: () => void
 }
 
-function openExternalUrl(url: string) {
+function openExternalUrl(url: string | null | undefined) {
   if (!url) {
     return
   }

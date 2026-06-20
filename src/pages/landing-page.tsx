@@ -1,5 +1,3 @@
-import "@/components/landing/landing-animations.css"
-
 import { Link } from "react-router-dom"
 import {
   ArrowRightIcon,

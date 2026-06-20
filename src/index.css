@@ -2,6 +2,8 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/outfit";
+@import "@fontsource-variable/syne";
+@import "./components/landing/landing-animations.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -81,6 +83,23 @@
   --sidebar-accent-foreground: oklch(0.212 0.019 322.12);
   --sidebar-border: oklch(0.922 0.005 325.62);
   --sidebar-ring: oklch(0.711 0.019 323.02);
+  --chat-background: oklch(0.985 0.002 325.6);
+  --chat-row-alt: oklch(0.955 0.004 325.6);
+  --chat-row-separator: oklch(0.9 0.004 325.6 / 65%);
+  --chat-message-foreground: oklch(0.24 0.02 322.12);
+  --chat-timestamp: oklch(0.58 0.03 322.5 / 75%);
+  --chat-colon: oklch(0.58 0.03 322.5);
+  --chat-link: oklch(0.45 0.22 303);
+  --chat-link-hover: oklch(0.38 0.22 303);
+  --chat-badge-size: 18px;
+  --chat-emote-size: 28px;
+  --chat-emote-margin: -0.35rem;
+  --chat-scrollbar-thumb: oklch(0 0 0 / 18%);
+  --chat-system-foreground: oklch(0.58 0.03 322.5);
+  --chat-notice-background: oklch(0.96 0.003 325.6 / 80%);
+  --chat-announcement-background: oklch(0.96 0.003 325.6 / 55%);
+  --chat-notice-sub-border: #9146ff;
+  --chat-notice-raid-border: #eb0400;
 }
 
 .dark {
@@ -115,6 +134,20 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.542 0.034 322.5);
+  --chat-background: oklch(0.17 0.014 322.12);
+  --chat-row-alt: oklch(0.215 0.017 322.12);
+  --chat-row-separator: oklch(0.28 0.018 322.12 / 70%);
+  --chat-message-foreground: oklch(0.93 0.004 325.6);
+  --chat-timestamp: oklch(0.68 0.02 323.02 / 70%);
+  --chat-colon: oklch(0.68 0.02 323.02);
+  --chat-link: oklch(0.72 0.16 303);
+  --chat-link-hover: oklch(0.8 0.14 303);
+  --chat-scrollbar-thumb: oklch(1 0 0 / 18%);
+  --chat-system-foreground: oklch(0.68 0.02 323.02);
+  --chat-notice-background: oklch(0.22 0.018 322.12 / 90%);
+  --chat-announcement-background: oklch(0.22 0.018 322.12 / 55%);
+  --chat-notice-sub-border: #bf94ff;
+  --chat-notice-raid-border: #ff6b6b;
 }
 
 @layer base {
@@ -123,12 +156,15 @@
     scrollbar-width: thin;
     scrollbar-color: oklch(0 0 0 / 20%) transparent;
   }
+
   .dark * {
     scrollbar-color: oklch(1 0 0 / 20%) transparent;
   }
+
   body {
     @apply bg-background text-foreground;
   }
+
   html {
     @apply font-sans;
   }
@@ -262,44 +298,6 @@
   }
 }
 
-:root {
-  --chat-background: oklch(0.985 0.002 325.6);
-  --chat-row-alt: oklch(0.955 0.004 325.6);
-  --chat-row-separator: oklch(0.9 0.004 325.6 / 65%);
-  --chat-message-foreground: oklch(0.24 0.02 322.12);
-  --chat-timestamp: oklch(0.58 0.03 322.5 / 75%);
-  --chat-colon: oklch(0.58 0.03 322.5);
-  --chat-link: oklch(0.45 0.22 303);
-  --chat-link-hover: oklch(0.38 0.22 303);
-  --chat-badge-size: 18px;
-  --chat-emote-size: 28px;
-  --chat-emote-margin: -0.35rem;
-  --chat-scrollbar-thumb: oklch(0 0 0 / 18%);
-  --chat-system-foreground: oklch(0.58 0.03 322.5);
-  --chat-notice-background: oklch(0.96 0.003 325.6 / 80%);
-  --chat-announcement-background: oklch(0.96 0.003 325.6 / 55%);
-  --chat-notice-sub-border: #9146ff;
-  --chat-notice-raid-border: #eb0400;
-}
-
-.dark {
-  --chat-background: oklch(0.17 0.014 322.12);
-  --chat-row-alt: oklch(0.215 0.017 322.12);
-  --chat-row-separator: oklch(0.28 0.018 322.12 / 70%);
-  --chat-message-foreground: oklch(0.93 0.004 325.6);
-  --chat-timestamp: oklch(0.68 0.02 323.02 / 70%);
-  --chat-colon: oklch(0.68 0.02 323.02);
-  --chat-link: oklch(0.72 0.16 303);
-  --chat-link-hover: oklch(0.8 0.14 303);
-  --chat-scrollbar-thumb: oklch(1 0 0 / 18%);
-  --chat-system-foreground: oklch(0.68 0.02 323.02);
-  --chat-notice-background: oklch(0.22 0.018 322.12 / 90%);
-  --chat-announcement-background: oklch(0.22 0.018 322.12 / 55%);
-  --chat-notice-sub-border: #bf94ff;
-  --chat-notice-raid-border: #ff6b6b;
-}
-
-/* White SVG marks: dark on light backgrounds, light on dark backgrounds */
 @utility brand-mark {
   filter: invert(1);
 
@@ -308,3 +306,18 @@
   }
 }
 
+@utility font-landing-display {
+  font-family: var(--font-landing-display);
+}
+
+@utility animate-landing-fade-up {
+  animation: landing-fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@utility animate-landing-fade-up-short {
+  animation: landing-fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@utility animate-landing-mockup-float {
+  animation: landing-mockup-float 7s ease-in-out infinite;
+}
