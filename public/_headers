@@ -1,0 +1,7 @@
+# Scripts are hashed in /assets, so we'll keep old files if there's no updates
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Pages shouldn't be cached so that updates are actually pushed when they come out.
+/*
+  Cache-Control: no-cache, must-revalidate
