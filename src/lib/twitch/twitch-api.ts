@@ -731,6 +731,7 @@ export type TwitchLiveStream = {
   userLogin: string
   userName: string
   title: string
+  gameName: string
   viewerCount: number
   startedAt: string
 }
@@ -775,6 +776,7 @@ export async function fetchLiveStreamsByLogin(
         user_login: string
         user_name: string
         title: string
+        game_name: string
         viewer_count: number
         started_at: string
       }>
@@ -787,6 +789,7 @@ export async function fetchLiveStreamsByLogin(
         userLogin: stream.user_login.toLowerCase(),
         userName: stream.user_name,
         title: stream.title,
+        gameName: stream.game_name ?? "",
         viewerCount: stream.viewer_count,
         startedAt: stream.started_at,
       }))

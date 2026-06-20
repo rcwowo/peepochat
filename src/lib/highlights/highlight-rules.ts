@@ -70,22 +70,88 @@ function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 }
 
+function buildUsernameMentionPattern(accountLogin: string): RegExp | null {
+  const login = accountLogin.trim().replace(/^@/, "").toLowerCase()
+  if (!login) {
+    return null
+  }
+
+  const escaped = escapeRegExp(login)
+  return new RegExp(
+    `(?:@${escaped}(?![\\w-])|(?<![@\\w-])${escaped}(?![\\w-]))`,
+    "i"
+  )
+}
+
 export function messageMentionsUsername(
   message: TwitchChatMessage,
   accountLogin: string
 ): boolean {
-  const login = accountLogin.trim().replace(/^@/, "").toLowerCase()
-  if (!login) {
+  const mentionPattern = buildUsernameMentionPattern(accountLogin)
+  if (!mentionPattern) {
     return false
   }
 
-  const text = message.text
-  const escaped = escapeRegExp(login)
-  const mentionPattern = new RegExp(
-    `(?:@${escaped}(?![\\w-])|(?<![@\\w-])${escaped}(?![\\w-]))`,
-    "i"
-  )
-
   mentionPattern.lastIndex = 0
-  return mentionPattern.test(text)
+  return mentionPattern.test(message.text)
+}
+
+export type PingMatchRange = {
+  start: number
+  end: number
+}
+
+export function getPingMatchPattern(
+  ruleId: string,
+  compiledPattern: string | undefined,
+  accountLogin: string | null
+) {
+  if (ruleId === getUsernameMentionRuleId()) {
+    return accountLogin ?? ""
+  }
+
+  return compiledPattern ?? ""
+}
+
+export function findPingMatchRange(
+  text: string,
+  ruleId: string,
+  matchPattern: string
+): PingMatchRange | null {
+  if (ruleId === USERNAME_MENTION_RULE_ID) {
+    const mentionPattern = buildUsernameMentionPattern(matchPattern)
+    if (!mentionPattern) {
+      return null
+    }
+
+    const match = mentionPattern.exec(text)
+    if (!match || match.index === undefined) {
+      return null
+    }
+
+    return {
+      start: match.index,
+      end: match.index + match[0].length,
+    }
+  }
+
+  const pattern = matchPattern.trim()
+  if (!pattern) {
+    return null
+  }
+
+  try {
+    const regex = new RegExp(pattern, "i")
+    const match = regex.exec(text)
+    if (!match || match.index === undefined) {
+      return null
+    }
+
+    return {
+      start: match.index,
+      end: match.index + match[0].length,
+    }
+  } catch {
+    return null
+  }
 }

@@ -15,7 +15,7 @@ export function useStreamLiveStatus({
   enabled: boolean
   accessToken?: string
   clientId?: string
-  onChannelWentLive?: (login: string, title: string) => void
+  onChannelWentLive?: (login: string, title: string, gameName: string) => void
 }) {
   const [liveLogins, setLiveLogins] = React.useState<ReadonlySet<string>>(
     () => new Set()
@@ -60,7 +60,11 @@ export function useStreamLiveStatus({
           for (const login of next) {
             if (!previous.has(login)) {
               const stream = streams.find((s) => s.userLogin === login)
-              onWentLiveRef.current(login, stream?.title ?? "Live now")
+              onWentLiveRef.current(
+                login,
+                stream?.title ?? "Live now",
+                stream?.gameName ?? ""
+              )
             }
           }
         }

@@ -23,7 +23,9 @@ import {
   showDesktopNotification,
 } from "@/lib/highlights/desktop-notifications"
 import { playAlertSound } from "@/lib/highlights/alert-sounds"
+import { addLiveNotification } from "@/lib/highlights/notification-center"
 import type { ChatBadgeCatalog } from "@/lib/chat/chat-badges"
+import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 import type {
   AppConfig,
   ChatSplit,
@@ -33,6 +35,7 @@ import type {
   TwitchAccount,
   TwitchChannel,
 } from "@/lib/peepochat/peepochat-config"
+import { findSplitContainingChannel } from "@/lib/peepochat/peepochat-config"
 import {
   setThirdPartyEmoteFetchOptions,
 } from "@/lib/chat/chat-emotes"
@@ -287,6 +290,10 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     [channels]
   )
 
+  const focusChannelRef = React.useRef<(login: string) => void>((login) => {
+    setActiveChannelBase(login)
+  })
+
   const highlightActivity = useHighlightActivity({
     config,
     accountLogin: account?.login ?? null,
@@ -295,7 +302,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     activeSplitId,
     splits: savedSplits,
     onFocusChannel: (login) => {
-      setActiveChannelBase(login)
+      focusChannelRef.current(login)
     },
   })
 
@@ -308,8 +315,16 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     enabled: config.highlights.liveIndicatorsEnabled && hasAccountValue,
     accessToken: account?.accessToken,
     clientId: account?.clientId,
-    onChannelWentLive: (login, title) => {
+    onChannelWentLive: (login, title, gameName) => {
       if (!config.highlights.livePushNotificationsEnabled) return
+
+      addLiveNotification({
+        channelLogin: login,
+        title,
+        gameName,
+        wentLiveAt: new Date().toISOString(),
+      })
+
       if (!canShowDesktopNotifications()) return
       if (document.visibilityState !== "hidden") return
 
@@ -317,7 +332,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
         title: `#${login} is live`,
         body: title,
         tag: `live:${login}`,
-        onClick: () => setActiveChannelBase(login),
+        onClick: () => focusChannelRef.current(login),
       })
       void playAlertSound({
         useDefaultSounds: config.highlights.useDefaultSounds,
@@ -328,11 +343,36 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
 
   const setActiveChannel = React.useCallback(
     (login: string) => {
-      highlightActivity.markChannelRead(login)
-      setActiveChannelBase(login)
+      const normalized = normalizeChannelLogin(login)
+      const split = findSplitContainingChannel(savedSplits, normalized)
+
+      if (split) {
+        highlightActivity.markSplitRead(split.id)
+        updateConfig((current) => ({
+          ...current,
+          twitch: {
+            ...current.twitch,
+            activeChannelLogin: normalized,
+          },
+          layout: { ...current.layout, activeSplitId: split.id },
+        }))
+        return
+      }
+
+      highlightActivity.markChannelRead(normalized)
+      setActiveChannelBase(normalized)
     },
-    [highlightActivity, setActiveChannelBase]
+    [
+      highlightActivity,
+      savedSplits,
+      setActiveChannelBase,
+      updateConfig,
+    ]
   )
+
+  React.useEffect(() => {
+    focusChannelRef.current = setActiveChannel
+  }, [setActiveChannel])
 
   const selectSplitWithRead = React.useCallback(
     (splitId: string) => {

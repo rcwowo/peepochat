@@ -1,5 +1,6 @@
 import logoSrc from "/logo.svg"
 import { AccountMenu } from "@/components/shell/account-menu"
+import { NotificationCenter } from "@/components/shell/notification-center"
 import { Button } from "@/components/ui/button"
 import {
   Tooltip,
@@ -20,6 +21,8 @@ export function AppHeader({
       </div>
       <div className="flex items-center gap-3">
         <AccountMenu />
+
+        <NotificationCenter />
 
         <Tooltip>
           <TooltipTrigger asChild>

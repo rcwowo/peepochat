@@ -8,6 +8,7 @@ import {
   type ChatSplitLayoutNode,
 } from "@/lib/chat/chat-split-layout"
 import { normalizeSidebarOrder } from "@/lib/sidebar/sidebar-order"
+import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 
 export const PEEPOCHAT_STORAGE_KEY = "peepochat::config"
 export const PEEPOCHAT_SCHEMA_VERSION = 11
@@ -322,6 +323,16 @@ export function findSplitByChannels(
 ): ChatSplit | undefined {
   const key = splitChannelsKey(channels)
   return splits.find((split) => splitChannelsKey(split.channels) === key)
+}
+
+export function findSplitContainingChannel(
+  splits: ChatSplit[],
+  login: string
+): ChatSplit | undefined {
+  const normalized = normalizeChannelLogin(login)
+  return splits.find((split) =>
+    normalizeSplitChannels(split.channels).includes(normalized)
+  )
 }
 
 export function getChannelsUsedInSplits(splits: ChatSplit[]): Set<string> {

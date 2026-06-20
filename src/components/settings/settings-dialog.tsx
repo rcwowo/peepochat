@@ -6,6 +6,7 @@ import {
   PaintbrushIcon,
   ScrollTextIcon,
   BellIcon,
+  CodeIcon,
 } from "lucide-react"
 
 import {
@@ -26,6 +27,15 @@ import { BehaviorTab } from "@/components/settings/behavior-tab"
 import { ChangelogTab } from "@/components/settings/changelog-tab"
 import { DataManagementTab } from "@/components/settings/data-management-tab"
 import { HighlightsTab } from "@/components/settings/highlights-tab"
+import { IS_DEV } from "@/lib/dev/is-dev"
+
+const DeveloperTab = IS_DEV
+  ? React.lazy(async () => {
+      const module = await import("@/components/settings/developer-tab")
+      return { default: module.DeveloperTab }
+    })
+  : null
+
 export type SettingsCategory =
   | "appearance"
   | "behavior"
@@ -33,19 +43,27 @@ export type SettingsCategory =
   | "data"
   | "changelog"
   | "about"
+  | "developer"
 
-const SETTINGS_CATEGORIES: {
+type SettingsCategoryEntry = {
   id: SettingsCategory
   label: string
   icon: React.ComponentType<{ className?: string }>
-  separated?: boolean
-}[] = [
+}
+
+const CORE_SETTINGS_CATEGORIES: SettingsCategoryEntry[] = [
   { id: "appearance", label: "Appearance", icon: PaintbrushIcon },
   { id: "behavior", label: "Behavior", icon: SlidersHorizontalIcon },
   { id: "highlights", label: "Highlights", icon: BellIcon },
   { id: "data", label: "Data Management", icon: DatabaseIcon },
-  { id: "changelog", label: "Changelog", icon: ScrollTextIcon, separated: true },
-  { id: "about", label: "About", icon: InfoIcon, separated: true },
+  ...(IS_DEV
+    ? [{ id: "developer" as const, label: "Developer", icon: CodeIcon }]
+    : []),
+]
+
+const META_SETTINGS_CATEGORIES: SettingsCategoryEntry[] = [
+  { id: "changelog", label: "Changelog", icon: ScrollTextIcon },
+  { id: "about", label: "About", icon: InfoIcon },
 ]
 
 function useTooltipPointerOnlyGuard(enabled: boolean) {
@@ -86,7 +104,7 @@ function CategoryIconButton({
   onSelect,
   allowTooltipOpen,
 }: {
-  category: (typeof SETTINGS_CATEGORIES)[number]
+  category: SettingsCategoryEntry
   selected: boolean
   onSelect: () => void
   allowTooltipOpen: boolean
@@ -158,7 +176,7 @@ export function SettingsDialog({
         <div className="flex min-h-0 flex-1">
           <nav className="flex w-14 shrink-0 flex-col border-r border-border bg-muted/20 p-2">
             <div className="flex flex-col gap-0.5">
-              {SETTINGS_CATEGORIES.filter((c) => !c.separated).map((category) => (
+              {CORE_SETTINGS_CATEGORIES.map((category) => (
                 <CategoryIconButton
                   key={category.id}
                   category={category}
@@ -171,7 +189,7 @@ export function SettingsDialog({
 
             <div className="mt-auto pt-2">
               <Separator className="mb-2" />
-              {SETTINGS_CATEGORIES.filter((c) => c.separated).map((category) => (
+              {META_SETTINGS_CATEGORIES.map((category) => (
                 <CategoryIconButton
                   key={category.id}
                   category={category}
@@ -191,6 +209,11 @@ export function SettingsDialog({
               {activeCategory === "data" && <DataManagementTab />}
               {activeCategory === "changelog" && <ChangelogTab />}
               {activeCategory === "about" && <AboutTab />}
+              {IS_DEV && activeCategory === "developer" && DeveloperTab ? (
+                <React.Suspense fallback={null}>
+                  <DeveloperTab />
+                </React.Suspense>
+              ) : null}
             </div>
           </div>
         </div>

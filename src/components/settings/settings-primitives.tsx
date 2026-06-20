@@ -558,7 +558,7 @@ export function SettingsSelectRow<T extends string>({
           <SelectTrigger size="sm" className="min-w-[7.5rem]">
             <SelectValue placeholder={placeholder} />
           </SelectTrigger>
-          <SelectContent align="end">
+          <SelectContent align="end" position="popper" className="z-80">
             {options.map((option) => (
               <SelectItem key={option.value} value={option.value}>
                 {option.label}

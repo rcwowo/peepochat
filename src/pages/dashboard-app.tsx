@@ -82,9 +82,11 @@ function DashboardLayout() {
       {settingsOpen && (
         <button
           type="button"
-          aria-label="Close settings"
+          aria-label="Close panel"
           className="absolute inset-0 z-50 hidden cursor-default border-0 bg-black/55 sm:block"
-          onClick={() => setSettingsOpen(false)}
+          onClick={() => {
+            setSettingsOpen(false)
+          }}
         />
       )}
       <SettingsDialog
