@@ -37,6 +37,7 @@ export function showDesktopNotification(options: {
   title: string
   body: string
   tag?: string
+  icon?: string
   onClick?: () => void
 }): Notification | null {
   if (!canShowDesktopNotifications()) {
@@ -47,6 +48,7 @@ export function showDesktopNotification(options: {
     const notification = new Notification(options.title, {
       body: options.body,
       tag: options.tag,
+      ...(options.icon ? { icon: options.icon } : {}),
     })
 
     if (options.onClick) {

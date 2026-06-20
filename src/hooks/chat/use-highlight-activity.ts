@@ -303,9 +303,14 @@ export function useHighlightActivity({
           canShowDesktopNotifications()
 
         if (shouldNotify) {
+          const channel = configRef.current.twitch.channels.find(
+            (entry) => normalizeChannelLogin(entry.login) === login
+          )
+          const channelLabel = channel?.displayName || channel?.login || login
+
           showDesktopNotification({
-            title: `#${login}`,
-            body: `${message.displayName}: ${message.text}`,
+            title: `${message.displayName} pinged you in #${channelLabel}`,
+            body: message.text,
             tag: `ping:${login}:${message.id}`,
             onClick: () => onFocusChannelRef.current?.(login),
           })

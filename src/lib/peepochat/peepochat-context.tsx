@@ -23,7 +23,10 @@ import {
   showDesktopNotification,
 } from "@/lib/highlights/desktop-notifications"
 import { playAlertSound } from "@/lib/highlights/alert-sounds"
-import { addLiveNotification } from "@/lib/highlights/notification-center"
+import {
+  addLiveNotification,
+  formatLiveNotificationText,
+} from "@/lib/highlights/notification-center"
 import type { ChatBadgeCatalog } from "@/lib/chat/chat-badges"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 import type {
@@ -328,10 +331,16 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       if (!canShowDesktopNotifications()) return
       if (document.visibilityState !== "hidden") return
 
+      const channel = channels.find(
+        (entry) => normalizeChannelLogin(entry.login) === login
+      )
+      const channelName = channel?.displayName || channel?.login || login
+
       showDesktopNotification({
-        title: `#${login} is live`,
-        body: title,
+        title: `${channelName} just went live!`,
+        body: formatLiveNotificationText(gameName ?? "", title),
         tag: `live:${login}`,
+        icon: channel?.profileImageUrl || undefined,
         onClick: () => focusChannelRef.current(login),
       })
       void playAlertSound({
