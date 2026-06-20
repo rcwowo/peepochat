@@ -1,5 +1,13 @@
 import * as React from "react"
-import { BellIcon, BellRingIcon, RadioIcon, Trash2Icon } from "lucide-react"
+import {
+  BellIcon,
+  BellRingIcon,
+  GlobeIcon,
+  MessageSquareIcon,
+  RadioIcon,
+  TerminalIcon,
+  Trash2Icon,
+} from "lucide-react"
 import { toast } from "sonner"
 
 import {
@@ -9,8 +17,14 @@ import {
   SettingsGroup,
   SettingsSection,
   SettingsSelectRow,
+  SettingsSwitchRow,
   SettingsTab,
 } from "@/components/settings/settings-primitives"
+import {
+  DEV_LOG_CATEGORIES,
+  DEV_LOG_META,
+  useDevLogSettings,
+} from "@/lib/dev/dev-log-settings"
 import { IS_DEV } from "@/lib/dev/is-dev"
 import {
   clearAllTestNotifications,
@@ -21,6 +35,7 @@ import { usePeepochatSettings } from "@/lib/peepochat/peepochat-context"
 
 export function DeveloperTab() {
   const { channels, account, config } = usePeepochatSettings()
+  const { settings: logSettings, setEnabled: setLogEnabled } = useDevLogSettings()
   const [channelLogin, setChannelLogin] = React.useState(
     () => channels[0]?.login ?? ""
   )
@@ -97,6 +112,12 @@ export function DeveloperTab() {
     toast.success("Notification center cleared.")
   }
 
+  const logIcons = {
+    chat: MessageSquareIcon,
+    fetch: GlobeIcon,
+    irc: TerminalIcon,
+  } as const
+
   return (
     <SettingsTab
       title="Developer"
@@ -161,6 +182,24 @@ export function DeveloperTab() {
             Clear all
           </SettingsActionButton>
         </SettingsActions>
+      </SettingsSection>
+
+      <SettingsSection
+        title="Console logging"
+        description="Toggle verbose dev logs. Settings persist in localStorage and apply immediately."
+      >
+        <SettingsGroup>
+          {DEV_LOG_CATEGORIES.map((category) => (
+            <SettingsSwitchRow
+              key={category}
+              icon={logIcons[category]}
+              title={DEV_LOG_META[category].title}
+              description={DEV_LOG_META[category].description}
+              checked={logSettings[category]}
+              onCheckedChange={(checked) => setLogEnabled(category, checked)}
+            />
+          ))}
+        </SettingsGroup>
       </SettingsSection>
 
       <SettingsSection

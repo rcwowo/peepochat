@@ -3,10 +3,12 @@
  * and `import.meta.env.DEV` branches fold to no-ops at build time.
  */
 
-const IS_DEV = import.meta.env.DEV
+import {
+  isDevLogEnabled,
+  type DevLogCategory,
+} from "@/lib/dev/dev-log-settings"
 
-/** Enable in devtools: `localStorage.setItem("peepochat:dev:irc", "1")` */
-const DEV_IRC_LOG_KEY = "peepochat:dev:irc"
+const IS_DEV = import.meta.env.DEV
 
 export type DevLogger = {
   debug: (...args: unknown[]) => void
@@ -17,33 +19,36 @@ export type DevLogger = {
   error: (...args: unknown[]) => void
 }
 
-function createDevLogger(scope: string): DevLogger {
+function createDevLogger(scope: string, category: DevLogCategory): DevLogger {
   if (!IS_DEV) {
     const noop = () => {}
     return { debug: noop, debugLazy: noop, info: noop, warn: noop, error: noop }
   }
 
   const prefix = `[peepochat:${scope}]`
+  const isDebugEnabled = () => isDevLogEnabled(category)
+
   return {
-    debug: (...args: unknown[]) => console.debug(prefix, ...args),
-    debugLazy: (build) => console.debug(prefix, ...build()),
+    debug: (...args: unknown[]) => {
+      if (!isDebugEnabled()) return
+      console.debug(prefix, ...args)
+    },
+    debugLazy: (build) => {
+      if (!isDebugEnabled()) return
+      console.debug(prefix, ...build())
+    },
     info: (...args: unknown[]) => console.info(prefix, ...args),
     warn: (...args: unknown[]) => console.warn(prefix, ...args),
     error: (...args: unknown[]) => console.error(prefix, ...args),
   }
 }
 
-export const devChatLogger = createDevLogger("chat")
-export const devFetchLogger = createDevLogger("fetch")
+export const devChatLogger = createDevLogger("chat", "chat")
+export const devFetchLogger = createDevLogger("fetch", "fetch")
 
 /** Verbose IRC line/kind logging (off by default even in dev). */
 export function isDevIrcLoggingEnabled(): boolean {
-  if (!IS_DEV) return false
-  try {
-    return localStorage.getItem(DEV_IRC_LOG_KEY) === "1"
-  } catch {
-    return false
-  }
+  return isDevLogEnabled("irc")
 }
 
 const SENSITIVE_QUERY_KEYS = new Set([
