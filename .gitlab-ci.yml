@@ -1,8 +1,35 @@
-include:
-    # Scans source code for known security vulnerabilities.
-    # https://gitlab.com/explore/catalog/components/sast
-    - component: gitlab.com/components/sast/sast@3.4.0
+stages:
+  - lint
+  - test
 
-    # https://gitlab.com/explore/catalog/components/secret-detection
-    # Scans source code for leaked secrets/keys.
-    - component: $CI_SERVER_FQDN/components/secret-detection/secret-detection@2.3.0
+.bun_job:
+  image: oven/bun:1
+  cache:
+    key:
+      files:
+        - bun.lock
+    paths:
+      - node_modules/
+  before_script:
+    - bun install --frozen-lockfile
+
+lint:
+  extends: .bun_job
+  stage: lint
+  script:
+    - bun run lint
+
+typecheck:
+  extends: .bun_job
+  stage: lint
+  script:
+    - bun run typecheck
+
+include:
+  # Scans source code for known security vulnerabilities.
+  # https://gitlab.com/explore/catalog/components/sast
+  - component: gitlab.com/components/sast/sast@3.4.0
+
+  # https://gitlab.com/explore/catalog/components/secret-detection
+  # Scans source code for leaked secrets/keys.
+  - component: $CI_SERVER_FQDN/components/secret-detection/secret-detection@2.3.0
