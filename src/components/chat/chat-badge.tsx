@@ -46,7 +46,7 @@ function ChatBadgeImage({
   description: string
 }) {
   return (
-    <Tooltip>
+    <Tooltip disableHoverableContent>
       <TooltipTrigger asChild>
         <img
           className="chat-badge inline-block align-middle"
@@ -57,13 +57,15 @@ function ChatBadgeImage({
               : undefined
           }
           alt={description}
-          width={18}
-          height={18}
           loading="lazy"
           decoding="async"
         />
       </TooltipTrigger>
-      <TooltipContent side="top" sideOffset={4} className="px-2 py-1 text-xs">
+      <TooltipContent
+        side="top"
+        sideOffset={4}
+        className="pointer-events-none px-2 py-1 text-xs"
+      >
         {title}
       </TooltipContent>
     </Tooltip>
@@ -100,16 +102,20 @@ function ChatBadgeFallback({ badge }: { badge: TwitchBadge }) {
   const Icon = role.icon
 
   return (
-    <Tooltip>
+    <Tooltip disableHoverableContent>
       <TooltipTrigger asChild>
         <span
-          className="inline-flex size-[18px] items-center justify-center rounded-xs align-middle"
+          className="chat-badge-fallback inline-flex items-center justify-center rounded-xs align-middle"
           style={{ backgroundColor: role.bg }}
         >
-          <Icon className="size-3 text-white" />
+          <Icon className="chat-badge-fallback-icon text-white" />
         </span>
       </TooltipTrigger>
-      <TooltipContent side="top" sideOffset={4} className="px-2 py-1 text-xs">
+      <TooltipContent
+        side="top"
+        sideOffset={4}
+        className="pointer-events-none px-2 py-1 text-xs"
+      >
         {role.label}
       </TooltipContent>
     </Tooltip>
@@ -137,7 +143,7 @@ export function ChatBadgeList({
   }
 
   return (
-    <span className="mr-0.5 inline-flex items-center gap-0.5 align-middle">
+    <span className="mr-1 inline-flex items-center gap-0.5 align-middle">
       {badges.map((badge) => (
         <ChatBadge key={badge.id} badge={badge} />
       ))}

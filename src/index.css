@@ -179,6 +179,10 @@
     scrollbar-color: var(--chat-scrollbar-thumb) transparent;
   }
 
+  .chat-presentation {
+    --chat-badge-size: calc(var(--chat-font-size, 13px) * 18 / 13);
+  }
+
   .chat-presentation .chat-message-size {
     font-size: var(--chat-font-size, 13px);
     line-height: 1.25;
@@ -266,6 +270,16 @@
   .chat-badge {
     width: var(--chat-badge-size);
     height: var(--chat-badge-size);
+  }
+
+  .chat-badge-fallback {
+    width: var(--chat-badge-size);
+    height: var(--chat-badge-size);
+  }
+
+  .chat-badge-fallback-icon {
+    width: calc(var(--chat-badge-size) * 2 / 3);
+    height: calc(var(--chat-badge-size) * 2 / 3);
   }
 
   .chat-emote img {
