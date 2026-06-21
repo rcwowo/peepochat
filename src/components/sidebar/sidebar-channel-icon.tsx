@@ -3,10 +3,17 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 
 /** Discord-style red mention / ping badge (top-right). */
-function SidebarPingBadge() {
+export function SidebarPingBadge({
+  ringClassName = "ring-sidebar",
+}: {
+  ringClassName?: string
+}) {
   return (
     <span
-      className="pointer-events-none absolute top-0 right-0 z-20 size-2.5 translate-x-1/4 -translate-y-1/4 rounded-full bg-[#f23f43] ring-2 ring-sidebar"
+      className={cn(
+        "pointer-events-none absolute top-0 right-0 z-20 size-2.5 translate-x-1/4 -translate-y-1/4 rounded-full bg-[#f23f43] ring-2",
+        ringClassName
+      )}
       aria-hidden
     />
   )

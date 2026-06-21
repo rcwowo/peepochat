@@ -13,6 +13,7 @@ import {
   SidebarChannelAvatar,
   SidebarChannelRow,
   SidebarIconTile,
+  SidebarPingBadge,
   SidebarSplitAvatarCluster,
 } from "@/components/sidebar/sidebar-channel-icon"
 import {
@@ -68,6 +69,73 @@ function splitGroupLabel(
   return channels.map((c) => channelLabel(c.login, c.displayName)).join(", ")
 }
 
+function SplitTooltipLiveBadge() {
+  return (
+    <span className="shrink-0 rounded-sm bg-red-600 px-1 py-px text-[8px] font-bold leading-none tracking-wide text-white">
+      LIVE
+    </span>
+  )
+}
+
+function SplitTooltipChannelRow({
+  login,
+  displayName,
+  profileImageUrl,
+  showPing,
+  showLive,
+}: {
+  login: string
+  displayName?: string
+  profileImageUrl?: string
+  showPing: boolean
+  showLive: boolean
+}) {
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      <span className="relative size-5 shrink-0 overflow-visible rounded-full">
+        <span className="block size-full overflow-hidden rounded-full bg-secondary">
+          <SidebarChannelAvatar
+            login={login}
+            profileImageUrl={profileImageUrl}
+          />
+        </span>
+        {showPing ? <SidebarPingBadge ringClassName="ring-foreground" /> : null}
+      </span>
+      <span className="min-w-0 truncate">{channelLabel(login, displayName)}</span>
+      {showLive ? <SplitTooltipLiveBadge /> : null}
+    </div>
+  )
+}
+
+function SplitTooltipContent({
+  channels,
+  hasPingForChannel,
+  isChannelLive,
+}: {
+  channels: Array<{
+    login: string
+    displayName?: string
+    profileImageUrl?: string
+  }>
+  hasPingForChannel: (login: string) => boolean
+  isChannelLive: (login: string) => boolean
+}) {
+  return (
+    <div className="flex flex-col gap-1.5 py-0.5">
+      {channels.map((channel) => (
+        <SplitTooltipChannelRow
+          key={channel.login}
+          login={channel.login}
+          displayName={channel.displayName}
+          profileImageUrl={channel.profileImageUrl}
+          showPing={hasPingForChannel(channel.login)}
+          showLive={isChannelLive(channel.login)}
+        />
+      ))}
+    </div>
+  )
+}
+
 function sidebarIconButtonClass() {
   return cn(
     "group/icon flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-transparent p-0 outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-sidebar-ring"
@@ -76,6 +144,7 @@ function sidebarIconButtonClass() {
 
 function SidebarIconContextMenu({
   label,
+  tooltipContent,
   isActive,
   showUnread,
   onSelect,
@@ -83,6 +152,7 @@ function SidebarIconContextMenu({
   children,
 }: {
   label: string
+  tooltipContent?: React.ReactNode
   isActive: boolean
   showUnread: boolean
   onSelect: () => void
@@ -128,7 +198,16 @@ function SidebarIconContextMenu({
               </button>
             </TooltipTrigger>
           </ContextMenuTrigger>
-          <TooltipContent side="right">{label}</TooltipContent>
+          <TooltipContent
+            side="right"
+            className={
+              tooltipContent
+                ? "flex flex-col items-stretch px-2.5 py-2"
+                : undefined
+            }
+          >
+            {tooltipContent ?? label}
+          </TooltipContent>
         </Tooltip>
         {menu}
       </ContextMenu>
@@ -230,6 +309,8 @@ function SplitContextMenu({
   showUnread,
   showPing,
   showLive,
+  hasPingForChannel,
+  isChannelLive,
   onSelect,
   onUngroup,
   onDelete,
@@ -246,6 +327,8 @@ function SplitContextMenu({
   showUnread: boolean
   showPing: boolean
   showLive: boolean
+  hasPingForChannel: (login: string) => boolean
+  isChannelLive: (login: string) => boolean
   onSelect: () => void
   onUngroup: () => void
   onDelete: () => void
@@ -258,6 +341,13 @@ function SplitContextMenu({
   return (
     <SidebarIconContextMenu
       label={label}
+      tooltipContent={
+        <SplitTooltipContent
+          channels={channels}
+          hasPingForChannel={hasPingForChannel}
+          isChannelLive={isChannelLive}
+        />
+      }
       isActive={isActive}
       showUnread={showUnread}
       onSelect={onSelect}
@@ -570,6 +660,8 @@ export function ChannelSidebar() {
                         showUnread={showUnread}
                         showPing={showPing}
                         showLive={isSplitLive(entry.split.channels)}
+                        hasPingForChannel={hasPingForChannel}
+                        isChannelLive={isChannelLive}
                         onSelect={() => selectSplit(entry.split.id)}
                         onUnreadEnabledChange={(enabled) =>
                           setSplitUnreadEnabled(entry.split.id, enabled)
