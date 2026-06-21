@@ -89,24 +89,52 @@ function ScaleLinkDivider({
   )
 }
 
+function FontFamilySettingRow({
+  fontFamily,
+  onCommit,
+}: {
+  fontFamily: string
+  onCommit: (fontFamily: string) => void
+}) {
+  const [draft, setDraft] = React.useState(fontFamily)
+
+  const commit = React.useCallback(() => {
+    const next = draft.trim()
+    if (next === fontFamily) return
+    onCommit(next)
+  }, [draft, fontFamily, onCommit])
+
+  return (
+    <SettingsInputRow
+      label="Font family"
+      description='Google or system font name. Leave empty for the app default.'
+      value={draft}
+      placeholder="Inter, sans-serif, monospace, etc."
+      onChange={setDraft}
+      onBlur={commit}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.currentTarget.blur()
+        }
+      }}
+    />
+  )
+}
+
 export function AppearanceTab() {
   const { config, updateConfig } = usePeepochatSettings()
   const { theme, setTheme } = useTheme()
-  const [fontDraft, setFontDraft] = React.useState(config.chat.fontFamily)
   const scalesLinked = config.chat.linkEmoteScaleToFontSize
 
-  React.useEffect(() => {
-    setFontDraft(config.chat.fontFamily)
-  }, [config.chat.fontFamily])
-
-  const commitFontFamily = React.useCallback(() => {
-    const next = fontDraft.trim()
-    if (next === config.chat.fontFamily) return
-    updateConfig((current) => ({
-      ...current,
-      chat: { ...current.chat, fontFamily: next },
-    }))
-  }, [config.chat.fontFamily, fontDraft, updateConfig])
+  const commitFontFamily = React.useCallback(
+    (fontFamily: string) => {
+      updateConfig((current) => ({
+        ...current,
+        chat: { ...current.chat, fontFamily },
+      }))
+    },
+    [updateConfig]
+  )
 
   const updateFontSize = React.useCallback(
     (fontSizePx: number) => {
@@ -160,7 +188,7 @@ export function AppearanceTab() {
   return (
     <SettingsTab
       title="Appearance"
-      description="Theme, typography, timestamps, and performance-related display options."
+      description="Theme, typography, badges, timestamps, and performance-related display options."
     >
       <SettingsDivider className="mt-4 mb-4" />
 
@@ -215,18 +243,10 @@ export function AppearanceTab() {
         description="How chat messages are displayed."
       >
         <SettingsGroup>
-          <SettingsInputRow
-            label="Font family"
-            description='Google or system font name. Leave empty for the app default.'
-            value={fontDraft}
-            placeholder="Inter, sans-serif, monospace, etc."
-            onChange={setFontDraft}
-            onBlur={commitFontFamily}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.currentTarget.blur()
-              }
-            }}
+          <FontFamilySettingRow
+            key={config.chat.fontFamily}
+            fontFamily={config.chat.fontFamily}
+            onCommit={commitFontFamily}
           />
           <div>
             <SettingsSliderRow
@@ -249,6 +269,42 @@ export function AppearanceTab() {
               onChange={updateEmoteScale}
             />
           </div>
+        </SettingsGroup>
+      </SettingsSection>
+
+      <SettingsSection
+        title="Badges"
+        description="Which badge types appear next to usernames in chat."
+      >
+        <SettingsGroup>
+          <SettingsSwitchRow
+            title="Twitch badges"
+            description="Native badges provided by Twitch."
+            checked={config.chat.badges.twitchEnabled}
+            onCheckedChange={(checked) =>
+              updateConfig((current) => ({
+                ...current,
+                chat: {
+                  ...current.chat,
+                  badges: { ...current.chat.badges, twitchEnabled: checked },
+                },
+              }))
+            }
+          />
+          <SettingsSwitchRow
+            title="OwO+ badges"
+            description="Awarded by subscribing to my Patreon."
+            checked={config.chat.badges.owoMemberEnabled}
+            onCheckedChange={(checked) =>
+              updateConfig((current) => ({
+                ...current,
+                chat: {
+                  ...current.chat,
+                  badges: { ...current.chat.badges, owoMemberEnabled: checked },
+                },
+              }))
+            }
+          />
         </SettingsGroup>
       </SettingsSection>
 

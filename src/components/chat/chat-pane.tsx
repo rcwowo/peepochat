@@ -119,6 +119,8 @@ type ChatPaneProps = {
   badgeCatalog: ChatBadgeCatalog
   getMemberBadge: (userId: string | null) => ResolvedMemberBadge | null
   showBadgeFallback: boolean
+  showTwitchBadges: boolean
+  showMemberBadges: boolean
   joined?: boolean
   isActive?: boolean
   showRemoveSplit?: boolean
@@ -141,6 +143,8 @@ function ChatPaneInner({
   badgeCatalog,
   getMemberBadge,
   showBadgeFallback,
+  showTwitchBadges,
+  showMemberBadges,
   joined = true,
   isActive = true,
   showRemoveSplit = false,
@@ -374,6 +378,8 @@ function ChatPaneInner({
                       badgeCatalog={badgeCatalog}
                       getMemberBadge={getMemberBadge}
                       showBadgeFallback={showBadgeFallback}
+                      showTwitchBadges={showTwitchBadges}
+                      showMemberBadges={showMemberBadges}
                       isHistorical={entry.isHistorical}
                       isAlternateRow={isAlternateRow}
                       pingHighlighted={highlightedMessageIds.has(

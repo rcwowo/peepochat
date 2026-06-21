@@ -11,7 +11,7 @@ import { normalizeSidebarOrder } from "@/lib/sidebar/sidebar-order"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 
 export const PEEPOCHAT_STORAGE_KEY = "peepochat::config"
-export const PEEPOCHAT_SCHEMA_VERSION = 11
+export const PEEPOCHAT_SCHEMA_VERSION = 12
 
 export const LIVE_MESSAGES_PER_CHANNEL_MIN = 20
 export const LIVE_MESSAGES_PER_CHANNEL_MAX = 500
@@ -34,6 +34,11 @@ const chatEmotesSchema = z.object({
   bttvEnabled: z.boolean().default(true),
   ffzEnabled: z.boolean().default(true),
   seventvEnabled: z.boolean().default(true),
+})
+
+const chatBadgesSchema = z.object({
+  twitchEnabled: z.boolean().default(true),
+  owoMemberEnabled: z.boolean().default(true),
 })
 
 const messageQuickActionsSchema = z.object({
@@ -69,6 +74,7 @@ const chatSchema = z.object({
     .default(LIVE_MESSAGES_PER_CHANNEL_DEFAULT),
   messageQuickActions: messageQuickActionsSchema,
   emotes: chatEmotesSchema,
+  badges: chatBadgesSchema,
 })
 
 const highlightPingRuleSchema = z.object({
@@ -178,6 +184,7 @@ export type HighlightsConfig = z.infer<typeof highlightsSchema>
 export type MessageTimestampFormat = z.infer<typeof messageTimestampFormatSchema>
 export type ChatFontFamilySetting = z.infer<typeof chatFontFamilySchema>
 export type ChatEmotesConfig = z.infer<typeof chatEmotesSchema>
+export type ChatBadgesConfig = z.infer<typeof chatBadgesSchema>
 export type MessageQuickActionsConfig = z.infer<typeof messageQuickActionsSchema>
 export type ChatSplit = z.infer<typeof chatSplitSchema>
 export type {
@@ -228,6 +235,10 @@ export function createDefaultConfig(): AppConfig {
         bttvEnabled: true,
         ffzEnabled: true,
         seventvEnabled: true,
+      },
+      badges: {
+        twitchEnabled: true,
+        owoMemberEnabled: true,
       },
     },
     layout: {

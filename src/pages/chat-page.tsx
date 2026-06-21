@@ -32,6 +32,8 @@ type ChatPaneBindings = {
   getBadgeCatalog: (login: string) => ChatBadgeCatalog
   getMemberBadge: (userId: string | null) => ResolvedMemberBadge | null
   hasBadgeSupport: boolean
+  showTwitchBadges: boolean
+  showMemberBadges: boolean
   account: ReturnType<typeof usePeepochat>["account"]
   loginWithTwitch: ReturnType<typeof usePeepochat>["loginWithTwitch"]
   removeSplitChannel: (login: string) => void
@@ -76,6 +78,8 @@ function SingleChannelPane({
         badgeCatalog={bindings.getBadgeCatalog(login)}
         getMemberBadge={bindings.getMemberBadge}
         showBadgeFallback={!bindings.hasBadgeSupport}
+        showTwitchBadges={bindings.showTwitchBadges}
+        showMemberBadges={bindings.showMemberBadges}
         joined={room?.joined ?? false}
         isActive={isActive}
       />
@@ -117,6 +121,8 @@ function SplitChannelPanes({
           badgeCatalog={bindings.getBadgeCatalog(login)}
           getMemberBadge={bindings.getMemberBadge}
           showBadgeFallback={!bindings.hasBadgeSupport}
+          showTwitchBadges={bindings.showTwitchBadges}
+          showMemberBadges={bindings.showMemberBadges}
           joined={room?.joined ?? false}
           showRemoveSplit
           onRemoveSplit={bindings.removeSplitChannel}
@@ -242,6 +248,8 @@ export function ChatPage() {
 
   const timestampFormat = config.chat.messageTimestampFormat
   const messageQuickActions = config.chat.messageQuickActions
+  const showTwitchBadges = config.chat.badges.twitchEnabled
+  const showMemberBadges = config.chat.badges.owoMemberEnabled
   const chatPresentation = useChatPresentationProps(config.chat)
 
   const channelMeta = React.useMemo(() => {
@@ -260,6 +268,8 @@ export function ChatPage() {
       getBadgeCatalog,
       getMemberBadge,
       hasBadgeSupport,
+      showTwitchBadges,
+      showMemberBadges,
       account,
       loginWithTwitch,
       removeSplitChannel,
@@ -277,6 +287,8 @@ export function ChatPage() {
       getBadgeCatalog,
       getMemberBadge,
       hasBadgeSupport,
+      showTwitchBadges,
+      showMemberBadges,
       account,
       loginWithTwitch,
       removeSplitChannel,

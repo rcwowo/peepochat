@@ -29,6 +29,8 @@ function ChatMessageRowInner({
   badgeCatalog,
   getMemberBadge,
   showBadgeFallback = false,
+  showTwitchBadges = true,
+  showMemberBadges = true,
   isHistorical = false,
   isAlternateRow = false,
   showCopyButton = true,
@@ -45,6 +47,8 @@ function ChatMessageRowInner({
   badgeCatalog: ChatBadgeCatalog
   getMemberBadge: (userId: string | null) => ResolvedMemberBadge | null
   showBadgeFallback?: boolean
+  showTwitchBadges?: boolean
+  showMemberBadges?: boolean
   isHistorical?: boolean
   isAlternateRow?: boolean
   showCopyButton?: boolean
@@ -57,8 +61,10 @@ function ChatMessageRowInner({
   recentUserMessages: TwitchChatMessage[]
 }) {
   const timestamp = formatMessageTimestamp(message.receivedAt, timestampFormat)
-  const badges = resolveMessageBadges(message.badges, badgeCatalog)
-  const memberBadge = getMemberBadge(message.userId)
+  const badges = showTwitchBadges
+    ? resolveMessageBadges(message.badges, badgeCatalog)
+    : []
+  const memberBadge = showMemberBadges ? getMemberBadge(message.userId) : null
   const usernameColor = getReadableUsernameColor(message.color)
   const showQuickActions = showCopyButton || showReplyButton
   const userCardTarget = React.useMemo(
@@ -154,7 +160,7 @@ function ChatMessageRowInner({
           badges={badges}
           memberBadge={memberBadge}
           unresolved={message.badges}
-          showFallback={showBadgeFallback}
+          showFallback={showTwitchBadges && showBadgeFallback}
         />
         <UserCardPopover
           target={userCardTarget}
