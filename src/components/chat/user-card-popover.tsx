@@ -254,6 +254,12 @@ export function UserCardPopover({
   const readableColor = getReadableUsernameColor(target.color)
   const card = useUserCard({ open, account, target, channelRoomId, channelLogin })
 
+  const closeUserCard = React.useCallback(() => {
+    setOpen(false)
+    setDragOffset({ x: 0, y: 0 })
+    setAnchorPosition(null)
+  }, [])
+
   const profile = card.status === "ready" ? card.profile : null
   const status = card.status === "ready" ? card.channelStatus : null
   const banStatus = status?.ban.state === "available" ? status.ban.value : null
@@ -308,13 +314,6 @@ export function UserCardPopover({
     [card, target.displayName]
   )
 
-  React.useEffect(() => {
-    if (!open) {
-      setDragOffset({ x: 0, y: 0 })
-      setAnchorPosition(null)
-    }
-  }, [open])
-
   const openFromTrigger = React.useCallback(() => {
     const rect = triggerRef.current?.getBoundingClientRect()
     if (rect) {
@@ -336,11 +335,11 @@ export function UserCardPopover({
 
   const handleTriggerClick = React.useCallback(() => {
     if (open) {
-      setOpen(false)
+      closeUserCard()
       return
     }
     openFromTrigger()
-  }, [open, openFromTrigger])
+  }, [closeUserCard, open, openFromTrigger])
 
   React.useEffect(() => {
     if (!open) {
@@ -355,12 +354,12 @@ export function UserCardPopover({
       ) {
         return
       }
-      setOpen(false)
+      closeUserCard()
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setOpen(false)
+        closeUserCard()
       }
     }
 
@@ -370,7 +369,7 @@ export function UserCardPopover({
       window.removeEventListener("pointerdown", handlePointerDown, true)
       window.removeEventListener("keydown", handleKeyDown, true)
     }
-  }, [open])
+  }, [closeUserCard, open])
 
   const handleDragStart = React.useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
@@ -421,7 +420,7 @@ export function UserCardPopover({
           size="icon-xs"
           className="absolute top-2 right-2 z-20 bg-popover/85 shadow-sm backdrop-blur-sm"
           aria-label="Close user card"
-          onClick={() => setOpen(false)}
+          onClick={closeUserCard}
         >
           <XIcon className="size-3.5" />
         </Button>

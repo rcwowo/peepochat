@@ -68,11 +68,6 @@ function Tooltip({
   const [open, setOpen] = React.useState(false)
 
   React.useEffect(() => {
-    if (isControlled) return
-    setOpen(false)
-  }, [isControlled, resetCounter])
-
-  React.useEffect(() => {
     if (!isControlled) return
     if (!props.open) return
     // Force-close controlled tooltips (sidebar channel buttons) when tab/window changes
@@ -116,6 +111,7 @@ function Tooltip({
   return (
     <TooltipPrimitive.Root
       data-slot="tooltip"
+      key={resetCounter}
       {...props}
       open={open}
       onOpenChange={handleOpenChange}

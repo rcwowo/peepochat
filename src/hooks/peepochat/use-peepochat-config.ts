@@ -2,7 +2,6 @@ import * as React from "react"
 
 import {
   type AppConfig,
-  createDefaultConfig,
   importConfigBackup,
   loadConfig,
   mergeRestoredConfig,
@@ -33,13 +32,13 @@ const cancelIdle: IdleCanceler =
     : (handle) => window.clearTimeout(handle)
 
 export function usePeepochatConfig() {
-  const [config, setConfig] = React.useState<AppConfig>(() =>
-    createDefaultConfig()
-  )
-  const [ready, setReady] = React.useState(false)
-  const [needsOnboarding, setNeedsOnboarding] = React.useState(false)
+  const [config, setConfig] = React.useState<AppConfig>(() => loadConfig())
+  const [forceOnboarding, setForceOnboarding] = React.useState(false)
   const pendingSaveRef = React.useRef<AppConfig | null>(null)
   const saveHandleRef = React.useRef<number | null>(null)
+
+  const needsOnboarding =
+    forceOnboarding || needsOnboardingForConfig(config)
 
   const flushPendingSave = React.useCallback(() => {
     if (saveHandleRef.current !== null) {
@@ -66,18 +65,6 @@ export function usePeepochatConfig() {
       saveConfig(pending)
     })
   }, [])
-
-  React.useEffect(() => {
-    const loaded = loadConfig()
-    setConfig(loaded)
-    setNeedsOnboarding(needsOnboardingForConfig(loaded))
-    setReady(true)
-  }, [])
-
-  React.useEffect(() => {
-    if (!ready) return
-    setNeedsOnboarding(needsOnboardingForConfig(config))
-  }, [ready, config])
 
   React.useEffect(() => {
     if (typeof window === "undefined") return
@@ -128,21 +115,21 @@ export function usePeepochatConfig() {
       return merged
     })
     saveConfig(merged)
-    setNeedsOnboarding(needsOnboardingForConfig(merged))
+    setForceOnboarding(needsOnboardingForConfig(merged))
     return merged
   }, [])
 
   const completeOnboarding = React.useCallback(() => {
-    setNeedsOnboarding(false)
+    setForceOnboarding(false)
   }, [])
 
   const requireOnboarding = React.useCallback(() => {
-    setNeedsOnboarding(true)
+    setForceOnboarding(true)
   }, [])
 
   return {
     config,
-    ready,
+    ready: true,
     needsOnboarding,
     completeOnboarding,
     requireOnboarding,

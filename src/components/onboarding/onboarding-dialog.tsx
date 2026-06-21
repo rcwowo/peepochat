@@ -39,13 +39,8 @@ export function OnboardingDialog({
   const [addingChannel, setAddingChannel] = React.useState(false)
   const fileInputRef = React.useRef<HTMLInputElement | null>(null)
 
-  React.useEffect(() => {
-    if (!account) return
-
-    setStep((current) =>
-      current === "welcome" || current === "login" ? "channel" : current
-    )
-  }, [account])
+  const resolvedStep =
+    account && (step === "welcome" || step === "login") ? "channel" : step
 
   const handleImportBackup = async (
     event: React.ChangeEvent<HTMLInputElement>
@@ -88,7 +83,7 @@ export function OnboardingDialog({
 
   if (!open) return null
 
-  const isWelcome = step === "welcome"
+  const isWelcome = resolvedStep === "welcome"
 
   return (
     <div className="fixed inset-0 z-50 flex animate-in items-center justify-center bg-background duration-500 fade-in">
@@ -114,7 +109,7 @@ export function OnboardingDialog({
           <div className="flex w-full animate-in flex-col items-center duration-500 fade-in slide-in-from-bottom-4">
             <div className="mb-8 flex w-full max-w-xs gap-2 self-center">
               {TRACKED_STEPS.map((s, i) => {
-                const currentIndex = TRACKED_STEPS.indexOf(step)
+                const currentIndex = TRACKED_STEPS.indexOf(resolvedStep)
                 return (
                   <div
                     key={s}
@@ -127,7 +122,7 @@ export function OnboardingDialog({
             </div>
 
             <div className="w-full rounded-2xl border border-border bg-card p-6 shadow-lg ring-1 ring-foreground/3">
-              {step === "login" ? (
+              {resolvedStep === "login" ? (
                 <div className="space-y-5">
                   <div>
                     <h2 className="text-lg font-semibold tracking-tight">

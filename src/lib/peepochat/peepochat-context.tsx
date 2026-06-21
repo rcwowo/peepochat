@@ -15,6 +15,7 @@ import { useHighlightActivity } from "@/hooks/chat/use-highlight-activity"
 import { useStreamLiveStatus } from "@/hooks/twitch/use-stream-live-status"
 import {
   useTwitchChat,
+  isSyncChannelsSupersededError,
   type TwitchSelfChatState,
   type TwitchChatRoomState,
   type TwitchTimelineItem,
@@ -401,9 +402,13 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     if (channelLogins.length === 0) return
 
     void syncAllChannels(channelLogins).catch((error) => {
-      if (error instanceof Error && error.message !== "Channel list updated") {
-        toast.error(error.message)
+      if (isSyncChannelsSupersededError(error)) {
+        return
       }
+
+      toast.error(
+        error instanceof Error ? error.message : "Connection failed"
+      )
     })
   }, [
     channelLogins,
@@ -521,27 +526,6 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     logout()
     requireOnboarding()
   }, [logout, requireOnboarding, syncChannels])
-
-  const autoConnectedRef = React.useRef(false)
-
-  React.useEffect(() => {
-    if (!ready || needsOnboarding || autoConnectedRef.current) return
-    if (!hasAccountValue) return
-
-    autoConnectedRef.current = true
-
-    if (
-      channelLogins.length > 0 &&
-      !connectionState.connected &&
-      !connectionState.connecting
-    ) {
-      void syncAllChannels(channelLogins).catch((err) => {
-        toast.error(
-          err instanceof Error ? err.message : "Connection failed"
-        )
-      })
-    }
-  }, [ready, needsOnboarding]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const configValue = React.useMemo<PeepochatConfigContextValue>(
     () => ({

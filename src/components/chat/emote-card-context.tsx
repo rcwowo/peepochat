@@ -1,5 +1,9 @@
 import * as React from "react"
 
+import {
+  EmoteCardContext,
+  type EmoteCardContextValue,
+} from "@/components/chat/emote-card-context.shared"
 import { EmoteCardPanel } from "@/components/chat/emote-card-panel"
 import { useEmoteCard } from "@/hooks/chat/use-emote-card"
 import type { ComposerEmoteCatalog } from "@/lib/chat/chat-emote-catalog"
@@ -12,15 +16,6 @@ import {
 
 const EMOTE_CARD_ESTIMATED_HEIGHT_PX = 300
 const EMOTE_CARD_VIEWPORT_MARGIN_PX = 8
-
-type EmoteCardContextValue = {
-  openEmoteCard: (target: EmoteCardTarget, triggerEl: HTMLElement | null) => void
-  closeEmoteCard: () => void
-  toggleEmoteCard: (target: EmoteCardTarget, triggerEl: HTMLElement | null) => void
-  isEmoteCardOpenFor: (target: EmoteCardTarget) => boolean
-}
-
-const EmoteCardContext = React.createContext<EmoteCardContextValue | null>(null)
 
 function computeAnchorPosition(
   rect: DOMRect | null,
@@ -73,9 +68,18 @@ export function EmoteCardProvider({
     catalog,
   })
 
+  const resetEmoteCardState = React.useCallback(() => {
+    setDragOffset({ x: 0, y: 0 })
+    setAnchorPosition(null)
+    setActiveTarget(null)
+    activeTriggerRef.current = null
+    setRatioBucket(1)
+  }, [])
+
   const closeEmoteCard = React.useCallback(() => {
     setOpen(false)
-  }, [])
+    resetEmoteCardState()
+  }, [resetEmoteCardState])
 
   const openEmoteCard = React.useCallback(
     (target: EmoteCardTarget, triggerEl: HTMLElement | null) => {
@@ -142,16 +146,6 @@ export function EmoteCardProvider({
 
   React.useEffect(() => {
     if (!open) {
-      setDragOffset({ x: 0, y: 0 })
-      setAnchorPosition(null)
-      setActiveTarget(null)
-      activeTriggerRef.current = null
-      setRatioBucket(1)
-    }
-  }, [open])
-
-  React.useEffect(() => {
-    if (!open) {
       return
     }
 
@@ -180,7 +174,7 @@ export function EmoteCardProvider({
     }
   }, [closeEmoteCard, open])
 
-  const contextValue = React.useMemo(
+  const contextValue = React.useMemo<EmoteCardContextValue>(
     () => ({
       openEmoteCard,
       closeEmoteCard,
@@ -211,8 +205,4 @@ export function EmoteCardProvider({
       ) : null}
     </EmoteCardContext.Provider>
   )
-}
-
-export function useEmoteCardContext() {
-  return React.useContext(EmoteCardContext)
 }

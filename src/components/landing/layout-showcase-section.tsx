@@ -585,7 +585,7 @@ const PROGRESS_RENDER_INTERVAL_MS = 32
 
 function useLayoutShowcaseAnimation(reducedMotion: boolean, active: boolean) {
   const [phaseIndex, setPhaseIndex] = React.useState(0)
-  const [progress, setProgress] = React.useState(0)
+  const [progress, setProgress] = React.useState(() => (reducedMotion ? 1 : 0))
   const activeRef = React.useRef(active)
 
   React.useEffect(() => {
@@ -600,8 +600,6 @@ function useLayoutShowcaseAnimation(reducedMotion: boolean, active: boolean) {
     }
 
     if (reducedMotion) {
-      setProgress(1)
-
       const timer = window.setInterval(() => {
         setPhaseIndex((current) => (current + 1) % PHASES.length)
       }, 4000)

@@ -309,12 +309,13 @@ function AddChannelDialog({
   const [draft, setDraft] = React.useState("")
   const [submitting, setSubmitting] = React.useState(false)
 
-  React.useEffect(() => {
-    if (!open) {
+  const handleOpenChange = (nextOpen: boolean) => {
+    onOpenChange(nextOpen)
+    if (!nextOpen) {
       setDraft("")
       setSubmitting(false)
     }
-  }, [open])
+  }
 
   const handleSubmit = async () => {
     const value = draft.trim()
@@ -325,7 +326,7 @@ function AddChannelDialog({
     setSubmitting(true)
     try {
       await onAdd(value)
-      onOpenChange(false)
+      handleOpenChange(false)
     } catch {
       // Caller shows toast
     } finally {
@@ -334,7 +335,7 @@ function AddChannelDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Add channel</DialogTitle>

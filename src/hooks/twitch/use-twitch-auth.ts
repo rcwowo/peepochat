@@ -85,7 +85,7 @@ export function useTwitchAuth({
     }
 
     oauthHandledRef.current = true
-    setOauthBusy(true)
+    queueMicrotask(() => setOauthBusy(true))
 
     const returnedState = callbackParams.get("state")
 

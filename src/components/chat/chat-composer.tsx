@@ -221,7 +221,7 @@ export function ChatComposer({
 
         let tabState = activeCompleter.tab
         let matches: EmoteSuggestion[]
-        let matchIndex = 0
+        let matchIndex: number
 
         if (shouldResetTabState(tabState, replaceRange)) {
           matches = findTabEmoteMatches(emoteList, word)

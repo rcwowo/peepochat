@@ -36,23 +36,24 @@ import { usePeepochatSettings } from "@/lib/peepochat/peepochat-context"
 export function DeveloperTab() {
   const { channels, account, config } = usePeepochatSettings()
   const { settings: logSettings, setEnabled: setLogEnabled } = useDevLogSettings()
-  const [channelLogin, setChannelLogin] = React.useState(
+  const [channelLoginDraft, setChannelLoginDraft] = React.useState(
     () => channels[0]?.login ?? ""
   )
 
-  React.useEffect(() => {
+  const channelLogin = React.useMemo(() => {
     if (channels.length === 0) {
-      setChannelLogin("")
-      return
+      return ""
     }
 
-    setChannelLogin((current) => {
-      if (current && channels.some((channel) => channel.login === current)) {
-        return current
-      }
-      return channels[0]?.login ?? ""
-    })
-  }, [channels])
+    if (
+      channelLoginDraft &&
+      channels.some((channel) => channel.login === channelLoginDraft)
+    ) {
+      return channelLoginDraft
+    }
+
+    return channels[0]?.login ?? ""
+  }, [channelLoginDraft, channels])
 
   const channelOptions = React.useMemo(
     () =>
@@ -133,7 +134,7 @@ export function DeveloperTab() {
               title="Channel"
               description="Which channel the test notification should reference."
               value={channelLogin}
-              onChange={setChannelLogin}
+              onChange={setChannelLoginDraft}
               options={channelOptions}
               placeholder="Select channel"
             />

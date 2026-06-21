@@ -64,8 +64,8 @@ export function resetEmoteCompleter(): EmoteCompleterState {
 
 /** Word bounds at cursor (SevenTV `getSearchRange`). */
 export function getSearchRange(text: string, position: number): EmoteReplaceRange {
-  let start = 0
-  let end = 0
+  let start: number
+  let end: number
 
   for (let index = position; ; index--) {
     if (index < 1 || (text.charAt(index - 1) === " " && index !== position)) {

@@ -81,8 +81,50 @@ export function useEmoteCard({
   }, [catalogEntry, open, target])
 
   React.useEffect(() => {
-    void reload()
-  }, [reload])
+    if (!open || !target) {
+      return
+    }
+
+    const requestId = requestIdRef.current + 1
+    requestIdRef.current = requestId
+    const fallback = buildInitialEmoteCardDetails(target, catalogEntry)
+
+    queueMicrotask(() => {
+      if (requestIdRef.current !== requestId) {
+        return
+      }
+
+      setState({
+        status: "loading",
+        details: fallback,
+        error: null,
+      })
+    })
+
+    void loadEmoteCardDetails({
+      target,
+      catalogEntry,
+    })
+      .then((details) => {
+        if (requestIdRef.current !== requestId) {
+          return
+        }
+
+        setState({ status: "ready", details, error: null })
+      })
+      .catch((error) => {
+        if (requestIdRef.current !== requestId) {
+          return
+        }
+
+        setState({
+          status: "error",
+          details: fallback,
+          error:
+            error instanceof Error ? error.message : "Could not load emote details.",
+        })
+      })
+  }, [catalogEntry, open, target])
 
   return { ...state, reload }
 }

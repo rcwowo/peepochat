@@ -371,8 +371,72 @@ export function useUserCard({
   }, [account, channelLogin, channelRoomId, open, target])
 
   React.useEffect(() => {
-    void reload()
-  }, [reload])
+    if (!open) {
+      return
+    }
+
+    const requestId = requestIdRef.current + 1
+    requestIdRef.current = requestId
+
+    if (!account) {
+      queueMicrotask(() => {
+        if (requestIdRef.current !== requestId) {
+          return
+        }
+
+        setState({
+          status: "error",
+          profile: null,
+          channelStatus: null,
+          error: "Sign in with Twitch to load user details.",
+        })
+      })
+      return
+    }
+
+    queueMicrotask(() => {
+      if (requestIdRef.current !== requestId) {
+        return
+      }
+
+      setState((current) => ({
+        status: "loading",
+        profile: current.profile,
+        channelStatus: null,
+        error: null,
+      }))
+    })
+
+    void (async () => {
+      try {
+        const profile = await loadUserProfile(target, account)
+        const channelStatus = await loadChannelStatus({
+          account,
+          channelRoomId,
+          channelLogin,
+          profile,
+        })
+
+        if (requestIdRef.current !== requestId) {
+          return
+        }
+
+        setState({ status: "ready", profile, channelStatus, error: null })
+      } catch (error) {
+        if (requestIdRef.current !== requestId) {
+          return
+        }
+
+        setState({
+          status: "error",
+          profile: null,
+          channelStatus: null,
+          error:
+            error instanceof Error ? error.message : "Could not load user details.",
+        })
+      }
+    })()
+  }, [account, channelLogin, channelRoomId, open, target])
 
   const runAction = React.useCallback(
     async (action: UserCardAction) => {

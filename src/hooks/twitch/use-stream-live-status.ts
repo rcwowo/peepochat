@@ -3,6 +3,7 @@ import * as React from "react"
 import { fetchLiveStreamsByLogin } from "@/lib/twitch/twitch-api"
 
 const LIVE_POLL_INTERVAL_MS = 45_000
+const EMPTY_LIVE_LOGINS = new Set<string>()
 
 export function useStreamLiveStatus({
   channelLogins,
@@ -25,6 +26,8 @@ export function useStreamLiveStatus({
 
   const channelLoginsKey = channelLogins.join("\0")
   const onWentLiveRef = React.useRef(onChannelWentLive)
+  const pollingActive =
+    enabled && Boolean(accessToken) && Boolean(clientId) && channelLogins.length > 0
 
   React.useEffect(() => {
     liveLoginsRef.current = liveLogins
@@ -35,8 +38,7 @@ export function useStreamLiveStatus({
   }, [onChannelWentLive])
 
   React.useEffect(() => {
-    if (!enabled || !accessToken || !clientId || channelLogins.length === 0) {
-      setLiveLogins(new Set())
+    if (!pollingActive) {
       initialPollDoneRef.current = false
       return
     }
@@ -48,8 +50,8 @@ export function useStreamLiveStatus({
       try {
         const streams = await fetchLiveStreamsByLogin(
           channelLogins,
-          accessToken,
-          clientId
+          accessToken!,
+          clientId!
         )
         if (cancelled) return
 
@@ -87,12 +89,15 @@ export function useStreamLiveStatus({
       cancelled = true
       window.clearInterval(interval)
     }
-  }, [enabled, accessToken, clientId, channelLoginsKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pollingActive, accessToken, clientId, channelLoginsKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const effectiveLiveLogins = pollingActive ? liveLogins : EMPTY_LIVE_LOGINS
 
   const isLive = React.useCallback(
-    (login: string) => liveLogins.has(login.trim().replace(/^#/, "").toLowerCase()),
-    [liveLogins]
+    (login: string) =>
+      effectiveLiveLogins.has(login.trim().replace(/^#/, "").toLowerCase()),
+    [effectiveLiveLogins]
   )
 
-  return { liveLogins, isLive }
+  return { liveLogins: effectiveLiveLogins, isLive }
 }

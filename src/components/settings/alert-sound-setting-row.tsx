@@ -26,18 +26,20 @@ export function AlertSoundSettingRow({
   otherCustomId = null,
 }: AlertSoundSettingRowProps) {
   const inputRef = React.useRef<HTMLInputElement>(null)
-  const [customName, setCustomName] = React.useState<string | null>(null)
+  const [loadedCustomName, setLoadedCustomName] = React.useState<string | null>(
+    null
+  )
+  const customName = customId ? loadedCustomName : null
 
   React.useEffect(() => {
     if (!customId) {
-      setCustomName(null)
       return
     }
 
     let cancelled = false
     void getCustomSound(customId).then((record) => {
       if (!cancelled) {
-        setCustomName(record?.name ?? "Custom sound")
+        setLoadedCustomName(record?.name ?? "Custom sound")
       }
     })
 
@@ -53,7 +55,7 @@ export function AlertSoundSettingRow({
       const previousId = customId
       const record = await saveCustomSound(file)
       onCustomIdChange(record.id)
-      setCustomName(record.name)
+      setLoadedCustomName(record.name)
 
       if (
         previousId &&

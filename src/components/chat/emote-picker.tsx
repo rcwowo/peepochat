@@ -64,16 +64,9 @@ export function EmotePicker({
     [catalog.platforms, platformId]
   )
 
-  const activeCategory = React.useMemo(
-    () =>
-      query.trim()
-        ? null
-        : findPickerCategory(catalog, platformId, categoryId),
-    [catalog, categoryId, platformId, query]
-  )
-
-  React.useEffect(() => {
-    if (!open) {
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next)
+    if (!next) {
       setQuery("")
       return
     }
@@ -83,19 +76,7 @@ export function EmotePicker({
 
     setPlatformId(defaults.platformId)
     setCategoryId(defaults.categoryId)
-  }, [catalog, open])
-
-  React.useEffect(() => {
-    if (!activePlatform) return
-
-    const categoryStillValid = activePlatform.categories.some(
-      (category) => category.id === categoryId
-    )
-
-    if (!categoryStillValid && activePlatform.categories[0]) {
-      setCategoryId(activePlatform.categories[0].id)
-    }
-  }, [activePlatform, categoryId])
+  }
 
   const handleSelect = (code: string) => {
     onSelect(code)
@@ -107,13 +88,36 @@ export function EmotePicker({
     setPlatformId(nextPlatformId)
 
     const platform = catalog.platforms.find((entry) => entry.id === nextPlatformId)
-    if (platform?.categories[0]) {
-      setCategoryId(platform.categories[0].id)
+    const nextCategoryId = platform?.categories[0]?.id ?? ""
+    if (nextCategoryId) {
+      setCategoryId(nextCategoryId)
     }
   }
 
+  const resolvedCategoryId = React.useMemo(() => {
+    if (!activePlatform) {
+      return categoryId
+    }
+
+    const categoryStillValid = activePlatform.categories.some(
+      (category) => category.id === categoryId
+    )
+
+    return categoryStillValid
+      ? categoryId
+      : (activePlatform.categories[0]?.id ?? categoryId)
+  }, [activePlatform, categoryId])
+
+  const resolvedCategory = React.useMemo(
+    () =>
+      query.trim()
+        ? null
+        : findPickerCategory(catalog, platformId, resolvedCategoryId),
+    [catalog, platformId, query, resolvedCategoryId]
+  )
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button
           type="button"
@@ -169,13 +173,13 @@ export function EmotePicker({
               <div className="flex min-h-0 flex-1">
                 <CategoryNav
                   categories={activePlatform.categories}
-                  activeId={categoryId}
+                  activeId={resolvedCategoryId}
                   onSelect={setCategoryId}
                 />
 
                 <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
                   <EmoteGrid
-                    emotes={activeCategory?.emotes ?? []}
+                    emotes={resolvedCategory?.emotes ?? []}
                     onSelect={handleSelect}
                   />
                 </div>
@@ -276,18 +280,26 @@ function EmoteGrid({
   emotes: ComposerEmote[]
   onSelect: (code: string) => void
 }) {
-  const [ratioBuckets, setRatioBuckets] = React.useState(
-    () => new Map<string, EmoteRatioBucket>()
-  )
-
   const emoteSetKey = React.useMemo(
     () => emotes.map((emote) => emotePickerEmoteKey(emote)).join("\0"),
     [emotes]
   )
 
-  React.useEffect(() => {
-    setRatioBuckets(new Map())
-  }, [emoteSetKey])
+  return (
+    <EmoteGridBody key={emoteSetKey} emotes={emotes} onSelect={onSelect} />
+  )
+}
+
+function EmoteGridBody({
+  emotes,
+  onSelect,
+}: {
+  emotes: ComposerEmote[]
+  onSelect: (code: string) => void
+}) {
+  const [ratioBuckets, setRatioBuckets] = React.useState(
+    () => new Map<string, EmoteRatioBucket>()
+  )
 
   const sortedEmotes = React.useMemo(
     () =>
@@ -343,10 +355,7 @@ function EmoteGridItem({
   onDimensions: (emote: ComposerEmote, width: number, height: number) => void
   onSelect: (code: string) => void
 }) {
-  const target = React.useMemo(
-    () => toEmoteCardTarget(emote),
-    [emote.code, emote.id, emote.imageUrl, emote.provider]
-  )
+  const target = React.useMemo(() => toEmoteCardTarget(emote), [emote])
 
   return (
     <div

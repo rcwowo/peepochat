@@ -81,6 +81,25 @@ type PendingConnect = {
   reject: (err: Error) => void
 }
 
+export const SYNC_CHANNELS_SUPERSEDED_MESSAGE = "Channel list updated"
+
+export function isSyncChannelsSupersededError(error: unknown): boolean {
+  return (
+    error instanceof Error && error.message === SYNC_CHANNELS_SUPERSEDED_MESSAGE
+  )
+}
+
+function buildSyncChannelsKey(
+  channelLogins: string[],
+  options: TwitchChatConnectOptions
+): string {
+  return [
+    channelLogins.join("\0"),
+    options.accessToken ?? "",
+    options.nick ?? "",
+  ].join("\u0001")
+}
+
 function createEmptyRoom(login: string): TwitchChatRoomState {
   return {
     login,
@@ -97,6 +116,10 @@ export function useTwitchChat(options?: {
   const onChatMessageRef = options?.onChatMessageRef
   const clientRef = React.useRef<TwitchChatClient | null>(null)
   const pendingConnectRef = React.useRef<PendingConnect | null>(null)
+  const pendingSyncPromiseRef = React.useRef<{
+    key: string
+    promise: Promise<void>
+  } | null>(null)
   const emoteCatalogsRef = React.useRef(new Map<string, ThirdPartyEmoteCatalog>())
   const composerCatalogsRef = React.useRef(new Map<string, ComposerEmoteCatalog>())
   const [composerCatalogs, setComposerCatalogs] = React.useState<
@@ -978,7 +1001,14 @@ export function useTwitchChat(options?: {
 
   React.useEffect(() => {
     return () => {
+      // React Strict Mode remounts immediately in dev; closing here interrupts
+      // the in-flight Twitch IRC handshake before the remounted hook reuses it.
+      if (import.meta.env.DEV) {
+        return
+      }
+
       clientRef.current?.close()
+      clientRef.current = null
     }
   }, [])
 
@@ -1004,6 +1034,7 @@ export function useTwitchChat(options?: {
       const normalized = [
         ...new Set(channelLogins.map(normalizeChannelLogin).filter(Boolean)),
       ]
+      const syncKey = buildSyncChannelsKey(normalized, options)
 
       const previous = syncedChannelsRef.current
       const unchanged =
@@ -1016,7 +1047,13 @@ export function useTwitchChat(options?: {
         return Promise.resolve()
       }
 
+      const inFlight = pendingSyncPromiseRef.current
+      if (inFlight && inFlight.key === syncKey) {
+        return inFlight.promise
+      }
+
       if (normalized.length === 0) {
+        pendingSyncPromiseRef.current = null
         clientRef.current?.close()
         hasAnnouncedConnectedRef.current = false
         emoteCatalogGenerationRef.current += 1
@@ -1063,7 +1100,9 @@ export function useTwitchChat(options?: {
       }
 
       if (pendingConnectRef.current) {
-        pendingConnectRef.current.reject(new Error("Channel list updated"))
+        pendingConnectRef.current.reject(
+          new Error(SYNC_CHANNELS_SUPERSEDED_MESSAGE)
+        )
         pendingConnectRef.current = null
       }
 
@@ -1073,10 +1112,19 @@ export function useTwitchChat(options?: {
         lastError: null,
       }))
 
-      return new Promise<void>((resolve, reject) => {
+      const promise = new Promise<void>((resolve, reject) => {
         pendingConnectRef.current = { resolve, reject }
         getClient().setChannels(normalized, options)
       })
+
+      pendingSyncPromiseRef.current = { key: syncKey, promise }
+      void promise.finally(() => {
+        if (pendingSyncPromiseRef.current?.promise === promise) {
+          pendingSyncPromiseRef.current = null
+        }
+      })
+
+      return promise
     },
     [clearRecentMessagesQueue, ensureRooms, getClient, loadRecentMessages]
   )

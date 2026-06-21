@@ -85,6 +85,10 @@ export function useChatBadges(account: TwitchAccount | null) {
 
   const getBadgeCatalog = React.useCallback(
     (roomId: string | null): ChatBadgeCatalog => {
+      if (!account) {
+        return createEmptyBadgeCatalog()
+      }
+
       if (!roomId) {
         return globalCatalog
       }
@@ -108,17 +112,8 @@ export function useChatBadges(account: TwitchAccount | null) {
       cache.set(roomId, { global: globalCatalog, channel: channelCatalog, merged })
       return merged
     },
-    [channelCatalogs, globalCatalog]
+    [account, channelCatalogs, globalCatalog]
   )
-
-  React.useEffect(() => {
-    if (!account) {
-      setGlobalCatalog(createEmptyBadgeCatalog())
-      setChannelCatalogs({})
-      channelLoadingRef.current.clear()
-      loadedRoomIdsRef.current.clear()
-    }
-  }, [account])
 
   return {
     getBadgeCatalog,

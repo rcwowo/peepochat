@@ -71,11 +71,8 @@ function useTooltipPointerOnlyGuard(enabled: boolean) {
 
   React.useEffect(() => {
     if (!enabled) {
-      setPointerMode(false)
       return
     }
-
-    setPointerMode(false)
 
     const onPointer = () => {
       setPointerMode(true)
@@ -156,14 +153,15 @@ export function SettingsDialog({
     React.useState<SettingsCategory>("appearance")
   const allowTooltipOpen = useTooltipPointerOnlyGuard(open)
 
-  React.useEffect(() => {
-    if (open && initialCategory) {
+  const handleOpenChange = (nextOpen: boolean) => {
+    onOpenChange(nextOpen)
+    if (nextOpen && initialCategory) {
       setActiveCategory(initialCategory)
     }
-  }, [open, initialCategory])
+  }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
+    <Sheet open={open} onOpenChange={handleOpenChange} modal={false}>
       <SheetContent
         side="right"
         showOverlay={false}

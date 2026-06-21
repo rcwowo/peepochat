@@ -1,7 +1,7 @@
 import * as React from "react"
 
 import { EmoteTooltipContent } from "@/components/chat/emote-tooltip-content"
-import { useEmoteCardContext } from "@/components/chat/emote-card-context"
+import { useEmoteCardContext } from "@/hooks/chat/use-emote-card-context"
 import {
   Tooltip,
   TooltipTrigger,

@@ -142,18 +142,13 @@ function PingUserAvatar({
 }) {
   const { account } = usePeepochatSettings()
   const cacheKey = userName.toLowerCase()
-  const [profileImageUrl, setProfileImageUrl] = React.useState(
-    () => profileImageCache.get(cacheKey) ?? null
-  )
+  const [fetchedProfileImageUrl, setFetchedProfileImageUrl] = React.useState<
+    string | null
+  >(null)
+  const profileImageUrl = profileImageCache.get(cacheKey) ?? fetchedProfileImageUrl
 
   React.useEffect(() => {
-    if (profileImageUrl || !account) {
-      return
-    }
-
-    const cached = profileImageCache.get(cacheKey)
-    if (cached) {
-      setProfileImageUrl(cached)
+    if (profileImageCache.has(cacheKey) || !account) {
       return
     }
 
@@ -170,7 +165,7 @@ function PingUserAvatar({
         const url = users[0]?.profileImageUrl
         if (url) {
           profileImageCache.set(cacheKey, url)
-          setProfileImageUrl(url)
+          setFetchedProfileImageUrl(url)
         }
       })
       .catch(() => {})
@@ -178,7 +173,7 @@ function PingUserAvatar({
     return () => {
       cancelled = true
     }
-  }, [account, cacheKey, profileImageUrl, userName])
+  }, [account, cacheKey, userName])
 
   if (profileImageUrl) {
     return (
