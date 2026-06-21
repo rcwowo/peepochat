@@ -18,6 +18,7 @@ import type {
   TwitchAccount,
 } from "@/lib/peepochat/peepochat-config"
 import { formatMessageTimestamp } from "@/lib/peepochat/peepochat-context"
+import type { ResolvedMemberBadge } from "@/lib/chat/rcw-badges"
 import type { TwitchChatMessage } from "@/lib/twitch/twitch-chat"
 import { cn } from "@/lib/utils"
 import { CopyIcon, CornerUpLeftIcon } from "lucide-react"
@@ -26,6 +27,7 @@ function ChatMessageRowInner({
   message,
   timestampFormat,
   badgeCatalog,
+  getMemberBadge,
   showBadgeFallback = false,
   isHistorical = false,
   isAlternateRow = false,
@@ -41,6 +43,7 @@ function ChatMessageRowInner({
   message: TwitchChatMessage
   timestampFormat: MessageTimestampFormat
   badgeCatalog: ChatBadgeCatalog
+  getMemberBadge: (userId: string | null) => ResolvedMemberBadge | null
   showBadgeFallback?: boolean
   isHistorical?: boolean
   isAlternateRow?: boolean
@@ -55,6 +58,7 @@ function ChatMessageRowInner({
 }) {
   const timestamp = formatMessageTimestamp(message.receivedAt, timestampFormat)
   const badges = resolveMessageBadges(message.badges, badgeCatalog)
+  const memberBadge = getMemberBadge(message.userId)
   const usernameColor = getReadableUsernameColor(message.color)
   const showQuickActions = showCopyButton || showReplyButton
   const userCardTarget = React.useMemo(
@@ -148,6 +152,7 @@ function ChatMessageRowInner({
         ) : null}
         <ChatBadgeList
           badges={badges}
+          memberBadge={memberBadge}
           unresolved={message.badges}
           showFallback={showBadgeFallback}
         />

@@ -10,6 +10,7 @@ import { usePeepochatConfig } from "@/hooks/peepochat/use-peepochat-config"
 import { useTwitchAuth } from "@/hooks/twitch/use-twitch-auth"
 import { useTwitchChannels } from "@/hooks/twitch/use-twitch-channels"
 import { useChatBadges } from "@/hooks/chat/use-chat-badges"
+import { useRcwBadges } from "@/hooks/chat/use-rcw-badges"
 import { useHighlightActivity } from "@/hooks/chat/use-highlight-activity"
 import { useStreamLiveStatus } from "@/hooks/twitch/use-stream-live-status"
 import {
@@ -28,6 +29,7 @@ import {
   formatLiveNotificationText,
 } from "@/lib/highlights/notification-center"
 import type { ChatBadgeCatalog } from "@/lib/chat/chat-badges"
+import type { ResolvedMemberBadge } from "@/lib/chat/rcw-badges"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 import type {
   AppConfig,
@@ -120,6 +122,7 @@ export type PeepochatChatContextValue = {
   getRoomId: (login: string) => string | null
   getSelfChatState: (login: string) => TwitchSelfChatState | null
   getBadgeCatalog: (login: string) => ChatBadgeCatalog
+  getMemberBadge: (userId: string | null) => ResolvedMemberBadge | null
   getComposerEmoteCatalog: (login: string) => ComposerEmoteCatalog
   ensureComposerEmotes: (login: string, roomId: string | null) => void
   isComposerEmotesLoading: (login: string) => boolean
@@ -238,6 +241,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
   } = useTwitchChat({ onChatMessageRef })
   const { getBadgeCatalog, loadBadgesForRoom, hasBadgeSupport } =
     useChatBadges(account)
+  const { getMemberBadge } = useRcwBadges()
 
   const connectOptions = React.useMemo(
     () => ({
@@ -671,6 +675,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       getRoomId,
       getSelfChatState,
       getBadgeCatalog: getBadgeCatalogForChannel,
+      getMemberBadge,
       getComposerEmoteCatalog,
       ensureComposerEmotes,
       isComposerEmotesLoading,
@@ -688,6 +693,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       getRoomId,
       getSelfChatState,
       getBadgeCatalogForChannel,
+      getMemberBadge,
       getComposerEmoteCatalog,
       ensureComposerEmotes,
       isComposerEmotesLoading,

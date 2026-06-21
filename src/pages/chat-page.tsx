@@ -6,6 +6,7 @@ import type { TwitchTimelineItem } from "@/hooks/twitch/use-twitch-chat"
 import type { TwitchSelfChatState } from "@/hooks/twitch/use-twitch-chat"
 import type { CachedChatView } from "@/hooks/chat/use-chat-layout"
 import type { ChatBadgeCatalog } from "@/lib/chat/chat-badges"
+import type { ResolvedMemberBadge } from "@/lib/chat/rcw-badges"
 import { useChatFontFamily } from "@/hooks/chat/use-chat-font"
 import {
   CHAT_EMOTE_SCALE_DEFAULT,
@@ -29,6 +30,7 @@ type ChatPaneBindings = {
   getRoomId: (login: string) => string | null
   getSelfChatState: (login: string) => TwitchSelfChatState | null
   getBadgeCatalog: (login: string) => ChatBadgeCatalog
+  getMemberBadge: (userId: string | null) => ResolvedMemberBadge | null
   hasBadgeSupport: boolean
   account: ReturnType<typeof usePeepochat>["account"]
   loginWithTwitch: ReturnType<typeof usePeepochat>["loginWithTwitch"]
@@ -72,6 +74,7 @@ function SingleChannelPane({
         channelRoomId={bindings.getRoomId(login)}
         selfChatState={bindings.getSelfChatState(login)}
         badgeCatalog={bindings.getBadgeCatalog(login)}
+        getMemberBadge={bindings.getMemberBadge}
         showBadgeFallback={!bindings.hasBadgeSupport}
         joined={room?.joined ?? false}
         isActive={isActive}
@@ -112,6 +115,7 @@ function SplitChannelPanes({
           channelRoomId={bindings.getRoomId(login)}
           selfChatState={bindings.getSelfChatState(login)}
           badgeCatalog={bindings.getBadgeCatalog(login)}
+          getMemberBadge={bindings.getMemberBadge}
           showBadgeFallback={!bindings.hasBadgeSupport}
           joined={room?.joined ?? false}
           showRemoveSplit
@@ -227,6 +231,7 @@ export function ChatPage() {
     getRoomId,
     getSelfChatState,
     getBadgeCatalog,
+    getMemberBadge,
     hasBadgeSupport,
     account,
     loginWithTwitch,
@@ -253,6 +258,7 @@ export function ChatPage() {
       getRoomId,
       getSelfChatState,
       getBadgeCatalog,
+      getMemberBadge,
       hasBadgeSupport,
       account,
       loginWithTwitch,
@@ -269,6 +275,7 @@ export function ChatPage() {
       getRoomId,
       getSelfChatState,
       getBadgeCatalog,
+      getMemberBadge,
       hasBadgeSupport,
       account,
       loginWithTwitch,

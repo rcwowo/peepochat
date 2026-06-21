@@ -25,6 +25,7 @@ import { EmptyState } from "@/components/shared/dashboard-primitives"
 import type { TwitchTimelineItem } from "@/hooks/twitch/use-twitch-chat"
 import type { TwitchSelfChatState } from "@/hooks/twitch/use-twitch-chat"
 import type { ChatBadgeCatalog } from "@/lib/chat/chat-badges"
+import type { ResolvedMemberBadge } from "@/lib/chat/rcw-badges"
 import type {
   MessageQuickActionsConfig,
   MessageTimestampFormat,
@@ -116,6 +117,7 @@ type ChatPaneProps = {
   channelRoomId: string | null
   selfChatState: TwitchSelfChatState | null
   badgeCatalog: ChatBadgeCatalog
+  getMemberBadge: (userId: string | null) => ResolvedMemberBadge | null
   showBadgeFallback: boolean
   joined?: boolean
   isActive?: boolean
@@ -137,6 +139,7 @@ function ChatPaneInner({
   channelRoomId,
   selfChatState,
   badgeCatalog,
+  getMemberBadge,
   showBadgeFallback,
   joined = true,
   isActive = true,
@@ -369,6 +372,7 @@ function ChatPaneInner({
                             ) ?? [])
                       }
                       badgeCatalog={badgeCatalog}
+                      getMemberBadge={getMemberBadge}
                       showBadgeFallback={showBadgeFallback}
                       isHistorical={entry.isHistorical}
                       isAlternateRow={isAlternateRow}
