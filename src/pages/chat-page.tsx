@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils"
 type ChatPaneBindings = {
   timestampFormat: MessageTimestampFormat
   messageQuickActions: MessageQuickActionsConfig
+  highlightPingedMessages: boolean
   channelMeta: Map<string, TwitchChannel>
   getTimeline: (login: string) => TwitchTimelineItem[]
   getRoom: (login: string) => TwitchChatRoomState | null
@@ -71,6 +72,7 @@ function SingleChannelPane({
         timeline={bindings.getTimeline(login)}
         timestampFormat={bindings.timestampFormat}
         messageQuickActions={bindings.messageQuickActions}
+        highlightPingedMessages={bindings.highlightPingedMessages}
         account={bindings.account}
         loginWithTwitch={bindings.loginWithTwitch}
         channelRoomId={bindings.getRoomId(login)}
@@ -114,6 +116,7 @@ function SplitChannelPanes({
           timeline={bindings.getTimeline(login)}
           timestampFormat={bindings.timestampFormat}
           messageQuickActions={bindings.messageQuickActions}
+          highlightPingedMessages={bindings.highlightPingedMessages}
           account={bindings.account}
           loginWithTwitch={bindings.loginWithTwitch}
           channelRoomId={bindings.getRoomId(login)}
@@ -248,6 +251,7 @@ export function ChatPage() {
 
   const timestampFormat = config.chat.messageTimestampFormat
   const messageQuickActions = config.chat.messageQuickActions
+  const highlightPingedMessages = config.highlights.highlightPingedMessages
   const showTwitchBadges = config.chat.badges.twitchEnabled
   const showMemberBadges = config.chat.badges.owoMemberEnabled
   const chatPresentation = useChatPresentationProps(config.chat)
@@ -260,6 +264,7 @@ export function ChatPage() {
     () => ({
       timestampFormat,
       messageQuickActions,
+      highlightPingedMessages,
       channelMeta,
       getTimeline,
       getRoom,
@@ -279,6 +284,7 @@ export function ChatPage() {
     [
       timestampFormat,
       messageQuickActions,
+      highlightPingedMessages,
       channelMeta,
       getTimeline,
       getRoom,

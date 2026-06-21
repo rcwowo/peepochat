@@ -3,6 +3,7 @@ import * as React from "react"
 import {
   findPingMatchRange,
 } from "@/lib/highlights/highlight-rules"
+import { PingMatchMark } from "@/lib/highlights/ping-match-mark"
 
 export function PingMatchText({
   text,
@@ -29,9 +30,7 @@ export function PingMatchText({
   return (
     <span className="break-words">
       {before}
-      <mark className="rounded-sm bg-primary/25 px-0.5 font-medium text-foreground not-italic">
-        {match}
-      </mark>
+      <PingMatchMark>{match}</PingMatchMark>
       {after}
     </span>
   )

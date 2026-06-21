@@ -1,11 +1,19 @@
 import * as React from "react"
 
+import type { PingMatchRange } from "@/lib/highlights/highlight-rules"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 
 const MAX_HIGHLIGHTS_PER_CHANNEL = 250
 
+export type ChannelMessageHighlight = {
+  messageId: string
+  ruleId: string
+  matchPattern: string
+  matchRange: PingMatchRange | null
+}
+
 type ChannelHighlightStore = {
-  byChannel: Map<string, ReadonlySet<string>>
+  byChannel: Map<string, Map<string, ChannelMessageHighlight>>
   listeners: Map<string, Set<() => void>>
 }
 
@@ -14,10 +22,10 @@ const store: ChannelHighlightStore = {
   listeners: new Map(),
 }
 
-const emptySet: ReadonlySet<string> = new Set()
+const emptyMap: ReadonlyMap<string, ChannelMessageHighlight> = new Map()
 
-function getChannelSet(login: string): ReadonlySet<string> {
-  return store.byChannel.get(login) ?? emptySet
+function getChannelMap(login: string): ReadonlyMap<string, ChannelMessageHighlight> {
+  return store.byChannel.get(login) ?? emptyMap
 }
 
 function subscribeChannel(login: string, onStoreChange: () => void) {
@@ -46,20 +54,20 @@ function notifyChannel(login: string) {
 
 export function addChannelMessageHighlight(
   login: string,
-  messageId: string
+  highlight: ChannelMessageHighlight
 ): boolean {
   const normalized = normalizeChannelLogin(login)
   const current = store.byChannel.get(normalized)
-  if (current?.has(messageId)) {
+  if (current?.has(highlight.messageId)) {
     return false
   }
 
-  const next = new Set(current ?? [])
-  next.add(messageId)
+  const next = new Map(current ?? [])
+  next.set(highlight.messageId, highlight)
 
   if (next.size > MAX_HIGHLIGHTS_PER_CHANNEL) {
     const overflow = next.size - MAX_HIGHLIGHTS_PER_CHANNEL
-    const iterator = next.values()
+    const iterator = next.keys()
     for (let index = 0; index < overflow; index += 1) {
       const oldest = iterator.next().value
       if (oldest !== undefined) {
@@ -73,23 +81,31 @@ export function addChannelMessageHighlight(
   return true
 }
 
-export function clearChannelMessageHighlights(login: string) {
+export function removeChannelMessageHighlight(login: string, messageId: string) {
   const normalized = normalizeChannelLogin(login)
-  if (!store.byChannel.has(normalized)) {
+  const current = store.byChannel.get(normalized)
+  if (!current?.has(messageId)) {
     return
   }
-  store.byChannel.delete(normalized)
+
+  const next = new Map(current)
+  next.delete(messageId)
+  if (next.size === 0) {
+    store.byChannel.delete(normalized)
+  } else {
+    store.byChannel.set(normalized, next)
+  }
   notifyChannel(normalized)
 }
 
-export function useChannelHighlightedMessageIds(
+export function useChannelMessageHighlights(
   channelLogin: string
-): ReadonlySet<string> {
+): ReadonlyMap<string, ChannelMessageHighlight> {
   const login = normalizeChannelLogin(channelLogin)
 
   return React.useSyncExternalStore(
     (onStoreChange) => subscribeChannel(login, onStoreChange),
-    () => getChannelSet(login),
-    () => getChannelSet(login)
+    () => getChannelMap(login),
+    () => getChannelMap(login)
   )
 }

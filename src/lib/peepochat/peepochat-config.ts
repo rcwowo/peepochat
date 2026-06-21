@@ -90,6 +90,7 @@ const highlightsSchema = z.object({
   livePushNotificationsEnabled: z.boolean().default(false),
   pingPushNotificationsEnabled: z.boolean().default(true),
   pingOnUsernameMention: z.boolean().default(true),
+  highlightPingedMessages: z.boolean().default(true),
   useDefaultSounds: z.boolean().default(true),
   pingSoundCustomId: z.string().nullable().default(null),
   notificationSoundCustomId: z.string().nullable().default(null),
@@ -164,6 +165,7 @@ const appConfigSchema = z.object({
     livePushNotificationsEnabled: false,
     pingPushNotificationsEnabled: true,
     pingOnUsernameMention: true,
+    highlightPingedMessages: true,
     useDefaultSounds: true,
     pingSoundCustomId: null,
     notificationSoundCustomId: null,
@@ -252,6 +254,7 @@ export function createDefaultConfig(): AppConfig {
       livePushNotificationsEnabled: false,
       pingPushNotificationsEnabled: true,
       pingOnUsernameMention: true,
+      highlightPingedMessages: true,
       useDefaultSounds: true,
       pingSoundCustomId: null,
       notificationSoundCustomId: null,
@@ -686,6 +689,7 @@ function normalizeConfig(config: AppConfig): AppConfig {
     ...createDefaultConfig().highlights,
     ...config.highlights,
     pingOnUsernameMention: config.highlights?.pingOnUsernameMention ?? true,
+    highlightPingedMessages: config.highlights?.highlightPingedMessages ?? true,
     useDefaultSounds: resolveUseDefaultSounds(rawHighlights),
     pingSoundCustomId:
       typeof config.highlights?.pingSoundCustomId === "string"

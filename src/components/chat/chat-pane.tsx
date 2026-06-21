@@ -31,7 +31,7 @@ import type {
   MessageTimestampFormat,
   TwitchAccount,
 } from "@/lib/peepochat/peepochat-config"
-import { useChannelHighlightedMessageIds } from "@/hooks/chat/use-highlight-activity"
+import { useChannelMessageHighlights } from "@/hooks/chat/use-highlight-activity"
 import { usePeepochatChat } from "@/lib/peepochat/peepochat-context"
 import { getRecentUserMessageBuckets } from "@/lib/chat/recent-user-messages"
 import { cn } from "@/lib/utils"
@@ -112,6 +112,7 @@ type ChatPaneProps = {
   timeline: TwitchTimelineItem[]
   timestampFormat: MessageTimestampFormat
   messageQuickActions: MessageQuickActionsConfig
+  highlightPingedMessages: boolean
   account: TwitchAccount | null
   loginWithTwitch: () => void
   channelRoomId: string | null
@@ -136,6 +137,7 @@ function ChatPaneInner({
   timeline,
   timestampFormat,
   messageQuickActions,
+  highlightPingedMessages,
   account,
   loginWithTwitch,
   channelRoomId,
@@ -153,7 +155,7 @@ function ChatPaneInner({
   className,
 }: ChatPaneProps) {
   const { refreshEmotes, getComposerEmoteCatalog } = usePeepochatChat()
-  const highlightedMessageIds = useChannelHighlightedMessageIds(channelLogin)
+  const messageHighlights = useChannelMessageHighlights(channelLogin)
   const composerCatalog = getComposerEmoteCatalog(channelLogin)
   const chatContainerRef = React.useRef<HTMLDivElement>(null)
   const messageListRef = React.useRef<HTMLDivElement>(null)
@@ -357,6 +359,8 @@ function ChatPaneInner({
                     )
                   }
 
+                  const messageHighlight = messageHighlights.get(entry.message.id)
+
                   return (
                     <ChatMessageRow
                       key={entry.message.id}
@@ -382,9 +386,10 @@ function ChatPaneInner({
                       showMemberBadges={showMemberBadges}
                       isHistorical={entry.isHistorical}
                       isAlternateRow={isAlternateRow}
-                      pingHighlighted={highlightedMessageIds.has(
-                        entry.message.id
-                      )}
+                      pingHighlighted={
+                        highlightPingedMessages && messageHighlight !== undefined
+                      }
+                      pingMatchRange={messageHighlight?.matchRange ?? null}
                     />
                   )
                 })}

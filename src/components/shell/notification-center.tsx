@@ -2,7 +2,6 @@ import * as React from "react"
 import {
   BellIcon,
   BellRingIcon,
-  CheckIcon,
   RadioIcon,
   Trash2Icon,
 } from "lucide-react"
@@ -96,11 +95,11 @@ function NotificationDismissButton({ onDismiss }: { onDismiss: () => void }) {
             onDismiss()
           }}
         >
-          <CheckIcon className="size-3.5" />
+          <Trash2Icon className="size-3.5" />
           <span className="sr-only">Dismiss</span>
         </Button>
       </TooltipTrigger>
-      <TooltipContent side="left">Dismiss</TooltipContent>
+      <TooltipContent side="left">Remove from history</TooltipContent>
     </Tooltip>
   )
 }
@@ -205,8 +204,14 @@ function PingNotificationRow({
   onDismiss: (id: string) => void
   onNavigate: (login: string) => void
 }) {
+  const isUnread = notification.readAt === null
+
   return (
-    <div className={notificationRowClassName}>
+    <div
+      className={`${notificationRowClassName} ${
+        isUnread ? "" : "opacity-70"
+      }`}
+    >
       <button
         type="button"
         className={notificationRowButtonClassName}
@@ -382,7 +387,8 @@ export function NotificationCenter() {
     [setActiveChannel]
   )
 
-  const activeCount = resolvedTab === "pings" ? pingCount : liveCount
+  const clearAllCount =
+    resolvedTab === "pings" ? pingNotifications.length : liveNotifications.length
   const handleDismissAll =
     resolvedTab === "pings" ? dismissAllPings : dismissAllLive
 
@@ -472,13 +478,13 @@ export function NotificationCenter() {
             variant="ghost"
             size="sm"
             className={`h-7 shrink-0 gap-1.5 text-xs text-muted-foreground ${
-              activeCount === 0 ? "invisible pointer-events-none" : ""
+              clearAllCount === 0 ? "invisible pointer-events-none" : ""
             }`}
-            disabled={activeCount === 0}
+            disabled={clearAllCount === 0}
             onClick={handleDismissAll}
           >
             <Trash2Icon className="size-3.5" />
-            Clear all
+            Dismiss all
           </Button>
         </div>
 
@@ -497,7 +503,7 @@ export function NotificationCenter() {
                   Pings
                   {pingCount > 0 && (
                     <span className="ml-1 text-xs text-muted-foreground">
-                      ({pingCount})
+                      ({pingCount} unread)
                     </span>
                   )}
                 </TabsTrigger>

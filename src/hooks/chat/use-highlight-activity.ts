@@ -2,11 +2,14 @@ import * as React from "react"
 
 import {
   addChannelMessageHighlight,
-  clearChannelMessageHighlights,
 } from "@/lib/highlights/channel-message-highlights"
-import { addPingNotification } from "@/lib/highlights/notification-center"
+import {
+  addPingNotification,
+  markPingNotificationsReadForChannels,
+} from "@/lib/highlights/notification-center"
 import {
   compilePingRules,
+  findPingMatchRange,
   getPingMatchPattern,
   getUsernameMentionRuleId,
   matchPingRules,
@@ -59,7 +62,7 @@ function buildUnreadEnabledByLogin(config: AppConfig): Map<string, boolean> {
   return map
 }
 
-export { useChannelHighlightedMessageIds } from "@/lib/highlights/channel-message-highlights"
+export { useChannelMessageHighlights } from "@/lib/highlights/channel-message-highlights"
 
 export function useHighlightActivity({
   config,
@@ -111,6 +114,9 @@ export function useHighlightActivity({
   const pingOnUsernameMentionRef = React.useRef(
     config.highlights.pingOnUsernameMention
   )
+  const highlightPingedMessagesRef = React.useRef(
+    config.highlights.highlightPingedMessages
+  )
   const useDefaultSoundsRef = React.useRef(config.highlights.useDefaultSounds)
   const pingSoundCustomIdRef = React.useRef(config.highlights.pingSoundCustomId)
   const notificationSoundCustomIdRef = React.useRef(
@@ -145,6 +151,11 @@ export function useHighlightActivity({
   }, [config.highlights.pingOnUsernameMention])
 
   React.useEffect(() => {
+    highlightPingedMessagesRef.current =
+      config.highlights.highlightPingedMessages
+  }, [config.highlights.highlightPingedMessages])
+
+  React.useEffect(() => {
     useDefaultSoundsRef.current = config.highlights.useDefaultSounds
   }, [config.highlights.useDefaultSounds])
 
@@ -164,6 +175,10 @@ export function useHighlightActivity({
   React.useEffect(() => {
     configRef.current = config
   }, [config])
+
+  React.useEffect(() => {
+    markPingNotificationsReadForChannels(normalizedVisibleChannelLogins)
+  }, [normalizedVisibleChannelLogins])
 
   const clearUnreadForLogins = React.useCallback((logins: string[]) => {
     if (logins.length === 0) return
@@ -197,7 +212,7 @@ export function useHighlightActivity({
     (login: string) => {
       const normalized = normalizeChannelLogin(login)
       clearUnreadForLogins([normalized])
-      clearChannelMessageHighlights(normalized)
+      markPingNotificationsReadForChannels([normalized])
     },
     [clearUnreadForLogins]
   )
@@ -207,18 +222,10 @@ export function useHighlightActivity({
       const split = splits.find((entry) => entry.id === splitId)
       if (!split) return
       clearUnreadForLogins(split.channels)
-      for (const channelLogin of split.channels) {
-        clearChannelMessageHighlights(channelLogin)
-      }
+      markPingNotificationsReadForChannels(split.channels)
     },
     [clearUnreadForLogins, splits]
   )
-
-  React.useLayoutEffect(() => {
-    for (const login of normalizedVisibleChannelLogins) {
-      clearChannelMessageHighlights(login)
-    }
-  }, [normalizedVisibleChannelLogins])
 
   const processIncomingMessages = React.useCallback(
     (messages: TwitchChatMessage[]) => {
@@ -237,11 +244,12 @@ export function useHighlightActivity({
 
       for (const message of messages) {
         const login = normalizeChannelLogin(message.channel)
+        const isVisible = visible.has(login)
 
         const unreadEnabled =
           unreadEnabledByLogin.get(login) ??
           configRef.current.highlights.unreadIndicatorsEnabled
-        if (!visible.has(login) && unreadEnabled) {
+        if (!isVisible && unreadEnabled) {
           unreadAdds.add(login)
         }
 
@@ -273,17 +281,28 @@ export function useHighlightActivity({
           continue
         }
 
-        if (!visible.has(login)) {
+        if (!isVisible) {
           pingUnreadAdds.add(login)
         }
-
-        addChannelMessageHighlight(login, message.id)
 
         const matchPattern = getPingMatchPattern(
           pingMatch.ruleId,
           compiled.find((rule) => rule.id === pingMatch.ruleId)?.pattern,
           account
         )
+
+        if (highlightPingedMessagesRef.current) {
+          addChannelMessageHighlight(login, {
+            messageId: message.id,
+            ruleId: pingMatch.ruleId,
+            matchPattern,
+            matchRange: findPingMatchRange(
+              message.text,
+              pingMatch.ruleId,
+              matchPattern
+            ),
+          })
+        }
 
         addPingNotification({
           channelLogin: login,
@@ -294,6 +313,7 @@ export function useHighlightActivity({
           receivedAt: message.receivedAt,
           ruleId: pingMatch.ruleId,
           matchPattern,
+          readAt: isVisible ? new Date().toISOString() : null,
         })
 
         const shouldNotify =

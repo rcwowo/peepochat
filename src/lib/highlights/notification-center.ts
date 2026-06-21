@@ -1,5 +1,6 @@
 import * as React from "react"
 
+import { removeChannelMessageHighlight } from "@/lib/highlights/channel-message-highlights"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 
 export const MAX_NOTIFICATIONS_PER_TAB = 100
@@ -14,6 +15,7 @@ export type PingNotification = {
   receivedAt: string
   ruleId: string
   matchPattern: string
+  readAt: string | null
 }
 
 export type LiveNotification = {
@@ -56,8 +58,14 @@ function capNotifications<T>(items: T[]): T[] {
   return items.slice(0, MAX_NOTIFICATIONS_PER_TAB)
 }
 
+function isPingUnread(notification: PingNotification) {
+  return notification.readAt === null
+}
+
 export function addPingNotification(
-  notification: Omit<PingNotification, "id">
+  notification: Omit<PingNotification, "id" | "readAt"> & {
+    readAt?: string | null
+  }
 ): boolean {
   const channelLogin = normalizeChannelLogin(notification.channelLogin)
   const id = `ping:${channelLogin}:${notification.messageId}`
@@ -67,7 +75,12 @@ export function addPingNotification(
   }
 
   store.pingNotifications = capNotifications([
-    { ...notification, id, channelLogin },
+    {
+      ...notification,
+      id,
+      channelLogin,
+      readAt: notification.readAt ?? null,
+    },
     ...store.pingNotifications,
   ])
   notifyListeners()
@@ -92,13 +105,58 @@ export function addLiveNotification(
   return true
 }
 
+export function markPingNotificationsReadForChannel(login: string) {
+  markPingNotificationsReadForChannels([login])
+}
+
+export function markPingNotificationsReadForChannels(logins: string[]) {
+  if (logins.length === 0) {
+    return
+  }
+
+  const channelLogins = new Set(
+    logins.map((login) => normalizeChannelLogin(login))
+  )
+  const readAt = new Date().toISOString()
+  let changed = false
+
+  const next = store.pingNotifications.map((notification) => {
+    if (
+      !channelLogins.has(notification.channelLogin) ||
+      notification.readAt !== null
+    ) {
+      return notification
+    }
+
+    changed = true
+    return { ...notification, readAt }
+  })
+
+  if (!changed) {
+    return
+  }
+
+  store.pingNotifications = next
+  notifyListeners()
+}
+
 export function dismissPingNotification(id: string) {
+  const notification = store.pingNotifications.find((entry) => entry.id === id)
   const next = store.pingNotifications.filter((entry) => entry.id !== id)
   if (next.length === store.pingNotifications.length) {
-    return
+    return null
   }
   store.pingNotifications = next
   notifyListeners()
+
+  if (notification) {
+    removeChannelMessageHighlight(
+      notification.channelLogin,
+      notification.messageId
+    )
+  }
+
+  return notification ?? null
 }
 
 export function dismissLiveNotification(id: string) {
@@ -114,6 +172,14 @@ export function dismissAllPingNotifications() {
   if (store.pingNotifications.length === 0) {
     return
   }
+
+  for (const notification of store.pingNotifications) {
+    removeChannelMessageHighlight(
+      notification.channelLogin,
+      notification.messageId
+    )
+  }
+
   store.pingNotifications = []
   notifyListeners()
 }
@@ -150,6 +216,14 @@ function getLiveNotifications() {
   return store.liveNotifications
 }
 
+function getPingUnreadCount() {
+  return store.pingNotifications.filter(isPingUnread).length
+}
+
+function getTotalUnreadCount() {
+  return getPingUnreadCount() + store.liveNotifications.length
+}
+
 export function useNotificationCenter() {
   const pingNotifications = React.useSyncExternalStore(
     subscribe,
@@ -161,19 +235,31 @@ export function useNotificationCenter() {
     getLiveNotifications,
     getLiveNotifications
   )
+  const pingUnreadCount = React.useSyncExternalStore(
+    subscribe,
+    getPingUnreadCount,
+    getPingUnreadCount
+  )
+  const totalUnreadCount = React.useSyncExternalStore(
+    subscribe,
+    getTotalUnreadCount,
+    getTotalUnreadCount
+  )
 
   return React.useMemo(
     () => ({
       pingNotifications,
       liveNotifications,
-      pingCount: pingNotifications.length,
+      pingCount: pingUnreadCount,
       liveCount: liveNotifications.length,
-      totalCount: pingNotifications.length + liveNotifications.length,
+      totalCount: totalUnreadCount,
       dismissPing: dismissPingNotification,
       dismissLive: dismissLiveNotification,
       dismissAllPings: dismissAllPingNotifications,
       dismissAllLive: dismissAllLiveNotifications,
+      markPingNotificationsReadForChannel,
+      markPingNotificationsReadForChannels,
     }),
-    [liveNotifications, pingNotifications]
+    [liveNotifications, pingNotifications, pingUnreadCount, totalUnreadCount]
   )
 }

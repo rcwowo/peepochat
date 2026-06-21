@@ -4,6 +4,7 @@ import {
   BellIcon,
   BellRingIcon,
   CircleIcon,
+  HighlighterIcon,
   RadioIcon,
   Trash2Icon,
   Volume2Icon,
@@ -342,6 +343,21 @@ export function HighlightsTab() {
                 highlights: {
                   ...current.highlights,
                   pingOnUsernameMention: checked,
+                },
+              }))
+            }
+          />
+          <SettingsSwitchRow
+            icon={HighlighterIcon}
+            title="Highlight pinged messages"
+            description="Visually highlight messages in chat that triggered a ping."
+            checked={config.highlights.highlightPingedMessages}
+            onCheckedChange={(checked) =>
+              updateConfig((current) => ({
+                ...current,
+                highlights: {
+                  ...current.highlights,
+                  highlightPingedMessages: checked,
                 },
               }))
             }

@@ -1,15 +1,72 @@
 import * as React from "react"
 
 import { ChatEmote } from "@/components/chat/chat-emote"
+import type { PingMatchRange } from "@/lib/highlights/highlight-rules"
+import { PingMatchMark } from "@/lib/highlights/ping-match-mark"
 import { findMessageUrls } from "@/lib/peepochat/peepochat-config"
 import type { TwitchEmote } from "@/lib/twitch/twitch-chat"
 
 const MENTION_PATTERN = /(@[A-Za-z0-9_]+)/g
 
-function renderPlainText(text: string, keyPrefix: string) {
+function renderPlainText(
+  text: string,
+  keyPrefix: string,
+  segmentStart = 0,
+  pingMatchRange: PingMatchRange | null = null
+) {
   const parts: React.ReactNode[] = []
   let lastIndex = 0
   let mentionIndex = 0
+
+  const pushTextSlice = (sliceStart: number, sliceEnd: number, key: string) => {
+    if (sliceStart >= sliceEnd) {
+      return
+    }
+
+    const absoluteStart = segmentStart + sliceStart
+    const absoluteEnd = segmentStart + sliceEnd
+
+    if (
+      !pingMatchRange ||
+      absoluteEnd <= pingMatchRange.start ||
+      absoluteStart >= pingMatchRange.end
+    ) {
+      parts.push(
+        <span key={key} className="chat-message-text">
+          {text.slice(sliceStart, sliceEnd)}
+        </span>
+      )
+      return
+    }
+
+    const overlapStart = Math.max(0, pingMatchRange.start - absoluteStart)
+    const overlapEnd = Math.min(
+      sliceEnd - sliceStart,
+      pingMatchRange.end - absoluteStart
+    )
+
+    if (overlapStart > 0) {
+      parts.push(
+        <span key={`${key}-pre`} className="chat-message-text">
+          {text.slice(sliceStart, sliceStart + overlapStart)}
+        </span>
+      )
+    }
+
+    parts.push(
+      <PingMatchMark key={`${key}-match`}>
+        {text.slice(sliceStart + overlapStart, sliceStart + overlapEnd)}
+      </PingMatchMark>
+    )
+
+    if (overlapEnd < sliceEnd - sliceStart) {
+      parts.push(
+        <span key={`${key}-post`} className="chat-message-text">
+          {text.slice(sliceStart + overlapEnd, sliceEnd)}
+        </span>
+      )
+    }
+  }
 
   for (const match of text.matchAll(MENTION_PATTERN)) {
     const index = match.index ?? -1
@@ -18,10 +75,10 @@ function renderPlainText(text: string, keyPrefix: string) {
     }
 
     if (index > lastIndex) {
-      parts.push(
-        <span key={`${keyPrefix}-text-${lastIndex}`} className="chat-message-text">
-          {text.slice(lastIndex, index)}
-        </span>
+      pushTextSlice(
+        lastIndex,
+        index,
+        `${keyPrefix}-text-${lastIndex}`
       )
     }
 
@@ -39,29 +96,26 @@ function renderPlainText(text: string, keyPrefix: string) {
   }
 
   if (lastIndex < text.length) {
-    parts.push(
-      <span key={`${keyPrefix}-text-${lastIndex}`} className="chat-message-text">
-        {text.slice(lastIndex)}
-      </span>
-    )
+    pushTextSlice(lastIndex, text.length, `${keyPrefix}-text-${lastIndex}`)
   }
 
   if (parts.length === 0) {
-    return [
-      <span key={keyPrefix} className="chat-message-text">
-        {text}
-      </span>,
-    ]
+    pushTextSlice(0, text.length, keyPrefix)
   }
 
   return parts
 }
 
-function renderTextWithLinks(text: string, keyPrefix: string) {
+function renderTextWithLinks(
+  text: string,
+  keyPrefix: string,
+  segmentStart = 0,
+  pingMatchRange: PingMatchRange | null = null
+) {
   const urls = findMessageUrls(text)
 
   if (urls.length === 0) {
-    return renderPlainText(text, keyPrefix)
+    return renderPlainText(text, keyPrefix, segmentStart, pingMatchRange)
   }
 
   const parts: React.ReactNode[] = []
@@ -69,7 +123,14 @@ function renderTextWithLinks(text: string, keyPrefix: string) {
 
   for (const [index, match] of urls.entries()) {
     if (match.start > lastIdx) {
-      parts.push(...renderPlainText(text.slice(lastIdx, match.start), `${keyPrefix}-t-${lastIdx}`))
+      parts.push(
+        ...renderPlainText(
+          text.slice(lastIdx, match.start),
+          `${keyPrefix}-t-${lastIdx}`,
+          segmentStart + lastIdx,
+          pingMatchRange
+        )
+      )
     }
 
     parts.push(
@@ -88,7 +149,14 @@ function renderTextWithLinks(text: string, keyPrefix: string) {
   }
 
   if (lastIdx < text.length) {
-    parts.push(...renderPlainText(text.slice(lastIdx), `${keyPrefix}-t-${lastIdx}`))
+    parts.push(
+      ...renderPlainText(
+        text.slice(lastIdx),
+        `${keyPrefix}-t-${lastIdx}`,
+        segmentStart + lastIdx,
+        pingMatchRange
+      )
+    )
   }
 
   return parts
@@ -97,12 +165,14 @@ function renderTextWithLinks(text: string, keyPrefix: string) {
 export function ChatMessageBody({
   text,
   emotes,
+  pingMatchRange = null,
 }: {
   text: string
   emotes: TwitchEmote[]
+  pingMatchRange?: PingMatchRange | null
 }) {
   if (emotes.length === 0) {
-    return <>{renderTextWithLinks(text, "message")}</>
+    return <>{renderTextWithLinks(text, "message", 0, pingMatchRange)}</>
   }
 
   const parts: React.ReactNode[] = []
@@ -111,7 +181,12 @@ export function ChatMessageBody({
   for (const emote of emotes) {
     if (emote.start > lastIdx) {
       parts.push(
-        ...renderTextWithLinks(text.slice(lastIdx, emote.start), `t-${lastIdx}`)
+        ...renderTextWithLinks(
+          text.slice(lastIdx, emote.start),
+          `t-${lastIdx}`,
+          lastIdx,
+          pingMatchRange
+        )
       )
     }
 
@@ -127,7 +202,9 @@ export function ChatMessageBody({
   }
 
   if (lastIdx < text.length) {
-    parts.push(...renderTextWithLinks(text.slice(lastIdx), `t-${lastIdx}`))
+    parts.push(
+      ...renderTextWithLinks(text.slice(lastIdx), `t-${lastIdx}`, lastIdx, pingMatchRange)
+    )
   }
 
   return <>{parts}</>

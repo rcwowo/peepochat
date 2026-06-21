@@ -13,6 +13,7 @@ import {
   type ChatBadgeCatalog,
 } from "@/lib/chat/chat-badges"
 import { getReadableUsernameColor } from "@/lib/chat/chat-username"
+import type { PingMatchRange } from "@/lib/highlights/highlight-rules"
 import type {
   MessageTimestampFormat,
   TwitchAccount,
@@ -36,6 +37,7 @@ function ChatMessageRowInner({
   showCopyButton = true,
   showReplyButton = true,
   pingHighlighted = false,
+  pingMatchRange = null,
   account,
   loginWithTwitch,
   channelRoomId,
@@ -54,6 +56,7 @@ function ChatMessageRowInner({
   showCopyButton?: boolean
   showReplyButton?: boolean
   pingHighlighted?: boolean
+  pingMatchRange?: PingMatchRange | null
   account: TwitchAccount | null
   loginWithTwitch: () => void
   channelRoomId: string | null
@@ -182,7 +185,11 @@ function ChatMessageRowInner({
               : undefined
           }
         >
-          <ChatMessageBody text={message.text} emotes={message.emotes} />
+          <ChatMessageBody
+            text={message.text}
+            emotes={message.emotes}
+            pingMatchRange={pingHighlighted ? pingMatchRange : null}
+          />
         </span>
       </div>
     </div>
