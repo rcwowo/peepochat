@@ -399,7 +399,6 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     if (!ready || needsOnboarding) return
     if (!hasAccountValue) return
-    if (channelLogins.length === 0) return
 
     void syncAllChannels(channelLogins).catch((error) => {
       if (isSyncChannelsSupersededError(error)) {

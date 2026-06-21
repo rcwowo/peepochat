@@ -557,6 +557,10 @@ export function useTwitchChat(options?: {
   const routeMessageToRoom = React.useCallback(
     (message: TwitchChatMessage) => {
       const login = normalizeChannelLogin(message.channel)
+      if (!syncedChannelsRef.current.includes(login)) {
+        return
+      }
+
       const roomId = message.roomId
 
       if (roomId) {
@@ -599,6 +603,10 @@ export function useTwitchChat(options?: {
       const login = message.channel
         ? normalizeChannelLogin(message.channel)
         : null
+
+      if (login && !syncedChannelsRef.current.includes(login)) {
+        return
+      }
 
       if (login) {
         if (message.roomId) {
@@ -1026,6 +1034,81 @@ export function useTwitchChat(options?: {
     })
   }, [])
 
+  const pruneRemovedChannelState = React.useCallback((removedLogins: string[]) => {
+    if (removedLogins.length === 0) {
+      return
+    }
+
+    const removed = new Set(removedLogins)
+
+    for (const login of removedLogins) {
+      historyLoadedRef.current.delete(login)
+      historyLoadingRef.current.delete(login)
+      historyErrorNotifiedRef.current.delete(login)
+      recentMessagesQueuedRef.current.delete(login)
+      selfStatesRef.current.delete(login)
+
+      const roomId = roomsRef.current[login]?.roomId
+      if (!roomId) {
+        continue
+      }
+
+      emoteCatalogsRef.current.delete(roomId)
+      composerCatalogsRef.current.delete(roomId)
+      composerCatalogLoadedRef.current.delete(roomId)
+      composerCatalogLoadingRef.current.delete(roomId)
+      roomEmotesLoadingRef.current.delete(roomId)
+      roomEmotesSettledRef.current.delete(roomId)
+      roomEmotesFailedAtRef.current.delete(roomId)
+      setComposerCatalogs((current) => {
+        if (!current[roomId]) {
+          return current
+        }
+        const next = { ...current }
+        delete next[roomId]
+        return next
+      })
+      setComposerCatalogLoading((current) => {
+        if (!current[roomId]) {
+          return current
+        }
+        const next = { ...current }
+        delete next[roomId]
+        return next
+      })
+    }
+
+    if (recentMessagesQueueRef.current.length > 0) {
+      recentMessagesQueueRef.current = recentMessagesQueueRef.current.filter(
+        (login) => !removed.has(login)
+      )
+    }
+
+    setSelfStates((current) => {
+      let changed = false
+      const next = { ...current }
+      for (const login of removedLogins) {
+        if (login in next) {
+          delete next[login]
+          changed = true
+        }
+      }
+      return changed ? next : current
+    })
+
+    setRooms((current) => {
+      let changed = false
+      const next = { ...current }
+      for (const login of removedLogins) {
+        if (login in next) {
+          delete next[login]
+          changed = true
+        }
+      }
+      return changed ? next : current
+    })
+  }, [])
+
   const syncChannels = React.useCallback(
     (
       channelLogins: string[],
@@ -1085,24 +1168,17 @@ export function useTwitchChat(options?: {
         return Promise.resolve()
       }
 
-      ensureRooms(normalized)
+      const removedLogins = previous.filter((login) => !normalized.includes(login))
+      pruneRemovedChannelState(removedLogins)
 
-      const activeHistory = historyLoadedRef.current
-      for (const loadedLogin of activeHistory) {
-        if (!normalized.includes(loadedLogin)) {
-          activeHistory.delete(loadedLogin)
-          historyErrorNotifiedRef.current.delete(loadedLogin)
-        }
-      }
+      ensureRooms(normalized)
 
       for (const login of normalized) {
         loadRecentMessages(login)
       }
 
       if (pendingConnectRef.current) {
-        pendingConnectRef.current.reject(
-          new Error(SYNC_CHANNELS_SUPERSEDED_MESSAGE)
-        )
+        pendingConnectRef.current.resolve()
         pendingConnectRef.current = null
       }
 
@@ -1126,7 +1202,13 @@ export function useTwitchChat(options?: {
 
       return promise
     },
-    [clearRecentMessagesQueue, ensureRooms, getClient, loadRecentMessages]
+    [
+      clearRecentMessagesQueue,
+      ensureRooms,
+      getClient,
+      loadRecentMessages,
+      pruneRemovedChannelState,
+    ]
   )
 
   const setLiveMessageLimit = React.useCallback(

@@ -13,6 +13,7 @@ import {
   channelOrderKey,
   normalizeSidebarOrder,
   removeKeysFromSidebarOrder,
+  resolveFocusAfterChannelRemoval,
   splitOrderKey,
 } from "@/lib/sidebar/sidebar-order"
 import { fetchTwitchUsersByLogin } from "@/lib/twitch/twitch-api"
@@ -156,10 +157,6 @@ export function useTwitchChannels({
         const channels = current.twitch.channels.filter(
           (channel) => channel.login !== normalized
         )
-        const nextActive =
-          current.twitch.activeChannelLogin === normalized
-            ? (channels[0]?.login ?? "")
-            : current.twitch.activeChannelLogin
 
         const { splits, activeSplitId } = pruneSplitsAfterChannelRemoval(
           current.layout.splits,
@@ -182,21 +179,29 @@ export function useTwitchChannels({
             twitch: {
               ...current.twitch,
               channels,
-              activeChannelLogin: nextActive,
             },
             layout: { ...current.layout, activeSplitId, splits },
           },
           order
         )
 
+        const focus = resolveFocusAfterChannelRemoval(current, normalized, {
+          channels: applied.channels,
+          splits: applied.layout.splits,
+          sidebarOrder: applied.layout.sidebarOrder ?? [],
+        })
+
         return {
           ...current,
           twitch: {
             ...current.twitch,
             channels: applied.channels,
-            activeChannelLogin: nextActive,
+            activeChannelLogin: focus.activeChannelLogin,
           },
-          layout: applied.layout,
+          layout: {
+            ...applied.layout,
+            activeSplitId: focus.activeSplitId,
+          },
         }
       })
     },

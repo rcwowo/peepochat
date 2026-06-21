@@ -1,7 +1,13 @@
 import { arrayMove } from "@dnd-kit/sortable"
 
 import type { AppConfig, ChatSplit, TwitchChannel } from "@/lib/peepochat/peepochat-config"
-import { getChannelsUsedInSplits, normalizeSplitChannels } from "@/lib/peepochat/peepochat-config"
+import {
+  getActiveChannelLogin,
+  getActiveSplitChannels,
+  getChannelsUsedInSplits,
+  isSplitViewActive,
+  normalizeSplitChannels,
+} from "@/lib/peepochat/peepochat-config"
 
 export const SPLIT_ORDER_PREFIX = "split:"
 export const CHANNEL_ORDER_PREFIX = "channel:"
@@ -204,4 +210,157 @@ export function replaceChannelsWithSplitInOrder(
   const clampedIndex = Math.max(0, Math.min(insertIndex, next.length))
   next.splice(clampedIndex, 0, splitKey)
   return next
+}
+
+export type SidebarFocusTarget = {
+  activeChannelLogin: string
+  activeSplitId: string | null
+}
+
+export function wasRemovedChannelInView(
+  config: AppConfig,
+  removedLogin: string
+): boolean {
+  if (isSplitViewActive(config)) {
+    return getActiveSplitChannels(config).includes(removedLogin)
+  }
+
+  return getActiveChannelLogin(config) === removedLogin
+}
+
+function focusTargetFromSidebarKey(
+  key: string,
+  splits: ChatSplit[],
+  channels: TwitchChannel[]
+): SidebarFocusTarget | null {
+  if (key.startsWith(SPLIT_ORDER_PREFIX)) {
+    const splitId = key.slice(SPLIT_ORDER_PREFIX.length)
+    const split = splits.find((entry) => entry.id === splitId)
+    if (split && split.channels.length >= 2) {
+      return {
+        activeChannelLogin: normalizeSplitChannels(split.channels)[0],
+        activeSplitId: splitId,
+      }
+    }
+    return null
+  }
+
+  if (key.startsWith(CHANNEL_ORDER_PREFIX)) {
+    const login = key.slice(CHANNEL_ORDER_PREFIX.length)
+    if (channels.some((channel) => channel.login === login)) {
+      return {
+        activeChannelLogin: login,
+        activeSplitId: null,
+      }
+    }
+  }
+
+  return null
+}
+
+function resolveSidebarNavigationTarget(
+  orderBefore: string[],
+  orderAfter: string[],
+  removedKey: string
+): string | null {
+  if (orderAfter.length === 0) {
+    return null
+  }
+
+  const removedIndex = orderBefore.indexOf(removedKey)
+  const orderAfterSet = new Set(orderAfter)
+
+  if (removedIndex === 0) {
+    return orderAfter[0]
+  }
+
+  if (removedIndex > 0) {
+    for (let index = removedIndex - 1; index >= 0; index -= 1) {
+      const key = orderBefore[index]
+      if (orderAfterSet.has(key)) {
+        return key
+      }
+    }
+  }
+
+  return orderAfter[0]
+}
+
+function firstAvailableSidebarFocus(
+  orderAfter: string[],
+  splits: ChatSplit[],
+  channels: TwitchChannel[]
+): SidebarFocusTarget {
+  for (const key of orderAfter) {
+    const target = focusTargetFromSidebarKey(key, splits, channels)
+    if (target) {
+      return target
+    }
+  }
+
+  return { activeChannelLogin: "", activeSplitId: null }
+}
+
+export function resolveFocusAfterChannelRemoval(
+  config: AppConfig,
+  removedLogin: string,
+  nextState: {
+    channels: TwitchChannel[]
+    splits: ChatSplit[]
+    sidebarOrder: string[]
+  }
+): SidebarFocusTarget {
+  const orderBefore = normalizeSidebarOrder(config)
+  const orderAfter = nextState.sidebarOrder
+  const removedKey = channelOrderKey(removedLogin)
+
+  if (!wasRemovedChannelInView(config, removedLogin)) {
+    const currentActive = getActiveChannelLogin(config)
+    const currentSplitId = config.layout.activeSplitId
+
+    if (currentSplitId) {
+      const split = nextState.splits.find((entry) => entry.id === currentSplitId)
+      if (split && split.channels.length >= 2) {
+        const splitChannels = normalizeSplitChannels(split.channels)
+        const nextActive = splitChannels.includes(currentActive)
+          ? currentActive
+          : splitChannels[0]
+
+        return {
+          activeChannelLogin: nextActive,
+          activeSplitId: currentSplitId,
+        }
+      }
+    } else if (
+      currentActive &&
+      currentActive !== removedLogin &&
+      nextState.channels.some((channel) => channel.login === currentActive)
+    ) {
+      return {
+        activeChannelLogin: currentActive,
+        activeSplitId: null,
+      }
+    }
+
+    return firstAvailableSidebarFocus(
+      orderAfter,
+      nextState.splits,
+      nextState.channels
+    )
+  }
+
+  const targetKey = resolveSidebarNavigationTarget(
+    orderBefore,
+    orderAfter,
+    removedKey
+  )
+
+  if (!targetKey) {
+    return { activeChannelLogin: "", activeSplitId: null }
+  }
+
+  return (
+    focusTargetFromSidebarKey(targetKey, nextState.splits, nextState.channels) ??
+    firstAvailableSidebarFocus(orderAfter, nextState.splits, nextState.channels)
+  )
 }
