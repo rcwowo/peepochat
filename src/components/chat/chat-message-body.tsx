@@ -4,7 +4,7 @@ import { ChatEmote } from "@/components/chat/chat-emote"
 import type { PingMatchRange } from "@/lib/highlights/highlight-rules"
 import { PingMatchMark } from "@/lib/highlights/ping-match-mark"
 import { findMessageUrls } from "@/lib/peepochat/peepochat-config"
-import type { TwitchEmote } from "@/lib/twitch/twitch-chat"
+import { getEmoteConsumedEnd, type TwitchEmote } from "@/lib/twitch/twitch-chat"
 
 const MENTION_PATTERN = /(@[A-Za-z0-9_]+)/g
 
@@ -198,7 +198,7 @@ export function ChatMessageBody({
         label={emoteName}
       />
     )
-    lastIdx = emote.end + 1
+    lastIdx = getEmoteConsumedEnd(emote)
   }
 
   if (lastIdx < text.length) {

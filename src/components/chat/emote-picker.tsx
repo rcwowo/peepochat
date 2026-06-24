@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { EmoteCardPopover } from "@/components/chat/emote-card-popover"
 import { toEmoteCardTarget } from "@/lib/chat/emote-card"
+import { isSevenTvZeroWidthEmote } from "@/lib/chat/seventv-emotes"
 import { Spinner } from "@/components/ui/spinner"
 import {
   Popover,
@@ -356,6 +357,7 @@ function EmoteGridItem({
   onSelect: (code: string) => void
 }) {
   const target = React.useMemo(() => toEmoteCardTarget(emote), [emote])
+  const zeroWidth = isSevenTvZeroWidthEmote(emote)
 
   return (
     <div
@@ -368,7 +370,10 @@ function EmoteGridItem({
         <button
           type="button"
           aria-label={emote.code}
-          className="grid h-9 w-full min-w-0 cursor-pointer overflow-hidden rounded-md bg-muted/15 transition-colors hover:bg-muted/50"
+          className={cn(
+            "grid h-9 w-full min-w-0 cursor-pointer overflow-hidden rounded-md bg-muted/15 transition-colors hover:bg-muted/50",
+            zeroWidth && "ring-1 ring-[rgb(220,170,50)]"
+          )}
           onClick={() => onSelect(emote.code)}
         >
           <img

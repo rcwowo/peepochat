@@ -32,12 +32,15 @@ export function ChatEmote({
     () => toEmoteCardTarget({ ...emote, code: emote.code || label }),
     [emote, label]
   )
+  const overlayNames = React.useMemo(
+    () => emote.overlays?.map((overlay) => overlay.code) ?? [],
+    [emote.overlays]
+  )
 
   return (
-    <EmoteCardPopover target={target}>
-      <span className="chat-emote inline-grid align-middle">
+    <EmoteCardPopover target={target} overlayNames={overlayNames}>
+      <span className="chat-emote">
         <img
-          className="col-start-1 row-start-1 object-contain"
           src={emote.imageUrl}
           srcSet={srcSet}
           alt={label}
@@ -52,6 +55,16 @@ export function ChatEmote({
             img.srcset = ""
           }}
         />
+        {emote.overlays?.map((overlay) => (
+          <img
+            key={`${overlay.provider}-${overlay.id}-${overlay.start}`}
+            className="chat-emote-overlay"
+            src={overlay.imageUrl}
+            alt=""
+            loading="lazy"
+            decoding="async"
+          />
+        ))}
       </span>
     </EmoteCardPopover>
   )

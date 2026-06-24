@@ -42,6 +42,17 @@ export type TwitchEmote = {
   imageUrl: string
   start: number
   end: number
+  /** 7TV zero-width emotes rendered on top of this emote. */
+  overlays?: TwitchEmote[]
+}
+
+/** Index after the last character consumed by an emote and its zero-width overlays. */
+export function getEmoteConsumedEnd(emote: TwitchEmote): number {
+  let end = emote.end
+  for (const overlay of emote.overlays ?? []) {
+    end = Math.max(end, overlay.end)
+  }
+  return end + 1
 }
 
 export type TwitchChatReply = {

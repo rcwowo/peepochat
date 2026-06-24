@@ -11,7 +11,7 @@ import { normalizeSidebarOrder } from "@/lib/sidebar/sidebar-order"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 
 export const PEEPOCHAT_STORAGE_KEY = "peepochat::config"
-export const PEEPOCHAT_SCHEMA_VERSION = 12
+export const PEEPOCHAT_SCHEMA_VERSION = 13
 
 export const LIVE_MESSAGES_PER_CHANNEL_MIN = 20
 export const LIVE_MESSAGES_PER_CHANNEL_MAX = 500
@@ -34,6 +34,8 @@ const chatEmotesSchema = z.object({
   bttvEnabled: z.boolean().default(true),
   ffzEnabled: z.boolean().default(true),
   seventvEnabled: z.boolean().default(true),
+  showUnlistedEmotes: z.boolean().default(true),
+  zeroWidthEmotesEnabled: z.boolean().default(true),
 })
 
 const chatBadgesSchema = z.object({
@@ -237,6 +239,8 @@ export function createDefaultConfig(): AppConfig {
         bttvEnabled: true,
         ffzEnabled: true,
         seventvEnabled: true,
+        showUnlistedEmotes: true,
+        zeroWidthEmotesEnabled: true,
       },
       badges: {
         twitchEnabled: true,

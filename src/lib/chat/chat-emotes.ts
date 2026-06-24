@@ -1,4 +1,7 @@
 import { devLoggedFetch } from "@/lib/dev-logger"
+import {
+  isSevenTvZeroWidthEmote,
+} from "@/lib/chat/seventv-emotes"
 import type { TwitchChatMessage, TwitchEmote, TwitchEmoteProvider } from "@/lib/twitch/twitch-chat"
 
 export type EmoteCatalogEntry = {
@@ -10,6 +13,10 @@ export type EmoteCatalogEntry = {
   ownerId?: string
   ownerName?: string
   ownerLogin?: string
+  /** 7TV emote flags bitmask (e.g. zero-width). */
+  seventvFlags?: number
+  /** 7TV listed status; omitted or true when listed. */
+  listed?: boolean
 }
 
 export type ThirdPartyEmoteCatalog = Map<string, EmoteCatalogEntry>
@@ -28,16 +35,29 @@ export type ThirdPartyEmoteFetchOptions = {
   bttvEnabled: boolean
   ffzEnabled: boolean
   seventvEnabled: boolean
+  showUnlistedEmotes: boolean
+}
+
+export type SeventvEmoteRenderOptions = {
+  zeroWidthEnabled: boolean
 }
 
 const defaultThirdPartyEmoteFetchOptions: ThirdPartyEmoteFetchOptions = {
   bttvEnabled: true,
   ffzEnabled: true,
   seventvEnabled: true,
+  showUnlistedEmotes: true,
+}
+
+const defaultSeventvEmoteRenderOptions: SeventvEmoteRenderOptions = {
+  zeroWidthEnabled: true,
 }
 
 let thirdPartyEmoteFetchOptions: ThirdPartyEmoteFetchOptions =
   defaultThirdPartyEmoteFetchOptions
+
+let seventvEmoteRenderOptions: SeventvEmoteRenderOptions =
+  defaultSeventvEmoteRenderOptions
 
 type ThirdPartyGlobalEmotes = Record<
   Exclude<TwitchEmoteProvider, "twitch">,
@@ -65,6 +85,10 @@ export function setThirdPartyEmoteFetchOptions(
   }
 }
 
+export function setSeventvEmoteRenderOptions(options: SeventvEmoteRenderOptions) {
+  seventvEmoteRenderOptions = options
+}
+
 /** Drop cached third-party fetches (all rooms, or one room). */
 export function clearThirdPartyEmoteCache(roomId?: string) {
   if (roomId) {
@@ -81,8 +105,9 @@ export function clearThirdPartyEmoteCache(roomId?: string) {
 }
 
 function thirdPartyOptionsKey() {
-  const { bttvEnabled, ffzEnabled, seventvEnabled } = thirdPartyEmoteFetchOptions
-  return `${bttvEnabled}:${ffzEnabled}:${seventvEnabled}`
+  const { bttvEnabled, ffzEnabled, seventvEnabled, showUnlistedEmotes } =
+    thirdPartyEmoteFetchOptions
+  return `${bttvEnabled}:${ffzEnabled}:${seventvEnabled}:${showUnlistedEmotes}`
 }
 
 type BetterTtvEmote = {
@@ -132,6 +157,8 @@ type SevenTvHost = {
 type SevenTvEmoteData = {
   host?: SevenTvHost
   alias?: string[]
+  flags?: number
+  listed?: boolean
   owner?: {
     display_name?: string
     username?: string
@@ -316,6 +343,36 @@ function emotesEqual(left: TwitchEmote[], right: TwitchEmote[]): boolean {
       a.provider !== b.provider ||
       a.imageUrl !== b.imageUrl ||
       a.start !== b.start ||
+      a.end !== b.end ||
+      !overlaysEqual(a.overlays, b.overlays)
+    ) {
+      return false
+    }
+  }
+
+  return true
+}
+
+function overlaysEqual(
+  left: TwitchEmote[] | undefined,
+  right: TwitchEmote[] | undefined
+): boolean {
+  const leftOverlays = left ?? []
+  const rightOverlays = right ?? []
+
+  if (leftOverlays.length !== rightOverlays.length) {
+    return false
+  }
+
+  for (let index = 0; index < leftOverlays.length; index += 1) {
+    const a = leftOverlays[index]!
+    const b = rightOverlays[index]!
+    if (
+      a.id !== b.id ||
+      a.code !== b.code ||
+      a.provider !== b.provider ||
+      a.imageUrl !== b.imageUrl ||
+      a.start !== b.start ||
       a.end !== b.end
     ) {
       return false
@@ -390,10 +447,14 @@ function mergeEmotesFromCodeCatalog(
     return existing
   }
 
-  const merged = [...existing]
-  const occupied = normalizeRanges(
+  const result: TwitchEmote[] = existing.map((emote) => ({
+    ...emote,
+    overlays: emote.overlays ? [...emote.overlays] : undefined,
+  }))
+  let occupied = normalizeRanges(
     existing.map((emote) => ({ start: emote.start, end: emote.end }))
   )
+  let lastEmoteIndex: number | null = null
 
   const tokenPattern = /\S+/g
   for (const match of text.matchAll(tokenPattern)) {
@@ -404,26 +465,63 @@ function mergeEmotesFromCodeCatalog(
     }
 
     const end = start + code.length - 1
+    const existingEmoteIndex = result.findIndex(
+      (emote) => emote.start === start && emote.end === end
+    )
+
+    if (existingEmoteIndex >= 0) {
+      lastEmoteIndex = existingEmoteIndex
+      continue
+    }
+
     if (hasOverlap(occupied, start, end)) {
+      lastEmoteIndex = null
       continue
     }
 
     const entry = catalog.get(code)
     if (!entry || (accept && !accept(entry))) {
+      lastEmoteIndex = null
       continue
     }
 
-    merged.push({
-      id: entry.id,
-      code: entry.code,
-      provider: entry.provider,
-      imageUrl: entry.imageUrl,
-      start,
-      end,
-    })
+    const isZeroWidth = isSevenTvZeroWidthEmote(entry)
+
+    if (
+      isZeroWidth &&
+      seventvEmoteRenderOptions.zeroWidthEnabled &&
+      lastEmoteIndex !== null
+    ) {
+      const target = result[lastEmoteIndex]!
+      target.overlays = [
+        ...(target.overlays ?? []),
+        catalogEntryToEmote(entry, start, end),
+      ]
+      occupied = normalizeRanges([...occupied, { start, end }])
+      continue
+    }
+
+    result.push(catalogEntryToEmote(entry, start, end))
+    occupied = normalizeRanges([...occupied, { start, end }])
+    lastEmoteIndex = result.length - 1
   }
 
-  return merged.sort((left, right) => left.start - right.start)
+  return result.sort((left, right) => left.start - right.start)
+}
+
+function catalogEntryToEmote(
+  entry: EmoteCatalogEntry,
+  start: number,
+  end: number
+): TwitchEmote {
+  return {
+    id: entry.id,
+    code: entry.code,
+    provider: entry.provider,
+    imageUrl: entry.imageUrl,
+    start,
+    end,
+  }
 }
 
 function hasOverlap(ranges: TextRange[], start: number, end: number) {
@@ -536,13 +634,19 @@ function mapSevenTvEmote(emote: SevenTvEmote): EmoteCatalogEntry | null {
     aliases: emote.data?.alias,
     ownerName: owner?.display_name ?? owner?.username,
     ownerLogin: twitchConnection?.username ?? owner?.username,
+    seventvFlags: emote.data?.flags,
+    listed: emote.data?.listed ?? true,
   }
 }
 
 function compactSevenTvEmotes(
   entries: Array<EmoteCatalogEntry | null>
 ): EmoteCatalogEntry[] {
-  return entries.filter((emote): emote is EmoteCatalogEntry => emote !== null)
+  const { showUnlistedEmotes } = thirdPartyEmoteFetchOptions
+
+  return entries
+    .filter((emote): emote is EmoteCatalogEntry => emote !== null)
+    .filter((emote) => showUnlistedEmotes || emote.listed !== false)
 }
 
 async function fetchSevenTvGlobalEmotes(): Promise<EmoteCatalogEntry[]> {

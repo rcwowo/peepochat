@@ -1,8 +1,10 @@
 import {
   CopyIcon,
   CornerUpLeftIcon,
+  EyeIcon,
   HistoryIcon,
   LayersIcon,
+  Layers2Icon,
 } from "lucide-react"
 
 import {
@@ -160,6 +162,46 @@ export function BehaviorTab() {
           ))}
         </SettingsGroup>
       </SettingsSection>
+
+      {config.chat.emotes.seventvEnabled ? (
+        <SettingsSection
+          title="7TV"
+          description="7TV-specific emote behavior."
+        >
+          <SettingsGroup>
+            <SettingsSwitchRow
+              icon={EyeIcon}
+              title="Show unlisted emotes"
+              description="Render 7TV emotes that are not yet approved for listing on 7tv.app."
+              checked={config.chat.emotes.showUnlistedEmotes}
+              onCheckedChange={(showUnlistedEmotes) =>
+                updateConfig((current) => ({
+                  ...current,
+                  chat: {
+                    ...current.chat,
+                    emotes: { ...current.chat.emotes, showUnlistedEmotes },
+                  },
+                }))
+              }
+            />
+            <SettingsSwitchRow
+              icon={Layers2Icon}
+              title="Enable zero-width emotes"
+              description="Overlay 7TV zero-width emotes on the emote before them in chat."
+              checked={config.chat.emotes.zeroWidthEmotesEnabled}
+              onCheckedChange={(zeroWidthEmotesEnabled) =>
+                updateConfig((current) => ({
+                  ...current,
+                  chat: {
+                    ...current.chat,
+                    emotes: { ...current.chat.emotes, zeroWidthEmotesEnabled },
+                  },
+                }))
+              }
+            />
+          </SettingsGroup>
+        </SettingsSection>
+      ) : null}
 
       <SettingsDivider />
 

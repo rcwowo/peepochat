@@ -43,6 +43,7 @@ import type {
 } from "@/lib/peepochat/peepochat-config"
 import { findSplitContainingChannel } from "@/lib/peepochat/peepochat-config"
 import {
+  setSeventvEmoteRenderOptions,
   setThirdPartyEmoteFetchOptions,
 } from "@/lib/chat/chat-emotes"
 import type { ComposerEmoteCatalog } from "@/lib/chat/chat-emote-catalog"
@@ -241,6 +242,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     ensureComposerEmotes,
     isComposerEmotesLoading,
     refreshEmotes,
+    rehydrateAllRoomTimelines,
     sendMessage,
   } = useTwitchChat({ onChatMessageRef })
   const { getBadgeCatalog, loadBadgesForRoom, hasBadgeSupport } =
@@ -476,23 +478,46 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
 
   const emotesOptionsReadyRef = React.useRef(false)
   const emoteProviderFlagsRef = React.useRef("")
+  const zeroWidthEnabledRef = React.useRef(config.chat.emotes.zeroWidthEmotesEnabled)
   const refreshEmotesRef = React.useRef(refreshEmotes)
+  const rehydrateAllRoomTimelinesRef = React.useRef(rehydrateAllRoomTimelines)
 
   React.useEffect(() => {
     refreshEmotesRef.current = refreshEmotes
   }, [refreshEmotes])
 
   React.useEffect(() => {
+    rehydrateAllRoomTimelinesRef.current = rehydrateAllRoomTimelines
+  }, [rehydrateAllRoomTimelines])
+
+  React.useEffect(() => {
+    setSeventvEmoteRenderOptions({
+      zeroWidthEnabled: config.chat.emotes.zeroWidthEmotesEnabled,
+    })
+
+    if (
+      emotesOptionsReadyRef.current &&
+      zeroWidthEnabledRef.current !== config.chat.emotes.zeroWidthEmotesEnabled
+    ) {
+      rehydrateAllRoomTimelinesRef.current()
+    }
+
+    zeroWidthEnabledRef.current = config.chat.emotes.zeroWidthEmotesEnabled
+  }, [config.chat.emotes.zeroWidthEmotesEnabled])
+
+  React.useEffect(() => {
     const flagsKey = [
       config.chat.emotes.bttvEnabled,
       config.chat.emotes.ffzEnabled,
       config.chat.emotes.seventvEnabled,
+      config.chat.emotes.showUnlistedEmotes,
     ].join(":")
 
     setThirdPartyEmoteFetchOptions({
       bttvEnabled: config.chat.emotes.bttvEnabled,
       ffzEnabled: config.chat.emotes.ffzEnabled,
       seventvEnabled: config.chat.emotes.seventvEnabled,
+      showUnlistedEmotes: config.chat.emotes.showUnlistedEmotes,
     })
 
     if (!emotesOptionsReadyRef.current) {
@@ -514,6 +539,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     config.chat.emotes.bttvEnabled,
     config.chat.emotes.ffzEnabled,
     config.chat.emotes.seventvEnabled,
+    config.chat.emotes.showUnlistedEmotes,
   ])
 
   const canSendChat = Boolean(account?.accessToken && connectionState.connected)

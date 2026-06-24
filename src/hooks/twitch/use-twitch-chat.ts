@@ -1364,6 +1364,14 @@ export function useTwitchChat(options?: {
     [composerCatalogLoading, getRoomId]
   )
 
+  const rehydrateAllRoomTimelines = React.useCallback(() => {
+    for (const [login, room] of Object.entries(roomsRef.current)) {
+      if (room.roomId) {
+        rehydrateRoomTimeline(login, room.roomId)
+      }
+    }
+  }, [rehydrateRoomTimeline])
+
   const refreshEmotes = React.useCallback(async (login: string): Promise<boolean> => {
     const normalized = normalizeChannelLogin(login)
     const roomId = roomsRef.current[normalized]?.roomId ?? null
@@ -1506,6 +1514,7 @@ export function useTwitchChat(options?: {
     isComposerEmotesLoading,
     getSelfChatState,
     refreshEmotes,
+    rehydrateAllRoomTimelines,
     sendMessage,
   }
 }

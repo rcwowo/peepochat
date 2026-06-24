@@ -282,11 +282,23 @@
     height: calc(var(--chat-badge-size) * 2 / 3);
   }
 
+  .chat-emote {
+    display: inline-grid;
+    vertical-align: middle;
+  }
+
   .chat-emote img {
+    grid-area: 1 / 1;
     height: var(--chat-emote-size);
     max-height: var(--chat-emote-size);
     width: auto;
+    place-self: center;
     margin-block: var(--chat-emote-margin);
+    object-fit: contain;
+  }
+
+  .chat-emote img.chat-emote-overlay {
+    pointer-events: none;
   }
 
   .chat-system-text {

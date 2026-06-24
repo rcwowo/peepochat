@@ -61,54 +61,64 @@ function TooltipProvider({
 }
 
 function Tooltip({
+  open: controlledOpen,
+  onOpenChange,
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Root>) {
   const { resetCounter, suppressUntilMs } = React.useContext(TooltipResetContext)
-  const isControlled = props.open !== undefined
+  const isControlled = controlledOpen !== undefined
   const [open, setOpen] = React.useState(false)
+  const [openedAtResetCounter, setOpenedAtResetCounter] = React.useState(0)
+  const isOpen = open && openedAtResetCounter === resetCounter
+  const prevResetCounterRef = React.useRef(resetCounter)
 
   React.useEffect(() => {
-    if (isControlled) {
-      if (!props.open) return
-      // Force-close controlled tooltips (sidebar channel buttons) when tab/window changes
-      // so they don't remain stuck open.
-      props.onOpenChange?.(false)
+    if (prevResetCounterRef.current === resetCounter) {
       return
     }
 
-    // Close uncontrolled tooltips without remounting their children. Remounting would
-    // reload lazy images (e.g. Twitch emotes in chat) and abort in-flight requests.
-    setOpen(false)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isControlled, resetCounter])
+    prevResetCounterRef.current = resetCounter
+
+    if (!isControlled || !controlledOpen) {
+      return
+    }
+
+    // Force-close controlled tooltips (sidebar channel buttons) when tab/window changes
+    // so they don't remain stuck open.
+    onOpenChange?.(false)
+  }, [controlledOpen, isControlled, onOpenChange, resetCounter])
 
   const handleOpenChange = (next: boolean) => {
     if (next && Date.now() < suppressUntilMs) {
       if (isControlled) {
-        props.onOpenChange?.(false)
+        onOpenChange?.(false)
       } else {
         setOpen(false)
-        props.onOpenChange?.(false)
+        onOpenChange?.(false)
       }
       return
     }
 
     if (isControlled) {
-      props.onOpenChange?.(next)
+      onOpenChange?.(next)
       return
     }
 
-    setOpen(next)
-    props.onOpenChange?.(next)
+    if (next) {
+      setOpen(true)
+      setOpenedAtResetCounter(resetCounter)
+    } else {
+      setOpen(false)
+    }
+    onOpenChange?.(next)
   }
 
   if (isControlled) {
-    const { open: _open, onOpenChange: _onOpenChange, ...rest } = props
     return (
       <TooltipPrimitive.Root
         data-slot="tooltip"
-        {...rest}
-        open={props.open}
+        {...props}
+        open={controlledOpen}
         onOpenChange={handleOpenChange}
       />
     )
@@ -117,9 +127,9 @@ function Tooltip({
   return (
     <TooltipPrimitive.Root
       data-slot="tooltip"
-      {...props}
-      open={open}
+      open={isOpen}
       onOpenChange={handleOpenChange}
+      {...props}
     />
   )
 }

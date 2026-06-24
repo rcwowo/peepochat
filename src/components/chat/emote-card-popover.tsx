@@ -12,6 +12,8 @@ import { cn } from "@/lib/utils"
 type EmoteCardPopoverProps = {
   target: EmoteCardTarget
   children: React.ReactNode
+  /** Zero-width emote names layered on top of this emote. */
+  overlayNames?: string[]
   /** When true, left click opens the card. When false, only context menu opens it. */
   openOnClick?: boolean
   className?: string
@@ -20,6 +22,7 @@ type EmoteCardPopoverProps = {
 export function EmoteCardPopover({
   target,
   children,
+  overlayNames = [],
   openOnClick = true,
   className,
 }: EmoteCardPopoverProps) {
@@ -73,7 +76,11 @@ export function EmoteCardPopover({
   return (
     <Tooltip disableHoverableContent>
       <TooltipTrigger asChild>{trigger}</TooltipTrigger>
-      <EmoteTooltipContent name={target.code} provider={target.provider} />
+      <EmoteTooltipContent
+        name={target.code}
+        provider={target.provider}
+        overlayNames={overlayNames}
+      />
     </Tooltip>
   )
 }

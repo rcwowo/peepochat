@@ -172,12 +172,15 @@ function ChatPaneInner({
   const label = displayName ?? channelLogin
   const isLive = isChannelLive(channelLogin)
   const liveStream = isLive ? getChannelLiveStream(channelLogin) : null
+  const [prevIsLive, setPrevIsLive] = React.useState(isLive)
 
-  React.useEffect(() => {
+  if (isLive !== prevIsLive) {
+    setPrevIsLive(isLive)
     if (!isLive) {
       setLiveInfoExpanded(false)
     }
-  }, [isLive])
+  }
+
   const rowStripes = React.useMemo(
     () => reconcileStableRowStripes(rowStripeCache, timeline),
     [rowStripeCache, timeline]
