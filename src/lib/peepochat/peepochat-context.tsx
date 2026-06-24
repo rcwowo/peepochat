@@ -110,6 +110,9 @@ export type PeepochatSidebarHighlightsContextValue = {
   markChannelRead: (login: string) => void
   markSplitRead: (splitId: string) => void
   isChannelLive: (login: string) => boolean
+  getChannelLiveStream: (
+    login: string
+  ) => import("@/lib/twitch/twitch-api").TwitchLiveStream | null
   isSplitLive: (channelLogins: string[]) => boolean
   liveIndicatorsEnabled: boolean
 }
@@ -318,7 +321,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     onChatMessageRef.current = highlightActivity.handleIncomingMessage
   }, [highlightActivity.handleIncomingMessage])
 
-  const { isLive: isChannelLive } = useStreamLiveStatus({
+  const { isLive: isChannelLive, getLiveStream } = useStreamLiveStatus({
     channelLogins,
     enabled: config.highlights.liveIndicatorsEnabled && hasAccountValue,
     accessToken: account?.accessToken,
@@ -621,6 +624,15 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     [config.highlights.liveIndicatorsEnabled, isChannelLive]
   )
 
+  const getChannelLiveStream = React.useCallback(
+    (login: string) => {
+      if (!config.highlights.liveIndicatorsEnabled) return null
+      if (!isChannelLive(login)) return null
+      return getLiveStream(login)
+    },
+    [config.highlights.liveIndicatorsEnabled, isChannelLive, getLiveStream]
+  )
+
   const sidebarHighlightsValue =
     React.useMemo<PeepochatSidebarHighlightsContextValue>(
       () => ({
@@ -632,6 +644,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
         markSplitRead: highlightActivity.markSplitRead,
         isChannelLive: (login) =>
           config.highlights.liveIndicatorsEnabled && isChannelLive(login),
+        getChannelLiveStream,
         isSplitLive,
         liveIndicatorsEnabled: config.highlights.liveIndicatorsEnabled,
       }),
@@ -644,6 +657,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
         highlightActivity.markChannelRead,
         highlightActivity.markSplitRead,
         isChannelLive,
+        getChannelLiveStream,
         isSplitLive,
       ]
     )

@@ -11,6 +11,10 @@ import { ChatComposer } from "@/components/chat/chat-composer"
 import { EmoteCardProvider } from "@/components/chat/emote-card-context"
 import { ChatMessageRow } from "@/components/chat/chat-message-row"
 import { ChatSystemMessage } from "@/components/chat/chat-system-message"
+import {
+  ChatPaneLiveBadge,
+  ChatPaneLiveInfoBar,
+} from "@/components/chat/chat-pane-live"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -32,7 +36,7 @@ import type {
   TwitchAccount,
 } from "@/lib/peepochat/peepochat-config"
 import { useChannelMessageHighlights } from "@/hooks/chat/use-highlight-activity"
-import { usePeepochatChat } from "@/lib/peepochat/peepochat-context"
+import { usePeepochatChat, usePeepochatSidebarHighlights } from "@/lib/peepochat/peepochat-context"
 import { getRecentUserMessageBuckets } from "@/lib/chat/recent-user-messages"
 import { cn } from "@/lib/utils"
 
@@ -155,6 +159,7 @@ function ChatPaneInner({
   className,
 }: ChatPaneProps) {
   const { refreshEmotes, getComposerEmoteCatalog } = usePeepochatChat()
+  const { isChannelLive, getChannelLiveStream } = usePeepochatSidebarHighlights()
   const messageHighlights = useChannelMessageHighlights(channelLogin)
   const composerCatalog = getComposerEmoteCatalog(channelLogin)
   const chatContainerRef = React.useRef<HTMLDivElement>(null)
@@ -162,8 +167,17 @@ function ChatPaneInner({
   const isProgrammaticScrollRef = React.useRef(false)
   const [rowStripeCache] = React.useState(() => new Map<string, boolean>())
   const [isScrollPaused, setIsScrollPaused] = React.useState(false)
+  const [liveInfoExpanded, setLiveInfoExpanded] = React.useState(false)
 
   const label = displayName ?? channelLogin
+  const isLive = isChannelLive(channelLogin)
+  const liveStream = isLive ? getChannelLiveStream(channelLogin) : null
+
+  React.useEffect(() => {
+    if (!isLive) {
+      setLiveInfoExpanded(false)
+    }
+  }, [isLive])
   const rowStripes = React.useMemo(
     () => reconcileStableRowStripes(rowStripeCache, timeline),
     [rowStripeCache, timeline]
@@ -245,6 +259,12 @@ function ChatPaneInner({
             profileImageUrl={profileImageUrl}
           />
           <span className="truncate text-sm font-medium">{label}</span>
+          {isLive ? (
+            <ChatPaneLiveBadge
+              expanded={liveInfoExpanded}
+              onToggle={() => setLiveInfoExpanded((expanded) => !expanded)}
+            />
+          ) : null}
         </div>
         <div
           className="flex shrink-0 items-center gap-2"
@@ -321,6 +341,10 @@ function ChatPaneInner({
           ) : null}
         </div>
       </div>
+
+      {liveInfoExpanded && liveStream ? (
+        <ChatPaneLiveInfoBar stream={liveStream} />
+      ) : null}
 
       <div className="chat-panel flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="relative min-h-0 flex-1 overflow-hidden">
