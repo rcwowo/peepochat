@@ -369,7 +369,7 @@ export function HighlightsTab() {
             <div className="space-y-1">
               <Label htmlFor="new-ping-pattern">Add custom ping</Label>
               <p className="text-xs leading-relaxed text-muted-foreground">
-                JavaScript regular expression.
+                Keywords or RegEx that will trigger a ping.
               </p>
             </div>
             <div className="flex gap-2">

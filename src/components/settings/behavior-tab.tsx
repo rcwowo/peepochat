@@ -1,4 +1,9 @@
-import { CopyIcon, CornerUpLeftIcon, HistoryIcon } from "lucide-react"
+import {
+  CopyIcon,
+  CornerUpLeftIcon,
+  HistoryIcon,
+  LayersIcon,
+} from "lucide-react"
 
 import {
   LIVE_MESSAGES_PER_CHANNEL_MAX,
@@ -65,7 +70,7 @@ export function BehaviorTab() {
         <SettingsGroup>
           <SettingsSliderRow
             title="Max messages"
-            description="Number of messages to display per channel. More messages may affect performance."
+            description="Number of messages to display per channel."
             value={config.chat.maxLiveMessagesPerChannel}
             min={LIVE_MESSAGES_PER_CHANNEL_MIN}
             max={LIVE_MESSAGES_PER_CHANNEL_MAX}
@@ -153,6 +158,31 @@ export function BehaviorTab() {
               onCheckedChange={(checked) => setEmoteProvider(row.provider, checked)}
             />
           ))}
+        </SettingsGroup>
+      </SettingsSection>
+
+      <SettingsDivider />
+
+      <SettingsSection
+        title="Performance"
+        description="Make the app more performant on lower-end devices."
+      >
+        <SettingsGroup>
+          <SettingsSwitchRow
+            icon={LayersIcon}
+            title="Keep chat views mounted"
+            description="Leaves channels loaded but hidden in the DOM. Switching channels is instant, but uses more memory on busy channels."
+            checked={config.chat.keepChatViewsMounted}
+            onCheckedChange={(checked) =>
+              updateConfig((current) => ({
+                ...current,
+                chat: {
+                  ...current.chat,
+                  keepChatViewsMounted: checked,
+                },
+              }))
+            }
+          />
         </SettingsGroup>
       </SettingsSection>
     </SettingsTab>

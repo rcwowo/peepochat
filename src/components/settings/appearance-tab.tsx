@@ -1,6 +1,5 @@
 import * as React from "react"
 import {
-  LayersIcon,
   Link2Icon,
   MonitorIcon,
   MoonIcon,
@@ -27,7 +26,6 @@ import {
   SettingsSegmented,
   SettingsSwitchRow,
   SettingsTab,
-  SettingsToggle,
 } from "@/components/settings/settings-primitives"
 import { cn } from "@/lib/utils"
 
@@ -188,7 +186,7 @@ export function AppearanceTab() {
   return (
     <SettingsTab
       title="Appearance"
-      description="Theme, typography, badges, timestamps, and performance-related display options."
+      description="Theme, typography, badges, and timestamps."
     >
       <SettingsDivider className="mt-4 mb-4" />
 
@@ -205,6 +203,23 @@ export function AppearanceTab() {
             { value: "light", label: "Light", icon: SunIcon },
             { value: "dark", label: "Dark", icon: MoonIcon },
           ]}
+        />
+      </SettingsSection>
+
+      <SettingsSection
+        title="Timestamps"
+        description="How timestamps appear in chat."
+      >
+        <SettingsSegmented
+          value={config.chat.messageTimestampFormat}
+          size="lg"
+          onChange={(messageTimestampFormat) =>
+            updateConfig((current) => ({
+              ...current,
+              chat: { ...current.chat, messageTimestampFormat },
+            }))
+          }
+          options={MESSAGE_TIMESTAMP_FORMAT_OPTIONS}
         />
       </SettingsSection>
 
@@ -306,46 +321,6 @@ export function AppearanceTab() {
             }
           />
         </SettingsGroup>
-      </SettingsSection>
-
-      <SettingsSection
-        title="Timestamps"
-        description="How timestamps appear in chat."
-      >
-        <SettingsSegmented
-          value={config.chat.messageTimestampFormat}
-          size="lg"
-          onChange={(messageTimestampFormat) =>
-            updateConfig((current) => ({
-              ...current,
-              chat: { ...current.chat, messageTimestampFormat },
-            }))
-          }
-          options={MESSAGE_TIMESTAMP_FORMAT_OPTIONS}
-        />
-      </SettingsSection>
-
-      <SettingsDivider />
-
-      <SettingsSection
-        title="Performance"
-        description="Trade memory for faster switching between channels and splits."
-      >
-        <SettingsToggle
-          icon={LayersIcon}
-          title="Keep chat views mounted"
-          description="Leaves channels loaded but hidden in the DOM. Switching channels is instant, but uses more memory on busy channels."
-          checked={config.chat.keepChatViewsMounted}
-          onCheckedChange={(checked) =>
-            updateConfig((current) => ({
-              ...current,
-              chat: {
-                ...current.chat,
-                keepChatViewsMounted: checked,
-              },
-            }))
-          }
-        />
       </SettingsSection>
     </SettingsTab>
   )
