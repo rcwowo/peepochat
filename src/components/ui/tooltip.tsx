@@ -68,11 +68,17 @@ function Tooltip({
   const [open, setOpen] = React.useState(false)
 
   React.useEffect(() => {
-    if (!isControlled) return
-    if (!props.open) return
-    // Force-close controlled tooltips (sidebar channel buttons) when tab/window changes
-    // so they don't remain stuck open.
-    props.onOpenChange?.(false)
+    if (isControlled) {
+      if (!props.open) return
+      // Force-close controlled tooltips (sidebar channel buttons) when tab/window changes
+      // so they don't remain stuck open.
+      props.onOpenChange?.(false)
+      return
+    }
+
+    // Close uncontrolled tooltips without remounting their children. Remounting would
+    // reload lazy images (e.g. Twitch emotes in chat) and abort in-flight requests.
+    setOpen(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isControlled, resetCounter])
 
@@ -111,7 +117,6 @@ function Tooltip({
   return (
     <TooltipPrimitive.Root
       data-slot="tooltip"
-      key={resetCounter}
       {...props}
       open={open}
       onOpenChange={handleOpenChange}
