@@ -1,4 +1,5 @@
 import { devLoggedFetch } from "@/lib/dev-logger"
+import { LIVE_MESSAGES_PER_CHANNEL_DEFAULT } from "@/lib/peepochat/peepochat-config"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 import {
   EMPTY_SYSTEM_MESSAGE_META,
@@ -10,7 +11,8 @@ import {
 const RECENT_MESSAGES_BASE =
   "https://recent-messages.robotty.de/api/v2/recent-messages"
 
-export const RECENT_MESSAGES_DEFAULT_LIMIT = 100
+/** Fallback when no per-user max is supplied; matches chat max-messages default. */
+export const RECENT_MESSAGES_DEFAULT_LIMIT = LIVE_MESSAGES_PER_CHANNEL_DEFAULT
 export const RECENT_MESSAGES_CONCURRENCY = 3
 
 export const RECENT_MESSAGES_UNAVAILABLE_TEXT =

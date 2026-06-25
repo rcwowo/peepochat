@@ -163,6 +163,7 @@ export function useTwitchChat(options?: {
   const syncedChannelsRef = React.useRef<string[]>([])
   const recentMessagesEnabledRef = React.useRef(true)
   const liveMessageLimitRef = React.useRef(LIVE_MESSAGES_PER_CHANNEL_DEFAULT)
+  const historyFetchLimitRef = React.useRef(0)
   const historyLoadedRef = React.useRef(new Set<string>())
   const historyLoadingRef = React.useRef(new Set<string>())
   const historyErrorNotifiedRef = React.useRef(new Set<string>())
@@ -745,8 +746,10 @@ export function useTwitchChat(options?: {
             { channel: normalized },
           ])
 
+          const fetchLimit = liveMessageLimitRef.current
+
           try {
-            const outcome = await fetchRecentMessages(normalized)
+            const outcome = await fetchRecentMessages(normalized, fetchLimit)
 
             if (!shouldApplyRecentMessagesFetch(normalized, generation)) {
               devFetchLogger.debugLazy(() => [
@@ -771,6 +774,10 @@ export function useTwitchChat(options?: {
             switch (outcome.status) {
               case "success": {
                 historyLoadedRef.current.add(normalized)
+                historyFetchLimitRef.current = Math.max(
+                  historyFetchLimitRef.current,
+                  fetchLimit
+                )
 
                 if (outcome.messages.length === 0) {
                   return
@@ -1220,31 +1227,42 @@ export function useTwitchChat(options?: {
     (limit: number) => {
       const previous = liveMessageLimitRef.current
       liveMessageLimitRef.current = limit
-      if (limit >= previous) {
+
+      if (limit < previous) {
+        setRooms((current) => {
+          let changed = false
+          const next: Record<string, TwitchChatRoomState> = { ...current }
+
+          for (const [login, room] of Object.entries(current)) {
+            const trimmed = trimTimeline(room.timeline)
+            if (trimmed.length === room.timeline.length) {
+              continue
+            }
+
+            changed = true
+            next[login] = {
+              ...room,
+              timeline: trimmed,
+            }
+          }
+
+          return changed ? next : current
+        })
         return
       }
 
-      setRooms((current) => {
-        let changed = false
-        const next: Record<string, TwitchChatRoomState> = { ...current }
-
-        for (const [login, room] of Object.entries(current)) {
-          const trimmed = trimTimeline(room.timeline)
-          if (trimmed.length === room.timeline.length) {
-            continue
-          }
-
-          changed = true
-          next[login] = {
-            ...room,
-            timeline: trimmed,
-          }
+      if (
+        limit > previous &&
+        limit > historyFetchLimitRef.current &&
+        recentMessagesEnabledRef.current
+      ) {
+        for (const login of syncedChannelsRef.current) {
+          historyLoadedRef.current.delete(login)
+          loadRecentMessages(login)
         }
-
-        return changed ? next : current
-      })
+      }
     },
-    [trimTimeline]
+    [loadRecentMessages, trimTimeline]
   )
 
   const setRecentMessagesEnabled = React.useCallback(
@@ -1256,6 +1274,7 @@ export function useTwitchChat(options?: {
         historyLoadedRef.current.clear()
         historyLoadingRef.current.clear()
         historyErrorNotifiedRef.current.clear()
+        historyFetchLimitRef.current = 0
         clearRecentMessagesQueue()
         if (wasEnabled) {
           clearHistoricalTimeline()
@@ -1266,6 +1285,7 @@ export function useTwitchChat(options?: {
       if (!wasEnabled) {
         historyLoadedRef.current.clear()
         historyErrorNotifiedRef.current.clear()
+        historyFetchLimitRef.current = 0
         for (const login of syncedChannelsRef.current) {
           loadRecentMessages(login)
         }

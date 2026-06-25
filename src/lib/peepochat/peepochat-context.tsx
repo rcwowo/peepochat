@@ -413,6 +413,14 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
   )
 
   React.useEffect(() => {
+    setRecentMessagesEnabled(config.chat.recentMessagesEnabled)
+  }, [config.chat.recentMessagesEnabled, setRecentMessagesEnabled])
+
+  React.useEffect(() => {
+    setLiveMessageLimit(config.chat.maxLiveMessagesPerChannel)
+  }, [config.chat.maxLiveMessagesPerChannel, setLiveMessageLimit])
+
+  React.useEffect(() => {
     if (!ready || needsOnboarding) return
     if (!hasAccountValue) return
 
@@ -478,14 +486,6 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     account?.displayName,
     channelHints,
   ])
-
-  React.useEffect(() => {
-    setRecentMessagesEnabled(config.chat.recentMessagesEnabled)
-  }, [config.chat.recentMessagesEnabled, setRecentMessagesEnabled])
-
-  React.useEffect(() => {
-    setLiveMessageLimit(config.chat.maxLiveMessagesPerChannel)
-  }, [config.chat.maxLiveMessagesPerChannel, setLiveMessageLimit])
 
   const emotesOptionsReadyRef = React.useRef(false)
   const emoteProviderFlagsRef = React.useRef("")
