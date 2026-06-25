@@ -8,6 +8,7 @@ import {
   splitFirstToken,
   type ParsedSlashCommand,
 } from "@/lib/chat/chat-command-parse"
+import { createUserCardTargetFromTwitchUser } from "@/lib/chat/user-card"
 import type { TwitchAccount } from "@/lib/peepochat/peepochat-config"
 import { fetchIvrTwitchModVip, IvrApiError } from "@/lib/ivr/ivr-api"
 import {
@@ -33,9 +34,12 @@ const DEFAULT_TIMEOUT_SECONDS = 10 * 60
 const DEFAULT_COMMERCIAL_SECONDS = 30
 const DEFAULT_SLOW_SECONDS = 30
 
+import type { UserCardTarget } from "@/hooks/twitch/use-user-card"
+
 export type ChatCommandResult =
   | { handled: true; kind: "feedback"; message: string; level?: "info" | "error" }
   | { handled: true; kind: "me"; text: string }
+  | { handled: true; kind: "open_user_card"; target: UserCardTarget }
   | { handled: false }
 
 export type ChatCommandContext = {
@@ -188,6 +192,39 @@ async function runCommand(
 
   if (command.name === "mods" || command.name === "vips") {
     return runModVipListCommand(command.name, context.channelLogin)
+  }
+
+  if (command.name === "user") {
+    const [login] = splitFirstToken(command.rawArgs)
+    if (!login) {
+      return {
+        handled: true,
+        kind: "feedback",
+        level: "error",
+        message: "Usage: /user <username>",
+      }
+    }
+
+    const users = await fetchTwitchUsersByLogin(
+      [login.replace(/^@/, "").trim()],
+      account.accessToken,
+      account.clientId
+    )
+    const user = users[0]
+    if (!user) {
+      return {
+        handled: true,
+        kind: "feedback",
+        level: "error",
+        message: `User "${login.replace(/^@/, "")}" was not found.`,
+      }
+    }
+
+    return {
+      handled: true,
+      kind: "open_user_card",
+      target: createUserCardTargetFromTwitchUser(user, context.channelLogin),
+    }
   }
 
   const broadcasterResult = requireBroadcasterId(context.broadcasterId)

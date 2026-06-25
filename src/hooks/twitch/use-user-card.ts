@@ -1,6 +1,7 @@
 import * as React from "react"
 
 import {
+  fetchIvrTwitchModVip,
   fetchIvrTwitchSubage,
   fetchIvrTwitchUserProfile,
   IvrApiError,
@@ -41,9 +42,15 @@ export type UserCardTarget = {
   flags: TwitchChatMessage["flags"]
 }
 
+export type UserCardChannelRoles = {
+  isModerator: boolean
+  isVip: boolean
+}
+
 export type UserCardChannelStatus = {
   ban: StatusResult<TwitchBannedUserStatus | null>
   moderator: StatusResult<TwitchModeratorStatus | null>
+  channelRoles: StatusResult<UserCardChannelRoles>
   subage: StatusResult<IvrTwitchSubage | null>
   ivrProfile: StatusResult<IvrTwitchUserProfile | null>
 }
@@ -231,7 +238,7 @@ async function loadChannelStatus({
       Boolean(channelRoomId) &&
       (hasScope(account, USER_CARD_MODERATION_SCOPES.moderationRead) ||
         account.id === channelRoomId)
-    const [ban, moderator, subage, ivrProfile] = await Promise.all([
+    const [ban, moderator, channelRoles, subage, ivrProfile] = await Promise.all([
       optionalStatus(
         canLoadBanStatus,
         channelRoomId
@@ -258,6 +265,18 @@ async function loadChannelStatus({
             clientId: account.clientId,
           })
       ),
+      optionalStatus(true, "Channel roles are unavailable.", async () => {
+        const modVip = await fetchIvrTwitchModVip(channelLogin)
+        const userId = profile.id
+        const userLogin = profile.login.toLowerCase()
+        const matchesUser = (entry: { id: string; login: string }) =>
+          entry.id === userId || entry.login.toLowerCase() === userLogin
+
+        return {
+          isModerator: modVip.mods.some(matchesUser),
+          isVip: modVip.vips.some(matchesUser),
+        }
+      }),
       optionalStatus(true, "Subage is unavailable.", () =>
         fetchIvrTwitchSubage({
           userLogin: profile.login || profile.displayName,
@@ -273,6 +292,7 @@ async function loadChannelStatus({
     const status: UserCardChannelStatus = {
       ban,
       moderator,
+      channelRoles,
       subage,
       ivrProfile,
     }

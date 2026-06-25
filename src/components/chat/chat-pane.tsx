@@ -9,6 +9,8 @@ import {
 
 import { ChatComposer } from "@/components/chat/chat-composer"
 import { EmoteCardProvider } from "@/components/chat/emote-card-context"
+import { UserCardProvider } from "@/components/chat/user-card-context"
+import type { UserCardTarget } from "@/hooks/twitch/use-user-card"
 import { ChatMessageRow } from "@/components/chat/chat-message-row"
 import { ChatSystemMessage } from "@/components/chat/chat-system-message"
 import {
@@ -189,6 +191,18 @@ function ChatPaneInner({
     return getRecentUserMessageBuckets(timeline)
   }, [timeline])
 
+  const getRecentMessagesForUser = React.useCallback(
+    (target: UserCardTarget) => {
+      if (target.userId) {
+        return recentMessagesByUser.get(`id:${target.userId}`) ?? []
+      }
+      return (
+        recentMessagesByUser.get(`login:${target.userName.toLowerCase()}`) ?? []
+      )
+    },
+    [recentMessagesByUser]
+  )
+
   const scrollToBottom = React.useCallback((behavior: ScrollBehavior = "auto") => {
     const el = chatContainerRef.current
     if (!el) return
@@ -242,6 +256,14 @@ function ChatPaneInner({
   }, [isActive, isScrollPaused, scrollToBottom])
 
   return (
+    <UserCardProvider
+      account={account}
+      channelLogin={channelLogin}
+      channelRoomId={channelRoomId}
+      selfChatState={selfChatState}
+      loginWithTwitch={loginWithTwitch}
+      getRecentMessages={getRecentMessagesForUser}
+    >
     <EmoteCardProvider catalog={composerCatalog}>
       <div
         className={cn(
@@ -395,10 +417,6 @@ function ChatPaneInner({
                       timestampFormat={timestampFormat}
                       showCopyButton={messageQuickActions.copyEnabled}
                       showReplyButton={messageQuickActions.replyEnabled}
-                      account={account}
-                      loginWithTwitch={loginWithTwitch}
-                      channelRoomId={channelRoomId}
-                      selfChatState={selfChatState}
                       recentUserMessages={
                         entry.message.userId
                           ? (recentMessagesByUser.get(`id:${entry.message.userId}`) ?? [])
@@ -445,6 +463,7 @@ function ChatPaneInner({
       </div>
     </div>
     </EmoteCardProvider>
+    </UserCardProvider>
   )
 }
 

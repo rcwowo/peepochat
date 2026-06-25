@@ -6,6 +6,7 @@ import { ChatSuggestions } from "@/components/chat/chat-suggestions"
 import { CommandSuggestions } from "@/components/chat/command-suggestions"
 import { EmotePicker } from "@/components/chat/emote-picker"
 import { ChatReplyPreview } from "@/components/chat/chat-reply-preview"
+import { useUserCardContext } from "@/hooks/twitch/use-user-card-context"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { usePeepochat } from "@/lib/peepochat/peepochat-context"
@@ -61,6 +62,8 @@ export function ChatComposer({
     executeChatCommand,
     connectionState,
   } = usePeepochat()
+
+  const userCardContext = useUserCardContext()
 
   const [value, setValue] = React.useState("")
   const [error, setError] = React.useState("")
@@ -468,6 +471,12 @@ export function ChatComposer({
             toast.error("Failed to send message")
             return
           }
+          clearComposerAfterSend(message)
+          return
+        }
+
+        if (result.kind === "open_user_card") {
+          userCardContext?.openUserCard(result.target, null)
           clearComposerAfterSend(message)
           return
         }

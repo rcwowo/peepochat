@@ -5,19 +5,13 @@ import { ChatMessageBody } from "@/components/chat/chat-message-body"
 import { ChatReplyPreview } from "@/components/chat/chat-reply-preview"
 import { UserCardPopover } from "@/components/chat/user-card-popover"
 import { Button } from "@/components/ui/button"
-import type {
-  TwitchSelfChatState,
-} from "@/hooks/twitch/use-twitch-chat"
 import {
   resolveMessageBadges,
   type ChatBadgeCatalog,
 } from "@/lib/chat/chat-badges"
 import { getReadableUsernameColor } from "@/lib/chat/chat-username"
 import type { PingMatchRange } from "@/lib/highlights/highlight-rules"
-import type {
-  MessageTimestampFormat,
-  TwitchAccount,
-} from "@/lib/peepochat/peepochat-config"
+import type { MessageTimestampFormat } from "@/lib/peepochat/peepochat-config"
 import { formatMessageTimestamp } from "@/lib/peepochat/peepochat-context"
 import type { ResolvedMemberBadge } from "@/lib/chat/rcw-badges"
 import type { TwitchChatMessage } from "@/lib/twitch/twitch-chat"
@@ -38,10 +32,6 @@ function ChatMessageRowInner({
   showReplyButton = true,
   pingHighlighted = false,
   pingMatchRange = null,
-  account,
-  loginWithTwitch,
-  channelRoomId,
-  selfChatState,
   recentUserMessages,
 }: {
   message: TwitchChatMessage
@@ -57,10 +47,6 @@ function ChatMessageRowInner({
   showReplyButton?: boolean
   pingHighlighted?: boolean
   pingMatchRange?: PingMatchRange | null
-  account: TwitchAccount | null
-  loginWithTwitch: () => void
-  channelRoomId: string | null
-  selfChatState: TwitchSelfChatState | null
   recentUserMessages: TwitchChatMessage[]
 }) {
   const timestamp = formatMessageTimestamp(message.receivedAt, timestampFormat)
@@ -167,12 +153,7 @@ function ChatMessageRowInner({
         />
         <UserCardPopover
           target={userCardTarget}
-          account={account}
-          channelLogin={message.channel}
-          channelRoomId={channelRoomId}
-          selfChatState={selfChatState}
           recentMessages={recentUserMessages}
-          loginWithTwitch={loginWithTwitch}
         />
         {message.flags.isAction ? null : (
           <span className="chat-colon text-muted-foreground">: </span>
