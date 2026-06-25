@@ -420,7 +420,17 @@ export function hasStoredConfig(): boolean {
 }
 
 export function hasAccount(config: AppConfig): boolean {
-  return config.twitch.account !== null
+  const account = config.twitch.account
+  return account !== null && account.accessToken.trim().length > 0
+}
+
+/** True when local settings exist but the Twitch session is missing. */
+export function isLoggedOutWithSavedSetup(config: AppConfig): boolean {
+  return (
+    hasStoredConfig() &&
+    !hasAccount(config) &&
+    config.twitch.channels.length > 0
+  )
 }
 
 /** True while login or at least one channel is still required. */
@@ -474,6 +484,46 @@ export function importConfigBackup(payload: string): AppConfig {
   return parseConfig(parsed)
 }
 
+export type BackupPreview = {
+  exportedAt: string | null
+  appVersion: string | null
+  accountDisplayName: string | null
+  accountLogin: string | null
+  channelCount: number
+  channelNames: string[]
+  splitCount: number
+  pingRuleCount: number
+}
+
+export function parseBackupPreview(payload: string): BackupPreview {
+  const parsed = JSON.parse(payload) as unknown
+  let config: AppConfig
+  let exportedAt: string | null = null
+  let appVersion: string | null = null
+
+  const envelopeResult = backupEnvelopeSchema.safeParse(parsed)
+  if (envelopeResult.success) {
+    exportedAt = envelopeResult.data.exportedAt
+    appVersion = envelopeResult.data.appVersion
+    config = parseConfig(envelopeResult.data.data)
+  } else {
+    config = parseConfig(parsed)
+  }
+
+  return {
+    exportedAt,
+    appVersion,
+    accountDisplayName: config.twitch.account?.displayName ?? null,
+    accountLogin: config.twitch.account?.login ?? null,
+    channelCount: config.twitch.channels.length,
+    channelNames: config.twitch.channels.map(
+      (channel) => channel.displayName?.trim() || channel.login
+    ),
+    splitCount: config.layout.splits.length,
+    pingRuleCount: config.highlights.pings.length,
+  }
+}
+
 /** Keep an active session when restoring a backup for the same Twitch account. */
 export function mergeRestoredConfig(
   restored: AppConfig,
@@ -496,6 +546,16 @@ export function mergeRestoredConfig(
     restoredAccount.clientId.trim() ||
     (sameAccount ? existingAccount.clientId : "") ||
     envClientId
+
+  if (!accessToken) {
+    return normalizeConfig({
+      ...restored,
+      twitch: {
+        ...restored.twitch,
+        account: null,
+      },
+    })
+  }
 
   return normalizeConfig({
     ...restored,

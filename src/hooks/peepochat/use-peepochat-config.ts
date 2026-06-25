@@ -8,6 +8,7 @@ import {
   needsOnboardingForConfig,
   saveConfig,
 } from "@/lib/peepochat/peepochat-config"
+import { isAwaitingFreshSetupBookmark } from "@/lib/peepochat/onboarding-storage"
 import { getTwitchClientId } from "@/lib/twitch/twitch-oauth"
 
 type IdleScheduler = (cb: () => void) => number
@@ -34,11 +35,17 @@ const cancelIdle: IdleCanceler =
 export function usePeepochatConfig() {
   const [config, setConfig] = React.useState<AppConfig>(() => loadConfig())
   const [forceOnboarding, setForceOnboarding] = React.useState(false)
+  const [, refreshOnboardingGate] = React.useReducer(
+    (revision: number) => revision + 1,
+    0
+  )
   const pendingSaveRef = React.useRef<AppConfig | null>(null)
   const saveHandleRef = React.useRef<number | null>(null)
 
   const needsOnboarding =
-    forceOnboarding || needsOnboardingForConfig(config)
+    forceOnboarding ||
+    needsOnboardingForConfig(config) ||
+    isAwaitingFreshSetupBookmark(config)
 
   const flushPendingSave = React.useCallback(() => {
     if (saveHandleRef.current !== null) {
@@ -121,6 +128,7 @@ export function usePeepochatConfig() {
 
   const completeOnboarding = React.useCallback(() => {
     setForceOnboarding(false)
+    refreshOnboardingGate()
   }, [])
 
   const requireOnboarding = React.useCallback(() => {

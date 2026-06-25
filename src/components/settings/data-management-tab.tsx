@@ -2,6 +2,7 @@ import * as React from "react"
 import { CloudDownloadIcon, CloudUploadIcon } from "lucide-react"
 import { toast } from "sonner"
 
+import { clearAllOnboardingState } from "@/lib/peepochat/onboarding-storage"
 import { usePeepochatSettings } from "@/lib/peepochat/peepochat-context"
 import { exportConfigBackup } from "@/lib/peepochat/peepochat-config"
 import {
@@ -132,6 +133,7 @@ export function DataManagementTab() {
                 "This will reset ALL settings to defaults. This cannot be undone. Continue?"
               )
             ) {
+              clearAllOnboardingState()
               localStorage.clear()
               window.location.reload()
             }

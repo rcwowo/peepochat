@@ -28,7 +28,13 @@ export function useTwitchAuth({
   const [oauthBusy, setOauthBusy] = React.useState(false)
   const oauthHandledRef = React.useRef(false)
 
-  const account = React.useMemo(() => getAccount(config), [config])
+  const account = React.useMemo(() => {
+    const stored = getAccount(config)
+    if (!stored || stored.accessToken.trim().length === 0) {
+      return null
+    }
+    return stored
+  }, [config])
 
   const setAccountFromToken = React.useCallback(
     async (accessToken: string) => {
