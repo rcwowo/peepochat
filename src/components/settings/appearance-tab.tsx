@@ -74,7 +74,7 @@ function ScaleLinkDivider({
         }
         onClick={onToggle}
         className={cn(
-          "absolute left-1/2 top-0 z-10 flex size-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border bg-background shadow-xs",
+          "absolute top-0 left-1/2 z-10 flex size-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border bg-background shadow-xs",
           "cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring/45",
           linked
             ? "border-primary/45 text-primary"
@@ -105,7 +105,7 @@ function FontFamilySettingRow({
   return (
     <SettingsInputRow
       label="Font family"
-      description='Google or system font name. Leave empty for the app default.'
+      description="Google or system font name. Leave empty for the app default."
       value={draft}
       placeholder="Inter, sans-serif, monospace, etc."
       onChange={setDraft}

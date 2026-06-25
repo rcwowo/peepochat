@@ -226,13 +226,15 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     updateConfig,
     restoreBackup,
   } = usePeepochatConfig()
-  const { account, oauthBusy, login, logout, isOAuthConfigured } = useTwitchAuth({
-    config,
-    updateConfig,
-  })
+  const { account, oauthBusy, login, logout, isOAuthConfigured } =
+    useTwitchAuth({
+      config,
+      updateConfig,
+    })
   const hasAccountValue = account !== null
   const onChatMessageRef = React.useRef<
-    ((message: import("@/lib/twitch/twitch-chat").TwitchChatMessage) => void) | null
+    | ((message: import("@/lib/twitch/twitch-chat").TwitchChatMessage) => void)
+    | null
   >(null)
 
   const {
@@ -392,12 +394,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       highlightActivity.markChannelRead(normalized)
       setActiveChannelBase(normalized)
     },
-    [
-      highlightActivity,
-      savedSplits,
-      setActiveChannelBase,
-      updateConfig,
-    ]
+    [highlightActivity, savedSplits, setActiveChannelBase, updateConfig]
   )
 
   React.useEffect(() => {
@@ -429,17 +426,9 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
-      toast.error(
-        error instanceof Error ? error.message : "Connection failed"
-      )
+      toast.error(error instanceof Error ? error.message : "Connection failed")
     })
-  }, [
-    channelLogins,
-    hasAccountValue,
-    needsOnboarding,
-    ready,
-    syncAllChannels,
-  ])
+  }, [channelLogins, hasAccountValue, needsOnboarding, ready, syncAllChannels])
 
   React.useEffect(() => {
     for (const login of mountedChannelLogins) {
@@ -489,7 +478,9 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
 
   const emotesOptionsReadyRef = React.useRef(false)
   const emoteProviderFlagsRef = React.useRef("")
-  const zeroWidthEnabledRef = React.useRef(config.chat.emotes.zeroWidthEmotesEnabled)
+  const zeroWidthEnabledRef = React.useRef(
+    config.chat.emotes.zeroWidthEmotesEnabled
+  )
   const refreshEmotesRef = React.useRef(refreshEmotes)
   const rehydrateAllRoomTimelinesRef = React.useRef(rehydrateAllRoomTimelines)
 

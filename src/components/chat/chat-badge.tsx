@@ -21,7 +21,11 @@ import type { TwitchBadge } from "@/lib/twitch/twitch-chat"
 
 const ROLE_BADGE_FALLBACK: Record<
   string,
-  { label: string; bg: string; icon: React.ComponentType<{ className?: string }> }
+  {
+    label: string
+    bg: string
+    icon: React.ComponentType<{ className?: string }>
+  }
 > = {
   staff: { label: "Staff", bg: "#000000", icon: Wrench },
   partner: { label: "Partner", bg: "#a96dff", icon: BadgeCheck },
@@ -51,11 +55,7 @@ function ChatBadgeImage({
         <img
           className="chat-badge inline-block align-middle"
           src={imageUrl}
-          srcSet={
-            imageUrl2x
-              ? `${imageUrl} 1x, ${imageUrl2x} 2x`
-              : undefined
-          }
+          srcSet={imageUrl2x ? `${imageUrl} 1x, ${imageUrl2x} 2x` : undefined}
           alt={description}
           loading="lazy"
           decoding="async"

@@ -28,7 +28,10 @@ function isUserCardOverlayTarget(target: Node): boolean {
   )
 }
 
-function isPointerInsidePanel(event: PointerEvent, panel: HTMLDivElement): boolean {
+function isPointerInsidePanel(
+  event: PointerEvent,
+  panel: HTMLDivElement
+): boolean {
   if (panel.contains(event.target as Node)) {
     return true
   }
@@ -42,9 +45,10 @@ function isPointerInsidePanel(event: PointerEvent, panel: HTMLDivElement): boole
   )
 }
 
-function computeAnchorPosition(
-  rect: DOMRect | null
-): { left: number; top: number } {
+function computeAnchorPosition(rect: DOMRect | null): {
+  left: number
+  top: number
+} {
   const margin = USER_CARD_VIEWPORT_MARGIN_PX
 
   if (rect) {
@@ -67,14 +71,8 @@ function computeAnchorPosition(
   }
 
   return {
-    left: Math.max(
-      margin,
-      (window.innerWidth - USER_CARD_WIDTH_PX) / 2
-    ),
-    top: Math.max(
-      margin,
-      (window.innerHeight - USER_CARD_HEIGHT_PX) / 2
-    ),
+    left: Math.max(margin, (window.innerWidth - USER_CARD_WIDTH_PX) / 2),
+    top: Math.max(margin, (window.innerHeight - USER_CARD_HEIGHT_PX) / 2),
   }
 }
 
@@ -98,9 +96,9 @@ export function UserCardProvider({
   const [activeTarget, setActiveTarget] = React.useState<UserCardTarget | null>(
     null
   )
-  const [recentMessages, setRecentMessages] = React.useState<TwitchChatMessage[]>(
-    []
-  )
+  const [recentMessages, setRecentMessages] = React.useState<
+    TwitchChatMessage[]
+  >([])
   const [open, setOpen] = React.useState(false)
   const [dragOffset, setDragOffset] = React.useState({ x: 0, y: 0 })
   const [anchorPosition, setAnchorPosition] = React.useState<{

@@ -1,8 +1,6 @@
 import * as React from "react"
 
-import {
-  addChannelMessageHighlight,
-} from "@/lib/highlights/channel-message-highlights"
+import { addChannelMessageHighlight } from "@/lib/highlights/channel-message-highlights"
 import {
   addPingNotification,
   markPingNotificationsReadForChannels,
@@ -103,10 +101,7 @@ export function useHighlightActivity({
   }, [visibleLoginSet])
 
   const compiledPingsRef = React.useRef<CompiledPingRule[]>([])
-  const pingRulesKey = buildPingRulesKey(
-    config.highlights,
-    accountLogin
-  )
+  const pingRulesKey = buildPingRulesKey(config.highlights, accountLogin)
   React.useEffect(() => {
     compiledPingsRef.current = compilePingRules(config.highlights.pings)
   }, [pingRulesKey]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -253,10 +248,7 @@ export function useHighlightActivity({
           unreadAdds.add(login)
         }
 
-        if (
-          accountLower &&
-          message.userName.toLowerCase() === accountLower
-        ) {
+        if (accountLower && message.userName.toLowerCase() === accountLower) {
           continue
         }
 

@@ -33,7 +33,7 @@ export function SettingsTabHeader({
 }) {
   return (
     <header className={className}>
-      <h2 className="text-base font-semibold leading-tight tracking-tight">
+      <h2 className="text-base leading-tight font-semibold tracking-tight">
         {title}
       </h2>
       {description && (
@@ -56,7 +56,7 @@ export function SectionHeading({
 }) {
   return (
     <div className={className}>
-      <h3 className="text-sm font-semibold leading-none">{title}</h3>
+      <h3 className="text-sm leading-none font-semibold">{title}</h3>
       {description && (
         <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
           {description}
@@ -99,7 +99,7 @@ export function SettingsGroup({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-lg border border-border bg-background divide-y divide-border",
+        "divide-y divide-border overflow-hidden rounded-lg border border-border bg-background",
         className
       )}
     >
@@ -127,7 +127,7 @@ export function SettingsRow({
       )}
     >
       <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium leading-tight">{title}</div>
+        <div className="text-sm leading-tight font-medium">{title}</div>
         {description && (
           <div className="mt-0.5 text-xs leading-snug text-muted-foreground">
             {description}
@@ -176,7 +176,7 @@ export function SettingsSwitchRow({
           </div>
         ) : null}
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-medium leading-tight">{title}</div>
+          <div className="text-sm leading-tight font-medium">{title}</div>
           {description ? (
             <div className="mt-0.5 text-xs leading-snug text-muted-foreground">
               {description}
@@ -209,7 +209,7 @@ export function SettingsCheckboxRow({
   return (
     <label className="flex cursor-pointer items-center justify-between gap-3 px-2.5 py-2">
       <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium leading-tight">{title}</div>
+        <div className="text-sm leading-tight font-medium">{title}</div>
         {description && (
           <div className="mt-0.5 text-xs leading-snug text-muted-foreground">
             {description}
@@ -246,7 +246,7 @@ function SettingsIconCardBody({
           <Icon className="size-3.5 text-muted-foreground" />
         </div>
         <div className="min-w-0">
-          <div className="text-sm font-medium leading-tight">{title}</div>
+          <div className="text-sm leading-tight font-medium">{title}</div>
           <div className="mt-0.5 text-xs leading-snug text-muted-foreground">
             {description}
           </div>
@@ -281,9 +281,7 @@ export function SettingsToggle({
         icon={Icon}
         title={title}
         description={description}
-        control={
-          <Switch checked={checked} onCheckedChange={onCheckedChange} />
-        }
+        control={<Switch checked={checked} onCheckedChange={onCheckedChange} />}
       />
     </div>
   )
@@ -316,7 +314,9 @@ export function SettingsCheckbox({
   }
 
   return (
-    <label className={cn(settingsIconCardClassName, "cursor-pointer", className)}>
+    <label
+      className={cn(settingsIconCardClassName, "cursor-pointer", className)}
+    >
       <SettingsIconCardBody
         icon={Icon}
         title={title}
@@ -345,8 +345,7 @@ export type SettingsSegmentedOption<T extends string> = {
 
 const segmentedSizeStyles = {
   sm: {
-    button:
-      "gap-1 px-2 py-0.5 text-xs rounded-[min(var(--radius-md),10px)]",
+    button: "gap-1 px-2 py-0.5 text-xs rounded-[min(var(--radius-md),10px)]",
     icon: "size-3",
   },
   default: {
@@ -441,8 +440,8 @@ export function SettingsRange({
       )}
     >
       <div className="flex items-center justify-between gap-2 text-sm">
-        <span className="font-medium leading-tight">{label}</span>
-        <span className="text-xs tabular-nums text-muted-foreground">
+        <span className="leading-tight font-medium">{label}</span>
+        <span className="text-xs text-muted-foreground tabular-nums">
           {value}
         </span>
       </div>
@@ -480,7 +479,7 @@ export function SettingsSliderRow({
     <div className="px-2.5 py-2">
       <div className="flex items-start justify-between gap-2 text-sm">
         <div className="min-w-0">
-          <span className="font-medium leading-tight">{title}</span>
+          <span className="leading-tight font-medium">{title}</span>
           {description ? (
             <p className="mt-0.5 text-xs leading-snug text-muted-foreground">
               {description}
@@ -488,7 +487,7 @@ export function SettingsSliderRow({
           ) : null}
         </div>
         <div className="flex shrink-0 items-center">
-          <span className="text-xs tabular-nums text-muted-foreground">
+          <span className="text-xs text-muted-foreground tabular-nums">
             {valueLabel ?? value}
           </span>
         </div>
@@ -654,9 +653,7 @@ export function SettingsActions({
   children: React.ReactNode
   className?: string
 }) {
-  return (
-    <div className={cn("flex flex-wrap gap-2", className)}>{children}</div>
-  )
+  return <div className={cn("flex flex-wrap gap-2", className)}>{children}</div>
 }
 
 export function SettingsActionButton({
@@ -699,7 +696,11 @@ export function SettingsChip({
   }
 
   return (
-    <button type="button" onClick={onClick} className={cn(baseClass, "cursor-pointer")}>
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(baseClass, "cursor-pointer")}
+    >
       {children}
     </button>
   )
@@ -726,7 +727,11 @@ export function SettingsChipPrimary({
   }
 
   return (
-    <button type="button" onClick={onClick} className={cn(baseClass, "cursor-pointer")}>
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(baseClass, "cursor-pointer")}
+    >
       {children}
     </button>
   )

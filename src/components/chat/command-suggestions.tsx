@@ -69,7 +69,9 @@ export function CommandSuggestions({
                   onSelect(suggestion)
                 }}
               >
-                <span className="shrink-0 font-medium">{suggestion.display}</span>
+                <span className="shrink-0 font-medium">
+                  {suggestion.display}
+                </span>
                 {suggestion.usage ? (
                   <span className="min-w-0 truncate text-muted-foreground">
                     {suggestion.usage}

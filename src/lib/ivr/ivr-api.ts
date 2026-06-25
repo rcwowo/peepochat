@@ -101,7 +101,10 @@ export async function fetchIvrTwitchUserProfile({
     return null
   }
   if (!response.ok) {
-    throw new IvrApiError("Could not load Twitch user profile from IVR.", response.status)
+    throw new IvrApiError(
+      "Could not load Twitch user profile from IVR.",
+      response.status
+    )
   }
 
   const payload = (await response.json()) as unknown

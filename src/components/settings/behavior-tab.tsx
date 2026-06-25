@@ -157,17 +157,16 @@ export function BehaviorTab() {
               description={row.description}
               iconSrc={row.iconSrc}
               checked={config.chat.emotes[row.provider]}
-              onCheckedChange={(checked) => setEmoteProvider(row.provider, checked)}
+              onCheckedChange={(checked) =>
+                setEmoteProvider(row.provider, checked)
+              }
             />
           ))}
         </SettingsGroup>
       </SettingsSection>
 
       {config.chat.emotes.seventvEnabled ? (
-        <SettingsSection
-          title="7TV"
-          description="7TV-specific emote behavior."
-        >
+        <SettingsSection title="7TV" description="7TV-specific emote behavior.">
           <SettingsGroup>
             <SettingsSwitchRow
               icon={EyeIcon}

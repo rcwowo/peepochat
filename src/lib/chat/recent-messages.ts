@@ -84,7 +84,11 @@ export async function fetchRecentMessages(
   url.searchParams.set("hide_moderated_messages", "true")
 
   try {
-    const response = await devLoggedFetch(url, undefined, `recent-messages:${login}`)
+    const response = await devLoggedFetch(
+      url,
+      undefined,
+      `recent-messages:${login}`
+    )
 
     if (response.status === 403 || response.status === 400) {
       return { status: "unavailable" }

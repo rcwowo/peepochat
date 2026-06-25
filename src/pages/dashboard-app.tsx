@@ -2,8 +2,15 @@ import * as React from "react"
 import { toast } from "sonner"
 import { SparklesIcon } from "lucide-react"
 
-import { PeepochatProvider, usePeepochatSettings } from "@/lib/peepochat/peepochat-context"
-import { hasNewVersion, initLastSeenVersion, markVersionSeen } from "@/lib/changelog"
+import {
+  PeepochatProvider,
+  usePeepochatSettings,
+} from "@/lib/peepochat/peepochat-context"
+import {
+  hasNewVersion,
+  initLastSeenVersion,
+  markVersionSeen,
+} from "@/lib/changelog"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { AppHeader } from "@/components/shell/app-header"
 import { ChannelSidebar } from "@/components/sidebar/channel-sidebar"
@@ -17,8 +24,9 @@ import { ChatPage } from "@/pages/chat-page"
 function DashboardLayout() {
   const { ready, needsOnboarding, completeOnboarding } = usePeepochatSettings()
   const [settingsOpen, setSettingsOpen] = React.useState(false)
-  const [settingsInitialCategory, setSettingsInitialCategory] =
-    React.useState<SettingsCategory | undefined>(undefined)
+  const [settingsInitialCategory, setSettingsInitialCategory] = React.useState<
+    SettingsCategory | undefined
+  >(undefined)
 
   React.useEffect(() => {
     if (!ready || needsOnboarding) return
@@ -63,9 +71,7 @@ function DashboardLayout() {
       open={false}
       onOpenChange={() => {}}
       className="relative flex h-svh w-full flex-col"
-      style={
-        { "--sidebar-width-icon": "4.5rem" } as React.CSSProperties
-      }
+      style={{ "--sidebar-width-icon": "4.5rem" } as React.CSSProperties}
     >
       <AppHeader
         onSettingsClick={() => {

@@ -75,11 +75,7 @@ function renderPlainText(
     }
 
     if (index > lastIndex) {
-      pushTextSlice(
-        lastIndex,
-        index,
-        `${keyPrefix}-text-${lastIndex}`
-      )
+      pushTextSlice(lastIndex, index, `${keyPrefix}-text-${lastIndex}`)
     }
 
     parts.push(
@@ -203,7 +199,12 @@ export function ChatMessageBody({
 
   if (lastIdx < text.length) {
     parts.push(
-      ...renderTextWithLinks(text.slice(lastIdx), `t-${lastIdx}`, lastIdx, pingMatchRange)
+      ...renderTextWithLinks(
+        text.slice(lastIdx),
+        `t-${lastIdx}`,
+        lastIdx,
+        pingMatchRange
+      )
     )
   }
 

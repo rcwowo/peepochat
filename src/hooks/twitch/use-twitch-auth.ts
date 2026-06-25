@@ -23,7 +23,9 @@ export function useTwitchAuth({
   updateConfig,
 }: {
   config: AppConfig
-  updateConfig: (updater: AppConfig | ((current: AppConfig) => AppConfig)) => void
+  updateConfig: (
+    updater: AppConfig | ((current: AppConfig) => AppConfig)
+  ) => void
 }) {
   const [oauthBusy, setOauthBusy] = React.useState(false)
   const oauthHandledRef = React.useRef(false)
@@ -47,7 +49,9 @@ export function useTwitchAuth({
 
       const validated = await validateTwitchToken(accessToken)
       if (validated.clientId !== clientId) {
-        throw new Error("This token was issued for a different Twitch application.")
+        throw new Error(
+          "This token was issued for a different Twitch application."
+        )
       }
 
       const user = await fetchTwitchUser(accessToken, clientId)

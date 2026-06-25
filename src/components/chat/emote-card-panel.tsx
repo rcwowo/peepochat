@@ -1,6 +1,12 @@
 import * as React from "react"
 import { createPortal } from "react-dom"
-import { ExternalLinkIcon, PaletteIcon, TagIcon, UserIcon, XIcon } from "lucide-react"
+import {
+  ExternalLinkIcon,
+  PaletteIcon,
+  TagIcon,
+  UserIcon,
+  XIcon,
+} from "lucide-react"
 
 import { PickerIcon } from "@/components/chat/picker-icon"
 import { Button } from "@/components/ui/button"
@@ -103,7 +109,9 @@ function EmoteCardPreview({
         decoding="async"
         onLoad={(event) => {
           const img = event.currentTarget
-          onRatioBucket(determineEmoteRatioBucket(img.naturalWidth, img.naturalHeight))
+          onRatioBucket(
+            determineEmoteRatioBucket(img.naturalWidth, img.naturalHeight)
+          )
         }}
       />
     </div>
@@ -166,7 +174,9 @@ export function EmoteCardPanel({
   const isAliasView = canonicalName.toLowerCase() !== target.code.toLowerCase()
   const displayName = isAliasView ? target.code : canonicalName
   const infoTileCount =
-    Number(isAliasView) + Number(Boolean(artistTile)) + Number(Boolean(uploaderTile))
+    Number(isAliasView) +
+    Number(Boolean(artistTile)) +
+    Number(Boolean(uploaderTile))
   const showLoadingSkeleton = card.status === "loading" && infoTileCount > 0
 
   return createPortal(
@@ -206,8 +216,8 @@ export function EmoteCardPanel({
             ratioBucket={ratioBucket}
             onRatioBucket={onRatioBucket}
           />
-          <div className="min-w-0 max-w-full px-1">
-            <div className="truncate text-base font-semibold leading-tight">
+          <div className="max-w-full min-w-0 px-1">
+            <div className="truncate text-base leading-tight font-semibold">
               {displayName}
             </div>
             <div className="mt-1.5 inline-flex items-center justify-center gap-1.5 text-xs text-muted-foreground">

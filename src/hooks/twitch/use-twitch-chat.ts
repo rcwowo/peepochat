@@ -116,7 +116,9 @@ function createEmptyRoom(login: string): TwitchChatRoomState {
 }
 
 export function useTwitchChat(options?: {
-  onChatMessageRef?: React.RefObject<((message: TwitchChatMessage) => void) | null>
+  onChatMessageRef?: React.RefObject<
+    ((message: TwitchChatMessage) => void) | null
+  >
 }) {
   const onChatMessageRef = options?.onChatMessageRef
   const clientRef = React.useRef<TwitchChatClient | null>(null)
@@ -125,8 +127,12 @@ export function useTwitchChat(options?: {
     key: string
     promise: Promise<void>
   } | null>(null)
-  const emoteCatalogsRef = React.useRef(new Map<string, ThirdPartyEmoteCatalog>())
-  const composerCatalogsRef = React.useRef(new Map<string, ComposerEmoteCatalog>())
+  const emoteCatalogsRef = React.useRef(
+    new Map<string, ThirdPartyEmoteCatalog>()
+  )
+  const composerCatalogsRef = React.useRef(
+    new Map<string, ComposerEmoteCatalog>()
+  )
   const [composerCatalogs, setComposerCatalogs] = React.useState<
     Record<string, ComposerEmoteCatalog>
   >({})
@@ -157,7 +163,9 @@ export function useTwitchChat(options?: {
     isVip: false,
   })
   const selfStatesRef = React.useRef(new Map<string, TwitchSelfChatState>())
-  const [selfStates, setSelfStates] = React.useState<Record<string, TwitchSelfChatState>>({})
+  const [selfStates, setSelfStates] = React.useState<
+    Record<string, TwitchSelfChatState>
+  >({})
   const emoteCatalogGenerationRef = React.useRef(0)
   const hasAnnouncedConnectedRef = React.useRef(false)
   const syncedChannelsRef = React.useRef<string[]>([])
@@ -204,20 +212,23 @@ export function useTwitchChat(options?: {
     []
   )
 
-  const partitionTimeline = React.useCallback((timeline: TwitchTimelineItem[]) => {
-    const historical: TwitchTimelineItem[] = []
-    const live: TwitchTimelineItem[] = []
+  const partitionTimeline = React.useCallback(
+    (timeline: TwitchTimelineItem[]) => {
+      const historical: TwitchTimelineItem[] = []
+      const live: TwitchTimelineItem[] = []
 
-    for (const entry of timeline) {
-      if (entry.isHistorical) {
-        historical.push(entry)
-      } else {
-        live.push(entry)
+      for (const entry of timeline) {
+        if (entry.isHistorical) {
+          historical.push(entry)
+        } else {
+          live.push(entry)
+        }
       }
-    }
 
-    return { historical, live }
-  }, [])
+      return { historical, live }
+    },
+    []
+  )
 
   const trimTimeline = React.useCallback((timeline: TwitchTimelineItem[]) => {
     return timeline.slice(-liveMessageLimitRef.current)
@@ -554,10 +565,7 @@ export function useTwitchChat(options?: {
           })
         })
     },
-    [
-      appendLog,
-      rehydrateRoomTimeline,
-    ]
+    [appendLog, rehydrateRoomTimeline]
   )
 
   const routeMessageToRoom = React.useCallback(
@@ -766,8 +774,7 @@ export function useTwitchChat(options?: {
                 status: outcome.status,
                 messageCount:
                   outcome.status === "success" ? outcome.messages.length : 0,
-                error:
-                  outcome.status === "error" ? outcome.message : undefined,
+                error: outcome.status === "error" ? outcome.message : undefined,
               },
             ])
 
@@ -1046,80 +1053,83 @@ export function useTwitchChat(options?: {
     })
   }, [])
 
-  const pruneRemovedChannelState = React.useCallback((removedLogins: string[]) => {
-    if (removedLogins.length === 0) {
-      return
-    }
-
-    const removed = new Set(removedLogins)
-
-    for (const login of removedLogins) {
-      historyLoadedRef.current.delete(login)
-      historyLoadingRef.current.delete(login)
-      historyErrorNotifiedRef.current.delete(login)
-      recentMessagesQueuedRef.current.delete(login)
-      selfStatesRef.current.delete(login)
-
-      const roomId = roomsRef.current[login]?.roomId
-      if (!roomId) {
-        continue
+  const pruneRemovedChannelState = React.useCallback(
+    (removedLogins: string[]) => {
+      if (removedLogins.length === 0) {
+        return
       }
 
-      emoteCatalogsRef.current.delete(roomId)
-      composerCatalogsRef.current.delete(roomId)
-      composerCatalogLoadedRef.current.delete(roomId)
-      composerCatalogLoadingRef.current.delete(roomId)
-      roomEmotesLoadingRef.current.delete(roomId)
-      roomEmotesSettledRef.current.delete(roomId)
-      roomEmotesFailedAtRef.current.delete(roomId)
-      setComposerCatalogs((current) => {
-        if (!current[roomId]) {
-          return current
-        }
-        const next = { ...current }
-        delete next[roomId]
-        return next
-      })
-      setComposerCatalogLoading((current) => {
-        if (!current[roomId]) {
-          return current
-        }
-        const next = { ...current }
-        delete next[roomId]
-        return next
-      })
-    }
+      const removed = new Set(removedLogins)
 
-    if (recentMessagesQueueRef.current.length > 0) {
-      recentMessagesQueueRef.current = recentMessagesQueueRef.current.filter(
-        (login) => !removed.has(login)
-      )
-    }
-
-    setSelfStates((current) => {
-      let changed = false
-      const next = { ...current }
       for (const login of removedLogins) {
-        if (login in next) {
-          delete next[login]
-          changed = true
-        }
-      }
-      return changed ? next : current
-    })
+        historyLoadedRef.current.delete(login)
+        historyLoadingRef.current.delete(login)
+        historyErrorNotifiedRef.current.delete(login)
+        recentMessagesQueuedRef.current.delete(login)
+        selfStatesRef.current.delete(login)
 
-    setRooms((current) => {
-      let changed = false
-      const next = { ...current }
-      for (const login of removedLogins) {
-        if (login in next) {
-          delete next[login]
-          changed = true
+        const roomId = roomsRef.current[login]?.roomId
+        if (!roomId) {
+          continue
         }
+
+        emoteCatalogsRef.current.delete(roomId)
+        composerCatalogsRef.current.delete(roomId)
+        composerCatalogLoadedRef.current.delete(roomId)
+        composerCatalogLoadingRef.current.delete(roomId)
+        roomEmotesLoadingRef.current.delete(roomId)
+        roomEmotesSettledRef.current.delete(roomId)
+        roomEmotesFailedAtRef.current.delete(roomId)
+        setComposerCatalogs((current) => {
+          if (!current[roomId]) {
+            return current
+          }
+          const next = { ...current }
+          delete next[roomId]
+          return next
+        })
+        setComposerCatalogLoading((current) => {
+          if (!current[roomId]) {
+            return current
+          }
+          const next = { ...current }
+          delete next[roomId]
+          return next
+        })
       }
-      return changed ? next : current
-    })
-  }, [])
+
+      if (recentMessagesQueueRef.current.length > 0) {
+        recentMessagesQueueRef.current = recentMessagesQueueRef.current.filter(
+          (login) => !removed.has(login)
+        )
+      }
+
+      setSelfStates((current) => {
+        let changed = false
+        const next = { ...current }
+        for (const login of removedLogins) {
+          if (login in next) {
+            delete next[login]
+            changed = true
+          }
+        }
+        return changed ? next : current
+      })
+
+      setRooms((current) => {
+        let changed = false
+        const next = { ...current }
+        for (const login of removedLogins) {
+          if (login in next) {
+            delete next[login]
+            changed = true
+          }
+        }
+        return changed ? next : current
+      })
+    },
+    []
+  )
 
   const syncChannels = React.useCallback(
     (
@@ -1138,7 +1148,11 @@ export function useTwitchChat(options?: {
 
       syncedChannelsRef.current = normalized
 
-      if (unchanged && normalized.length > 0 && clientRef.current?.isConnected) {
+      if (
+        unchanged &&
+        normalized.length > 0 &&
+        clientRef.current?.isConnected
+      ) {
         return Promise.resolve()
       }
 
@@ -1180,7 +1194,9 @@ export function useTwitchChat(options?: {
         return Promise.resolve()
       }
 
-      const removedLogins = previous.filter((login) => !normalized.includes(login))
+      const removedLogins = previous.filter(
+        (login) => !normalized.includes(login)
+      )
       pruneRemovedChannelState(removedLogins)
 
       ensureRooms(normalized)
@@ -1397,87 +1413,93 @@ export function useTwitchChat(options?: {
     }
   }, [rehydrateRoomTimeline])
 
-  const refreshEmotes = React.useCallback(async (login: string): Promise<boolean> => {
-    const normalized = normalizeChannelLogin(login)
-    const roomId = roomsRef.current[normalized]?.roomId ?? null
-    if (!roomId) return false
+  const refreshEmotes = React.useCallback(
+    async (login: string): Promise<boolean> => {
+      const normalized = normalizeChannelLogin(login)
+      const roomId = roomsRef.current[normalized]?.roomId ?? null
+      if (!roomId) return false
 
-    clearThirdPartyEmoteCache(roomId)
-    clearChannelTwitchEmoteCache(roomId)
-    clearRoomEmoteBundleCache(roomId)
+      clearThirdPartyEmoteCache(roomId)
+      clearChannelTwitchEmoteCache(roomId)
+      clearRoomEmoteBundleCache(roomId)
 
-    emoteCatalogsRef.current.delete(roomId)
-    roomEmotesLoadingRef.current.delete(roomId)
-    roomEmotesSettledRef.current.delete(roomId)
-    roomEmotesFailedAtRef.current.delete(roomId)
+      emoteCatalogsRef.current.delete(roomId)
+      roomEmotesLoadingRef.current.delete(roomId)
+      roomEmotesSettledRef.current.delete(roomId)
+      roomEmotesFailedAtRef.current.delete(roomId)
 
-    composerCatalogsRef.current.delete(roomId)
-    composerCatalogLoadedRef.current.delete(roomId)
-    composerCatalogLoadingRef.current.delete(roomId)
-    setComposerCatalogLoading((current) => ({ ...current, [roomId]: true }))
-    setComposerCatalogs((current) => {
-      if (!current[roomId]) return current
-      const next = { ...current }
-      delete next[roomId]
-      return next
-    })
-
-    const generation = emoteCatalogGenerationRef.current
-    const context = emoteLoadContextRef.current
-
-    roomEmotesLoadingRef.current.set(roomId, true)
-    composerCatalogLoadingRef.current.set(roomId, true)
-
-    try {
-      const bundle = await fetchRoomEmoteBundle({
-        roomId,
-        channelLogin: normalized,
-        accessToken: context.accessToken,
-        clientId: context.clientId,
-        userId: context.userId,
-        channelHints: context.channelHints,
+      composerCatalogsRef.current.delete(roomId)
+      composerCatalogLoadedRef.current.delete(roomId)
+      composerCatalogLoadingRef.current.delete(roomId)
+      setComposerCatalogLoading((current) => ({ ...current, [roomId]: true }))
+      setComposerCatalogs((current) => {
+        if (!current[roomId]) return current
+        const next = { ...current }
+        delete next[roomId]
+        return next
       })
 
-      if (generation !== emoteCatalogGenerationRef.current) {
-        return true
-      }
+      const generation = emoteCatalogGenerationRef.current
+      const context = emoteLoadContextRef.current
 
-      roomEmotesFailedAtRef.current.delete(roomId)
-      emoteCatalogsRef.current.set(roomId, bundle.thirdParty)
-      composerCatalogLoadedRef.current.add(roomId)
-      composerCatalogsRef.current.set(roomId, bundle.composer)
-      roomEmotesSettledRef.current.add(roomId)
-      setComposerCatalogs((current) => ({ ...current, [roomId]: bundle.composer }))
-      rehydrateRoomTimeline(normalized, roomId)
-    } catch {
-      if (generation === emoteCatalogGenerationRef.current) {
-        const emptyThirdParty = createEmptyEmoteCatalog()
-        const emptyComposer = createEmptyComposerCatalog()
-        emoteCatalogsRef.current.set(roomId, emptyThirdParty)
-        composerCatalogsRef.current.set(roomId, emptyComposer)
+      roomEmotesLoadingRef.current.set(roomId, true)
+      composerCatalogLoadingRef.current.set(roomId, true)
+
+      try {
+        const bundle = await fetchRoomEmoteBundle({
+          roomId,
+          channelLogin: normalized,
+          accessToken: context.accessToken,
+          clientId: context.clientId,
+          userId: context.userId,
+          channelHints: context.channelHints,
+        })
+
+        if (generation !== emoteCatalogGenerationRef.current) {
+          return true
+        }
+
+        roomEmotesFailedAtRef.current.delete(roomId)
+        emoteCatalogsRef.current.set(roomId, bundle.thirdParty)
         composerCatalogLoadedRef.current.add(roomId)
+        composerCatalogsRef.current.set(roomId, bundle.composer)
         roomEmotesSettledRef.current.add(roomId)
         setComposerCatalogs((current) => ({
           ...current,
-          [roomId]: emptyComposer,
+          [roomId]: bundle.composer,
         }))
-      }
-    } finally {
-      roomEmotesLoadingRef.current.delete(roomId)
-      composerCatalogLoadingRef.current.delete(roomId)
+        rehydrateRoomTimeline(normalized, roomId)
+      } catch {
+        if (generation === emoteCatalogGenerationRef.current) {
+          const emptyThirdParty = createEmptyEmoteCatalog()
+          const emptyComposer = createEmptyComposerCatalog()
+          emoteCatalogsRef.current.set(roomId, emptyThirdParty)
+          composerCatalogsRef.current.set(roomId, emptyComposer)
+          composerCatalogLoadedRef.current.add(roomId)
+          roomEmotesSettledRef.current.add(roomId)
+          setComposerCatalogs((current) => ({
+            ...current,
+            [roomId]: emptyComposer,
+          }))
+        }
+      } finally {
+        roomEmotesLoadingRef.current.delete(roomId)
+        composerCatalogLoadingRef.current.delete(roomId)
 
-      if (generation === emoteCatalogGenerationRef.current) {
-        setComposerCatalogLoading((current) => {
-          if (!current[roomId]) return current
-          const next = { ...current }
-          delete next[roomId]
-          return next
-        })
+        if (generation === emoteCatalogGenerationRef.current) {
+          setComposerCatalogLoading((current) => {
+            if (!current[roomId]) return current
+            const next = { ...current }
+            delete next[roomId]
+            return next
+          })
+        }
       }
-    }
 
-    return true
-  }, [rehydrateRoomTimeline])
+      return true
+    },
+    [rehydrateRoomTimeline]
+  )
 
   const sendLocalChatMessage = React.useCallback(
     (
@@ -1509,8 +1531,7 @@ export function useTwitchChat(options?: {
             userId: userId ?? null,
             text,
             userName: userLogin.toLowerCase(),
-            displayName:
-              sender.displayName ?? userDisplayName ?? userLogin,
+            displayName: sender.displayName ?? userDisplayName ?? userLogin,
             color: sender.color,
             badges: sender.badges,
             isModerator: sender.isModerator,
@@ -1561,13 +1582,10 @@ export function useTwitchChat(options?: {
       })
 
       if (result.handled && result.kind === "feedback") {
-        appendRoomSystemMessage(
-          normalized,
-          {
-            ...createRecentMessagesStatusMessage(normalized, result.message),
-            level: result.level ?? "info",
-          }
-        )
+        appendRoomSystemMessage(normalized, {
+          ...createRecentMessagesStatusMessage(normalized, result.message),
+          level: result.level ?? "info",
+        })
       }
 
       return result

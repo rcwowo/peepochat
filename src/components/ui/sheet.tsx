@@ -77,8 +77,7 @@ function SheetContent({
               className="absolute top-3 right-3"
               size="icon-sm"
             >
-              <XIcon
-              />
+              <XIcon />
               <span className="sr-only">Close</span>
             </Button>
           </SheetPrimitive.Close>

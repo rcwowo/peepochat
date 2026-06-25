@@ -35,7 +35,9 @@ export function badgeCatalogKey(setId: string, version: string) {
   return `${setId}:${version}`
 }
 
-export function buildBadgeCatalog(sets: TwitchChatBadgeSet[]): ChatBadgeCatalog {
+export function buildBadgeCatalog(
+  sets: TwitchChatBadgeSet[]
+): ChatBadgeCatalog {
   const catalog = createEmptyBadgeCatalog()
 
   for (const set of sets) {
@@ -110,12 +112,19 @@ export async function loadChannelBadgeCatalog(
     }
   }
 
-  const sets = await fetchChannelChatBadges(broadcasterId, accessToken, clientId)
+  const sets = await fetchChannelChatBadges(
+    broadcasterId,
+    accessToken,
+    clientId
+  )
   writeCachedSets(cacheKey, sets)
   return buildBadgeCatalog(sets)
 }
 
-function readCachedSets(key: string, ttlMs: number): TwitchChatBadgeSet[] | null {
+function readCachedSets(
+  key: string,
+  ttlMs: number
+): TwitchChatBadgeSet[] | null {
   if (typeof window === "undefined") {
     return null
   }

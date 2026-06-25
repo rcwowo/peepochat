@@ -70,7 +70,12 @@ export const LANDING_EMOTE_PROVIDERS = [
     shortName: "BTTV",
     iconSrc: "/icons/bttv.svg",
     accent: "#e91916",
-    emoteKeys: ["KEKW", "Sadge", "catJAM", "Jackass"] as const satisfies readonly LandingEmoteKey[],
+    emoteKeys: [
+      "KEKW",
+      "Sadge",
+      "catJAM",
+      "Jackass",
+    ] as const satisfies readonly LandingEmoteKey[],
     tagline: "Global & channel emotes from the OG extension.",
   },
   {
@@ -79,7 +84,11 @@ export const LANDING_EMOTE_PROVIDERS = [
     shortName: "FFZ",
     iconSrc: "/icons/ffz.svg",
     accent: "#9b59b6",
-    emoteKeys: ["om", "jakeS", "widepeepoHappy"] as const satisfies readonly LandingEmoteKey[],
+    emoteKeys: [
+      "om",
+      "jakeS",
+      "widepeepoHappy",
+    ] as const satisfies readonly LandingEmoteKey[],
     tagline: "Animated room emotes and custom sets.",
   },
   {
@@ -88,7 +97,11 @@ export const LANDING_EMOTE_PROVIDERS = [
     shortName: "7TV",
     iconSrc: "/icons/7tv.svg",
     accent: "#00b5ad",
-    emoteKeys: ["buh", "MikuStare", "ewphop"] as const satisfies readonly LandingEmoteKey[],
+    emoteKeys: [
+      "buh",
+      "MikuStare",
+      "ewphop",
+    ] as const satisfies readonly LandingEmoteKey[],
     tagline: "The fastest-growing emote library on Twitch.",
   },
 ] as const

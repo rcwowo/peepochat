@@ -42,7 +42,7 @@ export function ChatPaneLiveBadge({
     <button
       type="button"
       className={cn(
-        "inline-flex shrink-0 cursor-pointer items-center gap-0.5 rounded-sm bg-red-600 px-1 py-px text-[8px] font-bold leading-none tracking-wide text-white transition-shadow",
+        "inline-flex shrink-0 cursor-pointer items-center gap-0.5 rounded-sm bg-red-600 px-1 py-px text-[8px] leading-none font-bold tracking-wide text-white transition-shadow",
         expanded && "ring-1 ring-red-400/80"
       )}
       aria-expanded={expanded}
@@ -68,7 +68,7 @@ export function ChatPaneLiveInfoBar({ stream }: { stream: TwitchLiveStream }) {
 
   return (
     <div className="grid shrink-0 grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)] items-center gap-2 border-b border-border bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground">
-      <span className="flex min-w-0 items-center gap-1 truncate tabular-nums text-red-600">
+      <span className="flex min-w-0 items-center gap-1 truncate text-red-600 tabular-nums">
         <EyeIcon className="size-3 shrink-0" aria-hidden />
         {formatViewerCount(stream.viewerCount)}
       </span>

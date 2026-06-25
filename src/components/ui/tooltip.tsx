@@ -65,7 +65,8 @@ function Tooltip({
   onOpenChange,
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Root>) {
-  const { resetCounter, suppressUntilMs } = React.useContext(TooltipResetContext)
+  const { resetCounter, suppressUntilMs } =
+    React.useContext(TooltipResetContext)
   const isControlled = controlledOpen !== undefined
   const [open, setOpen] = React.useState(false)
   const [openedAtResetCounter, setOpenedAtResetCounter] = React.useState(0)

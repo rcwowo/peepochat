@@ -1,10 +1,5 @@
 import * as React from "react"
-import {
-  BellIcon,
-  BellRingIcon,
-  RadioIcon,
-  Trash2Icon,
-} from "lucide-react"
+import { BellIcon, BellRingIcon, RadioIcon, Trash2Icon } from "lucide-react"
 
 import { PingMatchText } from "@/components/shell/ping-match-text"
 import { Button } from "@/components/ui/button"
@@ -126,7 +121,7 @@ function ChannelAvatar({
   }
 
   return (
-    <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold uppercase text-primary">
+    <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary uppercase">
       {(displayName || login).slice(0, 2)}
     </span>
   )
@@ -144,7 +139,8 @@ function PingUserAvatar({
   const [fetchedProfileImageUrl, setFetchedProfileImageUrl] = React.useState<
     string | null
   >(null)
-  const profileImageUrl = profileImageCache.get(cacheKey) ?? fetchedProfileImageUrl
+  const profileImageUrl =
+    profileImageCache.get(cacheKey) ?? fetchedProfileImageUrl
 
   React.useEffect(() => {
     if (profileImageCache.has(cacheKey) || !account) {
@@ -187,7 +183,7 @@ function PingUserAvatar({
   }
 
   return (
-    <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold uppercase text-primary">
+    <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary uppercase">
       {displayName.slice(0, 2)}
     </span>
   )
@@ -208,9 +204,7 @@ function PingNotificationRow({
 
   return (
     <div
-      className={`${notificationRowClassName} ${
-        isUnread ? "" : "opacity-70"
-      }`}
+      className={`${notificationRowClassName} ${isUnread ? "" : "opacity-70"}`}
     >
       <button
         type="button"
@@ -329,21 +323,14 @@ function NotificationList({
     return <NotificationEmptyState message={emptyMessage} />
   }
 
-  return (
-    <ScrollArea className="max-h-[min(24rem,60vh)]">
-      {children}
-    </ScrollArea>
-  )
+  return <ScrollArea className="max-h-[min(24rem,60vh)]">{children}</ScrollArea>
 }
 
 function useChannelMetaByLogin() {
   const { channels } = usePeepochatSettings()
 
   return React.useMemo(() => {
-    const map = new Map<
-      string,
-      { label: string; profileImageUrl?: string }
-    >()
+    const map = new Map<string, { label: string; profileImageUrl?: string }>()
     for (const channel of channels) {
       const login = normalizeChannelLogin(channel.login)
       map.set(login, {
@@ -388,7 +375,9 @@ export function NotificationCenter() {
   )
 
   const clearAllCount =
-    resolvedTab === "pings" ? pingNotifications.length : liveNotifications.length
+    resolvedTab === "pings"
+      ? pingNotifications.length
+      : liveNotifications.length
   const handleDismissAll =
     resolvedTab === "pings" ? dismissAllPings : dismissAllLive
 
@@ -404,9 +393,7 @@ export function NotificationCenter() {
           <PingNotificationRow
             key={notification.id}
             notification={notification}
-            channelLabel={
-              channelMeta?.label ?? notification.channelLogin
-            }
+            channelLabel={channelMeta?.label ?? notification.channelLogin}
             onDismiss={dismissPing}
             onNavigate={handleNavigate}
           />
@@ -427,9 +414,7 @@ export function NotificationCenter() {
           <LiveNotificationRow
             key={notification.id}
             notification={notification}
-            channelLabel={
-              channelMeta?.label ?? notification.channelLogin
-            }
+            channelLabel={channelMeta?.label ?? notification.channelLogin}
             profileImageUrl={channelMeta?.profileImageUrl}
             onDismiss={dismissLive}
             onNavigate={handleNavigate}
@@ -478,7 +463,7 @@ export function NotificationCenter() {
             variant="ghost"
             size="sm"
             className={`h-7 shrink-0 gap-1.5 text-xs text-muted-foreground ${
-              clearAllCount === 0 ? "invisible pointer-events-none" : ""
+              clearAllCount === 0 ? "pointer-events-none invisible" : ""
             }`}
             disabled={clearAllCount === 0}
             onClick={handleDismissAll}

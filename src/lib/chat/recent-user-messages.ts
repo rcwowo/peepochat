@@ -46,7 +46,10 @@ export function getRecentUserMessageBuckets(
 ): Map<string, TwitchChatMessage[]> {
   const buckets = new Map<string, TwitchChatMessage[]>()
 
-  const remember = (key: string | null | undefined, message: TwitchChatMessage) => {
+  const remember = (
+    key: string | null | undefined,
+    message: TwitchChatMessage
+  ) => {
     if (!key) return
     const bucket = buckets.get(key) ?? []
     bucket.push(message)
@@ -62,7 +65,10 @@ export function getRecentUserMessageBuckets(
     }
 
     remember(`login:${entry.message.userName.toLowerCase()}`, entry.message)
-    remember(entry.message.userId ? `id:${entry.message.userId}` : null, entry.message)
+    remember(
+      entry.message.userId ? `id:${entry.message.userId}` : null,
+      entry.message
+    )
   }
 
   return buckets

@@ -1,6 +1,10 @@
 import { arrayMove } from "@dnd-kit/sortable"
 
-import type { AppConfig, ChatSplit, TwitchChannel } from "@/lib/peepochat/peepochat-config"
+import type {
+  AppConfig,
+  ChatSplit,
+  TwitchChannel,
+} from "@/lib/peepochat/peepochat-config"
 import {
   getActiveChannelLogin,
   getActiveSplitChannels,
@@ -69,7 +73,9 @@ export function applySidebarOrder(
   const channelMap = new Map(
     config.twitch.channels.map((channel) => [channel.login, channel])
   )
-  const splitMap = new Map(config.layout.splits.map((split) => [split.id, split]))
+  const splitMap = new Map(
+    config.layout.splits.map((split) => [split.id, split])
+  )
 
   const splits: ChatSplit[] = []
   const soloChannels: TwitchChannel[] = []
@@ -319,7 +325,9 @@ export function resolveFocusAfterChannelRemoval(
     const currentSplitId = config.layout.activeSplitId
 
     if (currentSplitId) {
-      const split = nextState.splits.find((entry) => entry.id === currentSplitId)
+      const split = nextState.splits.find(
+        (entry) => entry.id === currentSplitId
+      )
       if (split && split.channels.length >= 2) {
         const splitChannels = normalizeSplitChannels(split.channels)
         const nextActive = splitChannels.includes(currentActive)
@@ -360,7 +368,11 @@ export function resolveFocusAfterChannelRemoval(
   }
 
   return (
-    focusTargetFromSidebarKey(targetKey, nextState.splits, nextState.channels) ??
+    focusTargetFromSidebarKey(
+      targetKey,
+      nextState.splits,
+      nextState.channels
+    ) ??
     firstAvailableSidebarFocus(orderAfter, nextState.splits, nextState.channels)
   )
 }

@@ -199,19 +199,16 @@ function CachedChatViewLayer({
 function useChatPresentationProps(chat: ChatConfig) {
   const cssFontFamily = useChatFontFamily(chat.fontFamily)
 
-  const style = React.useMemo(
-    () => {
-      const emoteScale = chat.emoteScale / CHAT_EMOTE_SCALE_DEFAULT
+  const style = React.useMemo(() => {
+    const emoteScale = chat.emoteScale / CHAT_EMOTE_SCALE_DEFAULT
 
-      return {
-        "--chat-font-size": `${chat.fontSizePx}px`,
-        "--chat-emote-size": `${Math.round(28 * emoteScale)}px`,
-        "--chat-emote-margin": `${(-0.35 * emoteScale).toFixed(3)}rem`,
-        ...(cssFontFamily ? { fontFamily: cssFontFamily } : {}),
-      } as React.CSSProperties
-    },
-    [chat.emoteScale, chat.fontSizePx, cssFontFamily]
-  )
+    return {
+      "--chat-font-size": `${chat.fontSizePx}px`,
+      "--chat-emote-size": `${Math.round(28 * emoteScale)}px`,
+      "--chat-emote-margin": `${(-0.35 * emoteScale).toFixed(3)}rem`,
+      ...(cssFontFamily ? { fontFamily: cssFontFamily } : {}),
+    } as React.CSSProperties
+  }, [chat.emoteScale, chat.fontSizePx, cssFontFamily])
 
   const className = cn(
     "chat-presentation flex h-full min-h-0 min-w-0 flex-1",
@@ -353,10 +350,7 @@ export function ChatPage() {
   }
 
   return (
-    <div
-      className={chatPresentation.className}
-      style={chatPresentation.style}
-    >
+    <div className={chatPresentation.className} style={chatPresentation.style}>
       <SingleChannelPane
         login={activeChannelLogin}
         isActive

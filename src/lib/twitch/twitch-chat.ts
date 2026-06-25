@@ -102,7 +102,13 @@ export type TwitchSystemMessage = {
   details: string | null
   detailsEmotes?: TwitchEmote[]
   receivedAt: string
-  event: "subscription" | "raid" | "announcement" | "connection" | "notice" | "status"
+  event:
+    | "subscription"
+    | "raid"
+    | "announcement"
+    | "connection"
+    | "notice"
+    | "status"
   level: "info" | "success" | "warning" | "error"
   accentColor: string | null
   msgId: string | null
@@ -294,7 +300,9 @@ export class TwitchChatClient {
   setChannels(channels: string[], options: TwitchChatConnectOptions = {}) {
     const normalized = [
       ...new Set(
-        channels.map((channel) => normalizeChannelLogin(channel)).filter(Boolean)
+        channels
+          .map((channel) => normalizeChannelLogin(channel))
+          .filter(Boolean)
       ),
     ]
 
@@ -614,7 +622,9 @@ function parsePrivmsg(tagged: IrcTaggedLine): TwitchChatMessage | null {
 
   // Parse prefix to get userName
   // :foo!foo@foo.tmi.twitch.tv PRIVMSG #channel [:message]
-  const prefixMatch = rest.match(/^:([^!\s]+)(?:!\S+)? PRIVMSG #(\S+)(?:\s(.*))?$/)
+  const prefixMatch = rest.match(
+    /^:([^!\s]+)(?:!\S+)? PRIVMSG #(\S+)(?:\s(.*))?$/
+  )
   if (!prefixMatch) return null
 
   const userName = prefixMatch[1]
@@ -739,8 +749,7 @@ export function createLocalChatMessage(params: {
     flags: {
       isBroadcaster: badges.some((badge) => badge.set === "broadcaster"),
       isModerator:
-        params.isModerator ??
-        badges.some((badge) => badge.set === "moderator"),
+        params.isModerator ?? badges.some((badge) => badge.set === "moderator"),
       isSubscriber:
         params.isSubscriber ??
         badges.some((badge) => badge.set === "subscriber"),
@@ -776,8 +785,8 @@ function parseUserNotice(tagged: IrcTaggedLine): TwitchSystemMessage | null {
       : []
   const announcementTheme = tagged.tags.get("msg-param-color") ?? null
 
-  const text = [headline, details].filter(Boolean).join(" ").trim() ||
-    "Channel event"
+  const text =
+    [headline, details].filter(Boolean).join(" ").trim() || "Channel event"
 
   return {
     id:
@@ -893,7 +902,9 @@ function parseMessageReceivedAt(tags: Map<string, string>): string {
 
 function parseTmiTimestamp(tags: Map<string, string>): string {
   const tmiTs = tags.get("tmi-sent-ts")
-  return tmiTs ? new Date(Number(tmiTs)).toISOString() : new Date().toISOString()
+  return tmiTs
+    ? new Date(Number(tmiTs)).toISOString()
+    : new Date().toISOString()
 }
 
 function decodeTagValue(value: string): string {
@@ -905,9 +916,7 @@ function decodeTagValue(value: string): string {
     .replace(/\\\\/g, "\\")
 }
 
-function getUserNoticeEvent(
-  msgId: string
-): TwitchSystemMessage["event"] {
+function getUserNoticeEvent(msgId: string): TwitchSystemMessage["event"] {
   if (msgId === "announcement") {
     return "announcement"
   }
@@ -939,9 +948,7 @@ function parseReplyTag(tags: Map<string, string>): TwitchChatReply | null {
   }
 
   const parentUserName =
-    tags.get("reply-parent-user-login") ??
-    tags.get("reply-parent-login") ??
-    ""
+    tags.get("reply-parent-user-login") ?? tags.get("reply-parent-login") ?? ""
 
   return {
     parentMessageId,

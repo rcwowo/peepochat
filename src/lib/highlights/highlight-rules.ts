@@ -31,7 +31,9 @@ function compilePingRule(rule: HighlightPingRule): CompiledPingRule | null {
   }
 }
 
-export function compilePingRules(rules: HighlightPingRule[]): CompiledPingRule[] {
+export function compilePingRules(
+  rules: HighlightPingRule[]
+): CompiledPingRule[] {
   return rules
     .map((rule) => compilePingRule(rule))
     .filter((rule): rule is CompiledPingRule => rule !== null)

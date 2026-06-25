@@ -23,7 +23,7 @@ export function SidebarPingBadge({
 function SidebarLiveBadge() {
   return (
     <span
-      className="pointer-events-none absolute -bottom-1 left-1/2 z-20 -translate-x-1/2 rounded-sm bg-red-600 px-1 py-px text-[8px] font-bold leading-none tracking-wide text-white ring-2 ring-sidebar"
+      className="pointer-events-none absolute -bottom-1 left-1/2 z-20 -translate-x-1/2 rounded-sm bg-red-600 px-1 py-px text-[8px] leading-none font-bold tracking-wide text-white ring-2 ring-sidebar"
       aria-hidden
     >
       LIVE
@@ -80,7 +80,9 @@ export function SidebarIconTile({
         !isActive && "group-hover/icon:ring-sidebar-foreground/55"
       )}
     >
-      <span className="absolute inset-0 overflow-hidden rounded-full">{children}</span>
+      <span className="absolute inset-0 overflow-hidden rounded-full">
+        {children}
+      </span>
       {showPing ? <SidebarPingBadge /> : null}
       {showLive ? <SidebarLiveBadge /> : null}
     </span>
@@ -140,7 +142,7 @@ export function SidebarChannelAvatar({
   return (
     <span
       className={cn(
-        "pointer-events-none flex size-full items-center justify-center bg-primary/15 text-xs font-semibold uppercase text-primary",
+        "pointer-events-none flex size-full items-center justify-center bg-primary/15 text-xs font-semibold text-primary uppercase",
         className
       )}
     >
@@ -158,21 +160,21 @@ function splitClusterAvatarSize(count: number) {
 function splitClusterAvatarPosition(index: number, count: number) {
   if (count === 2) {
     return cn(
-      index === 0 && "left-0.5 top-1/2 z-[2] -translate-y-1/2",
-      index === 1 && "left-[1.15rem] top-1/2 z-[1] -translate-y-1/2"
+      index === 0 && "top-1/2 left-0.5 z-[2] -translate-y-1/2",
+      index === 1 && "top-1/2 left-[1.15rem] z-[1] -translate-y-1/2"
     )
   }
 
   if (count === 3) {
     return cn(
-      index === 0 && "left-1/2 top-0.5 -translate-x-1/2 z-[4]",
+      index === 0 && "top-0.5 left-1/2 z-[4] -translate-x-1/2",
       index === 1 && "bottom-0.5 left-0.5 z-[3]",
       index === 2 && "right-0.5 bottom-0.5 z-[2]"
     )
   }
 
   return cn(
-    index === 0 && "left-0.5 top-0.5 z-[4]",
+    index === 0 && "top-0.5 left-0.5 z-[4]",
     index === 1 && "top-0.5 right-0.5 z-[3]",
     index === 2 && "bottom-0.5 left-0.5 z-[2]",
     index === 3 && "right-0.5 bottom-0.5 z-[1]"
@@ -197,7 +199,7 @@ export function SidebarSplitAvatarCluster({
         <span
           key={channel.login}
           className={cn(
-            "absolute overflow-hidden rounded-full ring-2 ring-sidebar bg-secondary",
+            "absolute overflow-hidden rounded-full bg-secondary ring-2 ring-sidebar",
             avatarSize,
             splitClusterAvatarPosition(index, count)
           )}

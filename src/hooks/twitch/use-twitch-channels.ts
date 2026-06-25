@@ -49,7 +49,9 @@ export function useTwitchChannels({
   updateConfig,
 }: {
   config: AppConfig
-  updateConfig: (updater: AppConfig | ((current: AppConfig) => AppConfig)) => void
+  updateConfig: (
+    updater: AppConfig | ((current: AppConfig) => AppConfig)
+  ) => void
 }) {
   const activeChannelLogin = getActiveChannelLogin(config)
 
@@ -116,7 +118,9 @@ export function useTwitchChannels({
 
         const nextChannels = exists
           ? current.twitch.channels.map((channel) =>
-              channel.login === normalized ? { ...channel, ...profile } : channel
+              channel.login === normalized
+                ? { ...channel, ...profile }
+                : channel
             )
           : [...current.twitch.channels, profile]
 
@@ -127,7 +131,11 @@ export function useTwitchChannels({
         const applied = applySidebarOrder(
           {
             ...current,
-            twitch: { ...current.twitch, channels: nextChannels, activeChannelLogin: normalized },
+            twitch: {
+              ...current.twitch,
+              channels: nextChannels,
+              activeChannelLogin: normalized,
+            },
             layout: { ...current.layout, activeSplitId: null },
           },
           order

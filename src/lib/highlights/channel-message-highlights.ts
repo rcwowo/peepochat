@@ -24,7 +24,9 @@ const store: ChannelHighlightStore = {
 
 const emptyMap: ReadonlyMap<string, ChannelMessageHighlight> = new Map()
 
-function getChannelMap(login: string): ReadonlyMap<string, ChannelMessageHighlight> {
+function getChannelMap(
+  login: string
+): ReadonlyMap<string, ChannelMessageHighlight> {
   return store.byChannel.get(login) ?? emptyMap
 }
 
@@ -81,7 +83,10 @@ export function addChannelMessageHighlight(
   return true
 }
 
-export function removeChannelMessageHighlight(login: string, messageId: string) {
+export function removeChannelMessageHighlight(
+  login: string,
+  messageId: string
+) {
   const normalized = normalizeChannelLogin(login)
   const current = store.byChannel.get(normalized)
   if (!current?.has(messageId)) {

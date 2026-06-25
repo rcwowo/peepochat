@@ -14,7 +14,11 @@ type PickerIconProps = {
  * Renders bundled platform SVGs with mask + currentColor so they follow the theme.
  * Remote URLs (channel avatars) use a normal image element.
  */
-export function PickerIcon({ src, className, rounded = false }: PickerIconProps) {
+export function PickerIcon({
+  src,
+  className,
+  rounded = false,
+}: PickerIconProps) {
   if (isPlatformIconSrc(src)) {
     return (
       <span

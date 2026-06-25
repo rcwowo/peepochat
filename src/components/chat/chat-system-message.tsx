@@ -1,10 +1,5 @@
 import * as React from "react"
-import {
-  Gift,
-  Megaphone,
-  Star,
-  Users,
-} from "lucide-react"
+import { Gift, Megaphone, Star, Users } from "lucide-react"
 
 import { ChatMessageBody } from "@/components/chat/chat-message-body"
 import { ChatUsername } from "@/components/chat/chat-username"
@@ -21,7 +16,10 @@ const ANNOUNCEMENT_GRADIENTS: Record<string, [string, string]> = {
   purple: ["#9146ff", "#ff75e6"],
 }
 
-function getAnnouncementGradient(theme: string | null, accentColor: string | null) {
+function getAnnouncementGradient(
+  theme: string | null,
+  accentColor: string | null
+) {
   const key = theme?.toLowerCase() ?? "primary"
   if (ANNOUNCEMENT_GRADIENTS[key]) {
     return ANNOUNCEMENT_GRADIENTS[key]
@@ -108,7 +106,9 @@ function NoticeBlock({
           style={{ borderColor }}
         >
           <span className="inline-flex max-w-full items-start gap-1.5">
-            <span className="mt-0.5 shrink-0 text-muted-foreground">{icon}</span>
+            <span className="mt-0.5 shrink-0 text-muted-foreground">
+              {icon}
+            </span>
             <span className="min-w-0">{children}</span>
           </span>
 
@@ -197,7 +197,8 @@ function RaidNotice({
             ) : (
               "A channel"
             )}{" "}
-            is raiding with <span className="font-semibold">{viewerLabel}</span>!
+            is raiding with <span className="font-semibold">{viewerLabel}</span>
+            !
           </>
         ) : (
           message.headline
@@ -236,7 +237,7 @@ function AnnouncementNotice({
           }}
         >
           <span className="chat-announcement-header flex items-center px-2.5 py-1 text-xs font-medium">
-            <Megaphone className="mr-2 -scale-x-100 size-3.5" aria-hidden />
+            <Megaphone className="mr-2 size-3.5 -scale-x-100" aria-hidden />
             Announcement
           </span>
 

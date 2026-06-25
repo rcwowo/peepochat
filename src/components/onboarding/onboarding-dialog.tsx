@@ -697,7 +697,7 @@ function OAuthScopeGroupCard({ group }: { group: TwitchOAuthScopeGroup }) {
           <Icon className="size-4 text-foreground/80" />
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-semibold leading-tight">{group.title}</h3>
+          <h3 className="text-sm leading-tight font-semibold">{group.title}</h3>
           <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
             {group.description}
           </p>

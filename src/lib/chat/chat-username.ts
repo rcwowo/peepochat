@@ -52,7 +52,9 @@ function getBackgroundColor(): string {
   return cachedBackground
 }
 
-export function getReadableUsernameColor(color: string | null | undefined): string | undefined {
+export function getReadableUsernameColor(
+  color: string | null | undefined
+): string | undefined {
   if (!color || typeof document === "undefined") {
     return color ?? undefined
   }

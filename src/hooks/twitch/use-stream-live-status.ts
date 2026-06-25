@@ -38,7 +38,10 @@ export function useStreamLiveStatus({
   const channelLoginsKey = channelLogins.join("\0")
   const onWentLiveRef = React.useRef(onChannelWentLive)
   const pollingActive =
-    enabled && Boolean(accessToken) && Boolean(clientId) && channelLogins.length > 0
+    enabled &&
+    Boolean(accessToken) &&
+    Boolean(clientId) &&
+    channelLogins.length > 0
 
   React.useEffect(() => {
     liveLoginsRef.current = liveLogins

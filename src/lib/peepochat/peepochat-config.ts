@@ -185,11 +185,15 @@ const backupEnvelopeSchema = z.object({
 
 export type HighlightPingRule = z.infer<typeof highlightPingRuleSchema>
 export type HighlightsConfig = z.infer<typeof highlightsSchema>
-export type MessageTimestampFormat = z.infer<typeof messageTimestampFormatSchema>
+export type MessageTimestampFormat = z.infer<
+  typeof messageTimestampFormatSchema
+>
 export type ChatFontFamilySetting = z.infer<typeof chatFontFamilySchema>
 export type ChatEmotesConfig = z.infer<typeof chatEmotesSchema>
 export type ChatBadgesConfig = z.infer<typeof chatBadgesSchema>
-export type MessageQuickActionsConfig = z.infer<typeof messageQuickActionsSchema>
+export type MessageQuickActionsConfig = z.infer<
+  typeof messageQuickActionsSchema
+>
 export type ChatSplit = z.infer<typeof chatSplitSchema>
 export type {
   ChatSplitLayoutChild,
@@ -204,7 +208,10 @@ export type TwitchChannel = z.infer<typeof twitchChannelSchema>
 export type TwitchConfig = z.infer<typeof twitchSchema>
 export type AppConfig = z.infer<typeof appConfigSchema>
 export type BackupEnvelope = z.infer<typeof backupEnvelopeSchema>
-export type TwitchAccountBackup = Omit<TwitchAccount, "accessToken" | "clientId">
+export type TwitchAccountBackup = Omit<
+  TwitchAccount,
+  "accessToken" | "clientId"
+>
 export type AppConfigBackup = Omit<AppConfig, "twitch"> & {
   twitch: Omit<TwitchConfig, "account"> & {
     account: TwitchAccountBackup | null
@@ -273,7 +280,10 @@ export function isUnreadIndicatorEnabledForChannel(
 ): boolean {
   const globalEnabled = config.highlights.unreadIndicatorsEnabled
   const channel = config.twitch.channels.find((c) => c.login === login)
-  if (channel?.unreadIndicatorEnabled !== null && channel?.unreadIndicatorEnabled !== undefined) {
+  if (
+    channel?.unreadIndicatorEnabled !== null &&
+    channel?.unreadIndicatorEnabled !== undefined
+  ) {
     return channel.unreadIndicatorEnabled
   }
   return globalEnabled
@@ -285,7 +295,10 @@ export function isUnreadIndicatorEnabledForSplit(
 ): boolean {
   const globalEnabled = config.highlights.unreadIndicatorsEnabled
   const split = config.layout.splits.find((s) => s.id === splitId)
-  if (split?.unreadIndicatorEnabled !== null && split?.unreadIndicatorEnabled !== undefined) {
+  if (
+    split?.unreadIndicatorEnabled !== null &&
+    split?.unreadIndicatorEnabled !== undefined
+  ) {
     return split.unreadIndicatorEnabled
   }
   return globalEnabled
@@ -565,7 +578,8 @@ export function mergeRestoredConfig(
         ...restoredAccount,
         accessToken,
         clientId,
-        scopes: restoredAccount.scopes ?? (sameAccount ? existingAccount.scopes : []),
+        scopes:
+          restoredAccount.scopes ?? (sameAccount ? existingAccount.scopes : []),
       },
     },
   })
@@ -792,8 +806,11 @@ function sanitizeConfigForExport(config: AppConfig): AppConfigBackup {
     return config
   }
 
-  const { accessToken: _accessToken, clientId: _clientId, ...accountExport } =
-    account
+  const {
+    accessToken: _accessToken,
+    clientId: _clientId,
+    ...accountExport
+  } = account
 
   return {
     ...config,

@@ -14,8 +14,7 @@ export function useNotificationDocumentIndicators() {
   const { totalCount } = useNotificationCenter()
 
   React.useEffect(() => {
-    document.title =
-      totalCount > 0 ? `${APP_TITLE} (${totalCount})` : APP_TITLE
+    document.title = totalCount > 0 ? `${APP_TITLE} (${totalCount})` : APP_TITLE
 
     const faviconLink = getFaviconLink()
     if (faviconLink) {

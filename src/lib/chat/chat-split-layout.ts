@@ -37,7 +37,10 @@ function pane(channel: string): ChatSplitLayoutNode {
   return { type: "pane", channel }
 }
 
-function child(node: ChatSplitLayoutNode, size = DEFAULT_SIZE): ChatSplitLayoutChild {
+function child(
+  node: ChatSplitLayoutNode,
+  size = DEFAULT_SIZE
+): ChatSplitLayoutChild {
   return { node, size }
 }
 
@@ -64,7 +67,9 @@ function rebalanceChildren(
 
   return children.map((entry) => ({
     ...entry,
-    size: ((isFinitePositiveSize(entry.size) ? entry.size : fallback) / total) * DEFAULT_SIZE,
+    size:
+      ((isFinitePositiveSize(entry.size) ? entry.size : fallback) / total) *
+      DEFAULT_SIZE,
   }))
 }
 
@@ -78,7 +83,10 @@ function appendMissingPanes(
 
   const finalCount = children.length + missing.length
   const missingSize = evenSize(finalCount)
-  const existingBudget = Math.max(DEFAULT_SIZE - missingSize * missing.length, 0)
+  const existingBudget = Math.max(
+    DEFAULT_SIZE - missingSize * missing.length,
+    0
+  )
   const balancedExisting = rebalanceChildren(children).map((entry) => ({
     ...entry,
     size: (entry.size / DEFAULT_SIZE) * existingBudget,
@@ -103,7 +111,9 @@ export function createDefaultSplitLayout(
   return {
     type: "split",
     direction,
-    children: normalized.map((channel) => child(pane(channel), evenSize(normalized.length))),
+    children: normalized.map((channel) =>
+      child(pane(channel), evenSize(normalized.length))
+    ),
   }
 }
 
@@ -118,7 +128,9 @@ export function flattenSplitLayoutChannels(
     return layout.channel ? [layout.channel] : []
   }
 
-  return layout.children.flatMap((entry) => flattenSplitLayoutChannels(entry.node))
+  return layout.children.flatMap((entry) =>
+    flattenSplitLayoutChannels(entry.node)
+  )
 }
 
 function normalizeNode(
@@ -165,7 +177,9 @@ export function normalizeSplitLayout(
   layout: ChatSplitLayoutNode | undefined,
   channels: string[]
 ): ChatSplitLayoutNode | undefined {
-  const normalizedChannels = [...new Set(channels.map(normalizeLogin).filter(Boolean))]
+  const normalizedChannels = [
+    ...new Set(channels.map(normalizeLogin).filter(Boolean)),
+  ]
   if (normalizedChannels.length === 0) {
     return undefined
   }
@@ -237,7 +251,9 @@ function removePane(
   let removed: ChatSplitLayoutNode | null = null
   const children = node.children
     .map((entry) => {
-      const result = removed ? { node: entry.node, removed: null } : removePane(entry.node, channel)
+      const result = removed
+        ? { node: entry.node, removed: null }
+        : removePane(entry.node, channel)
       if (result.removed) {
         removed = result.removed
       }
@@ -288,7 +304,8 @@ function insertNearPane(
 
   const direction = edgeDirection(edge)
   const targetIndex = node.children.findIndex(
-    (entry) => entry.node.type === "pane" && entry.node.channel === targetChannel
+    (entry) =>
+      entry.node.type === "pane" && entry.node.channel === targetChannel
   )
 
   if (targetIndex >= 0 && node.direction === direction) {
@@ -355,7 +372,10 @@ export function moveSplitLayoutPane({
     edge
   )
 
-  return normalizeSplitLayout(inserted.inserted ? inserted.node : base, channels)
+  return normalizeSplitLayout(
+    inserted.inserted ? inserted.node : base,
+    channels
+  )
 }
 
 function updateSizesAtPath(
@@ -419,9 +439,9 @@ export function clampSplitChildSizes(sizes: number[]): number[] {
     return []
   }
 
-  const normalized = rebalanceChildren(sizes.map((size) => child(pane(""), size))).map(
-    (entry) => entry.size
-  )
+  const normalized = rebalanceChildren(
+    sizes.map((size) => child(pane(""), size))
+  ).map((entry) => entry.size)
 
   if (normalized.length * MIN_CHILD_SIZE >= DEFAULT_SIZE) {
     return normalized.map(() => evenSize(normalized.length))

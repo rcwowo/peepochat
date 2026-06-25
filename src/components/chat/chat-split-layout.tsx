@@ -120,7 +120,7 @@ function ResizeHandle({
           "absolute bg-transparent",
           direction === "row"
             ? "inset-y-0 left-1/2 -translate-x-1/2"
-            : "top-1/2 inset-x-0 -translate-y-1/2"
+            : "inset-x-0 top-1/2 -translate-y-1/2"
         )}
         style={
           direction === "row"
@@ -147,7 +147,7 @@ function DragOverlayPreview({
           draggable={false}
         />
       ) : (
-        <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[9px] font-semibold uppercase text-primary">
+        <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[9px] font-semibold text-primary uppercase">
           {login.slice(0, 2)}
         </span>
       )}
@@ -392,9 +392,8 @@ export function ChatSplitLayout({
         return
       }
 
-      let fallback:
-        | { login: string; rect: DOMRect; distance: number }
-        | null = null
+      let fallback: { login: string; rect: DOMRect; distance: number } | null =
+        null
 
       for (const [login, element] of paneElementsRef.current) {
         if (login === active) {
@@ -428,37 +427,43 @@ export function ChatSplitLayout({
     [setDropTarget]
   )
 
-  const handleDragStart = React.useCallback((event: DragStartEvent) => {
-    setActiveChannel(String(event.active.id))
-    const activatorEvent = event.activatorEvent
-    if (activatorEvent instanceof PointerEvent) {
-      const point = { x: activatorEvent.clientX, y: activatorEvent.clientY }
-      pointerRef.current = point
-      updateDropTargetFromPoint(point, String(event.active.id))
-    }
-  }, [updateDropTargetFromPoint])
-
-  const handleDragMove = React.useCallback((event: DragMoveEvent) => {
-    if (event.activatorEvent instanceof PointerEvent) {
-      const point = {
-        x: event.activatorEvent.clientX + event.delta.x,
-        y: event.activatorEvent.clientY + event.delta.y,
+  const handleDragStart = React.useCallback(
+    (event: DragStartEvent) => {
+      setActiveChannel(String(event.active.id))
+      const activatorEvent = event.activatorEvent
+      if (activatorEvent instanceof PointerEvent) {
+        const point = { x: activatorEvent.clientX, y: activatorEvent.clientY }
+        pointerRef.current = point
+        updateDropTargetFromPoint(point, String(event.active.id))
       }
-      pointerRef.current = point
-      updateDropTargetFromPoint(point, String(event.active.id))
-      return
-    }
+    },
+    [updateDropTargetFromPoint]
+  )
 
-    const rect = event.active.rect.current.translated
-    if (rect) {
-      const point = {
-        x: rect.left + rect.width / 2,
-        y: rect.top + rect.height / 2,
+  const handleDragMove = React.useCallback(
+    (event: DragMoveEvent) => {
+      if (event.activatorEvent instanceof PointerEvent) {
+        const point = {
+          x: event.activatorEvent.clientX + event.delta.x,
+          y: event.activatorEvent.clientY + event.delta.y,
+        }
+        pointerRef.current = point
+        updateDropTargetFromPoint(point, String(event.active.id))
+        return
       }
-      pointerRef.current = point
-      updateDropTargetFromPoint(point, String(event.active.id))
-    }
-  }, [updateDropTargetFromPoint])
+
+      const rect = event.active.rect.current.translated
+      if (rect) {
+        const point = {
+          x: rect.left + rect.width / 2,
+          y: rect.top + rect.height / 2,
+        }
+        pointerRef.current = point
+        updateDropTargetFromPoint(point, String(event.active.id))
+      }
+    },
+    [updateDropTargetFromPoint]
+  )
 
   const handleDragEnd = React.useCallback(
     (event: DragEndEvent) => {
@@ -583,9 +588,9 @@ export function ChatSplitLayout({
   }
 
   const activePreview = activeChannel
-    ? getPanePreview?.(activeChannel) ?? {
+    ? (getPanePreview?.(activeChannel) ?? {
         label: activeChannel,
-      }
+      })
     : null
 
   return (

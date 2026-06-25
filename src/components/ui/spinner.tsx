@@ -11,4 +11,3 @@ export function Spinner({
 }: React.ComponentProps<typeof Loader2Icon>) {
   return <Loader2Icon className={cn("animate-spin", className)} {...props} />
 }
-

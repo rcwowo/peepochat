@@ -27,7 +27,8 @@ export const TWITCH_OAUTH_SCOPE_GROUPS: TwitchOAuthScopeGroup[] = [
       {
         scope: "chat:edit",
         label: "Send messages",
-        description: "Send messages, replies, and chat commands from your account.",
+        description:
+          "Send messages, replies, and chat commands from your account.",
       },
       {
         scope: "user:read:emotes",
@@ -59,7 +60,8 @@ export const TWITCH_OAUTH_SCOPE_GROUPS: TwitchOAuthScopeGroup[] = [
       {
         scope: "moderator:manage:chat_settings",
         label: "Chat settings",
-        description: "Change slow mode, follower mode, and other chat settings.",
+        description:
+          "Change slow mode, follower mode, and other chat settings.",
       },
       {
         scope: "moderator:manage:announcements",

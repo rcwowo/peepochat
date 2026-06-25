@@ -17,7 +17,11 @@ export function LandingFooter() {
     <footer className="mt-auto border-t border-border/50">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-6 py-14 sm:flex-row sm:items-center sm:justify-between sm:py-16 lg:px-8">
         <div className="flex flex-col">
-          <Link to="/" className="inline-flex w-fit" aria-label="Peepochat home">
+          <Link
+            to="/"
+            className="inline-flex w-fit"
+            aria-label="Peepochat home"
+          >
             <img
               src="/logo-transparent.png"
               alt=""
@@ -41,7 +45,9 @@ export function LandingFooter() {
                 rcw.lol
               </a>{" "}
               project
-              <span className="ml-1 text-xs text-muted-foreground">v{version}</span>
+              <span className="ml-1 text-xs text-muted-foreground">
+                v{version}
+              </span>
             </p>
             <p className="text-sm leading-snug text-foreground">
               &copy; {year} All Rights Reserved.
@@ -49,7 +55,10 @@ export function LandingFooter() {
           </div>
         </div>
 
-        <ul className="flex flex-col items-start gap-2.5 sm:items-end" role="list">
+        <ul
+          className="flex flex-col items-start gap-2.5 sm:items-end"
+          role="list"
+        >
           {LANDING_FOOTER_LINKS.map((item) => {
             const href = getLandingFooterHref(item.href, item.label)
             const external = isLandingFooterLinkExternal(href)

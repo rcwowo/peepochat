@@ -48,7 +48,8 @@ export function EmotePicker({
 }: EmotePickerProps) {
   const [open, setOpen] = React.useState(false)
   const [query, setQuery] = React.useState("")
-  const [platformId, setPlatformId] = React.useState<EmotePickerPlatformId>("twitch")
+  const [platformId, setPlatformId] =
+    React.useState<EmotePickerPlatformId>("twitch")
   const [categoryId, setCategoryId] = React.useState("")
 
   const searchResults = React.useMemo(() => {
@@ -88,7 +89,9 @@ export function EmotePicker({
     const nextPlatformId = value as EmotePickerPlatformId
     setPlatformId(nextPlatformId)
 
-    const platform = catalog.platforms.find((entry) => entry.id === nextPlatformId)
+    const platform = catalog.platforms.find(
+      (entry) => entry.id === nextPlatformId
+    )
     const nextCategoryId = platform?.categories[0]?.id ?? ""
     if (nextCategoryId) {
       setCategoryId(nextCategoryId)
@@ -156,7 +159,10 @@ export function EmotePicker({
           </div>
         ) : loading ? (
           <div className="flex flex-1 items-center justify-center p-4 text-center text-sm text-muted-foreground">
-            <Spinner className="size-5 text-muted-foreground" aria-label="Loading emotes" />
+            <Spinner
+              className="size-5 text-muted-foreground"
+              aria-label="Loading emotes"
+            />
           </div>
         ) : catalog.platforms.length === 0 ? (
           <div className="flex flex-1 items-center justify-center p-4 text-center text-sm text-muted-foreground">
@@ -262,11 +268,7 @@ function CategoryNav({
                 : "border-2 border-transparent opacity-75 hover:border-border hover:opacity-100"
             )}
           >
-            <PickerIcon
-              src={category.iconSrc}
-              rounded
-              className="size-6"
-            />
+            <PickerIcon src={category.iconSrc} rounded className="size-6" />
           </button>
         )
       })}
@@ -286,9 +288,7 @@ function EmoteGrid({
     [emotes]
   )
 
-  return (
-    <EmoteGridBody key={emoteSetKey} emotes={emotes} onSelect={onSelect} />
-  )
+  return <EmoteGridBody key={emoteSetKey} emotes={emotes} onSelect={onSelect} />
 }
 
 function EmoteGridBody({
@@ -331,7 +331,7 @@ function EmoteGridBody({
   }
 
   return (
-    <div className="flex min-w-0 flex-wrap justify-center content-start gap-1 overflow-x-hidden p-1.5">
+    <div className="flex min-w-0 flex-wrap content-start justify-center gap-1 overflow-x-hidden p-1.5">
       {sortedEmotes.map((emote) => (
         <EmoteGridItem
           key={emotePickerEmoteKey(emote)}
@@ -362,7 +362,7 @@ function EmoteGridItem({
   return (
     <div
       className={cn(
-        "h-9 min-w-0 max-w-full shrink-0",
+        "h-9 max-w-full min-w-0 shrink-0",
         emotePickerCellWidthClass(ratioBucket)
       )}
     >

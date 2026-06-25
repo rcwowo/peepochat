@@ -75,7 +75,9 @@ export function useEmoteCard({
         status: "error",
         details: fallback,
         error:
-          error instanceof Error ? error.message : "Could not load emote details.",
+          error instanceof Error
+            ? error.message
+            : "Could not load emote details.",
       })
     }
   }, [catalogEntry, open, target])
@@ -121,7 +123,9 @@ export function useEmoteCard({
           status: "error",
           details: fallback,
           error:
-            error instanceof Error ? error.message : "Could not load emote details.",
+            error instanceof Error
+              ? error.message
+              : "Could not load emote details.",
         })
       })
   }, [catalogEntry, open, target])

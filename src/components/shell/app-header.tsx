@@ -20,7 +20,7 @@ export function AppHeader({
   return (
     <header className="flex h-12 shrink-0 items-center justify-between border-b border-border bg-sidebar px-4">
       <div className="flex items-center gap-2">
-        <img src={logoSrc} alt="Peepochat" className="brand-mark h-6 w-auto" />
+        <img src={logoSrc} alt="Peepochat" className="h-6 w-auto brand-mark" />
       </div>
       <div className="flex items-center gap-3">
         <AccountMenu />

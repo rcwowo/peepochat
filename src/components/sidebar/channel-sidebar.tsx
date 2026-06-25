@@ -25,7 +25,10 @@ import {
   isUnreadIndicatorEnabledForChannel,
   isUnreadIndicatorEnabledForSplit,
 } from "@/lib/peepochat/peepochat-config"
-import { CHANNEL_ORDER_PREFIX, SPLIT_ORDER_PREFIX } from "@/lib/sidebar/sidebar-order"
+import {
+  CHANNEL_ORDER_PREFIX,
+  SPLIT_ORDER_PREFIX,
+} from "@/lib/sidebar/sidebar-order"
 import { Button } from "@/components/ui/button"
 import {
   ContextMenu,
@@ -71,7 +74,7 @@ function splitGroupLabel(
 
 function SplitTooltipLiveBadge() {
   return (
-    <span className="shrink-0 rounded-sm bg-red-600 px-1 py-px text-[8px] font-bold leading-none tracking-wide text-white">
+    <span className="shrink-0 rounded-sm bg-red-600 px-1 py-px text-[8px] leading-none font-bold tracking-wide text-white">
       LIVE
     </span>
   )
@@ -101,7 +104,9 @@ function SplitTooltipChannelRow({
         </span>
         {showPing ? <SidebarPingBadge ringClassName="ring-foreground" /> : null}
       </span>
-      <span className="min-w-0 truncate">{channelLabel(login, displayName)}</span>
+      <span className="min-w-0 truncate">
+        {channelLabel(login, displayName)}
+      </span>
       {showLive ? <SplitTooltipLiveBadge /> : null}
     </div>
   )
@@ -138,7 +143,7 @@ function SplitTooltipContent({
 
 function sidebarIconButtonClass() {
   return cn(
-    "group/icon flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-transparent p-0 outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+    "group/icon flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-transparent p-0 transition-shadow outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
   )
 }
 
@@ -553,7 +558,9 @@ export function ChannelSidebar() {
     try {
       await addChannel(login)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not add channel")
+      toast.error(
+        error instanceof Error ? error.message : "Could not add channel"
+      )
       throw error
     }
   }
@@ -623,7 +630,7 @@ export function ChannelSidebar() {
         collapsible="icon"
         className="top-12 h-[calc(100svh-3rem)] overflow-visible border-r border-sidebar-border"
       >
-        <SidebarContent className="min-h-0 flex-1 overflow-y-auto overflow-x-visible group-data-[collapsible=icon]:overflow-y-auto group-data-[collapsible=icon]:overflow-x-visible">
+        <SidebarContent className="min-h-0 flex-1 overflow-x-visible overflow-y-auto group-data-[collapsible=icon]:overflow-x-visible group-data-[collapsible=icon]:overflow-y-auto">
           <SidebarGroup className="px-0 py-3">
             <SidebarGroupContent className="flex flex-col items-stretch">
               <SortableSidebarList
@@ -668,9 +675,7 @@ export function ChannelSidebar() {
                         }
                         onMarkRead={() => markSplitRead(entry.split.id)}
                         onUngroup={() => unsplit(entry.split.id)}
-                        onDelete={() =>
-                          handleDeleteSplit(entry.split.channels)
-                        }
+                        onDelete={() => handleDeleteSplit(entry.split.channels)}
                       />
                     )
                   }

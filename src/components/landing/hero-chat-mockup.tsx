@@ -608,7 +608,7 @@ export function HeroChatMockup() {
         aria-hidden
       />
 
-      <div className="relative z-2 w-full transform-3d animate-landing-mockup-float motion-reduce:animate-none">
+      <div className="relative z-2 w-full animate-landing-mockup-float transform-3d motion-reduce:animate-none">
         <div
           className="landing-mockup-tilt"
           style={{

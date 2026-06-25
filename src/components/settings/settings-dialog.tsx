@@ -123,9 +123,9 @@ function CategoryIconButton({
         <button
           type="button"
           onClick={onSelect}
-          className={`flex h-10 w-10 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+          className={`flex h-10 w-10 items-center justify-center rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none ${
             selected
-              ? "bg-primary/10 text-foreground shadow-sm ring-1 ring-primary/25 hover:bg-primary/12 dark:bg-primary/20 dark:hover:bg-primary/24 dark:ring-primary/35"
+              ? "bg-primary/10 text-foreground shadow-sm ring-1 ring-primary/25 hover:bg-primary/12 dark:bg-primary/20 dark:ring-primary/35 dark:hover:bg-primary/24"
               : "text-muted-foreground hover:bg-background/70 hover:text-foreground"
           }`}
         >
@@ -165,9 +165,9 @@ export function SettingsDialog({
       <SheetContent
         side="right"
         showOverlay={false}
-        className="h-svh gap-0 p-0 data-[side=right]:w-full max-sm:data-[side=right]:border-l-0 sm:data-[side=right]:border-l sm:max-w-md"
+        className="h-svh gap-0 p-0 data-[side=right]:w-full max-sm:data-[side=right]:border-l-0 sm:max-w-md sm:data-[side=right]:border-l"
       >
-        <SheetHeader className="shrink-0 border-b border-border bg-sidebar px-4 py-0 h-12 flex-row items-center justify-between">
+        <SheetHeader className="h-12 shrink-0 flex-row items-center justify-between border-b border-border bg-sidebar px-4 py-0">
           <SheetTitle>Settings</SheetTitle>
         </SheetHeader>
 

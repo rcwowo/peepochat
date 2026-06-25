@@ -34,10 +34,7 @@ const restrictSidebarDrag: Modifier = ({
   return {
     ...nextTransform,
     y: Math.min(
-      Math.max(
-        nextTransform.y,
-        containerNodeRect.top - activeNodeRect.top
-      ),
+      Math.max(nextTransform.y, containerNodeRect.top - activeNodeRect.top),
       containerNodeRect.bottom - activeNodeRect.bottom
     ),
   }

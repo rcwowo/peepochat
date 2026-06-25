@@ -42,7 +42,9 @@ export function EmoteTooltipContent({
           src={platform.iconSrc}
           className="size-3.5 shrink-0 bg-background"
         />
-        <span className="line-clamp-2 min-w-0 break-all text-center">{name}</span>
+        <span className="line-clamp-2 min-w-0 text-center break-all">
+          {name}
+        </span>
         <span className="sr-only"> ({platform.label})</span>
       </span>
       {hasOverlays ? (

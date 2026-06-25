@@ -74,7 +74,7 @@ export function AboutTab() {
               <img
                 src={logoSrc}
                 alt="Peepochat"
-                className="brand-mark h-7 w-auto max-w-full"
+                className="h-7 w-auto max-w-full brand-mark"
               />
               <p className="mt-1.5 font-mono text-[11px] tracking-wide text-muted-foreground/90">
                 v{version}
@@ -84,7 +84,8 @@ export function AboutTab() {
 
           <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
             A lightweight Twitch chat client for the web. Sign in with Twitch,
-            follow channels from the sidebar, and keep your layout on this device.
+            follow channels from the sidebar, and keep your layout on this
+            device.
           </p>
 
           <div className="flex flex-wrap gap-1.5">
@@ -112,10 +113,10 @@ export function AboutTab() {
                 href={credit.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group flex items-start justify-between gap-3 px-2.5 py-2.5 transition-colors hover:bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                className="group flex items-start justify-between gap-3 px-2.5 py-2.5 transition-colors hover:bg-muted/20 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none"
               >
                 <div className="min-w-0">
-                  <div className="text-sm font-medium leading-tight group-hover:text-foreground">
+                  <div className="text-sm leading-tight font-medium group-hover:text-foreground">
                     {credit.name}
                   </div>
                   <p className="mt-0.5 text-xs leading-snug text-muted-foreground">

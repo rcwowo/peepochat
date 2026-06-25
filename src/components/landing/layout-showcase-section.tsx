@@ -41,11 +41,12 @@ type FrameMetrics = {
   activeDividerId: string | null
 }
 
-const PANES: Record<PaneId, { displayName: string; profileImageUrl: string }> = {
-  a: LANDING_CHANNELS.rcwOwO,
-  b: LANDING_CHANNELS.dhinkha,
-  c: LANDING_CHANNELS.toastercat,
-}
+const PANES: Record<PaneId, { displayName: string; profileImageUrl: string }> =
+  {
+    a: LANDING_CHANNELS.rcwOwO,
+    b: LANDING_CHANNELS.dhinkha,
+    c: LANDING_CHANNELS.toastercat,
+  }
 
 const SKELETON_LINE_WIDTHS = [
   0.78, 0.62, 0.88, 0.54, 0.71, 0.48, 0.83, 0.59, 0.67, 0.52, 0.74, 0.61,
@@ -230,7 +231,11 @@ function easeInOutCubic(t: number) {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
 }
 
-function interpolateLayouts(from: LayoutNode, to: LayoutNode, t: number): LayoutNode {
+function interpolateLayouts(
+  from: LayoutNode,
+  to: LayoutNode,
+  t: number
+): LayoutNode {
   if (from.type !== to.type) {
     return t < 0.5 ? from : to
   }
@@ -296,7 +301,13 @@ function computeLayoutMetrics(
           }
 
     const childPath = `${path}.${index}`
-    computeLayoutMetrics(child.node, childBounds, childPath, paneRects, dividers)
+    computeLayoutMetrics(
+      child.node,
+      childBounds,
+      childPath,
+      paneRects,
+      dividers
+    )
     offset += node.direction === "row" ? childBounds.width : childBounds.height
 
     if (index < node.children.length - 1) {
@@ -386,8 +397,16 @@ function blendDividers(from: Divider[], to: Divider[], t: number) {
     const reveal = easeInOutCubic((eased - 0.18) / 0.82)
     const start: Rect =
       target.direction === "row"
-        ? { ...target, x: target.x - target.width * 4, width: target.width * 0.1 }
-        : { ...target, y: target.y - target.height * 4, height: target.height * 0.1 }
+        ? {
+            ...target,
+            x: target.x - target.width * 4,
+            width: target.width * 0.1,
+          }
+        : {
+            ...target,
+            y: target.y - target.height * 4,
+            height: target.height * 0.1,
+          }
 
     out.push({
       ...target,
@@ -430,8 +449,7 @@ function metricsFromResize(
     dividers,
     paneOpacity: new Map(),
     dragGhost: null,
-    activeDividerId:
-      progress > 0.05 && progress < 0.95 ? dividerId : null,
+    activeDividerId: progress > 0.05 && progress < 0.95 ? dividerId : null,
   }
 }
 
@@ -634,10 +652,7 @@ function useLayoutShowcaseAnimation(reducedMotion: boolean, active: boolean) {
       const elapsed = now - start
       const linear = Math.min(elapsed / duration, 1)
 
-      if (
-        now - lastRender >= PROGRESS_RENDER_INTERVAL_MS ||
-        linear >= 1
-      ) {
+      if (now - lastRender >= PROGRESS_RENDER_INTERVAL_MS || linear >= 1) {
         lastRender = now
         setProgress(linear)
       }
@@ -725,7 +740,7 @@ function ShowcasePane({
   return (
     <div
       className={cn(
-        "absolute isolate z-0 flex min-h-0 min-w-0 flex-col overflow-hidden bg-(--chat-background) contain-[paint] transition-[opacity,box-shadow,transform] duration-300",
+        "absolute isolate z-0 flex min-h-0 min-w-0 flex-col overflow-hidden bg-(--chat-background) transition-[opacity,box-shadow,transform] duration-300 contain-[paint]",
         dimmed && "opacity-40",
         elevated &&
           "z-4 scale-[1.02] shadow-[0_10px_28px_-8px_oklch(0_0_0/55%)] ring-1 ring-primary/45"
@@ -753,7 +768,7 @@ function ShowcasePane({
         />
         {dragHandleActive ? (
           <div
-            className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-primary/35"
+            className="pointer-events-none absolute inset-0 ring-1 ring-primary/35 ring-inset"
             aria-hidden
           />
         ) : null}
@@ -791,9 +806,10 @@ function DemoCursor({
 
 function LayoutShowcaseDemo() {
   const reducedMotion = usePrefersReducedMotion()
-  const { ref: visibilityRef, visible } = useIntersectionVisible<HTMLDivElement>({
-    rootMargin: "120px",
-  })
+  const { ref: visibilityRef, visible } =
+    useIntersectionVisible<HTMLDivElement>({
+      rootMargin: "120px",
+    })
   const { paneRects, dividers, paneOpacity, dragGhost, activeDividerId } =
     useLayoutShowcaseAnimation(reducedMotion, visible)
 
@@ -801,14 +817,16 @@ function LayoutShowcaseDemo() {
     ? dividers.find((entry) => entry.id === activeDividerId)
     : null
 
-  const dragCursor = dragGhost
-    ? paneDragHandlePoint(dragGhost.rect)
-    : null
+  const dragCursor = dragGhost ? paneDragHandlePoint(dragGhost.rect) : null
 
   return (
-    <div ref={visibilityRef} className="relative mx-auto w-full max-w-136" aria-hidden>
+    <div
+      ref={visibilityRef}
+      className="relative mx-auto w-full max-w-136"
+      aria-hidden
+    >
       <div className="relative overflow-hidden rounded-lg border border-border/85 bg-linear-to-br from-card/88 to-background/92 shadow-[0_2px_4px_oklch(0_0_0/22%),0_18px_40px_-14px_oklch(0_0_0/48%)]">
-        <div className="relative aspect-16/11 bg-[radial-gradient(ellipse_80%_70%_at_50%_0%,color-mix(in_oklch,var(--primary)_8%,transparent),transparent_72%)] bg-background">
+        <div className="relative aspect-16/11 bg-background bg-[radial-gradient(ellipse_80%_70%_at_50%_0%,color-mix(in_oklch,var(--primary)_8%,transparent),transparent_72%)]">
           {Array.from(paneRects.entries()).map(([paneId, rect]) => {
             const opacity = paneOpacity.get(paneId) ?? 1
             if (opacity < 0.03) {
@@ -932,8 +950,9 @@ export function LayoutShowcaseSection() {
               <span className="text-primary">splits and layouts.</span>
             </h2>
             <p className="mt-4 text-base leading-relaxed text-muted-foreground">
-              You can arrange channels in any way you like. Horizontal, vertical, or a mix of both.
-              Rearrange and resize them to make the perfect layout.
+              You can arrange channels in any way you like. Horizontal,
+              vertical, or a mix of both. Rearrange and resize them to make the
+              perfect layout.
             </p>
 
             <ul className="mt-8 space-y-4">

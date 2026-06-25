@@ -1,8 +1,6 @@
 import * as React from "react"
 
-import {
-  findPingMatchRange,
-} from "@/lib/highlights/highlight-rules"
+import { findPingMatchRange } from "@/lib/highlights/highlight-rules"
 import { PingMatchMark } from "@/lib/highlights/ping-match-mark"
 
 export function PingMatchText({

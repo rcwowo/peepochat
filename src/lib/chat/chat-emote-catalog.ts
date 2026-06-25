@@ -319,8 +319,14 @@ function partitionTwitchEmotes(sources: {
   globalEmotes: TwitchChatEmote[]
 }): CategoryDraft[] {
   const claimed = new Set<string>()
-  const { roomId, channelLogin, channelEmotes, userChannelEmotes, userAllEmotes, globalEmotes } =
-    sources
+  const {
+    roomId,
+    channelLogin,
+    channelEmotes,
+    userChannelEmotes,
+    userAllEmotes,
+    globalEmotes,
+  } = sources
   const drafts: CategoryDraft[] = []
 
   const claim = (emotes: TwitchChatEmote[]) => {
@@ -334,7 +340,9 @@ function partitionTwitchEmotes(sources: {
     return result
   }
 
-  const pushDraft = (draft: Omit<CategoryDraft, "emotes"> & { emotes: TwitchChatEmote[] }) => {
+  const pushDraft = (
+    draft: Omit<CategoryDraft, "emotes"> & { emotes: TwitchChatEmote[] }
+  ) => {
     const emotes = claim(draft.emotes)
     if (emotes.length === 0) return
     drafts.push({ ...draft, emotes })
@@ -400,7 +408,8 @@ function partitionTwitchEmotes(sources: {
     const emoteKey = `${emote.ownerId}:${emote.name.toLowerCase()}`
     const isSubEmote = isSubscriptionChannelEmote(emote)
     const isFollowerUnlockedAsSub =
-      isFollowerChannelEmote(emote) && globallyUsableOtherChannelKeys.has(emoteKey)
+      isFollowerChannelEmote(emote) &&
+      globallyUsableOtherChannelKeys.has(emoteKey)
 
     if (!isSubEmote && !isFollowerUnlockedAsSub) continue
 
@@ -436,12 +445,21 @@ function resolveCategoryDrafts(
 ): EmotePickerCategory[] {
   const currentProfile =
     profiles.get(roomId) ??
-    [...profiles.values()].find((user) => user.login === channelLogin.toLowerCase())
+    [...profiles.values()].find(
+      (user) => user.login === channelLogin.toLowerCase()
+    )
 
   return drafts.map((draft) => {
-    const icon = resolveCategoryIcon(draft.icon, profiles, currentProfile, channelLogin)
+    const icon = resolveCategoryIcon(
+      draft.icon,
+      profiles,
+      currentProfile,
+      channelLogin
+    )
     const sorted = dedupeComposerEmotes(
-      sortPickerEmotes(draft.emotes.map((emote) => toComposerEmote(emote, profiles)))
+      sortPickerEmotes(
+        draft.emotes.map((emote) => toComposerEmote(emote, profiles))
+      )
     )
 
     return {
@@ -559,10 +577,8 @@ function buildThirdPartyPlatforms(
   registerEmotes: (emotes: ComposerEmote[]) => void
 ): EmotePickerPlatform[] {
   const platforms: EmotePickerPlatform[] = []
-  const channelIconSrc =
-    currentChannelProfile?.profileImageUrl ?? undefined
-  const channelIconAlt =
-    currentChannelProfile?.displayName ?? channelLogin
+  const channelIconSrc = currentChannelProfile?.profileImageUrl ?? undefined
+  const channelIconAlt = currentChannelProfile?.displayName ?? channelLogin
 
   for (const provider of ["7tv", "bttv", "ffz"] as const) {
     const { channel, global } = sets[provider]
@@ -570,9 +586,7 @@ function buildThirdPartyPlatforms(
     const meta = PLATFORM_META[provider]
 
     if (channel.length > 0) {
-      const sorted = dedupeComposerEmotes(
-        sortPickerEmotes(channel)
-      )
+      const sorted = dedupeComposerEmotes(sortPickerEmotes(channel))
       const id = `${provider}-channel-${channelLogin}`
       categories.push({
         id,
@@ -665,7 +679,9 @@ export function findPickerCategory(
   categoryId: string
 ): EmotePickerCategory | null {
   const platform = catalog.platforms.find((entry) => entry.id === platformId)
-  return platform?.categories.find((category) => category.id === categoryId) ?? null
+  return (
+    platform?.categories.find((category) => category.id === categoryId) ?? null
+  )
 }
 
 export function getTwitchEmoteHydration(

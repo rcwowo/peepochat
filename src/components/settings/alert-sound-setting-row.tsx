@@ -71,12 +71,12 @@ export function AlertSoundSettingRow({
     }
   }
 
-  const soundLabel = customId ? customName ?? "Custom sound" : "Default sound"
+  const soundLabel = customId ? (customName ?? "Custom sound") : "Default sound"
 
   return (
     <div className="px-2.5 py-2.5">
       <div className="mb-2">
-        <p className="text-sm font-medium leading-tight">{title}</p>
+        <p className="text-sm leading-tight font-medium">{title}</p>
         <p className="mt-0.5 text-xs leading-snug text-muted-foreground">
           {description}
         </p>

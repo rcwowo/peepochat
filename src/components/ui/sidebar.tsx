@@ -66,8 +66,7 @@ function SidebarProvider({
   const openDesktop = openProp ?? _open
   const setOpenDesktop = React.useCallback(
     (value: boolean | ((value: boolean) => boolean)) => {
-      const openState =
-        typeof value === "function" ? value(openDesktop) : value
+      const openState = typeof value === "function" ? value(openDesktop) : value
       if (setOpenProp) {
         setOpenProp(openState)
       } else {
@@ -404,7 +403,7 @@ function SidebarContent({ className, ...props }: React.ComponentProps<"div">) {
       data-slot="sidebar-content"
       data-sidebar="content"
       className={cn(
-        "no-scrollbar flex min-h-0 flex-1 flex-col gap-0 overflow-auto group-data-[collapsible=icon]:overflow-y-auto group-data-[collapsible=icon]:overflow-x-visible",
+        "no-scrollbar flex min-h-0 flex-1 flex-col gap-0 overflow-auto group-data-[collapsible=icon]:overflow-x-visible group-data-[collapsible=icon]:overflow-y-auto",
         className
       )}
       {...props}

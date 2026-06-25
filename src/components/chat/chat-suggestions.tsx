@@ -36,10 +36,7 @@ export function ChatSuggestions({
       role="listbox"
       aria-label="Emote suggestions"
     >
-      <ul
-        ref={listRef}
-        className="overflow-y-auto overscroll-contain py-1"
-      >
+      <ul ref={listRef} className="overflow-y-auto overscroll-contain py-1">
         {suggestions.map((suggestion, suggestionIndex) => (
           <li key={`${suggestion.value}-${suggestionIndex}`}>
             <button

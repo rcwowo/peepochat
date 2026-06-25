@@ -50,14 +50,20 @@ export class TwitchApiError extends Error {
 export async function validateTwitchToken(
   accessToken: string
 ): Promise<TwitchValidatedToken> {
-  const response = await devLoggedFetch("https://id.twitch.tv/oauth2/validate", {
-    headers: {
-      Authorization: `OAuth ${accessToken}`,
-    },
-  })
+  const response = await devLoggedFetch(
+    "https://id.twitch.tv/oauth2/validate",
+    {
+      headers: {
+        Authorization: `OAuth ${accessToken}`,
+      },
+    }
+  )
 
   if (!response.ok) {
-    throw new TwitchApiError("Twitch token is invalid or expired.", response.status)
+    throw new TwitchApiError(
+      "Twitch token is invalid or expired.",
+      response.status
+    )
   }
 
   const payload = (await response.json()) as {
@@ -86,7 +92,10 @@ export async function fetchTwitchUser(
   })
 
   if (!response.ok) {
-    throw new TwitchApiError("Could not load Twitch user profile.", response.status)
+    throw new TwitchApiError(
+      "Could not load Twitch user profile.",
+      response.status
+    )
   }
 
   const payload = (await response.json()) as {
@@ -145,7 +154,9 @@ export async function fetchTwitchUsersByLogin(
 ): Promise<TwitchUser[]> {
   const normalized = [
     ...new Set(
-      logins.map((login) => login.trim().replace(/^#/, "").toLowerCase()).filter(Boolean)
+      logins
+        .map((login) => login.trim().replace(/^#/, "").toLowerCase())
+        .filter(Boolean)
     ),
   ]
 
@@ -218,12 +229,18 @@ export async function fetchGlobalChatBadges(
   accessToken: string,
   clientId: string
 ): Promise<TwitchChatBadgeSet[]> {
-  const response = await devLoggedFetch("https://api.twitch.tv/helix/chat/badges/global", {
-    headers: helixHeaders(accessToken, clientId),
-  })
+  const response = await devLoggedFetch(
+    "https://api.twitch.tv/helix/chat/badges/global",
+    {
+      headers: helixHeaders(accessToken, clientId),
+    }
+  )
 
   if (!response.ok) {
-    throw new TwitchApiError("Could not load global chat badges.", response.status)
+    throw new TwitchApiError(
+      "Could not load global chat badges.",
+      response.status
+    )
   }
 
   const payload = (await response.json()) as {
@@ -257,7 +274,10 @@ export async function fetchChannelChatBadges(
   )
 
   if (!response.ok) {
-    throw new TwitchApiError("Could not load channel chat badges.", response.status)
+    throw new TwitchApiError(
+      "Could not load channel chat badges.",
+      response.status
+    )
   }
 
   const payload = (await response.json()) as {
@@ -350,7 +370,10 @@ export async function fetchTwitchModeratorStatus({
   )
 
   if (!response.ok) {
-    throw new TwitchApiError("Could not load moderator status.", response.status)
+    throw new TwitchApiError(
+      "Could not load moderator status.",
+      response.status
+    )
   }
 
   const payload = (await response.json()) as {
@@ -394,7 +417,9 @@ export async function banTwitchUser({
     broadcaster_id: broadcasterId,
     moderator_id: moderatorId,
   })
-  const body: { data: { user_id: string; reason?: string; duration?: number } } = {
+  const body: {
+    data: { user_id: string; reason?: string; duration?: number }
+  } = {
     data: { user_id: userId },
   }
 
@@ -447,7 +472,10 @@ export async function unbanTwitchUser({
   )
 
   if (!response.ok) {
-    throw new TwitchApiError("Could not remove ban or timeout.", response.status)
+    throw new TwitchApiError(
+      "Could not remove ban or timeout.",
+      response.status
+    )
   }
 }
 
@@ -532,12 +560,18 @@ export async function fetchGlobalChatEmotes(
   accessToken: string,
   clientId: string
 ): Promise<TwitchChatEmote[]> {
-  const response = await devLoggedFetch("https://api.twitch.tv/helix/chat/emotes/global", {
-    headers: helixHeaders(accessToken, clientId),
-  })
+  const response = await devLoggedFetch(
+    "https://api.twitch.tv/helix/chat/emotes/global",
+    {
+      headers: helixHeaders(accessToken, clientId),
+    }
+  )
 
   if (!response.ok) {
-    throw new TwitchApiError("Could not load global Twitch emotes.", response.status)
+    throw new TwitchApiError(
+      "Could not load global Twitch emotes.",
+      response.status
+    )
   }
 
   const payload = (await response.json()) as HelixEmoteListResponse
@@ -559,7 +593,10 @@ export async function fetchChannelChatEmotes(
   )
 
   if (!response.ok) {
-    throw new TwitchApiError("Could not load channel Twitch emotes.", response.status)
+    throw new TwitchApiError(
+      "Could not load channel Twitch emotes.",
+      response.status
+    )
   }
 
   const payload = (await response.json()) as HelixEmoteListResponse
@@ -696,7 +733,9 @@ export function buildTwitchEmoteCdnUrl(
   return `https://static-cdn.jtvnw.net/emoticons/v2/${encodeURIComponent(emoteId)}/${format}/${themeMode}/${scale}`
 }
 
-export function prefersAnimatedTwitchEmote(formats: TwitchEmoteFormat[]): boolean {
+export function prefersAnimatedTwitchEmote(
+  formats: TwitchEmoteFormat[]
+): boolean {
   return formats.includes("animated")
 }
 
@@ -743,7 +782,9 @@ export async function fetchLiveStreamsByLogin(
 ): Promise<TwitchLiveStream[]> {
   const normalized = [
     ...new Set(
-      logins.map((login) => login.trim().replace(/^#/, "").toLowerCase()).filter(Boolean)
+      logins
+        .map((login) => login.trim().replace(/^#/, "").toLowerCase())
+        .filter(Boolean)
     ),
   ]
 

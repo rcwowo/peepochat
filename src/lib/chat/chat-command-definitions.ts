@@ -23,7 +23,11 @@ export const CHAT_COMMAND_DEFINITIONS: ChatCommandDefinition[] = [
     description: "Send a chat announcement",
     usageDetail: `Colors: ${ANNOUNCEMENT_COLORS.join(", ")} (if no color or invalid color, primary is used)`,
   },
-  { name: "ban", usage: "<username> [reason]", description: "Permanently ban a user" },
+  {
+    name: "ban",
+    usage: "<username> [reason]",
+    description: "Permanently ban a user",
+  },
   {
     name: "commercial",
     usage: "[seconds]",

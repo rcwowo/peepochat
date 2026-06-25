@@ -54,7 +54,11 @@ export function useChatBadges(account: TwitchAccount | null) {
 
       channelLoadingRef.current.add(roomId)
 
-      void loadChannelBadgeCatalog(roomId, account.accessToken, account.clientId)
+      void loadChannelBadgeCatalog(
+        roomId,
+        account.accessToken,
+        account.clientId
+      )
         .then((nextCatalog) => {
           loadedRoomIdsRef.current.add(roomId)
           setChannelCatalogs((current) => ({
@@ -109,7 +113,11 @@ export function useChatBadges(account: TwitchAccount | null) {
       }
 
       const merged = mergeBadgeCatalogs(globalCatalog, channelCatalog)
-      cache.set(roomId, { global: globalCatalog, channel: channelCatalog, merged })
+      cache.set(roomId, {
+        global: globalCatalog,
+        channel: channelCatalog,
+        merged,
+      })
       return merged
     },
     [account, channelCatalogs, globalCatalog]

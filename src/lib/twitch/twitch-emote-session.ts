@@ -30,8 +30,12 @@ function authKey(auth: TwitchEmoteSessionAuth) {
   return `${auth.clientId}:${auth.userId}`
 }
 
-function canUseSession(auth: TwitchEmoteSessionAuth | null | undefined): auth is TwitchEmoteSessionAuth {
-  return Boolean(auth?.accessToken?.trim() && auth?.clientId?.trim() && auth?.userId?.trim())
+function canUseSession(
+  auth: TwitchEmoteSessionAuth | null | undefined
+): auth is TwitchEmoteSessionAuth {
+  return Boolean(
+    auth?.accessToken?.trim() && auth?.clientId?.trim() && auth?.userId?.trim()
+  )
 }
 
 function ensureSessionKey(key: string) {

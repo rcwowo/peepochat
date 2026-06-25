@@ -122,7 +122,9 @@ export function useChatLayout({
   updateConfig,
 }: {
   config: AppConfig
-  updateConfig: (updater: AppConfig | ((current: AppConfig) => AppConfig)) => void
+  updateConfig: (
+    updater: AppConfig | ((current: AppConfig) => AppConfig)
+  ) => void
 }) {
   const layout = getChatLayout(config)
   const activeChannelLogin = getActiveChannelLogin(config)
@@ -141,7 +143,9 @@ export function useChatLayout({
     }
 
     const split = savedSplits.find((entry) => entry.id === activeSplitId)
-    return split ? normalizeSplitLayout(split.layout, split.channels) : undefined
+    return split
+      ? normalizeSplitLayout(split.layout, split.channels)
+      : undefined
   }, [activeSplitId, savedSplits])
   const channelsInSplits = React.useMemo(
     () => getChannelsUsedInSplits(savedSplits),
@@ -151,7 +155,9 @@ export function useChatLayout({
   const selectSplit = React.useCallback(
     (splitId: string) => {
       updateConfig((current) => {
-        const split = current.layout.splits.find((entry) => entry.id === splitId)
+        const split = current.layout.splits.find(
+          (entry) => entry.id === splitId
+        )
         if (!split || split.channels.length < 2) {
           return current
         }
@@ -179,14 +185,14 @@ export function useChatLayout({
         const splitId = existing?.id ?? createSplitId()
         const splits = existing
           ? current.layout.splits
-          : [
-              ...current.layout.splits,
-              createChatSplit(normalized, splitId),
-            ]
+          : [...current.layout.splits, createChatSplit(normalized, splitId)]
 
         const pruned = pruneSplits(splits)
         const order = existing
-          ? normalizeSidebarOrder({ ...current, layout: { ...current.layout, splits: pruned } })
+          ? normalizeSidebarOrder({
+              ...current,
+              layout: { ...current.layout, splits: pruned },
+            })
           : replaceChannelsWithSplitInOrder(
               normalizeSidebarOrder(current),
               splitId,
@@ -238,10 +244,10 @@ export function useChatLayout({
             )
           )
 
-          return commitLayout(
-            current,
-            { activeSplitId: activeId, splits: pruned }
-          )
+          return commitLayout(current, {
+            activeSplitId: activeId,
+            splits: pruned,
+          })
         }
 
         const base = getActiveChannelLogin(current)
@@ -250,17 +256,20 @@ export function useChatLayout({
         }
 
         const nextChannels = normalizeSplitChannels([base, normalized])
-        const existing = findSplitByChannels(current.layout.splits, nextChannels)
+        const existing = findSplitByChannels(
+          current.layout.splits,
+          nextChannels
+        )
         const splitId = existing?.id ?? createSplitId()
         const splits = existing
           ? current.layout.splits
-          : [
-              ...current.layout.splits,
-              createChatSplit(nextChannels, splitId),
-            ]
+          : [...current.layout.splits, createChatSplit(nextChannels, splitId)]
         const pruned = pruneSplits(splits)
         const order = existing
-          ? normalizeSidebarOrder({ ...current, layout: { ...current.layout, splits: pruned } })
+          ? normalizeSidebarOrder({
+              ...current,
+              layout: { ...current.layout, splits: pruned },
+            })
           : replaceChannelsWithSplitInOrder(
               normalizeSidebarOrder(current),
               splitId,
@@ -344,7 +353,9 @@ export function useChatLayout({
         }
 
         const remaining = nextChannels[0] ?? getActiveChannelLogin(current)
-        const splits = current.layout.splits.filter((split) => split.id !== activeId)
+        const splits = current.layout.splits.filter(
+          (split) => split.id !== activeId
+        )
         const currentOrder = normalizeSidebarOrder(current)
         const splitKey = splitOrderKey(activeId)
         const splitIndex = currentOrder.indexOf(splitKey)
@@ -398,14 +409,21 @@ export function useChatLayout({
 
         const nextSplits = current.layout.splits.filter((s) => s.id !== splitId)
         const nextActiveSplitId =
-          current.layout.activeSplitId === splitId ? null : current.layout.activeSplitId
+          current.layout.activeSplitId === splitId
+            ? null
+            : current.layout.activeSplitId
 
-        const base = removeKeysFromSidebarOrder(normalizeSidebarOrder(current), [
-          splitKey,
-          ...channelKeys,
-        ])
-        const insertAt = splitIndex >= 0 ? Math.min(splitIndex, base.length) : base.length
-        base.splice(insertAt, 0, ...channelKeys.filter((k) => !base.includes(k)))
+        const base = removeKeysFromSidebarOrder(
+          normalizeSidebarOrder(current),
+          [splitKey, ...channelKeys]
+        )
+        const insertAt =
+          splitIndex >= 0 ? Math.min(splitIndex, base.length) : base.length
+        base.splice(
+          insertAt,
+          0,
+          ...channelKeys.filter((k) => !base.includes(k))
+        )
 
         const nextConfig: AppConfig = {
           ...current,
@@ -415,7 +433,11 @@ export function useChatLayout({
               : current.twitch,
         }
 
-        return commitLayout(nextConfig, { activeSplitId: nextActiveSplitId, splits: nextSplits }, base)
+        return commitLayout(
+          nextConfig,
+          { activeSplitId: nextActiveSplitId, splits: nextSplits },
+          base
+        )
       })
     },
     [updateConfig]

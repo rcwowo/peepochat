@@ -58,7 +58,8 @@ export function emotePickerCellWidthClass(bucket: EmoteRatioBucket): string {
 }
 
 /** Max image height inside the card preview (container is h-20 with p-2). */
-export const EMOTE_CARD_PREVIEW_IMAGE_CLASS = "max-h-16 max-w-full object-contain"
+export const EMOTE_CARD_PREVIEW_IMAGE_CLASS =
+  "max-h-16 max-w-full object-contain"
 
 /** Card preview: fixed height, width scales by aspect ratio (same buckets as picker). */
 export function emoteCardPreviewSizeClass(bucket: EmoteRatioBucket): string {

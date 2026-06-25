@@ -27,12 +27,10 @@ export async function resolveAlertSoundUrl(
   return customUrl ?? DEFAULT_ALERT_SOUND_URL
 }
 
-export async function playAlertSound(
-  options: {
-    useDefaultSounds: boolean
-    customId: string | null | undefined
-  }
-) {
+export async function playAlertSound(options: {
+  useDefaultSounds: boolean
+  customId: string | null | undefined
+}) {
   if (typeof window === "undefined") {
     return
   }

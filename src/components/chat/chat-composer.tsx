@@ -89,7 +89,8 @@ export function ChatComposer({
   const historyIndexRef = React.useRef(-1)
   const commandSubmitRef = React.useRef(0)
   const commandPendingRef = React.useRef(false)
-  const [syncedChannelLogin, setSyncedChannelLogin] = React.useState(channelLogin)
+  const [syncedChannelLogin, setSyncedChannelLogin] =
+    React.useState(channelLogin)
   const [commandPending, setCommandPending] = React.useState(false)
 
   if (channelLogin !== syncedChannelLogin) {
@@ -113,10 +114,7 @@ export function ChatComposer({
 
   const catalog = getComposerEmoteCatalog(channelLogin)
   const emotesLoading = isComposerEmotesLoading(channelLogin)
-  const emoteList = React.useMemo(
-    () => [...catalog.byCode.values()],
-    [catalog]
-  )
+  const emoteList = React.useMemo(() => [...catalog.byCode.values()], [catalog])
 
   const showEmoteSuggestions =
     !shouldSuppressEmoteCompletion(value) &&
@@ -129,7 +127,10 @@ export function ChatComposer({
       Boolean(commandCompleter.usageHint) ||
       Boolean(commandCompleter.usageHintDetail))
 
-  const shouldCompleteCommand = shouldCompleteCommandOnSubmit(value, commandCompleter)
+  const shouldCompleteCommand = shouldCompleteCommandOnSubmit(
+    value,
+    commandCompleter
+  )
 
   const disabled = !canSendChat || !joined || commandPending
   const placeholder = !account
@@ -183,13 +184,16 @@ export function ChatComposer({
     [emoteList]
   )
 
-  const updateCommandCompleter = React.useCallback((text: string, cursor: number) => {
-    const result = findCommandSuggestions(text, cursor)
-    setCommandCompleter((current) => ({
-      ...current,
-      ...result,
-    }))
-  }, [])
+  const updateCommandCompleter = React.useCallback(
+    (text: string, cursor: number) => {
+      const result = findCommandSuggestions(text, cursor)
+      setCommandCompleter((current) => ({
+        ...current,
+        ...result,
+      }))
+    },
+    []
+  )
 
   const updateCompleters = React.useCallback(
     (text: string, cursor: number) => {
@@ -277,12 +281,9 @@ export function ChatComposer({
         completerRef.current.replaceRange ??
         getWordAtCursor(value, cursor)
 
-      const applied = applyEmoteSuggestion(
-        value,
-        range,
-        suggestion.display,
-        { trailingSpace: true }
-      )
+      const applied = applyEmoteSuggestion(value, range, suggestion.display, {
+        trailingSpace: true,
+      })
       setValue(applied.value)
 
       setCompleter(
@@ -327,7 +328,10 @@ export function ChatComposer({
         const wordAtCursor = getWordAtCursor(value, cursor)
         if (!wordAtCursor) return
 
-        if (activeCompleter.prefixed && activeCompleter.suggestions.length > 0) {
+        if (
+          activeCompleter.prefixed &&
+          activeCompleter.suggestions.length > 0
+        ) {
           completeSuggestion(
             activeCompleter.suggestions[activeCompleter.current]!
           )
@@ -363,7 +367,13 @@ export function ChatComposer({
         applyTabMatch(matches[matchIndex]!, tabState.replaceRange, tabState)
       }
     },
-    [applyTabMatch, completeCommandSuggestion, completeSuggestion, emoteList, value]
+    [
+      applyTabMatch,
+      completeCommandSuggestion,
+      completeSuggestion,
+      emoteList,
+      value,
+    ]
   )
 
   const resizeTextarea = React.useCallback(() => {
@@ -387,7 +397,10 @@ export function ChatComposer({
 
   React.useEffect(() => {
     const handler = (event: Event) => {
-      const custom = event as CustomEvent<{ channelLogin?: string; text?: string }>
+      const custom = event as CustomEvent<{
+        channelLogin?: string
+        text?: string
+      }>
       if (!custom.detail || custom.detail.channelLogin !== channelLogin) return
       const text = custom.detail.text ?? ""
       if (!text) return
@@ -404,7 +417,8 @@ export function ChatComposer({
     }
 
     window.addEventListener("peepochat:composer-insert", handler)
-    return () => window.removeEventListener("peepochat:composer-insert", handler)
+    return () =>
+      window.removeEventListener("peepochat:composer-insert", handler)
   }, [channelLogin])
 
   React.useEffect(() => {
@@ -435,8 +449,7 @@ export function ChatComposer({
     }
 
     if (shouldCompleteCommand) {
-      const suggestion =
-        commandCompleter.suggestions[commandCompleter.current]
+      const suggestion = commandCompleter.suggestions[commandCompleter.current]
       if (suggestion) {
         completeCommandSuggestion(suggestion)
       }
@@ -467,7 +480,9 @@ export function ChatComposer({
         if (result.kind === "me") {
           const sent = sendActionMessage(channelLogin, result.text, reply)
           if (!sent) {
-            setError("Message could not be sent. Check your connection and login.")
+            setError(
+              "Message could not be sent. Check your connection and login."
+            )
             toast.error("Failed to send message")
             return
           }
@@ -679,13 +694,12 @@ export function ChatComposer({
             autoCorrect="off"
             spellCheck={false}
             rows={1}
-            className="min-h-9 max-h-40 resize-none overflow-y-hidden border-border/50 bg-background/40 py-2 pr-10 text-sm leading-5 shadow-none backdrop-blur-sm field-sizing-fixed focus-visible:ring-1 focus-visible:ring-border/40 dark:bg-input/30"
+            className="field-sizing-fixed max-h-40 min-h-9 resize-none overflow-y-hidden border-border/50 bg-background/40 py-2 pr-10 text-sm leading-5 shadow-none backdrop-blur-sm focus-visible:ring-1 focus-visible:ring-border/40 dark:bg-input/30"
             onChange={(event) => {
               const nextValue = event.target.value
               setValue(nextValue)
 
-              const cursor =
-                event.target.selectionStart ?? nextValue.length
+              const cursor = event.target.selectionStart ?? nextValue.length
               updateCompleters(nextValue, cursor)
             }}
             onKeyDown={handleKeyDown}

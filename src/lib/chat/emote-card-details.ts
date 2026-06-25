@@ -56,8 +56,7 @@ async function loadTwitchEmoteCardDetails(
   }
 
   const artistLogin = ivr.artist?.login?.trim() || null
-  const artist =
-    ivr.artist?.displayName?.trim() || artistLogin || null
+  const artist = ivr.artist?.displayName?.trim() || artistLogin || null
   const channelLogin = ivr.channelLogin?.trim() || null
 
   return {

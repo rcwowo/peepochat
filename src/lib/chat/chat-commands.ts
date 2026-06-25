@@ -37,7 +37,12 @@ const DEFAULT_SLOW_SECONDS = 30
 import type { UserCardTarget } from "@/hooks/twitch/use-user-card"
 
 export type ChatCommandResult =
-  | { handled: true; kind: "feedback"; message: string; level?: "info" | "error" }
+  | {
+      handled: true
+      kind: "feedback"
+      message: string
+      level?: "info" | "error"
+    }
   | { handled: true; kind: "me"; text: string }
   | { handled: true; kind: "open_user_card"; target: UserCardTarget }
   | { handled: false }
@@ -70,7 +75,8 @@ function actorCanModerate(
   selfState: TwitchSelfChatState | null
 ): boolean {
   return (
-    actorIsBroadcaster(account, broadcasterId) || Boolean(selfState?.isModerator)
+    actorIsBroadcaster(account, broadcasterId) ||
+    Boolean(selfState?.isModerator)
   )
 }
 
@@ -176,7 +182,10 @@ async function runModVipListCommand(
   return {
     handled: true,
     kind: "feedback",
-    message: formatUserList(commandName === "mods" ? "Moderators" : "VIPs", users),
+    message: formatUserList(
+      commandName === "mods" ? "Moderators" : "VIPs",
+      users
+    ),
   }
 }
 
@@ -359,7 +368,7 @@ async function runCommand(
         reason: reason || undefined,
         durationSeconds:
           command.name === "timeout"
-            ? durationSeconds ?? DEFAULT_TIMEOUT_SECONDS
+            ? (durationSeconds ?? DEFAULT_TIMEOUT_SECONDS)
             : undefined,
         ...auth,
       })
@@ -471,8 +480,9 @@ async function runCommand(
         }
       }
 
-      const settings: Parameters<typeof updateTwitchChatSettings>[0]["settings"] =
-        {}
+      const settings: Parameters<
+        typeof updateTwitchChatSettings
+      >[0]["settings"] = {}
 
       switch (command.name) {
         case "emoteonly":
@@ -596,7 +606,8 @@ async function runCommand(
           handled: true,
           kind: "feedback",
           level: "error",
-          message: "You must be the broadcaster or a moderator to add a marker.",
+          message:
+            "You must be the broadcaster or a moderator to add a marker.",
         }
       }
       if (!hasScope(account, CHAT_COMMAND_SCOPES.broadcast)) {

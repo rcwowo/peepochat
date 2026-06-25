@@ -69,7 +69,12 @@ type StatusResult<T> =
 
 type UserCardState =
   | { status: "idle"; profile: null; channelStatus: null; error: null }
-  | { status: "loading"; profile: TwitchUser | null; channelStatus: null; error: null }
+  | {
+      status: "loading"
+      profile: TwitchUser | null
+      channelStatus: null
+      error: null
+    }
   | {
       status: "ready"
       profile: TwitchUser
@@ -135,7 +140,11 @@ async function loadUserProfile(
 
   const request = (async () => {
     const users = target.userId
-      ? await fetchTwitchUsersById([target.userId], account.accessToken, account.clientId)
+      ? await fetchTwitchUsersById(
+          [target.userId],
+          account.accessToken,
+          account.clientId
+        )
       : await fetchTwitchUsersByLogin(
           [target.userName],
           account.accessToken,
@@ -191,13 +200,21 @@ async function optionalStatus<T>(
   try {
     return { state: "available", value: await fetcher() }
   } catch (error) {
-    if (error instanceof TwitchApiError && (error.status === 401 || error.status === 403)) {
+    if (
+      error instanceof TwitchApiError &&
+      (error.status === 401 || error.status === 403)
+    ) {
       return unavailable("Twitch denied access for this status.")
     }
-    if (error instanceof IvrApiError && (error.status === 401 || error.status === 403)) {
+    if (
+      error instanceof IvrApiError &&
+      (error.status === 401 || error.status === 403)
+    ) {
       return unavailable("IVR denied access for this status.")
     }
-    return unavailable(error instanceof Error ? error.message : "Status is unavailable.")
+    return unavailable(
+      error instanceof Error ? error.message : "Status is unavailable."
+    )
   }
 }
 
@@ -238,57 +255,58 @@ async function loadChannelStatus({
       Boolean(channelRoomId) &&
       (hasScope(account, USER_CARD_MODERATION_SCOPES.moderationRead) ||
         account.id === channelRoomId)
-    const [ban, moderator, channelRoles, subage, ivrProfile] = await Promise.all([
-      optionalStatus(
-        canLoadBanStatus,
-        channelRoomId
-          ? "Re-login with moderation scopes to view ban status."
-          : missingRoomReason,
-        () =>
-          fetchTwitchBannedUserStatus({
-            broadcasterId: channelRoomId!,
-            userId: profile.id,
-            accessToken: account.accessToken,
-            clientId: account.clientId,
-          })
-      ),
-      optionalStatus(
-        canLoadModeratorStatus,
-        channelRoomId
-          ? "Moderator status is not available with this token."
-          : missingRoomReason,
-        () =>
-          fetchTwitchModeratorStatus({
-            broadcasterId: channelRoomId!,
-            userId: profile.id,
-            accessToken: account.accessToken,
-            clientId: account.clientId,
-          })
-      ),
-      optionalStatus(true, "Channel roles are unavailable.", async () => {
-        const modVip = await fetchIvrTwitchModVip(channelLogin)
-        const userId = profile.id
-        const userLogin = profile.login.toLowerCase()
-        const matchesUser = (entry: { id: string; login: string }) =>
-          entry.id === userId || entry.login.toLowerCase() === userLogin
+    const [ban, moderator, channelRoles, subage, ivrProfile] =
+      await Promise.all([
+        optionalStatus(
+          canLoadBanStatus,
+          channelRoomId
+            ? "Re-login with moderation scopes to view ban status."
+            : missingRoomReason,
+          () =>
+            fetchTwitchBannedUserStatus({
+              broadcasterId: channelRoomId!,
+              userId: profile.id,
+              accessToken: account.accessToken,
+              clientId: account.clientId,
+            })
+        ),
+        optionalStatus(
+          canLoadModeratorStatus,
+          channelRoomId
+            ? "Moderator status is not available with this token."
+            : missingRoomReason,
+          () =>
+            fetchTwitchModeratorStatus({
+              broadcasterId: channelRoomId!,
+              userId: profile.id,
+              accessToken: account.accessToken,
+              clientId: account.clientId,
+            })
+        ),
+        optionalStatus(true, "Channel roles are unavailable.", async () => {
+          const modVip = await fetchIvrTwitchModVip(channelLogin)
+          const userId = profile.id
+          const userLogin = profile.login.toLowerCase()
+          const matchesUser = (entry: { id: string; login: string }) =>
+            entry.id === userId || entry.login.toLowerCase() === userLogin
 
-        return {
-          isModerator: modVip.mods.some(matchesUser),
-          isVip: modVip.vips.some(matchesUser),
-        }
-      }),
-      optionalStatus(true, "Subage is unavailable.", () =>
-        fetchIvrTwitchSubage({
-          userLogin: profile.login || profile.displayName,
-          channelLogin,
-        })
-      ),
-      optionalStatus(true, "IVR profile is unavailable.", () =>
-        fetchIvrTwitchUserProfile({
-          userLogin: profile.login || profile.displayName,
-        })
-      ),
-    ])
+          return {
+            isModerator: modVip.mods.some(matchesUser),
+            isVip: modVip.vips.some(matchesUser),
+          }
+        }),
+        optionalStatus(true, "Subage is unavailable.", () =>
+          fetchIvrTwitchSubage({
+            userLogin: profile.login || profile.displayName,
+            channelLogin,
+          })
+        ),
+        optionalStatus(true, "IVR profile is unavailable.", () =>
+          fetchIvrTwitchUserProfile({
+            userLogin: profile.login || profile.displayName,
+          })
+        ),
+      ])
     const status: UserCardChannelStatus = {
       ban,
       moderator,
@@ -306,7 +324,11 @@ async function loadChannelStatus({
   return request
 }
 
-function invalidateStatus(account: TwitchAccount, channelRoomId: string, userId: string) {
+function invalidateStatus(
+  account: TwitchAccount,
+  channelRoomId: string,
+  userId: string
+) {
   const prefix = `${account.id}:${channelRoomId}:`
   for (const key of statusCache.keys()) {
     if (key.startsWith(prefix) && key.includes(`:${userId}:`)) {
@@ -334,7 +356,8 @@ export function useUserCard({
     channelStatus: null,
     error: null,
   })
-  const [pendingAction, setPendingAction] = React.useState<UserCardAction | null>(null)
+  const [pendingAction, setPendingAction] =
+    React.useState<UserCardAction | null>(null)
   const pendingActionRef = React.useRef<UserCardAction | null>(null)
   const requestIdRef = React.useRef(0)
 
@@ -343,7 +366,12 @@ export function useUserCard({
     requestIdRef.current = requestId
 
     if (!open) {
-      setState({ status: "idle", profile: null, channelStatus: null, error: null })
+      setState({
+        status: "idle",
+        profile: null,
+        channelStatus: null,
+        error: null,
+      })
       return
     }
     if (!account) {
@@ -385,7 +413,10 @@ export function useUserCard({
         status: "error",
         profile: null,
         channelStatus: null,
-        error: error instanceof Error ? error.message : "Could not load user details.",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Could not load user details.",
       })
     }
   }, [account, channelLogin, channelRoomId, open, target])
@@ -452,7 +483,9 @@ export function useUserCard({
           profile: null,
           channelStatus: null,
           error:
-            error instanceof Error ? error.message : "Could not load user details.",
+            error instanceof Error
+              ? error.message
+              : "Could not load user details.",
         })
       }
     })()

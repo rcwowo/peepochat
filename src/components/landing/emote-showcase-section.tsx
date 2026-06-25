@@ -160,10 +160,7 @@ function springMotion(linear: number) {
 const SPLASH_SPREAD_FILL = 0.94
 
 const MAX_SPLASH_AXIS = Math.max(
-  ...SPLASH_EMOTES.flatMap((layout) => [
-    Math.abs(layout.x),
-    Math.abs(layout.y),
-  ])
+  ...SPLASH_EMOTES.flatMap((layout) => [Math.abs(layout.x), Math.abs(layout.y)])
 )
 
 function getMaxEmoteHalfSizes(rootFontSize: number) {
@@ -200,10 +197,7 @@ function getSplashSpread(stageRect: DOMRect, rootFontSize: number) {
   return { spreadX, spreadY }
 }
 
-function getViewportSplashMotion(
-  stageRect: DOMRect,
-  viewportHeight: number
-) {
+function getViewportSplashMotion(stageRect: DOMRect, viewportHeight: number) {
   const stageTop = stageRect.top
   const stageHeight = stageRect.height
 
@@ -241,7 +235,8 @@ function useScrollSplashMotion(
     if (!stage) return
 
     let rootFontSize =
-      Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+      Number.parseFloat(getComputedStyle(document.documentElement).fontSize) ||
+      16
     let frame = 0
 
     const update = () => {
@@ -271,8 +266,9 @@ function useScrollSplashMotion(
 
     const handleResize = () => {
       rootFontSize =
-        Number.parseFloat(getComputedStyle(document.documentElement).fontSize) ||
-        16
+        Number.parseFloat(
+          getComputedStyle(document.documentElement).fontSize
+        ) || 16
       scheduleUpdate()
     }
 
@@ -346,7 +342,7 @@ export function EmoteShowcaseSection() {
           <SplashEmote key={layout.key} layout={layout} />
         ))}
 
-        <div className="relative z-3 mx-auto max-w-120 px-[clamp(1.75rem,5vw,2.75rem)] py-[clamp(1.75rem,4.5vw,2.5rem)] text-center transform-[scale(calc(0.94+var(--splash-motion)*0.06))] motion-reduce:transform-none">
+        <div className="relative z-3 mx-auto max-w-120 transform-[scale(calc(0.94+var(--splash-motion)*0.06))] px-[clamp(1.75rem,5vw,2.75rem)] py-[clamp(1.75rem,4.5vw,2.5rem)] text-center motion-reduce:transform-none">
           <h2 className="font-landing-display text-3xl font-semibold tracking-tight text-balance text-shadow-[0_2px_14px_oklch(0_0_0/92%),0_0_36px_oklch(0_0_0/72%)] sm:text-4xl">
             Support for
             <br />
@@ -363,7 +359,7 @@ export function EmoteShowcaseSection() {
                   <img
                     src={provider.iconSrc}
                     alt=""
-                    className="h-10 w-auto opacity-94 max-[480px]:h-8 filter-[brightness(0)_invert(1)_drop-shadow(0_2px_10px_oklch(0_0_0/90%))_drop-shadow(0_0_22px_oklch(0_0_0/65%))]"
+                    className="h-10 w-auto opacity-94 filter-[brightness(0)_invert(1)_drop-shadow(0_2px_10px_oklch(0_0_0/90%))_drop-shadow(0_0_22px_oklch(0_0_0/65%))] max-[480px]:h-8"
                   />
                 </span>
                 <span className="text-[0.65rem] font-semibold tracking-widest text-[color-mix(in_oklch,white_62%,transparent)] uppercase text-shadow-[0_1px_10px_oklch(0_0_0/88%),0_0_20px_oklch(0_0_0/60%)]">

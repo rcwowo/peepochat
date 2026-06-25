@@ -35,7 +35,8 @@ import { usePeepochatSettings } from "@/lib/peepochat/peepochat-context"
 
 export function DeveloperTab() {
   const { channels, account, config } = usePeepochatSettings()
-  const { settings: logSettings, setEnabled: setLogEnabled } = useDevLogSettings()
+  const { settings: logSettings, setEnabled: setLogEnabled } =
+    useDevLogSettings()
   const [channelLoginDraft, setChannelLoginDraft] = React.useState(
     () => channels[0]?.login ?? ""
   )

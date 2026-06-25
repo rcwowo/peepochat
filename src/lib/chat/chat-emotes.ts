@@ -1,8 +1,10 @@
 import { devLoggedFetch } from "@/lib/dev-logger"
-import {
-  isSevenTvZeroWidthEmote,
-} from "@/lib/chat/seventv-emotes"
-import type { TwitchChatMessage, TwitchEmote, TwitchEmoteProvider } from "@/lib/twitch/twitch-chat"
+import { isSevenTvZeroWidthEmote } from "@/lib/chat/seventv-emotes"
+import type {
+  TwitchChatMessage,
+  TwitchEmote,
+  TwitchEmoteProvider,
+} from "@/lib/twitch/twitch-chat"
 
 export type EmoteCatalogEntry = {
   id: string
@@ -85,7 +87,9 @@ export function setThirdPartyEmoteFetchOptions(
   }
 }
 
-export function setSeventvEmoteRenderOptions(options: SeventvEmoteRenderOptions) {
+export function setSeventvEmoteRenderOptions(
+  options: SeventvEmoteRenderOptions
+) {
   seventvEmoteRenderOptions = options
 }
 
@@ -211,7 +215,8 @@ function loadThirdPartyGlobalEmotes(): Promise<ThirdPartyGlobalEmotes> {
   }
 
   globalOptionsKey = optionsKey
-  const { bttvEnabled, ffzEnabled, seventvEnabled } = thirdPartyEmoteFetchOptions
+  const { bttvEnabled, ffzEnabled, seventvEnabled } =
+    thirdPartyEmoteFetchOptions
 
   globalEmotesInflight = Promise.allSettled([
     bttvEnabled ? fetchBetterTtvGlobalEmotes() : Promise.resolve([]),
@@ -242,7 +247,8 @@ function loadThirdPartyGlobalEmotes(): Promise<ThirdPartyGlobalEmotes> {
 async function fetchThirdPartyRoomEmotes(
   roomId: string
 ): Promise<ThirdPartyRoomEmotes> {
-  const { bttvEnabled, ffzEnabled, seventvEnabled } = thirdPartyEmoteFetchOptions
+  const { bttvEnabled, ffzEnabled, seventvEnabled } =
+    thirdPartyEmoteFetchOptions
 
   const [bttv, ffz, sevenTv] = await Promise.allSettled([
     bttvEnabled ? fetchBetterTtvRoomEmotes(roomId) : Promise.resolve([]),
@@ -257,7 +263,9 @@ async function fetchThirdPartyRoomEmotes(
   }
 }
 
-function loadThirdPartyRoomEmotes(roomId: string): Promise<ThirdPartyRoomEmotes> {
+function loadThirdPartyRoomEmotes(
+  roomId: string
+): Promise<ThirdPartyRoomEmotes> {
   const cached = roomChannelDataCache.get(roomId)
   if (cached) {
     return Promise.resolve(cached)
@@ -568,7 +576,9 @@ async function fetchBetterTtvGlobalEmotes(): Promise<EmoteCatalogEntry[]> {
   return response.map((emote) => mapBetterTtvEmote(emote))
 }
 
-async function fetchBetterTtvRoomEmotes(roomId: string): Promise<EmoteCatalogEntry[]> {
+async function fetchBetterTtvRoomEmotes(
+  roomId: string
+): Promise<EmoteCatalogEntry[]> {
   const response = await fetchJson<BetterTtvUserResponse>(
     `https://api.betterttv.net/3/cached/users/twitch/${encodeURIComponent(roomId)}`
   )
@@ -579,7 +589,9 @@ async function fetchBetterTtvRoomEmotes(roomId: string): Promise<EmoteCatalogEnt
   ].map((emote) => mapBetterTtvEmote(emote))
 }
 
-function mapFrankerFaceZEmote(emote: FrankerFaceZEmote): EmoteCatalogEntry | null {
+function mapFrankerFaceZEmote(
+  emote: FrankerFaceZEmote
+): EmoteCatalogEntry | null {
   const imageUrl = emote.animated?.["1"] ?? emote.urls?.["1"] ?? ""
   if (!imageUrl) return null
 
@@ -604,16 +616,22 @@ async function fetchFrankerFaceZGlobalEmotes(): Promise<EmoteCatalogEntry[]> {
     "https://api.frankerfacez.com/v1/set/global"
   )
   return compactFrankerFaceZEmotes(
-    extractFrankerFaceZGlobalEmotes(response).map((emote) => mapFrankerFaceZEmote(emote))
+    extractFrankerFaceZGlobalEmotes(response).map((emote) =>
+      mapFrankerFaceZEmote(emote)
+    )
   )
 }
 
-async function fetchFrankerFaceZRoomEmotes(roomId: string): Promise<EmoteCatalogEntry[]> {
+async function fetchFrankerFaceZRoomEmotes(
+  roomId: string
+): Promise<EmoteCatalogEntry[]> {
   const response = await fetchJson<FrankerFaceZRoomResponse>(
     `https://api.frankerfacez.com/v1/room/id/${encodeURIComponent(roomId)}`
   )
   return compactFrankerFaceZEmotes(
-    extractFrankerFaceZEmotes(response.sets).map((emote) => mapFrankerFaceZEmote(emote))
+    extractFrankerFaceZEmotes(response.sets).map((emote) =>
+      mapFrankerFaceZEmote(emote)
+    )
   )
 }
 
@@ -650,11 +668,17 @@ function compactSevenTvEmotes(
 }
 
 async function fetchSevenTvGlobalEmotes(): Promise<EmoteCatalogEntry[]> {
-  const response = await fetchJson<SevenTvEmoteSet>("https://7tv.io/v3/emote-sets/global")
-  return compactSevenTvEmotes((response.emotes ?? []).map((emote) => mapSevenTvEmote(emote)))
+  const response = await fetchJson<SevenTvEmoteSet>(
+    "https://7tv.io/v3/emote-sets/global"
+  )
+  return compactSevenTvEmotes(
+    (response.emotes ?? []).map((emote) => mapSevenTvEmote(emote))
+  )
 }
 
-async function fetchSevenTvRoomEmotes(roomId: string): Promise<EmoteCatalogEntry[]> {
+async function fetchSevenTvRoomEmotes(
+  roomId: string
+): Promise<EmoteCatalogEntry[]> {
   const response = await fetchJson<SevenTvUserResponse>(
     `https://7tv.io/v3/users/twitch/${encodeURIComponent(roomId)}`
   )
@@ -669,7 +693,9 @@ function extractFrankerFaceZGlobalEmotes(
   const defaultSets = new Set((response.default_sets ?? []).map(String))
 
   return Object.entries(response.sets ?? {}).flatMap(([setId, set]) =>
-    defaultSets.size === 0 || defaultSets.has(setId) ? set.emoticons ?? [] : []
+    defaultSets.size === 0 || defaultSets.has(setId)
+      ? (set.emoticons ?? [])
+      : []
   )
 }
 
@@ -684,8 +710,9 @@ function buildSevenTvImageUrl(host: SevenTvHost | undefined): string {
     return ""
   }
 
-  const file = host.files?.find((candidate) => candidate.name.startsWith("1x."))
-    ?? host.files?.[0]
+  const file =
+    host.files?.find((candidate) => candidate.name.startsWith("1x.")) ??
+    host.files?.[0]
 
   if (!file?.name) {
     return ""

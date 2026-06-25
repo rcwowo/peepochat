@@ -12,13 +12,8 @@ import {
 import { Separator } from "@/components/ui/separator"
 
 export function AccountMenu() {
-  const {
-    account,
-    oauthBusy,
-    isOAuthConfigured,
-    loginWithTwitch,
-    logout,
-  } = usePeepochatSettings()
+  const { account, oauthBusy, isOAuthConfigured, loginWithTwitch, logout } =
+    usePeepochatSettings()
 
   const [open, setOpen] = React.useState(false)
 

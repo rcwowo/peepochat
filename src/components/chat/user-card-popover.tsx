@@ -10,7 +10,10 @@ type UserCardPopoverProps = {
   recentMessages: TwitchChatMessage[]
 }
 
-export function UserCardPopover({ target, recentMessages }: UserCardPopoverProps) {
+export function UserCardPopover({
+  target,
+  recentMessages,
+}: UserCardPopoverProps) {
   const context = useUserCardContext()
   const triggerRef = React.useRef<HTMLButtonElement>(null)
   const readableColor = getReadableUsernameColor(target.color)

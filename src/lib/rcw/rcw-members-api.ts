@@ -49,7 +49,10 @@ export async function fetchRcwMemberBadgeDefinitions(
 
   const response = await devLoggedFetch(`${RCW_MEMBERS_BASE_URL}/badges`)
   if (!response.ok) {
-    throw new RcwMembersApiError("Could not load member badges.", response.status)
+    throw new RcwMembersApiError(
+      "Could not load member badges.",
+      response.status
+    )
   }
 
   const data = (await response.json()) as RcwMemberBadgeDefinition[]

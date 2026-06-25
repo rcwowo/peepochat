@@ -2,10 +2,7 @@ import * as React from "react"
 
 import { EmoteTooltipContent } from "@/components/chat/emote-tooltip-content"
 import { useEmoteCardContext } from "@/hooks/chat/use-emote-card-context"
-import {
-  Tooltip,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip"
 import type { EmoteCardTarget } from "@/lib/chat/emote-card"
 import { cn } from "@/lib/utils"
 

@@ -23,7 +23,8 @@ const INCLUDED_IN_BACKUP = [
   },
   {
     title: "Channels",
-    description: "Your channel list, splits, and the order they appear in, are all included.",
+    description:
+      "Your channel list, splits, and the order they appear in, are all included.",
   },
   {
     title: "Preferences",
@@ -32,7 +33,8 @@ const INCLUDED_IN_BACKUP = [
   },
   {
     title: "Metadata",
-    description: "Human-readable metadata about the backup, like the date and time it was created.",
+    description:
+      "Human-readable metadata about the backup, like the date and time it was created.",
   },
 ] as const
 
@@ -83,7 +85,9 @@ export function DataManagementTab() {
         <SettingsGroup>
           {INCLUDED_IN_BACKUP.map((item) => (
             <div key={item.title} className="px-2.5 py-2">
-              <div className="text-sm font-medium leading-tight">{item.title}</div>
+              <div className="text-sm leading-tight font-medium">
+                {item.title}
+              </div>
               <p className="mt-0.5 text-xs leading-snug text-muted-foreground">
                 {item.description}
               </p>

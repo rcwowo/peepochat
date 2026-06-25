@@ -116,7 +116,7 @@ function UserAvatar({
   }
 
   return (
-    <span className="flex size-16 shrink-0 items-center justify-center rounded-full border-2 border-popover/90 bg-primary/20 text-lg font-semibold uppercase text-primary shadow-md">
+    <span className="flex size-16 shrink-0 items-center justify-center rounded-full border-2 border-popover/90 bg-primary/20 text-lg font-semibold text-primary uppercase shadow-md">
       {displayName.slice(0, 2)}
     </span>
   )
@@ -145,19 +145,28 @@ function StatusPills({
   return (
     <div className="flex flex-wrap gap-1.5">
       {isBroadcaster ? (
-        <Badge variant="outline" className="gap-1 border-red-500/30 text-red-500">
+        <Badge
+          variant="outline"
+          className="gap-1 border-red-500/30 text-red-500"
+        >
           <VideoIcon className="size-3" />
           Broadcaster
         </Badge>
       ) : null}
       {isModerator ? (
-        <Badge variant="outline" className="gap-1 border-emerald-500/30 text-emerald-500">
+        <Badge
+          variant="outline"
+          className="gap-1 border-emerald-500/30 text-emerald-500"
+        >
           <ShieldIcon className="size-3" />
           Moderator
         </Badge>
       ) : null}
       {isVip ? (
-        <Badge variant="outline" className="gap-1 border-fuchsia-500/30 text-fuchsia-500">
+        <Badge
+          variant="outline"
+          className="gap-1 border-fuchsia-500/30 text-fuchsia-500"
+        >
           <GemIcon className="size-3" />
           VIP
         </Badge>
@@ -284,19 +293,22 @@ export function UserCardPanel({
   const banStatus = status?.ban.state === "available" ? status.ban.value : null
   const moderatorStatus =
     status?.moderator.state === "available" ? status.moderator.value : null
-  const subage = status?.subage.state === "available" ? status.subage.value : null
+  const subage =
+    status?.subage.state === "available" ? status.subage.value : null
   const ivrProfile =
     status?.ivrProfile.state === "available" ? status.ivrProfile.value : null
   const channelRoles =
-    status?.channelRoles.state === "available" ? status.channelRoles.value : null
+    status?.channelRoles.state === "available"
+      ? status.channelRoles.value
+      : null
   const subageUnavailable = status?.subage.state === "unavailable"
   const isTimedOut = Boolean(banStatus && isActiveTimeout(banStatus.expiresAt))
   const isBanned = Boolean(banStatus && !isTimedOut)
   const isBroadcaster = Boolean(
     target.flags.isBroadcaster ||
-      (profile &&
-        (profile.id === channelRoomId ||
-          profile.login.toLowerCase() === channelLogin.toLowerCase()))
+    (profile &&
+      (profile.id === channelRoomId ||
+        profile.login.toLowerCase() === channelLogin.toLowerCase()))
   )
   const isModerator = Boolean(
     moderatorStatus || channelRoles?.isModerator || target.flags.isModerator
@@ -305,19 +317,26 @@ export function UserCardPanel({
   const isSelf =
     Boolean(account && profile && account.id === profile.id) ||
     account?.login.toLowerCase() === target.userName.toLowerCase()
-  const actorIsBroadcaster = Boolean(account && channelRoomId && account.id === channelRoomId)
-  const canUseBanApi = hasUserCardScope(account, USER_CARD_MODERATION_SCOPES.ban)
+  const actorIsBroadcaster = Boolean(
+    account && channelRoomId && account.id === channelRoomId
+  )
+  const canUseBanApi = hasUserCardScope(
+    account,
+    USER_CARD_MODERATION_SCOPES.ban
+  )
   const canBanOrTimeout =
     canUseBanApi &&
     Boolean(account && channelRoomId && !isSelf && !isBroadcaster) &&
-    (actorIsBroadcaster || (Boolean(selfChatState?.isModerator) && !isModerator))
+    (actorIsBroadcaster ||
+      (Boolean(selfChatState?.isModerator) && !isModerator))
   const canUseModeratorApi =
     actorIsBroadcaster &&
     !isSelf &&
     !isBroadcaster &&
     hasUserCardScope(account, USER_CARD_MODERATION_SCOPES.manageModerators)
   const createdAt = profile ? formatDate(profile.createdAt) : null
-  const bannerImageUrl = ivrProfile?.bannerImageUrl ?? profile?.bannerImageUrl ?? ""
+  const bannerImageUrl =
+    ivrProfile?.bannerImageUrl ?? profile?.bannerImageUrl ?? ""
   const profileImageUrl = profile?.profileImageUrl ?? ""
   const userType = profile
     ? formatUserType(profile.type || profile.broadcasterType)
@@ -336,9 +355,13 @@ export function UserCardPanel({
     (action: UserCardAction, label: string) => {
       void card
         .runAction(action)
-        .then(() => toast.success(`${label} succeeded for ${target.displayName}.`))
+        .then(() =>
+          toast.success(`${label} succeeded for ${target.displayName}.`)
+        )
         .catch((error) => {
-          toast.error(error instanceof Error ? error.message : `${label} failed.`)
+          toast.error(
+            error instanceof Error ? error.message : `${label} failed.`
+          )
         })
     },
     [card, target.displayName]
@@ -348,7 +371,11 @@ export function UserCardPanel({
     if (!profile?.login) {
       return
     }
-    window.open(twitchChannelUrl(profile.login), "_blank", "noopener,noreferrer")
+    window.open(
+      twitchChannelUrl(profile.login),
+      "_blank",
+      "noopener,noreferrer"
+    )
   }, [profile])
 
   return (
@@ -396,7 +423,9 @@ export function UserCardPanel({
                 <CopyIcon className="ml-auto size-3.5 text-muted-foreground" />
               </DropdownMenuItem>
               <DropdownMenuItem
-                onSelect={() => void copyText("Profile picture URL", profileImageUrl)}
+                onSelect={() =>
+                  void copyText("Profile picture URL", profileImageUrl)
+                }
               >
                 Copy profile picture URL
                 <CopyIcon className="ml-auto size-3.5 text-muted-foreground" />
@@ -433,7 +462,12 @@ export function UserCardPanel({
               Sign in with Twitch
             </Button>
           ) : (
-            <Button size="sm" variant="outline" className="w-full" onClick={card.reload}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full"
+              onClick={card.reload}
+            >
               Try again
             </Button>
           )}
@@ -466,7 +500,7 @@ export function UserCardPanel({
               <div className="min-w-0 flex-1 pb-1">
                 <button
                   type="button"
-                  className="block max-w-full cursor-pointer truncate text-left text-lg font-semibold leading-tight hover:underline"
+                  className="block max-w-full cursor-pointer truncate text-left text-lg leading-tight font-semibold hover:underline"
                   onClick={openChannel}
                 >
                   {profile.displayName}
@@ -478,9 +512,7 @@ export function UserCardPanel({
             </div>
           </div>
 
-          <div
-            className={cn("space-y-4 p-4", !profile.description && "pt-3")}
-          >
+          <div className={cn("space-y-4 p-4", !profile.description && "pt-3")}>
             <StatusPills
               isBroadcaster={isBroadcaster}
               isModerator={isModerator}
@@ -542,13 +574,17 @@ export function UserCardPanel({
                       <time className="mr-1.5 text-[11px] text-muted-foreground">
                         {formatMessageTime(message.receivedAt)}
                       </time>
-                      <ChatMessageBody text={message.text} emotes={message.emotes} />
+                      <ChatMessageBody
+                        text={message.text}
+                        emotes={message.emotes}
+                      />
                     </div>
                   ))}
                 </div>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  No recent messages from this user are available in the loaded chat history.
+                  No recent messages from this user are available in the loaded
+                  chat history.
                 </p>
               )}
             </div>

@@ -139,7 +139,7 @@ function ChatMessageRowInner({
       <div className="chat-message-size min-w-0">
         {timestamp ? (
           <time
-            className="chat-timestamp mr-1.5 inline whitespace-nowrap text-xs tabular-nums select-none"
+            className="chat-timestamp mr-1.5 inline text-xs whitespace-nowrap tabular-nums select-none"
             dateTime={message.receivedAt}
           >
             {timestamp}

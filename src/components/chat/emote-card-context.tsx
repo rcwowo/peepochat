@@ -33,10 +33,16 @@ function computeAnchorPosition(
       : rect.left - anchorWidth - margin
 
   return {
-    left: Math.max(margin, Math.min(left, window.innerWidth - anchorWidth - margin)),
+    left: Math.max(
+      margin,
+      Math.min(left, window.innerWidth - anchorWidth - margin)
+    ),
     top: Math.max(
       margin,
-      Math.min(rect.top, window.innerHeight - EMOTE_CARD_ESTIMATED_HEIGHT_PX - margin)
+      Math.min(
+        rect.top,
+        window.innerHeight - EMOTE_CARD_ESTIMATED_HEIGHT_PX - margin
+      )
     ),
   }
 }
@@ -48,9 +54,8 @@ export function EmoteCardProvider({
   catalog: ComposerEmoteCatalog
   children: React.ReactNode
 }) {
-  const [activeTarget, setActiveTarget] = React.useState<EmoteCardTarget | null>(
-    null
-  )
+  const [activeTarget, setActiveTarget] =
+    React.useState<EmoteCardTarget | null>(null)
   const [open, setOpen] = React.useState(false)
   const [dragOffset, setDragOffset] = React.useState({ x: 0, y: 0 })
   const [anchorPosition, setAnchorPosition] = React.useState<{

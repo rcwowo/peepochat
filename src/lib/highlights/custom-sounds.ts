@@ -55,7 +55,9 @@ function runSoundStoreTransaction<T>(
         }
 
         transaction.onerror = () => {
-          reject(transaction.error ?? new Error("Sound store transaction failed"))
+          reject(
+            transaction.error ?? new Error("Sound store transaction failed")
+          )
         }
       })
   )
@@ -119,7 +121,9 @@ export async function getCustomSoundObjectUrl(
     return null
   }
 
-  const url = URL.createObjectURL(new Blob([record.data], { type: record.mimeType }))
+  const url = URL.createObjectURL(
+    new Blob([record.data], { type: record.mimeType })
+  )
   objectUrlCache.set(id, url)
   return url
 }

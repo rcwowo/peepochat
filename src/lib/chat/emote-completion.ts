@@ -63,7 +63,10 @@ export function resetEmoteCompleter(): EmoteCompleterState {
 }
 
 /** Word bounds at cursor (SevenTV `getSearchRange`). */
-export function getSearchRange(text: string, position: number): EmoteReplaceRange {
+export function getSearchRange(
+  text: string,
+  position: number
+): EmoteReplaceRange {
   let start: number
   let end: number
 
@@ -219,7 +222,8 @@ export function findTabEmoteMatches(
     searchMode?: EmoteCompletionSearchMode
   } = {}
 ): EmoteSuggestion[] {
-  const searchMode = options.searchMode ?? EMOTE_COMPLETION_DEFAULTS.tabSearchMode
+  const searchMode =
+    options.searchMode ?? EMOTE_COMPLETION_DEFAULTS.tabSearchMode
   const searchWord = word.endsWith(" ") ? word.slice(0, -1) : word
 
   if (!searchWord.trim()) {
@@ -238,18 +242,12 @@ export function shouldResetTabState(
   return tab.replaceRange.start !== replaceRange.start
 }
 
-export function nextSuggestionIndex(
-  current: number,
-  length: number
-): number {
+export function nextSuggestionIndex(current: number, length: number): number {
   if (length === 0) return 0
   return (current + 1) % length
 }
 
-export function prevSuggestionIndex(
-  current: number,
-  length: number
-): number {
+export function prevSuggestionIndex(current: number, length: number): number {
   if (length === 0) return 0
   return (current - 1 + length) % length
 }
