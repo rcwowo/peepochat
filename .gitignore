@@ -22,6 +22,10 @@ tmp/*
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
+.cursor/*
+.antigravity/*
+*.sublime-project
+*.sublime-workspace
 .idea
 .DS_Store
 *.suo
