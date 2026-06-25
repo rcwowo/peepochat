@@ -226,6 +226,7 @@ function ChannelContextMenu({
   profileImageUrl,
   isActive,
   activeChannelLogin,
+  activeChannelDisplayName,
   unreadEnabled,
   showUnread,
   showPing,
@@ -242,6 +243,7 @@ function ChannelContextMenu({
   profileImageUrl?: string
   isActive: boolean
   activeChannelLogin: string
+  activeChannelDisplayName?: string
   unreadEnabled: boolean
   showUnread: boolean
   showPing: boolean
@@ -254,7 +256,7 @@ function ChannelContextMenu({
   onUnreadEnabledChange: (enabled: boolean) => void
 }) {
   const label = channelLabel(login, displayName)
-  const activeLabel = channelLabel(activeChannelLogin)
+  const activeLabel = channelLabel(activeChannelLogin, activeChannelDisplayName)
   const hasNewMessages = showUnread || showPing
   const canSplit =
     canAddToActiveSplit ||
@@ -693,6 +695,9 @@ export function ChannelSidebar() {
                         entry.channel.login === activeChannelLogin
                       }
                       activeChannelLogin={activeChannelLogin}
+                      activeChannelDisplayName={
+                        channelByLogin.get(activeChannelLogin)?.displayName
+                      }
                       unreadEnabled={isUnreadIndicatorEnabledForChannel(
                         config,
                         entry.channel.login
