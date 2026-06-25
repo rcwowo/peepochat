@@ -19,6 +19,15 @@ export const TWITCH_OAUTH_SCOPES = [
   "moderation:read",
   "moderator:manage:banned_users",
   "channel:manage:moderators",
+  "moderator:manage:announcements",
+  "moderator:manage:chat_settings",
+  "moderator:manage:chat_messages",
+  "moderator:manage:shoutouts",
+  "channel:edit:commercial",
+  "channel:manage:raids",
+  "channel:manage:broadcast",
+  "channel:manage:vips",
+  "user:manage:whispers",
 ] as const
 
 export type TwitchOAuthResult = {

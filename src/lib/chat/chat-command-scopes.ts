@@ -1,0 +1,14 @@
+export const CHAT_COMMAND_SCOPES = {
+  announcements: "moderator:manage:announcements",
+  chatSettings: "moderator:manage:chat_settings",
+  chatMessages: "moderator:manage:chat_messages",
+  shoutouts: "moderator:manage:shoutouts",
+  bannedUsers: "moderator:manage:banned_users",
+  moderators: "channel:manage:moderators",
+  moderationRead: "moderation:read",
+  vips: "channel:manage:vips",
+  commercial: "channel:edit:commercial",
+  raids: "channel:manage:raids",
+  broadcast: "channel:manage:broadcast",
+  whispers: "user:manage:whispers",
+} as const

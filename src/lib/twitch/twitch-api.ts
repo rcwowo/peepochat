@@ -799,6 +799,415 @@ export async function fetchLiveStreamsByLogin(
   return streams
 }
 
+export type TwitchChatSettings = {
+  slowMode: boolean
+  slowModeWaitTime: number | null
+  followerMode: boolean
+  followerModeDuration: number | null
+  subscriberMode: boolean
+  emoteMode: boolean
+  uniqueChatMode: boolean
+}
+
+export type TwitchCommercialResult = {
+  length: number
+  message: string
+  retryAfter: number
+}
+
+export type TwitchStreamMarker = {
+  id: string
+  createdAt: string
+  positionSeconds: number
+  description: string
+}
+
+async function throwTwitchApiError(
+  response: Response,
+  fallback: string
+): Promise<never> {
+  let message = fallback
+  try {
+    const payload = (await response.json()) as { message?: string }
+    if (payload.message?.trim()) {
+      message = payload.message.trim()
+    }
+  } catch {
+    // ignore parse errors
+  }
+  throw new TwitchApiError(message, response.status)
+}
+
+export async function clearTwitchChat({
+  broadcasterId,
+  moderatorId,
+  accessToken,
+  clientId,
+}: {
+  broadcasterId: string
+  moderatorId: string
+  accessToken: string
+  clientId: string
+}): Promise<void> {
+  const params = new URLSearchParams({
+    broadcaster_id: broadcasterId,
+    moderator_id: moderatorId,
+  })
+
+  const response = await devLoggedFetch(
+    `https://api.twitch.tv/helix/moderation/chat?${params.toString()}`,
+    {
+      method: "DELETE",
+      headers: helixHeaders(accessToken, clientId),
+    }
+  )
+
+  if (!response.ok) {
+    await throwTwitchApiError(response, "Could not clear chat.")
+  }
+}
+
+export async function updateTwitchChatSettings({
+  broadcasterId,
+  moderatorId,
+  accessToken,
+  clientId,
+  settings,
+}: {
+  broadcasterId: string
+  moderatorId: string
+  accessToken: string
+  clientId: string
+  settings: {
+    slowMode?: boolean
+    slowModeWaitTime?: number
+    followerMode?: boolean
+    followerModeDuration?: number
+    subscriberMode?: boolean
+    emoteMode?: boolean
+    uniqueChatMode?: boolean
+  }
+}): Promise<void> {
+  const params = new URLSearchParams({
+    broadcaster_id: broadcasterId,
+    moderator_id: moderatorId,
+  })
+
+  const body: Record<string, boolean | number> = {}
+  if (settings.slowMode !== undefined) {
+    body.slow_mode = settings.slowMode
+  }
+  if (settings.slowModeWaitTime !== undefined) {
+    body.slow_mode_wait_time = settings.slowModeWaitTime
+  }
+  if (settings.followerMode !== undefined) {
+    body.follower_mode = settings.followerMode
+  }
+  if (settings.followerModeDuration !== undefined) {
+    body.follower_mode_duration = settings.followerModeDuration
+  }
+  if (settings.subscriberMode !== undefined) {
+    body.subscriber_mode = settings.subscriberMode
+  }
+  if (settings.emoteMode !== undefined) {
+    body.emote_mode = settings.emoteMode
+  }
+  if (settings.uniqueChatMode !== undefined) {
+    body.unique_chat_mode = settings.uniqueChatMode
+  }
+
+  const response = await devLoggedFetch(
+    `https://api.twitch.tv/helix/chat/settings?${params.toString()}`,
+    {
+      method: "PATCH",
+      headers: helixJsonHeaders(accessToken, clientId),
+      body: JSON.stringify(body),
+    }
+  )
+
+  if (!response.ok) {
+    await throwTwitchApiError(response, "Could not update chat settings.")
+  }
+}
+
+export async function sendTwitchChatAnnouncement({
+  broadcasterId,
+  moderatorId,
+  message,
+  color,
+  accessToken,
+  clientId,
+}: {
+  broadcasterId: string
+  moderatorId: string
+  message: string
+  color?: string
+  accessToken: string
+  clientId: string
+}): Promise<void> {
+  const params = new URLSearchParams({
+    broadcaster_id: broadcasterId,
+    moderator_id: moderatorId,
+  })
+  const body: { message: string; color?: string } = { message }
+  if (color) {
+    body.color = color
+  }
+
+  const response = await devLoggedFetch(
+    `https://api.twitch.tv/helix/chat/announcements?${params.toString()}`,
+    {
+      method: "POST",
+      headers: helixJsonHeaders(accessToken, clientId),
+      body: JSON.stringify(body),
+    }
+  )
+
+  if (!response.ok) {
+    await throwTwitchApiError(response, "Could not send announcement.")
+  }
+}
+
+export async function sendTwitchShoutout({
+  fromBroadcasterId,
+  toBroadcasterId,
+  moderatorId,
+  accessToken,
+  clientId,
+}: {
+  fromBroadcasterId: string
+  toBroadcasterId: string
+  moderatorId: string
+  accessToken: string
+  clientId: string
+}): Promise<void> {
+  const params = new URLSearchParams({
+    from_broadcaster_id: fromBroadcasterId,
+    to_broadcaster_id: toBroadcasterId,
+    moderator_id: moderatorId,
+  })
+
+  const response = await devLoggedFetch(
+    `https://api.twitch.tv/helix/chat/shoutouts?${params.toString()}`,
+    {
+      method: "POST",
+      headers: helixHeaders(accessToken, clientId),
+    }
+  )
+
+  if (!response.ok) {
+    await throwTwitchApiError(response, "Could not send shoutout.")
+  }
+}
+
+export async function startTwitchCommercial({
+  broadcasterId,
+  length,
+  accessToken,
+  clientId,
+}: {
+  broadcasterId: string
+  length: number
+  accessToken: string
+  clientId: string
+}): Promise<TwitchCommercialResult> {
+  const response = await devLoggedFetch(
+    "https://api.twitch.tv/helix/channels/commercial",
+    {
+      method: "POST",
+      headers: helixJsonHeaders(accessToken, clientId),
+      body: JSON.stringify({ broadcaster_id: broadcasterId, length }),
+    }
+  )
+
+  if (!response.ok) {
+    await throwTwitchApiError(response, "Could not start commercial.")
+  }
+
+  const payload = (await response.json()) as {
+    data?: Array<{
+      length: number
+      message: string
+      retry_after: number
+    }>
+  }
+  const entry = payload.data?.[0]
+  return {
+    length: entry?.length ?? length,
+    message: entry?.message ?? "",
+    retryAfter: entry?.retry_after ?? 0,
+  }
+}
+
+export async function createTwitchStreamMarker({
+  userId,
+  description,
+  accessToken,
+  clientId,
+}: {
+  userId: string
+  description?: string
+  accessToken: string
+  clientId: string
+}): Promise<TwitchStreamMarker> {
+  const body: { user_id: string; description?: string } = { user_id: userId }
+  if (description?.trim()) {
+    body.description = description.trim().slice(0, 140)
+  }
+
+  const response = await devLoggedFetch(
+    "https://api.twitch.tv/helix/streams/markers",
+    {
+      method: "POST",
+      headers: helixJsonHeaders(accessToken, clientId),
+      body: JSON.stringify(body),
+    }
+  )
+
+  if (!response.ok) {
+    await throwTwitchApiError(response, "Could not create stream marker.")
+  }
+
+  const payload = (await response.json()) as {
+    data?: Array<{
+      id: string
+      created_at: string
+      position_seconds: number
+      description: string
+    }>
+  }
+  const entry = payload.data?.[0]
+  if (!entry) {
+    throw new TwitchApiError("Stream marker response was empty.", 500)
+  }
+
+  return {
+    id: String(entry.id),
+    createdAt: entry.created_at,
+    positionSeconds: entry.position_seconds,
+    description: entry.description ?? "",
+  }
+}
+
+export async function startTwitchRaid({
+  fromBroadcasterId,
+  toBroadcasterId,
+  accessToken,
+  clientId,
+}: {
+  fromBroadcasterId: string
+  toBroadcasterId: string
+  accessToken: string
+  clientId: string
+}): Promise<void> {
+  const params = new URLSearchParams({
+    from_broadcaster_id: fromBroadcasterId,
+    to_broadcaster_id: toBroadcasterId,
+  })
+
+  const response = await devLoggedFetch(
+    `https://api.twitch.tv/helix/raids?${params.toString()}`,
+    {
+      method: "POST",
+      headers: helixHeaders(accessToken, clientId),
+    }
+  )
+
+  if (!response.ok) {
+    await throwTwitchApiError(response, "Could not start raid.")
+  }
+}
+
+export async function cancelTwitchRaid({
+  broadcasterId,
+  accessToken,
+  clientId,
+}: {
+  broadcasterId: string
+  accessToken: string
+  clientId: string
+}): Promise<void> {
+  const params = new URLSearchParams({ broadcaster_id: broadcasterId })
+
+  const response = await devLoggedFetch(
+    `https://api.twitch.tv/helix/raids?${params.toString()}`,
+    {
+      method: "DELETE",
+      headers: helixHeaders(accessToken, clientId),
+    }
+  )
+
+  if (!response.ok) {
+    await throwTwitchApiError(response, "Could not cancel raid.")
+  }
+}
+
+export async function setTwitchVipStatus({
+  broadcasterId,
+  userId,
+  accessToken,
+  clientId,
+  isVip,
+}: {
+  broadcasterId: string
+  userId: string
+  accessToken: string
+  clientId: string
+  isVip: boolean
+}): Promise<void> {
+  const params = new URLSearchParams({
+    broadcaster_id: broadcasterId,
+    user_id: userId,
+  })
+
+  const response = await devLoggedFetch(
+    `https://api.twitch.tv/helix/channels/vips?${params.toString()}`,
+    {
+      method: isVip ? "POST" : "DELETE",
+      headers: helixHeaders(accessToken, clientId),
+    }
+  )
+
+  if (!response.ok) {
+    await throwTwitchApiError(
+      response,
+      isVip ? "Could not add VIP." : "Could not remove VIP."
+    )
+  }
+}
+
+export async function sendTwitchWhisper({
+  fromUserId,
+  toUserId,
+  message,
+  accessToken,
+  clientId,
+}: {
+  fromUserId: string
+  toUserId: string
+  message: string
+  accessToken: string
+  clientId: string
+}): Promise<void> {
+  const params = new URLSearchParams({
+    from_user_id: fromUserId,
+    to_user_id: toUserId,
+  })
+
+  const response = await devLoggedFetch(
+    `https://api.twitch.tv/helix/whispers?${params.toString()}`,
+    {
+      method: "POST",
+      headers: helixJsonHeaders(accessToken, clientId),
+      body: JSON.stringify({ message }),
+    }
+  )
+
+  if (!response.ok) {
+    await throwTwitchApiError(response, "Could not send whisper.")
+  }
+}
+
 function helixHeaders(accessToken: string, clientId: string): HeadersInit {
   return {
     Authorization: `Bearer ${accessToken}`,

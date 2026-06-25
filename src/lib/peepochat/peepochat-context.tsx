@@ -137,6 +137,15 @@ export type PeepochatChatContextValue = {
     message: string,
     reply?: import("@/lib/twitch/twitch-chat").TwitchChatReply | null
   ) => boolean
+  sendActionMessage: (
+    login: string,
+    message: string,
+    reply?: import("@/lib/twitch/twitch-chat").TwitchChatReply | null
+  ) => boolean
+  executeChatCommand: (
+    login: string,
+    input: string
+  ) => Promise<import("@/lib/chat/chat-commands").ChatCommandResult>
   canSendChat: boolean
   hasBadgeSupport: boolean
 }
@@ -244,6 +253,8 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     refreshEmotes,
     rehydrateAllRoomTimelines,
     sendMessage,
+    sendActionMessage,
+    runChatCommand,
   } = useTwitchChat({ onChatMessageRef })
   const { getBadgeCatalog, loadBadgesForRoom, hasBadgeSupport } =
     useChatBadges(account)
@@ -544,6 +555,11 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
 
   const canSendChat = Boolean(account?.accessToken && connectionState.connected)
 
+  const executeChatCommand = React.useCallback(
+    (login: string, input: string) => runChatCommand(login, input, account),
+    [account, runChatCommand]
+  )
+
   const getBadgeCatalogForChannel = React.useCallback(
     (login: string) => getBadgeCatalog(getRoomId(login)),
     [getBadgeCatalog, getRoomId]
@@ -704,6 +720,8 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       isComposerEmotesLoading,
       refreshEmotes,
       sendChatMessage: sendMessage,
+      sendActionMessage,
+      executeChatCommand,
       canSendChat,
       hasBadgeSupport,
     }),
@@ -722,6 +740,8 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       isComposerEmotesLoading,
       refreshEmotes,
       sendMessage,
+      sendActionMessage,
+      executeChatCommand,
       canSendChat,
       hasBadgeSupport,
     ]

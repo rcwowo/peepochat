@@ -33,6 +33,19 @@ export type IvrTwitchUserProfile = {
   bannerImageUrl: string
 }
 
+export type IvrTwitchModVipEntry = {
+  id: string
+  login: string
+  displayName: string
+  grantedAt: string
+}
+
+export type IvrTwitchModVip = {
+  mods: IvrTwitchModVipEntry[]
+  vips: IvrTwitchModVipEntry[]
+  ttl: number | null
+}
+
 export class IvrApiError extends Error {
   status: number
 
@@ -112,6 +125,71 @@ export async function fetchIvrTwitchUserProfile({
         "bannerImageUrl",
       ]) ?? "",
   }
+}
+
+export async function fetchIvrTwitchModVip(
+  channelLogin: string
+): Promise<IvrTwitchModVip> {
+  const channel = channelLogin.trim().replace(/^#|@/g, "").toLowerCase()
+  if (!channel) {
+    throw new IvrApiError("Channel login is required.", 400)
+  }
+
+  const response = await devLoggedFetch(
+    `${IVR_BASE_URL}/modvip/${encodeURIComponent(channel)}`
+  )
+
+  if (response.status === 404) {
+    return { mods: [], vips: [], ttl: null }
+  }
+
+  if (!response.ok) {
+    throw new IvrApiError(
+      "Could not load moderators and VIPs from IVR.",
+      response.status
+    )
+  }
+
+  const payload = (await response.json()) as {
+    mods?: unknown
+    vips?: unknown
+    ttl?: unknown
+  }
+
+  return {
+    mods: parseIvrModVipEntries(payload.mods),
+    vips: parseIvrModVipEntries(payload.vips),
+    ttl: typeof payload.ttl === "number" ? payload.ttl : null,
+  }
+}
+
+function parseIvrModVipEntries(value: unknown): IvrTwitchModVipEntry[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  const entries: IvrTwitchModVipEntry[] = []
+
+  for (const item of value) {
+    if (!item || typeof item !== "object") {
+      continue
+    }
+
+    const record = item as Record<string, unknown>
+    const login = readString(record, ["login"])
+    if (!login) {
+      continue
+    }
+
+    entries.push({
+      id: readString(record, ["id"]) ?? "",
+      login,
+      displayName: readString(record, ["displayName", "display_name"]) ?? login,
+      grantedAt: readString(record, ["grantedAt", "granted_at"]) ?? "",
+    })
+  }
+
+  return entries
 }
 
 function readString(record: Record<string, unknown>, keys: string[]) {

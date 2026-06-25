@@ -3,6 +3,7 @@ import { AlertCircleIcon, SendHorizontalIcon, XIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { ChatSuggestions } from "@/components/chat/chat-suggestions"
+import { CommandSuggestions } from "@/components/chat/command-suggestions"
 import { EmotePicker } from "@/components/chat/emote-picker"
 import { ChatReplyPreview } from "@/components/chat/chat-reply-preview"
 import { Button } from "@/components/ui/button"
@@ -26,6 +27,16 @@ import {
   type EmoteSuggestion,
   type EmoteTabCompleterState,
 } from "@/lib/chat/emote-completion"
+import {
+  applyCommandSuggestion,
+  createCommandCompleterState,
+  findCommandSuggestions,
+  getCommandSuggestionIndices,
+  shouldCompleteCommandOnSubmit,
+  shouldSuppressEmoteCompletion,
+  type CommandCompleterState,
+  type CommandSuggestion,
+} from "@/lib/chat/command-completion"
 
 const MESSAGE_LIMIT = 500
 
@@ -46,6 +57,8 @@ export function ChatComposer({
     isComposerEmotesLoading,
     getRoomId,
     sendChatMessage,
+    sendActionMessage,
+    executeChatCommand,
     connectionState,
   } = usePeepochat()
 
@@ -55,15 +68,38 @@ export function ChatComposer({
   const [completer, setCompleter] = React.useState<EmoteCompleterState>(() =>
     createEmoteCompleterState()
   )
+  const [commandCompleter, setCommandCompleter] =
+    React.useState<CommandCompleterState>(() => createCommandCompleterState())
   const completerRef = React.useRef(completer)
+  const commandCompleterRef = React.useRef(commandCompleter)
 
   React.useLayoutEffect(() => {
     completerRef.current = completer
   })
 
+  React.useLayoutEffect(() => {
+    commandCompleterRef.current = commandCompleter
+  })
+
   const inputRef = React.useRef<HTMLTextAreaElement>(null)
   const historyRef = React.useRef<string[]>([])
   const historyIndexRef = React.useRef(-1)
+  const commandSubmitRef = React.useRef(0)
+  const commandPendingRef = React.useRef(false)
+  const [syncedChannelLogin, setSyncedChannelLogin] = React.useState(channelLogin)
+  const [commandPending, setCommandPending] = React.useState(false)
+
+  if (channelLogin !== syncedChannelLogin) {
+    setSyncedChannelLogin(channelLogin)
+    setCommandPending(false)
+  }
+
+  React.useEffect(() => {
+    commandPendingRef.current = false
+    return () => {
+      commandSubmitRef.current += 1
+    }
+  }, [channelLogin])
 
   const roomId = getRoomId(channelLogin)
 
@@ -79,10 +115,20 @@ export function ChatComposer({
     [catalog]
   )
 
-  const showSuggestions =
-    completer.prefixed && completer.suggestions.length > 0
+  const showEmoteSuggestions =
+    !shouldSuppressEmoteCompletion(value) &&
+    completer.prefixed &&
+    completer.suggestions.length > 0
 
-  const disabled = !canSendChat || !joined
+  const showCommandSuggestions =
+    commandCompleter.active &&
+    (commandCompleter.suggestions.length > 0 ||
+      Boolean(commandCompleter.usageHint) ||
+      Boolean(commandCompleter.usageHintDetail))
+
+  const shouldCompleteCommand = shouldCompleteCommandOnSubmit(value, commandCompleter)
+
+  const disabled = !canSendChat || !joined || commandPending
   const placeholder = !account
     ? "Sign in with Twitch to send messages"
     : !connectionState.connected
@@ -98,8 +144,31 @@ export function ChatComposer({
     return () => window.clearTimeout(timeout)
   }, [error])
 
+  const clearComposerAfterSend = React.useCallback((message: string) => {
+    setValue("")
+    setReply(null)
+    setError("")
+    setCompleter(createEmoteCompleterState())
+    setCommandCompleter(createCommandCompleterState())
+    historyRef.current = [...historyRef.current, message].slice(-50)
+    historyIndexRef.current = -1
+  }, [])
+
   const updateColonCompleter = React.useCallback(
     (text: string, cursor: number) => {
+      if (shouldSuppressEmoteCompletion(text)) {
+        setCompleter((current) => ({
+          ...current,
+          query: "",
+          replaceRange: null,
+          prefixed: false,
+          suggestions: [],
+          current: 0,
+          tab: null,
+        }))
+        return
+      }
+
       const result = findColonEmoteSuggestions(text, cursor, emoteList)
 
       setCompleter((current) => ({
@@ -109,6 +178,22 @@ export function ChatComposer({
       }))
     },
     [emoteList]
+  )
+
+  const updateCommandCompleter = React.useCallback((text: string, cursor: number) => {
+    const result = findCommandSuggestions(text, cursor)
+    setCommandCompleter((current) => ({
+      ...current,
+      ...result,
+    }))
+  }, [])
+
+  const updateCompleters = React.useCallback(
+    (text: string, cursor: number) => {
+      updateCommandCompleter(text, cursor)
+      updateColonCompleter(text, cursor)
+    },
+    [updateColonCompleter, updateCommandCompleter]
   )
 
   const applyTabMatch = React.useCallback(
@@ -152,6 +237,26 @@ export function ChatComposer({
       })
     },
     [value]
+  )
+
+  const completeCommandSuggestion = React.useCallback(
+    (suggestion: CommandSuggestion) => {
+      const range = commandCompleterRef.current.replaceRange
+      if (!range) return
+
+      const applied = applyCommandSuggestion(value, range, suggestion)
+      setValue(applied.value)
+      setCommandCompleter(createCommandCompleterState())
+      updateCommandCompleter(applied.value, applied.caret)
+
+      requestAnimationFrame(() => {
+        const el = inputRef.current
+        if (!el) return
+        el.focus()
+        el.setSelectionRange(applied.caret, applied.caret)
+      })
+    },
+    [updateCommandCompleter, value]
   )
 
   const completeSuggestion = React.useCallback(
@@ -200,6 +305,16 @@ export function ChatComposer({
 
   const handleTab = React.useCallback(
     (shift: boolean) => {
+      const activeCommandCompleter = commandCompleterRef.current
+      if (shouldCompleteCommandOnSubmit(value, activeCommandCompleter)) {
+        const suggestion =
+          activeCommandCompleter.suggestions[activeCommandCompleter.current]
+        if (suggestion) {
+          completeCommandSuggestion(suggestion)
+        }
+        return
+      }
+
       const input = inputRef.current
       const cursor = input?.selectionStart ?? value.length
       const range = getSearchRange(value, cursor)
@@ -245,7 +360,7 @@ export function ChatComposer({
         applyTabMatch(matches[matchIndex]!, tabState.replaceRange, tabState)
       }
     },
-    [applyTabMatch, completeSuggestion, emoteList, value]
+    [applyTabMatch, completeCommandSuggestion, completeSuggestion, emoteList, value]
   )
 
   const resizeTextarea = React.useCallback(() => {
@@ -275,6 +390,7 @@ export function ChatComposer({
       if (!text) return
       setValue((current) => (current ? `${current} ${text}` : text))
       setCompleter(createEmoteCompleterState())
+      setCommandCompleter(createCommandCompleterState())
       requestAnimationFrame(() => {
         const el = inputRef.current
         if (!el) return
@@ -308,9 +424,61 @@ export function ChatComposer({
     const message = value.trim()
     if (!message) return
 
-    if (showSuggestions) {
+    if (showEmoteSuggestions) {
       completeSuggestion(completer.suggestions[completer.current]!, {
         reset: true,
+      })
+      return
+    }
+
+    if (shouldCompleteCommand) {
+      const suggestion =
+        commandCompleter.suggestions[commandCompleter.current]
+      if (suggestion) {
+        completeCommandSuggestion(suggestion)
+      }
+      return
+    }
+
+    if (message.startsWith("/")) {
+      if (commandPendingRef.current) {
+        return
+      }
+
+      const submitId = ++commandSubmitRef.current
+      commandPendingRef.current = true
+      setCommandPending(true)
+
+      void executeChatCommand(channelLogin, message).then((result) => {
+        if (submitId !== commandSubmitRef.current) {
+          return
+        }
+
+        commandPendingRef.current = false
+        setCommandPending(false)
+
+        if (!result.handled) {
+          return
+        }
+
+        if (result.kind === "me") {
+          const sent = sendActionMessage(channelLogin, result.text, reply)
+          if (!sent) {
+            setError("Message could not be sent. Check your connection and login.")
+            toast.error("Failed to send message")
+            return
+          }
+          clearComposerAfterSend(message)
+          return
+        }
+
+        if (result.kind === "feedback" && result.level === "error") {
+          return
+        }
+
+        if (result.kind === "feedback") {
+          clearComposerAfterSend(message)
+        }
       })
       return
     }
@@ -322,11 +490,7 @@ export function ChatComposer({
       return
     }
 
-    setValue("")
-    setReply(null)
-    setCompleter(createEmoteCompleterState())
-    historyRef.current = [...historyRef.current, message].slice(-50)
-    historyIndexRef.current = -1
+    clearComposerAfterSend(message)
   }
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -339,7 +503,20 @@ export function ChatComposer({
     }
 
     if (event.key === "ArrowUp") {
-      if (showSuggestions) {
+      if (showCommandSuggestions && commandCompleter.suggestions.length > 0) {
+        event.preventDefault()
+        setCommandCompleter((current) => ({
+          ...current,
+          current: getCommandSuggestionIndices(
+            current.current,
+            current.suggestions.length,
+            "prev"
+          ),
+        }))
+        return
+      }
+
+      if (showEmoteSuggestions) {
         event.preventDefault()
         setCompleter((current) => ({
           ...current,
@@ -371,7 +548,20 @@ export function ChatComposer({
     }
 
     if (event.key === "ArrowDown") {
-      if (showSuggestions) {
+      if (showCommandSuggestions && commandCompleter.suggestions.length > 0) {
+        event.preventDefault()
+        setCommandCompleter((current) => ({
+          ...current,
+          current: getCommandSuggestionIndices(
+            current.current,
+            current.suggestions.length,
+            "next"
+          ),
+        }))
+        return
+      }
+
+      if (showEmoteSuggestions) {
         event.preventDefault()
         setCompleter((current) => ({
           ...current,
@@ -454,8 +644,16 @@ export function ChatComposer({
 
       <div className="relative flex items-end gap-1 px-2 py-2">
         <div className="relative min-w-0 flex-1">
+          <CommandSuggestions
+            open={showCommandSuggestions}
+            index={commandCompleter.current}
+            suggestions={commandCompleter.suggestions}
+            usageHint={commandCompleter.usageHint}
+            usageHintDetail={commandCompleter.usageHintDetail}
+            onSelect={(suggestion) => completeCommandSuggestion(suggestion)}
+          />
           <ChatSuggestions
-            open={showSuggestions}
+            open={showEmoteSuggestions}
             index={completer.current}
             suggestions={completer.suggestions}
             onSelect={(suggestion) =>
@@ -479,16 +677,16 @@ export function ChatComposer({
 
               const cursor =
                 event.target.selectionStart ?? nextValue.length
-              updateColonCompleter(nextValue, cursor)
+              updateCompleters(nextValue, cursor)
             }}
             onKeyDown={handleKeyDown}
             onSelect={(event) => {
               const cursor = event.currentTarget.selectionStart ?? value.length
-              updateColonCompleter(event.currentTarget.value, cursor)
+              updateCompleters(event.currentTarget.value, cursor)
             }}
             onClick={(event) => {
               const cursor = event.currentTarget.selectionStart ?? value.length
-              updateColonCompleter(event.currentTarget.value, cursor)
+              updateCompleters(event.currentTarget.value, cursor)
             }}
           />
 
@@ -499,6 +697,7 @@ export function ChatComposer({
             onSelect={(code) => {
               setValue((current) => insertEmoteAtEnd(current, code))
               setCompleter(createEmoteCompleterState())
+              setCommandCompleter(createCommandCompleterState())
               inputRef.current?.focus()
             }}
           />

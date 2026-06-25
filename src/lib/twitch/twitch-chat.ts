@@ -350,7 +350,10 @@ export class TwitchChatClient {
   sendMessage(
     channel: string,
     message: string,
-    options: { replyParentMessageId?: string | null } = {}
+    options: {
+      replyParentMessageId?: string | null
+      isAction?: boolean
+    } = {}
   ): boolean {
     const normalized = normalizeChannelLogin(channel)
     const text = message.replace(/\r?\n/g, " ").trim()
@@ -367,7 +370,8 @@ export class TwitchChatClient {
     const replyTag = replyParentMessageId
       ? `@reply-parent-msg-id=${replyParentMessageId} `
       : ""
-    this.ws.send(`${replyTag}PRIVMSG #${normalized} :${text}`)
+    const payload = options.isAction ? `\x01ACTION ${text}\x01` : text
+    this.ws.send(`${replyTag}PRIVMSG #${normalized} :${payload}`)
     return true
   }
 
@@ -709,6 +713,7 @@ export function createLocalChatMessage(params: {
   badges: TwitchBadge[]
   isModerator?: boolean
   isSubscriber?: boolean
+  isAction?: boolean
   reply?: TwitchChatReply | null
 }): TwitchChatMessage {
   const badges = params.badges
@@ -741,7 +746,7 @@ export function createLocalChatMessage(params: {
         badges.some((badge) => badge.set === "subscriber"),
       isVip: badges.some((badge) => badge.set === "vip"),
       isFirst: false,
-      isAction: false,
+      isAction: params.isAction ?? false,
     },
   }
 }

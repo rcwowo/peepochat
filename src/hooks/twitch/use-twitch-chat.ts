@@ -29,7 +29,12 @@ import {
   RECENT_MESSAGES_UNAVAILABLE_TEXT,
 } from "@/lib/chat/recent-messages"
 import {
+  executeChatCommand,
+  type ChatCommandResult,
+} from "@/lib/chat/chat-commands"
+import {
   LIVE_MESSAGES_PER_CHANNEL_DEFAULT,
+  type TwitchAccount,
 } from "@/lib/peepochat/peepochat-config"
 import {
   createLocalChatMessage,
@@ -1454,11 +1459,12 @@ export function useTwitchChat(options?: {
     return true
   }, [rehydrateRoomTimeline])
 
-  const sendMessage = React.useCallback(
+  const sendLocalChatMessage = React.useCallback(
     (
       login: string,
       message: string,
-      reply: import("@/lib/twitch/twitch-chat").TwitchChatReply | null = null
+      reply: import("@/lib/twitch/twitch-chat").TwitchChatReply | null,
+      options: { isAction?: boolean } = {}
     ): boolean => {
       const normalized = normalizeChannelLogin(login)
       const text = message.replace(/\r?\n/g, " ").trim()
@@ -1466,6 +1472,7 @@ export function useTwitchChat(options?: {
 
       const sent = getClient().sendMessage(normalized, text, {
         replyParentMessageId: reply?.parentMessageId ?? null,
+        isAction: options.isAction ?? false,
       })
       if (!sent) return false
 
@@ -1488,6 +1495,7 @@ export function useTwitchChat(options?: {
             badges: sender.badges,
             isModerator: sender.isModerator,
             isSubscriber: sender.isSubscriber,
+            isAction: options.isAction ?? false,
             reply,
           })
         )
@@ -1496,6 +1504,55 @@ export function useTwitchChat(options?: {
       return true
     },
     [getClient, routeMessageToRoom]
+  )
+
+  const sendMessage = React.useCallback(
+    (
+      login: string,
+      message: string,
+      reply: import("@/lib/twitch/twitch-chat").TwitchChatReply | null = null
+    ): boolean => sendLocalChatMessage(login, message, reply),
+    [sendLocalChatMessage]
+  )
+
+  const sendActionMessage = React.useCallback(
+    (
+      login: string,
+      message: string,
+      reply: import("@/lib/twitch/twitch-chat").TwitchChatReply | null = null
+    ): boolean =>
+      sendLocalChatMessage(login, message, reply, { isAction: true }),
+    [sendLocalChatMessage]
+  )
+
+  const runChatCommand = React.useCallback(
+    async (
+      login: string,
+      input: string,
+      account: TwitchAccount | null
+    ): Promise<ChatCommandResult> => {
+      const normalized = normalizeChannelLogin(login)
+      const room = roomsRef.current[normalized]
+      const result = await executeChatCommand(input, {
+        account,
+        channelLogin: normalized,
+        broadcasterId: room?.roomId ?? null,
+        selfState: selfStatesRef.current.get(normalized) ?? null,
+      })
+
+      if (result.handled && result.kind === "feedback") {
+        appendRoomSystemMessage(
+          normalized,
+          {
+            ...createRecentMessagesStatusMessage(normalized, result.message),
+            level: result.level ?? "info",
+          }
+        )
+      }
+
+      return result
+    },
+    [appendRoomSystemMessage]
   )
 
   return {
@@ -1516,5 +1573,7 @@ export function useTwitchChat(options?: {
     refreshEmotes,
     rehydrateAllRoomTimelines,
     sendMessage,
+    sendActionMessage,
+    runChatCommand,
   }
 }
