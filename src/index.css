@@ -347,3 +347,21 @@
 @utility animate-landing-mockup-float {
   animation: landing-mockup-float 7s ease-in-out infinite;
 }
+
+@keyframes about-badge-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+
+  50% {
+    transform: translate3d(0, -6px, 0);
+  }
+}
+
+@utility animate-about-badge-float {
+  animation: about-badge-float 3s ease-in-out infinite;
+  backface-visibility: hidden;
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+}

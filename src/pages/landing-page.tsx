@@ -196,8 +196,7 @@ export function LandingPage() {
                 Ready to peep the chat?
               </h2>
               <p className="relative mx-auto mt-4 max-w-lg text-muted-foreground">
-                Jump into a channel in seconds. Customize your layout, load your
-                emotes, and keep everything local.
+                Jump into a channel in seconds. Customize your layout & make it yours. What are you waiting for? It's time to start chatting.
               </p>
               <Button size="lg" className="relative mt-8" asChild>
                 <Link to="/app">
