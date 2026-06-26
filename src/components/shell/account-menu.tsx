@@ -1,5 +1,5 @@
 import * as React from "react"
-import { ChevronDownIcon, LogOutIcon, UserIcon } from "lucide-react"
+import { ChevronDownIcon, LogOutIcon, SettingsIcon, UserIcon } from "lucide-react"
 
 import { usePeepochatSettings } from "@/lib/peepochat/peepochat-context"
 import { cn } from "@/lib/utils"
@@ -11,11 +11,20 @@ import {
 } from "@/components/ui/popover"
 import { Separator } from "@/components/ui/separator"
 
-export function AccountMenu() {
+export function AccountMenu({
+  onSettingsClick,
+}: {
+  onSettingsClick: () => void
+}) {
   const { account, oauthBusy, isOAuthConfigured, loginWithTwitch, logout } =
     usePeepochatSettings()
 
   const [open, setOpen] = React.useState(false)
+
+  const handleSettingsClick = () => {
+    onSettingsClick()
+    setOpen(false)
+  }
 
   const handleLogout = () => {
     logout()
@@ -103,15 +112,27 @@ export function AccountMenu() {
         <div className="px-4 py-3">
           <Separator className="mb-3" />
 
-          <Button
-            variant="outline"
-            size="sm"
-            className={cn("w-full justify-start")}
-            onClick={handleLogout}
-          >
-            <LogOutIcon className="size-3.5" />
-            Log out
-          </Button>
+          <div className="flex flex-col gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn("w-full justify-start")}
+              onClick={handleSettingsClick}
+            >
+              <SettingsIcon className="size-3.5" />
+              Settings
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn("w-full justify-start")}
+              onClick={handleLogout}
+            >
+              <LogOutIcon className="size-3.5" />
+              Log out
+            </Button>
+          </div>
         </div>
       </PopoverContent>
     </Popover>

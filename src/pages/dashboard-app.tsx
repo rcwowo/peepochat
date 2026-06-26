@@ -11,6 +11,7 @@ import {
   initLastSeenVersion,
   markVersionSeen,
 } from "@/lib/changelog"
+import { useChannelSidebarVisibility } from "@/hooks/use-channel-sidebar-visibility"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { AppHeader } from "@/components/shell/app-header"
 import { ChannelSidebar } from "@/components/sidebar/channel-sidebar"
@@ -23,6 +24,11 @@ import { ChatPage } from "@/pages/chat-page"
 
 function DashboardLayout() {
   const { ready, needsOnboarding, completeOnboarding } = usePeepochatSettings()
+  const {
+    isCompact,
+    channelSidebarVisible,
+    toggleChannelSidebar,
+  } = useChannelSidebarVisibility()
   const [settingsOpen, setSettingsOpen] = React.useState(false)
   const [settingsInitialCategory, setSettingsInitialCategory] = React.useState<
     SettingsCategory | undefined
@@ -78,9 +84,12 @@ function DashboardLayout() {
           setSettingsInitialCategory(undefined)
           setSettingsOpen(true)
         }}
+        showChannelSidebarToggle={isCompact}
+        channelSidebarVisible={channelSidebarVisible}
+        onChannelSidebarToggle={toggleChannelSidebar}
       />
       <div className="flex min-h-0 w-full flex-1">
-        <ChannelSidebar />
+        {channelSidebarVisible ? <ChannelSidebar /> : null}
         <SidebarInset className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
           <ChatPage />
         </SidebarInset>
