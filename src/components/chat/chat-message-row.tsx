@@ -76,7 +76,7 @@ function ChatMessageRowInner({
   return (
     <div
       className={cn(
-        "chat-message group relative px-3 py-1 leading-5",
+        "chat-message group relative px-3 leading-5",
         isHistorical && "chat-message--historical",
         isAlternateRow && "chat-message--alternate",
         pingHighlighted && "chat-message--ping-highlight"

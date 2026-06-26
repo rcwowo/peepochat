@@ -185,7 +185,13 @@
 
   .chat-presentation .chat-message-size {
     font-size: var(--chat-font-size, 13px);
-    line-height: 1.25;
+    line-height: var(--chat-line-height, calc(var(--chat-font-size, 13px) * 1.25));
+  }
+
+  .chat-presentation .chat-message {
+    padding-block: calc(
+      0.25rem + var(--chat-message-extra-padding-block, 0px)
+    );
   }
 
   .chat-message {

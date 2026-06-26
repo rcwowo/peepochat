@@ -8,8 +8,8 @@ import type { CachedChatView } from "@/hooks/chat/use-chat-layout"
 import type { ChatBadgeCatalog } from "@/lib/chat/chat-badges"
 import type { ResolvedMemberBadge } from "@/lib/chat/rcw-badges"
 import { useChatFontFamily } from "@/hooks/chat/use-chat-font"
+import { getChatPresentationStyle } from "@/lib/chat/chat-presentation-style"
 import {
-  CHAT_EMOTE_SCALE_DEFAULT,
   type ChatConfig,
   type ChatSplitLayoutNode,
   type SplitLayoutEdge,
@@ -199,16 +199,14 @@ function CachedChatViewLayer({
 function useChatPresentationProps(chat: ChatConfig) {
   const cssFontFamily = useChatFontFamily(chat.fontFamily)
 
-  const style = React.useMemo(() => {
-    const emoteScale = chat.emoteScale / CHAT_EMOTE_SCALE_DEFAULT
-
-    return {
-      "--chat-font-size": `${chat.fontSizePx}px`,
-      "--chat-emote-size": `${Math.round(28 * emoteScale)}px`,
-      "--chat-emote-margin": `${(-0.35 * emoteScale).toFixed(3)}rem`,
-      ...(cssFontFamily ? { fontFamily: cssFontFamily } : {}),
-    } as React.CSSProperties
-  }, [chat.emoteScale, chat.fontSizePx, cssFontFamily])
+  const style = React.useMemo(
+    () =>
+      getChatPresentationStyle(
+        { fontSizePx: chat.fontSizePx, emoteScale: chat.emoteScale },
+        cssFontFamily
+      ),
+    [chat.emoteScale, chat.fontSizePx, cssFontFamily]
+  )
 
   const className = cn(
     "chat-presentation flex h-full min-h-0 min-w-0 flex-1",

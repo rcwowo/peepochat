@@ -64,7 +64,7 @@ function InlineSystemLine({
   className?: string
 }) {
   return (
-    <div className={cn("chat-message group px-3 py-1 leading-5", className)}>
+    <div className={cn("chat-message group px-3 leading-5", className)}>
       <ChatTimestamp
         receivedAt={message.receivedAt}
         timestampFormat={timestampFormat}
@@ -94,7 +94,7 @@ function NoticeBlock({
   children: React.ReactNode
 }) {
   return (
-    <div className={cn("chat-message group px-3 py-1 leading-5", className)}>
+    <div className={cn("chat-message group px-3 leading-5", className)}>
       <ChatTimestamp
         receivedAt={message.receivedAt}
         timestampFormat={timestampFormat}
@@ -223,7 +223,7 @@ function AnnouncementNotice({
   )
 
   return (
-    <div className={cn("chat-message group px-3 py-1 leading-5", className)}>
+    <div className={cn("chat-message group px-3 leading-5", className)}>
       <ChatTimestamp
         receivedAt={message.receivedAt}
         timestampFormat={timestampFormat}
