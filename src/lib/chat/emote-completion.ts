@@ -242,6 +242,19 @@ export function shouldResetTabState(
   return tab.replaceRange.start !== replaceRange.start
 }
 
+export function isTabStateCurrent(
+  tab: EmoteTabCompleterState | null,
+  text: string,
+  cursor: number
+): boolean {
+  if (!tab) return false
+
+  const { start, end } = tab.replaceRange
+  if (cursor < start || cursor > end) return false
+
+  return text.slice(start, end) === tab.expectedWord
+}
+
 export function nextSuggestionIndex(current: number, length: number): number {
   if (length === 0) return 0
   return (current + 1) % length

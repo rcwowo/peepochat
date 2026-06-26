@@ -19,6 +19,7 @@ import {
   getSearchRange,
   getWordAtCursor,
   insertEmoteAtEnd,
+  isTabStateCurrent,
   nextSuggestionIndex,
   prevSuggestionIndex,
   resetEmoteCompleter,
@@ -178,7 +179,7 @@ export function ChatComposer({
       setCompleter((current) => ({
         ...current,
         ...result,
-        tab: null,
+        tab: isTabStateCurrent(current.tab, text, cursor) ? current.tab : null,
       }))
     },
     [emoteList]
