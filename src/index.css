@@ -229,12 +229,22 @@
   }
 
   .chat-message--ping-highlight {
-    background: color-mix(in oklch, var(--primary) 14%, transparent);
+    background: color-mix(in oklch, var(--primary) 14%, var(--chat-background));
     box-shadow: inset 3px 0 0 var(--primary);
   }
 
   .chat-message--ping-highlight:hover {
-    background: color-mix(in oklch, var(--primary) 20%, transparent);
+    background: color-mix(in oklch, var(--primary) 20%, var(--chat-background));
+  }
+
+  .chat-presentation--alternating-rows
+    .chat-message--alternate.chat-message--ping-highlight {
+    background: color-mix(in oklch, var(--primary) 14%, var(--chat-row-alt));
+  }
+
+  .chat-presentation--alternating-rows
+    .chat-message--alternate.chat-message--ping-highlight:hover {
+    background: color-mix(in oklch, var(--primary) 20%, var(--chat-row-alt));
   }
 
   .chat-presentation--message-separators .chat-message {

@@ -67,6 +67,7 @@ export type ChannelProfileHint = {
   login: string
   displayName?: string
   profileImageUrl?: string
+  roomId?: string
 }
 
 export type ComposerEmoteLoadOptions = {
@@ -133,9 +134,18 @@ export function clearRoomEmoteBundleInflight() {
   clearRoomEmoteBundleCache()
 }
 
+function normalizeChannelLogin(login: string) {
+  return login.trim().replace(/^#/, "").toLowerCase()
+}
+
 function roomEmoteBundleKey(options: ComposerEmoteLoadOptions) {
   const userId = options.userId?.trim() ?? ""
-  return `${options.roomId}:${userId}`
+  const channelLogin = normalizeChannelLogin(options.channelLogin)
+  const channelHint = (options.channelHints ?? []).find(
+    (hint) => normalizeChannelLogin(hint.login) === channelLogin
+  )
+  const profileSig = channelHint?.profileImageUrl?.trim() ?? ""
+  return `${options.roomId}:${userId}:${profileSig}`
 }
 
 /** One network pass per room: third-party + Twitch Helix + profiles (deduped in-flight). */
@@ -249,16 +259,14 @@ async function buildRoomEmoteBundle(
     globalEmotes: twitchGlobal,
   })
 
-  const profiles = canLoadTwitch
-    ? await resolveBroadcasterProfiles({
-        accessToken: accessToken!,
-        clientId: clientId!,
-        roomId,
-        channelLogin,
-        hints: options.channelHints ?? [],
-        ownerIds: collectBroadcasterOwnerIds(twitchDrafts),
-      })
-    : new Map<string, TwitchUser>()
+  const profiles = await resolveBroadcasterProfiles({
+    accessToken: accessToken ?? "",
+    clientId: clientId ?? "",
+    roomId,
+    channelLogin,
+    hints: options.channelHints ?? [],
+    ownerIds: canLoadTwitch ? collectBroadcasterOwnerIds(twitchDrafts) : [],
+  })
 
   const twitchCategories = reorderTwitchCategories(
     resolveCategoryDrafts(twitchDrafts, profiles, roomId, channelLogin),

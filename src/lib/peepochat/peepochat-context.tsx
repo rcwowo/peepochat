@@ -453,8 +453,9 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
         login: channel.login,
         displayName: channel.displayName,
         profileImageUrl: channel.profileImageUrl,
+        roomId: getRoomId(channel.login) ?? undefined,
       })),
-    [channels]
+    [channels, getRoomId]
   )
 
   const channelLoginsRef = React.useRef(channelLogins)
