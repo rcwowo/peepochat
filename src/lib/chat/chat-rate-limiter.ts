@@ -10,7 +10,11 @@ export class ChatRateLimiter {
   private channelSends = new Map<string, number[]>()
   private lastChannelSend = new Map<string, number>()
 
-  check(channel: string, isPrivileged: boolean, now = Date.now()): ChatRateLimitResult {
+  check(
+    channel: string,
+    isPrivileged: boolean,
+    now = Date.now()
+  ): ChatRateLimitResult {
     this.pruneWindow(this.globalSends, now)
 
     const channelTimes = this.channelSends.get(channel) ?? []

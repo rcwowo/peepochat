@@ -558,8 +558,8 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
 
   const canSendChat = Boolean(
     account?.accessToken &&
-      connectionState.connected &&
-      sendConnectionState.connected
+    connectionState.connected &&
+    sendConnectionState.connected
   )
 
   const executeChatCommand = React.useCallback(

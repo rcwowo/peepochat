@@ -6,9 +6,8 @@ const COMPACT_LAYOUT_BREAKPOINT = 640
 export function useCompactLayout() {
   const [isCompact, setIsCompact] = React.useState(() =>
     typeof window !== "undefined"
-      ? window.matchMedia(
-          `(max-width: ${COMPACT_LAYOUT_BREAKPOINT - 1}px)`
-        ).matches
+      ? window.matchMedia(`(max-width: ${COMPACT_LAYOUT_BREAKPOINT - 1}px)`)
+          .matches
       : false
   )
 

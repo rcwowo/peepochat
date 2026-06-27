@@ -349,11 +349,7 @@ export function useTwitchChat(options?: {
         message: message.text,
       })
     },
-    [
-      clearSendBlockTimer,
-      emitSendOutcome,
-      scheduleSendBlockClear,
-    ]
+    [clearSendBlockTimer, emitSendOutcome, scheduleSendBlockClear]
   )
 
   const probeSendRestrictions = React.useCallback(() => {
@@ -1541,10 +1537,10 @@ export function useTwitchChat(options?: {
       void promise
         .then(() => syncSendConnection(options))
         .finally(() => {
-        if (pendingSyncPromiseRef.current?.promise === promise) {
-          pendingSyncPromiseRef.current = null
-        }
-      })
+          if (pendingSyncPromiseRef.current?.promise === promise) {
+            pendingSyncPromiseRef.current = null
+          }
+        })
 
       return promise
     },

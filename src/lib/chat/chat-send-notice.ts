@@ -11,7 +11,10 @@ const PERMANENT_BAN_MSG_IDS = new Set(["msg_banned"])
 const TIMEOUT_MSG_IDS = new Set(["msg_timedout"])
 
 export type SendOutcomeEvent =
-  | { type: "echo"; message: import("@/lib/twitch/twitch-chat").TwitchChatMessage }
+  | {
+      type: "echo"
+      message: import("@/lib/twitch/twitch-chat").TwitchChatMessage
+    }
   | { type: "rejected"; channel: string; message: string }
 
 export function classifySendNotice(
@@ -37,9 +40,7 @@ export function classifySendNotice(
       kind: "timeout",
       message: message.text,
       expiresAt:
-        durationSec && durationSec > 0
-          ? Date.now() + durationSec * 1000
-          : null,
+        durationSec && durationSec > 0 ? Date.now() + durationSec * 1000 : null,
     }
   }
 
@@ -58,9 +59,7 @@ export function classifySendNotice(
       kind: "timeout",
       message: message.text,
       expiresAt:
-        durationSec && durationSec > 0
-          ? Date.now() + durationSec * 1000
-          : null,
+        durationSec && durationSec > 0 ? Date.now() + durationSec * 1000 : null,
     }
   }
 

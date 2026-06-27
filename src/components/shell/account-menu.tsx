@@ -1,5 +1,10 @@
 import * as React from "react"
-import { ChevronDownIcon, LogOutIcon, SettingsIcon, UserIcon } from "lucide-react"
+import {
+  ChevronDownIcon,
+  LogOutIcon,
+  SettingsIcon,
+  UserIcon,
+} from "lucide-react"
 
 import { usePeepochatSettings } from "@/lib/peepochat/peepochat-context"
 import { cn } from "@/lib/utils"

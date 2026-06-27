@@ -354,7 +354,11 @@ export class TwitchChatClient {
    * The client parts again after USERSTATE or a rejection NOTICE.
    */
   probeSendStatus(channels: string[]) {
-    if (this.mode !== "send" || !this.ws || this.ws.readyState !== WebSocket.OPEN) {
+    if (
+      this.mode !== "send" ||
+      !this.ws ||
+      this.ws.readyState !== WebSocket.OPEN
+    ) {
       return
     }
 

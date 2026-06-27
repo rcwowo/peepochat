@@ -180,17 +180,20 @@ export function ChatComposer({
     pendingSendRef.current = null
   }, [])
 
-  const clearComposerAfterSend = React.useCallback((message: string) => {
-    clearPendingSend()
-    setValue("")
-    setReply(null)
-    setError("")
-    setRateLimitHint(null)
-    setCompleter(createEmoteCompleterState())
-    setCommandCompleter(createCommandCompleterState())
-    historyRef.current = [...historyRef.current, message].slice(-50)
-    historyIndexRef.current = -1
-  }, [clearPendingSend])
+  const clearComposerAfterSend = React.useCallback(
+    (message: string) => {
+      clearPendingSend()
+      setValue("")
+      setReply(null)
+      setError("")
+      setRateLimitHint(null)
+      setCompleter(createEmoteCompleterState())
+      setCommandCompleter(createCommandCompleterState())
+      historyRef.current = [...historyRef.current, message].slice(-50)
+      historyIndexRef.current = -1
+    },
+    [clearPendingSend]
+  )
 
   const handleSendResult = React.useCallback(
     (
@@ -607,11 +610,7 @@ export function ChatComposer({
         }
 
         if (result.kind === "me") {
-          const sendResult = sendActionMessage(
-            channelLogin,
-            result.text,
-            reply
-          )
+          const sendResult = sendActionMessage(channelLogin, result.text, reply)
           handleSendResult(sendResult, message, {
             sentText: result.text,
             isAction: true,

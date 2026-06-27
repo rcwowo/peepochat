@@ -183,7 +183,8 @@ function DevelopedBySection() {
             <ExternalLinkIcon className="size-3.5 shrink-0 text-[color-mix(in_oklch,white_45%,var(--muted-foreground))] transition-colors group-hover:text-foreground" />
           </div>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            Help keep the project free for everyone and earn an exclusive badge that appears next to your username for all Peepochat users!
+            Help keep the project free for everyone and earn an exclusive badge
+            that appears next to your username for all Peepochat users!
           </p>
         </div>
       </a>

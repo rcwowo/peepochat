@@ -14,8 +14,5 @@ export function writeChannelSidebarVisible(visible: boolean) {
     return
   }
 
-  window.localStorage.setItem(
-    CHANNEL_SIDEBAR_VISIBLE_KEY,
-    visible ? "1" : "0"
-  )
+  window.localStorage.setItem(CHANNEL_SIDEBAR_VISIBLE_KEY, visible ? "1" : "0")
 }
