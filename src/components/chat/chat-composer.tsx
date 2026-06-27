@@ -100,6 +100,7 @@ export function ChatComposer({
     composerMessage: string
     sentText: string
     isAction: boolean
+    reply: TwitchChatReply | null
     timeoutId: number
   } | null>(null)
   const [syncedChannelLogin, setSyncedChannelLogin] =
@@ -180,44 +181,55 @@ export function ChatComposer({
     pendingSendRef.current = null
   }, [])
 
+  const clearComposerUI = React.useCallback(() => {
+    setValue("")
+    setReply(null)
+    setError("")
+    setRateLimitHint(null)
+    setCompleter(createEmoteCompleterState())
+    setCommandCompleter(createCommandCompleterState())
+  }, [])
+
   const clearComposerAfterSend = React.useCallback(
     (message: string) => {
       clearPendingSend()
-      setValue("")
-      setReply(null)
-      setError("")
-      setRateLimitHint(null)
-      setCompleter(createEmoteCompleterState())
-      setCommandCompleter(createCommandCompleterState())
+      clearComposerUI()
       historyRef.current = [...historyRef.current, message].slice(-50)
       historyIndexRef.current = -1
     },
-    [clearPendingSend]
+    [clearComposerUI, clearPendingSend]
   )
 
   const handleSendResult = React.useCallback(
     (
       result: import("@/lib/chat/chat-send").ChatSendResult,
       composerMessage: string,
-      options: { sentText?: string; isAction?: boolean } = {}
+      options: {
+        sentText?: string
+        isAction?: boolean
+        reply?: TwitchChatReply | null
+      } = {}
     ) => {
-      const sentText = options.sentText ?? composerMessage
+      const sentText = (options.sentText ?? composerMessage)
+        .replace(/\r?\n/g, " ")
+        .trim()
       const isAction = options.isAction ?? false
+      const replySnapshot = options.reply ?? null
 
       if (result.ok) {
         clearPendingSend()
-        const timeoutId = window.setTimeout(() => {
-          const pending = pendingSendRef.current
-          if (pending?.composerMessage !== composerMessage) {
-            return
-          }
+        clearComposerUI()
+        historyRef.current = [...historyRef.current, composerMessage].slice(-50)
+        historyIndexRef.current = -1
 
-          clearComposerAfterSend(composerMessage)
+        const timeoutId = window.setTimeout(() => {
+          clearPendingSend()
         }, 8_000)
         pendingSendRef.current = {
           composerMessage,
           sentText,
           isAction,
+          reply: replySnapshot,
           timeoutId,
         }
         return
@@ -238,7 +250,7 @@ export function ChatComposer({
       )
       toast.error(result.message ?? "Failed to send message")
     },
-    [clearComposerAfterSend, clearPendingSend]
+    [clearComposerUI, clearPendingSend]
   )
 
   React.useEffect(() => {
@@ -250,9 +262,15 @@ export function ChatComposer({
           return
         }
 
+        const pending = pendingSendRef.current
         clearPendingSend()
         if (isPersistentSendBlockText(event.message)) {
           return
+        }
+
+        if (pending) {
+          setValue(pending.composerMessage)
+          setReply(pending.reply)
         }
 
         setError(event.message)
@@ -277,14 +295,9 @@ export function ChatComposer({
         return
       }
 
-      clearComposerAfterSend(pending.composerMessage)
+      clearPendingSend()
     })
-  }, [
-    channelLogin,
-    clearComposerAfterSend,
-    clearPendingSend,
-    registerSendOutcomeListener,
-  ])
+  }, [channelLogin, clearPendingSend, registerSendOutcomeListener])
 
   React.useEffect(() => {
     clearPendingSend()
@@ -614,6 +627,7 @@ export function ChatComposer({
           handleSendResult(sendResult, message, {
             sentText: result.text,
             isAction: true,
+            reply,
           })
           return
         }
@@ -636,7 +650,7 @@ export function ChatComposer({
     }
 
     const sendResult = sendChatMessage(channelLogin, message, reply)
-    handleSendResult(sendResult, message)
+    handleSendResult(sendResult, message, { reply })
   }
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {

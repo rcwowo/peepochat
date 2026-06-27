@@ -408,9 +408,33 @@ export function useTwitchChat(options?: {
     []
   )
 
-  const trimTimeline = React.useCallback((timeline: TwitchTimelineItem[]) => {
-    return timeline.slice(-liveMessageLimitRef.current)
-  }, [])
+  const trimTimeline = React.useCallback(
+    (timeline: TwitchTimelineItem[]) => {
+      const limit = liveMessageLimitRef.current
+      if (timeline.length <= limit) {
+        return timeline
+      }
+
+      const { historical, live } = partitionTimeline(timeline)
+      let excess = historical.length + live.length - limit
+
+      if (excess <= 0) {
+        return timeline
+      }
+
+      let trimmedHistorical = historical
+      if (trimmedHistorical.length > 0) {
+        const removeCount = Math.min(excess, trimmedHistorical.length)
+        trimmedHistorical = trimmedHistorical.slice(removeCount)
+        excess -= removeCount
+      }
+
+      const trimmedLive = excess > 0 ? live.slice(excess) : live
+
+      return [...trimmedHistorical, ...trimmedLive]
+    },
+    [partitionTimeline]
+  )
 
   const getTimelineMessageIds = React.useCallback(
     (timeline: TwitchTimelineItem[]) => {
@@ -1580,21 +1604,9 @@ export function useTwitchChat(options?: {
 
           return changed ? next : current
         })
-        return
-      }
-
-      if (
-        limit > previous &&
-        limit > historyFetchLimitRef.current &&
-        recentMessagesEnabledRef.current
-      ) {
-        for (const login of syncedChannelsRef.current) {
-          historyLoadedRef.current.delete(login)
-          loadRecentMessages(login)
-        }
       }
     },
-    [loadRecentMessages, trimTimeline]
+    [trimTimeline]
   )
 
   const setRecentMessagesEnabled = React.useCallback(
