@@ -33,16 +33,28 @@ import {
   type ChatCommandResult,
 } from "@/lib/chat/chat-commands"
 import {
+  createChatRateLimiter,
+  isPrivilegedChannelSender,
+  mapRateLimitResult,
+  type ChatSendResult,
+  type TwitchChannelSendBlock,
+} from "@/lib/chat/chat-send"
+import {
+  classifySendNotice,
+  isSendRejectionNotice,
+  type SendOutcomeEvent,
+} from "@/lib/chat/chat-send-notice"
+import {
   LIVE_MESSAGES_PER_CHANNEL_DEFAULT,
   type TwitchAccount,
 } from "@/lib/peepochat/peepochat-config"
 import {
-  createLocalChatMessage,
   TwitchChatClient,
   type TwitchBadge,
   type TwitchChatConnectOptions,
   type TwitchChatMessage,
   type TwitchConnectionState,
+  type TwitchSelfUserState,
   type TwitchSystemMessage,
 } from "@/lib/twitch/twitch-chat"
 /** Back off automatic emote reloads after a failed fetch (avoids 429 retry storms). */
@@ -59,6 +71,8 @@ export type TwitchChatRoomState = {
   joining: boolean
   timeline: TwitchTimelineItem[]
 }
+
+export type { TwitchChannelSendBlock } from "@/lib/chat/chat-send"
 
 export type TwitchSelfChatState = {
   channel: string
@@ -94,15 +108,26 @@ export function isSyncChannelsSupersededError(error: unknown): boolean {
   )
 }
 
-function buildSyncChannelsKey(
-  channelLogins: string[],
-  options: TwitchChatConnectOptions
-): string {
-  return [
-    channelLogins.join("\0"),
-    options.accessToken ?? "",
-    options.nick ?? "",
-  ].join("\u0001")
+function buildSyncChannelsKey(channelLogins: string[]): string {
+  return channelLogins.join("\0")
+}
+
+function toSelfChatState(state: TwitchSelfUserState): TwitchSelfChatState {
+  return state
+}
+
+function selfStateFromMessage(message: TwitchChatMessage): TwitchSelfChatState {
+  return {
+    channel: normalizeChannelLogin(message.channel),
+    roomId: message.roomId,
+    displayName: message.displayName,
+    color: message.color,
+    badges: message.badges,
+    isBroadcaster: message.flags.isBroadcaster,
+    isModerator: message.flags.isModerator,
+    isSubscriber: message.flags.isSubscriber,
+    isVip: message.flags.isVip,
+  }
 }
 
 function createEmptyRoom(login: string): TwitchChatRoomState {
@@ -121,12 +146,29 @@ export function useTwitchChat(options?: {
   >
 }) {
   const onChatMessageRef = options?.onChatMessageRef
-  const clientRef = React.useRef<TwitchChatClient | null>(null)
+  const readClientRef = React.useRef<TwitchChatClient | null>(null)
+  const sendClientRef = React.useRef<TwitchChatClient | null>(null)
+  const rateLimiterRef = React.useRef(createChatRateLimiter())
   const pendingConnectRef = React.useRef<PendingConnect | null>(null)
+  const pendingSendConnectRef = React.useRef<PendingConnect | null>(null)
+  const sendConnectKeyRef = React.useRef("")
   const pendingSyncPromiseRef = React.useRef<{
     key: string
     promise: Promise<void>
   } | null>(null)
+  const pendingSendRef = React.useRef<{
+    channel: string
+    recordedAt: number
+  } | null>(null)
+  const sendBlockTimersRef = React.useRef(
+    new Map<string, ReturnType<typeof setTimeout>>()
+  )
+  const channelSendBlocksRef = React.useRef<
+    Record<string, TwitchChannelSendBlock>
+  >({})
+  const sendOutcomeListenersRef = React.useRef(
+    new Set<(event: SendOutcomeEvent) => void>()
+  )
   const emoteCatalogsRef = React.useRef(
     new Map<string, ThirdPartyEmoteCatalog>()
   )
@@ -186,6 +228,18 @@ export function useTwitchChat(options?: {
       connecting: false,
       lastError: null,
     })
+  const [sendConnectionState, setSendConnectionState] =
+    React.useState<TwitchConnectionState>({
+      connected: false,
+      connecting: false,
+      lastError: null,
+    })
+  const [channelSendBlocks, setChannelSendBlocks] = React.useState<
+    Record<string, TwitchChannelSendBlock>
+  >({})
+  React.useEffect(() => {
+    channelSendBlocksRef.current = channelSendBlocks
+  }, [channelSendBlocks])
   const [rooms, setRooms] = React.useState<Record<string, TwitchChatRoomState>>(
     {}
   )
@@ -197,6 +251,134 @@ export function useTwitchChat(options?: {
 
   const appendLog = React.useCallback((text: string) => {
     setLogs((current) => [text, ...current].slice(0, 20))
+  }, [])
+
+  const emitSendOutcome = React.useCallback((event: SendOutcomeEvent) => {
+    for (const listener of sendOutcomeListenersRef.current) {
+      listener(event)
+    }
+  }, [])
+
+  const registerSendOutcomeListener = React.useCallback(
+    (listener: (event: SendOutcomeEvent) => void) => {
+      sendOutcomeListenersRef.current.add(listener)
+      return () => {
+        sendOutcomeListenersRef.current.delete(listener)
+      }
+    },
+    []
+  )
+
+  const clearSendBlockTimer = React.useCallback((login: string) => {
+    const timer = sendBlockTimersRef.current.get(login)
+    if (timer) {
+      clearTimeout(timer)
+      sendBlockTimersRef.current.delete(login)
+    }
+  }, [])
+
+  const scheduleSendBlockClear = React.useCallback(
+    (login: string, expiresAt: number) => {
+      clearSendBlockTimer(login)
+      const delay = Math.max(0, expiresAt - Date.now())
+      const timer = setTimeout(() => {
+        sendBlockTimersRef.current.delete(login)
+        setChannelSendBlocks((current) => {
+          const block = current[login]
+          if (!block || block.expiresAt !== expiresAt) {
+            return current
+          }
+          const next = { ...current }
+          delete next[login]
+          return next
+        })
+      }, delay)
+      sendBlockTimersRef.current.set(login, timer)
+    },
+    [clearSendBlockTimer]
+  )
+
+  const clearAllSendBlocks = React.useCallback(() => {
+    for (const login of sendBlockTimersRef.current.keys()) {
+      clearSendBlockTimer(login)
+    }
+    channelSendBlocksRef.current = {}
+    setChannelSendBlocks({})
+    pendingSendRef.current = null
+  }, [clearSendBlockTimer])
+
+  const handleSendSystemNotice = React.useCallback(
+    (message: TwitchSystemMessage) => {
+      const login = message.channel
+        ? normalizeChannelLogin(message.channel)
+        : null
+      if (!login || !syncedChannelsRef.current.includes(login)) {
+        return
+      }
+
+      const sendBlock = classifySendNotice(message)
+      if (sendBlock) {
+        setChannelSendBlocks((current) => ({
+          ...current,
+          [login]: sendBlock,
+        }))
+        if (sendBlock.expiresAt) {
+          scheduleSendBlockClear(login, sendBlock.expiresAt)
+        } else {
+          clearSendBlockTimer(login)
+        }
+      }
+
+      if (!isSendRejectionNotice(message)) {
+        return
+      }
+
+      const pending = pendingSendRef.current
+      if (
+        pending &&
+        pending.channel === login &&
+        Date.now() - pending.recordedAt < 5_000
+      ) {
+        rateLimiterRef.current.unrecordLast(login)
+        pendingSendRef.current = null
+      }
+
+      emitSendOutcome({
+        type: "rejected",
+        channel: login,
+        message: message.text,
+      })
+    },
+    [
+      clearSendBlockTimer,
+      emitSendOutcome,
+      scheduleSendBlockClear,
+    ]
+  )
+
+  const probeSendRestrictions = React.useCallback(() => {
+    if (syncedChannelsRef.current.length === 0) {
+      return
+    }
+
+    sendClientRef.current?.probeSendStatus(syncedChannelsRef.current)
+  }, [])
+
+  const updateSelfState = React.useCallback((state: TwitchSelfChatState) => {
+    selfStatesRef.current.set(state.channel, state)
+    setSelfStates((current) => ({
+      ...current,
+      [state.channel]: state,
+    }))
+    senderStateRef.current = {
+      color: state.color,
+      badges: state.badges,
+      displayName: state.displayName || null,
+      isBroadcaster: state.isBroadcaster,
+      isModerator: state.isModerator,
+      isSubscriber: state.isSubscriber,
+      isVip: state.isVip,
+    }
   }, [])
 
   const updateRoom = React.useCallback(
@@ -600,6 +782,18 @@ export function useTwitchChat(options?: {
           text: message.text.slice(0, 120),
         },
       ])
+
+      const userLogin = emoteLoadContextRef.current.userLogin
+      if (
+        userLogin &&
+        normalizeChannelLogin(message.userName) ===
+          normalizeChannelLogin(userLogin)
+      ) {
+        updateSelfState(selfStateFromMessage({ ...hydrated, channel: login }))
+        pendingSendRef.current = null
+        emitSendOutcome({ type: "echo", message: hydrated })
+      }
+
       appendRoomTimeline(login, [{ kind: "chat", message: hydrated }])
       onChatMessageRef?.current?.(hydrated)
     },
@@ -609,6 +803,8 @@ export function useTwitchChat(options?: {
       hydrateRoomMessage,
       onChatMessageRef,
       updateRoom,
+      updateSelfState,
+      emitSendOutcome,
     ]
   )
 
@@ -894,8 +1090,8 @@ export function useTwitchChat(options?: {
     [drainRecentMessagesQueue]
   )
 
-  const getClient = React.useCallback(() => {
-    if (clientRef.current) return clientRef.current
+  const getReadClient = React.useCallback(() => {
+    if (readClientRef.current) return readClientRef.current
 
     const client = new TwitchChatClient((event) => {
       switch (event.type) {
@@ -978,22 +1174,6 @@ export function useTwitchChat(options?: {
           loadRecentMessages(login)
           break
         }
-        case "self-state":
-          selfStatesRef.current.set(event.state.channel, event.state)
-          setSelfStates((current) => ({
-            ...current,
-            [event.state.channel]: event.state,
-          }))
-          senderStateRef.current = {
-            color: event.state.color,
-            badges: event.state.badges,
-            displayName: event.state.displayName || null,
-            isBroadcaster: event.state.isBroadcaster,
-            isModerator: event.state.isModerator,
-            isSubscriber: event.state.isSubscriber,
-            isVip: event.state.isVip,
-          }
-          break
         case "message":
           routeMessageToRoom(event.message)
           break
@@ -1013,9 +1193,9 @@ export function useTwitchChat(options?: {
           pendingConnectRef.current = null
           break
       }
-    })
+    }, "read")
 
-    clientRef.current = client
+    readClientRef.current = client
     return client
   }, [
     appendLog,
@@ -1026,6 +1206,77 @@ export function useTwitchChat(options?: {
     updateRoom,
   ])
 
+  const getSendClient = React.useCallback(() => {
+    if (sendClientRef.current) return sendClientRef.current
+
+    const client = new TwitchChatClient((event) => {
+      switch (event.type) {
+        case "connected":
+          setSendConnectionState((prev) => ({
+            ...prev,
+            connected: true,
+            connecting: false,
+            lastError: null,
+          }))
+          pendingSendConnectRef.current?.resolve()
+          pendingSendConnectRef.current = null
+          probeSendRestrictions()
+          break
+        case "disconnected":
+          setSendConnectionState((prev) => ({
+            ...prev,
+            connected: false,
+            connecting: false,
+            lastError: event.reason,
+          }))
+          pendingSendConnectRef.current?.reject(
+            new Error(event.reason ?? "Send connection lost")
+          )
+          pendingSendConnectRef.current = null
+          break
+        case "self-state":
+          updateSelfState(toSelfChatState(event.state))
+          {
+            const login = normalizeChannelLogin(event.state.channel)
+            clearSendBlockTimer(login)
+            setChannelSendBlocks((current) => {
+              if (!current[login]) {
+                return current
+              }
+              const next = { ...current }
+              delete next[login]
+              return next
+            })
+          }
+          break
+        case "system":
+          handleSendSystemNotice(event.message)
+          break
+        case "log":
+          appendLog(event.text)
+          break
+        case "error":
+          appendLog(event.text)
+          setSendConnectionState((prev) => ({
+            ...prev,
+            lastError: event.text,
+          }))
+          pendingSendConnectRef.current?.reject(new Error(event.text))
+          pendingSendConnectRef.current = null
+          break
+      }
+    }, "send")
+
+    sendClientRef.current = client
+    return client
+  }, [
+    appendLog,
+    clearSendBlockTimer,
+    handleSendSystemNotice,
+    probeSendRestrictions,
+    updateSelfState,
+  ])
+
   React.useEffect(() => {
     return () => {
       // React Strict Mode remounts immediately in dev; closing here interrupts
@@ -1034,8 +1285,10 @@ export function useTwitchChat(options?: {
         return
       }
 
-      clientRef.current?.close()
-      clientRef.current = null
+      readClientRef.current?.close()
+      readClientRef.current = null
+      sendClientRef.current?.close()
+      sendClientRef.current = null
     }
   }, [])
 
@@ -1131,6 +1384,57 @@ export function useTwitchChat(options?: {
     []
   )
 
+  const syncSendConnection = React.useCallback(
+    (options: TwitchChatConnectOptions = {}): Promise<void> => {
+      const token = options.accessToken?.trim()
+      const nick = options.nick?.trim()
+      const hasAuth = Boolean(token && nick)
+      const connectKey = `${token ?? ""}\u0001${nick ?? ""}`
+
+      if (!hasAuth || syncedChannelsRef.current.length === 0) {
+        sendConnectKeyRef.current = ""
+        sendClientRef.current?.close()
+        sendClientRef.current = null
+        setSendConnectionState({
+          connected: false,
+          connecting: false,
+          lastError: null,
+        })
+        return Promise.resolve()
+      }
+
+      if (
+        sendClientRef.current?.isConnected &&
+        sendConnectKeyRef.current === connectKey
+      ) {
+        probeSendRestrictions()
+        return Promise.resolve()
+      }
+
+      if (sendClientRef.current) {
+        sendClientRef.current.close()
+        sendClientRef.current = null
+      }
+
+      sendConnectKeyRef.current = connectKey
+
+      setSendConnectionState((prev) => ({
+        ...prev,
+        connecting: !prev.connected,
+        lastError: null,
+      }))
+
+      return new Promise<void>((resolve, reject) => {
+        pendingSendConnectRef.current = { resolve, reject }
+        getSendClient().openSendSession(options)
+      }).catch((error) => {
+        devChatLogger.warn("send:connect-failed", error)
+        return undefined
+      })
+    },
+    [getSendClient, probeSendRestrictions]
+  )
+
   const syncChannels = React.useCallback(
     (
       channelLogins: string[],
@@ -1139,7 +1443,7 @@ export function useTwitchChat(options?: {
       const normalized = [
         ...new Set(channelLogins.map(normalizeChannelLogin).filter(Boolean)),
       ]
-      const syncKey = buildSyncChannelsKey(normalized, options)
+      const syncKey = buildSyncChannelsKey(normalized)
 
       const previous = syncedChannelsRef.current
       const unchanged =
@@ -1151,19 +1455,26 @@ export function useTwitchChat(options?: {
       if (
         unchanged &&
         normalized.length > 0 &&
-        clientRef.current?.isConnected
+        readClientRef.current?.isConnected
       ) {
+        void syncSendConnection(options)
         return Promise.resolve()
       }
 
       const inFlight = pendingSyncPromiseRef.current
       if (inFlight && inFlight.key === syncKey) {
+        void syncSendConnection(options)
         return inFlight.promise
       }
 
       if (normalized.length === 0) {
         pendingSyncPromiseRef.current = null
-        clientRef.current?.close()
+        readClientRef.current?.close()
+        readClientRef.current = null
+        sendClientRef.current?.close()
+        sendClientRef.current = null
+        rateLimiterRef.current.reset()
+        clearAllSendBlocks()
         hasAnnouncedConnectedRef.current = false
         emoteCatalogGenerationRef.current += 1
         clearThirdPartyEmoteCache()
@@ -1186,6 +1497,11 @@ export function useTwitchChat(options?: {
         composerCatalogLoadingRef.current.clear()
         clearRoomEmoteBundleCache()
         setConnectionState({
+          connected: false,
+          connecting: false,
+          lastError: null,
+        })
+        setSendConnectionState({
           connected: false,
           connecting: false,
           lastError: null,
@@ -1218,11 +1534,13 @@ export function useTwitchChat(options?: {
 
       const promise = new Promise<void>((resolve, reject) => {
         pendingConnectRef.current = { resolve, reject }
-        getClient().setChannels(normalized, options)
+        getReadClient().setChannels(normalized, {})
       })
 
       pendingSyncPromiseRef.current = { key: syncKey, promise }
-      void promise.finally(() => {
+      void promise
+        .then(() => syncSendConnection(options))
+        .finally(() => {
         if (pendingSyncPromiseRef.current?.promise === promise) {
           pendingSyncPromiseRef.current = null
         }
@@ -1231,11 +1549,13 @@ export function useTwitchChat(options?: {
       return promise
     },
     [
+      clearAllSendBlocks,
       clearRecentMessagesQueue,
       ensureRooms,
-      getClient,
+      getReadClient,
       loadRecentMessages,
       pruneRemovedChannelState,
+      syncSendConnection,
     ]
   )
 
@@ -1501,50 +1821,92 @@ export function useTwitchChat(options?: {
     [rehydrateRoomTimeline]
   )
 
-  const sendLocalChatMessage = React.useCallback(
+  const sendChatMessageInternal = React.useCallback(
     (
       login: string,
       message: string,
       reply: import("@/lib/twitch/twitch-chat").TwitchChatReply | null,
       options: { isAction?: boolean } = {}
-    ): boolean => {
+    ): ChatSendResult => {
       const normalized = normalizeChannelLogin(login)
       const text = message.replace(/\r?\n/g, " ").trim()
-      if (!text) return false
+      if (!text) {
+        return { ok: false, reason: "empty" }
+      }
 
-      const sent = getClient().sendMessage(normalized, text, {
+      if (!sendClientRef.current?.isConnected) {
+        return { ok: false, reason: "not_connected" }
+      }
+
+      const sendBlock = channelSendBlocksRef.current[normalized]
+      if (sendBlock) {
+        if (
+          sendBlock.kind === "ban" ||
+          !sendBlock.expiresAt ||
+          sendBlock.expiresAt > Date.now()
+        ) {
+          return {
+            ok: false,
+            reason: "blocked",
+            message: sendBlock.message,
+          }
+        }
+      }
+
+      const { userLogin } = emoteLoadContextRef.current
+      const selfState = selfStatesRef.current.get(normalized) ?? null
+      const isPrivileged = isPrivilegedChannelSender(
+        normalized,
+        userLogin ?? null,
+        selfState
+      )
+
+      const rateLimitResult = rateLimiterRef.current.check(
+        normalized,
+        isPrivileged
+      )
+      const rateLimitReason = mapRateLimitResult(rateLimitResult)
+      if (rateLimitReason) {
+        return { ok: false, reason: rateLimitReason }
+      }
+
+      const sent = getSendClient().sendMessage(normalized, text, {
         replyParentMessageId: reply?.parentMessageId ?? null,
         isAction: options.isAction ?? false,
       })
-      if (!sent) return false
-
-      const { userId, userLogin, userDisplayName } = emoteLoadContextRef.current
-      if (userLogin) {
-        const sender =
-          selfStatesRef.current.get(normalized) ?? senderStateRef.current
-        const room = roomsRef.current[normalized]
-
-        routeMessageToRoom(
-          createLocalChatMessage({
-            channel: normalized,
-            roomId: room?.roomId ?? null,
-            userId: userId ?? null,
-            text,
-            userName: userLogin.toLowerCase(),
-            displayName: sender.displayName ?? userDisplayName ?? userLogin,
-            color: sender.color,
-            badges: sender.badges,
-            isModerator: sender.isModerator,
-            isSubscriber: sender.isSubscriber,
-            isAction: options.isAction ?? false,
-            reply,
-          })
-        )
+      if (!sent) {
+        return { ok: false, reason: "not_connected" }
       }
 
-      return true
+      rateLimiterRef.current.record(normalized)
+      pendingSendRef.current = {
+        channel: normalized,
+        recordedAt: Date.now(),
+      }
+      return { ok: true }
     },
-    [getClient, routeMessageToRoom]
+    [getSendClient]
+  )
+
+  const getChannelSendBlock = React.useCallback(
+    (login: string): TwitchChannelSendBlock | null => {
+      const normalized = normalizeChannelLogin(login)
+      const block = channelSendBlocks[normalized]
+      if (!block) {
+        return null
+      }
+
+      if (
+        block.kind === "timeout" &&
+        block.expiresAt &&
+        block.expiresAt <= Date.now()
+      ) {
+        return null
+      }
+
+      return block
+    },
+    [channelSendBlocks]
   )
 
   const sendMessage = React.useCallback(
@@ -1552,8 +1914,8 @@ export function useTwitchChat(options?: {
       login: string,
       message: string,
       reply: import("@/lib/twitch/twitch-chat").TwitchChatReply | null = null
-    ): boolean => sendLocalChatMessage(login, message, reply),
-    [sendLocalChatMessage]
+    ): ChatSendResult => sendChatMessageInternal(login, message, reply),
+    [sendChatMessageInternal]
   )
 
   const sendActionMessage = React.useCallback(
@@ -1561,9 +1923,9 @@ export function useTwitchChat(options?: {
       login: string,
       message: string,
       reply: import("@/lib/twitch/twitch-chat").TwitchChatReply | null = null
-    ): boolean =>
-      sendLocalChatMessage(login, message, reply, { isAction: true }),
-    [sendLocalChatMessage]
+    ): ChatSendResult =>
+      sendChatMessageInternal(login, message, reply, { isAction: true }),
+    [sendChatMessageInternal]
   )
 
   const runChatCommand = React.useCallback(
@@ -1595,6 +1957,7 @@ export function useTwitchChat(options?: {
 
   return {
     connectionState,
+    sendConnectionState,
     rooms,
     logs,
     syncChannels,
@@ -1608,6 +1971,8 @@ export function useTwitchChat(options?: {
     ensureComposerEmotes,
     isComposerEmotesLoading,
     getSelfChatState,
+    getChannelSendBlock,
+    registerSendOutcomeListener,
     refreshEmotes,
     rehydrateAllRoomTimelines,
     sendMessage,

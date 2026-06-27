@@ -18,6 +18,7 @@ import {
   isSyncChannelsSupersededError,
   type TwitchSelfChatState,
   type TwitchChatRoomState,
+  type TwitchChannelSendBlock,
   type TwitchTimelineItem,
 } from "@/hooks/twitch/use-twitch-chat"
 import {
@@ -46,6 +47,8 @@ import {
   setSeventvEmoteRenderOptions,
   setThirdPartyEmoteFetchOptions,
 } from "@/lib/chat/chat-emotes"
+import type { ChatSendResult } from "@/lib/chat/chat-send"
+import type { SendOutcomeEvent } from "@/lib/chat/chat-send-notice"
 import type { ComposerEmoteCatalog } from "@/lib/chat/chat-emote-catalog"
 import type { TwitchConnectionState } from "@/lib/twitch/twitch-chat"
 
@@ -120,12 +123,17 @@ export type PeepochatSidebarHighlightsContextValue = {
 
 export type PeepochatChatContextValue = {
   connectionState: TwitchConnectionState
+  sendConnectionState: TwitchConnectionState
   rooms: Record<string, TwitchChatRoomState>
   logs: string[]
   getTimeline: (login: string) => TwitchTimelineItem[]
   getRoom: (login: string) => TwitchChatRoomState | null
   getRoomId: (login: string) => string | null
   getSelfChatState: (login: string) => TwitchSelfChatState | null
+  getChannelSendBlock: (login: string) => TwitchChannelSendBlock | null
+  registerSendOutcomeListener: (
+    listener: (event: SendOutcomeEvent) => void
+  ) => () => void
   getBadgeCatalog: (login: string) => ChatBadgeCatalog
   getMemberBadge: (userId: string | null) => ResolvedMemberBadge | null
   getComposerEmoteCatalog: (login: string) => ComposerEmoteCatalog
@@ -136,12 +144,12 @@ export type PeepochatChatContextValue = {
     login: string,
     message: string,
     reply?: import("@/lib/twitch/twitch-chat").TwitchChatReply | null
-  ) => boolean
+  ) => ChatSendResult
   sendActionMessage: (
     login: string,
     message: string,
     reply?: import("@/lib/twitch/twitch-chat").TwitchChatReply | null
-  ) => boolean
+  ) => ChatSendResult
   executeChatCommand: (
     login: string,
     input: string
@@ -239,6 +247,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
 
   const {
     connectionState,
+    sendConnectionState,
     rooms,
     logs,
     syncChannels,
@@ -246,6 +255,8 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     getRoom,
     getRoomId,
     getSelfChatState,
+    getChannelSendBlock,
+    registerSendOutcomeListener,
     setEmoteLoadContext,
     setRecentMessagesEnabled,
     setLiveMessageLimit,
@@ -544,7 +555,11 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     config.chat.emotes.showUnlistedEmotes,
   ])
 
-  const canSendChat = Boolean(account?.accessToken && connectionState.connected)
+  const canSendChat = Boolean(
+    account?.accessToken &&
+      connectionState.connected &&
+      sendConnectionState.connected
+  )
 
   const executeChatCommand = React.useCallback(
     (login: string, input: string) => runChatCommand(login, input, account),
@@ -698,12 +713,15 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
   const chatValue = React.useMemo<PeepochatChatContextValue>(
     () => ({
       connectionState,
+      sendConnectionState,
       rooms,
       logs,
       getTimeline,
       getRoom,
       getRoomId,
       getSelfChatState,
+      getChannelSendBlock,
+      registerSendOutcomeListener,
       getBadgeCatalog: getBadgeCatalogForChannel,
       getMemberBadge,
       getComposerEmoteCatalog,
@@ -718,12 +736,15 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     }),
     [
       connectionState,
+      sendConnectionState,
       rooms,
       logs,
       getTimeline,
       getRoom,
       getRoomId,
       getSelfChatState,
+      getChannelSendBlock,
+      registerSendOutcomeListener,
       getBadgeCatalogForChannel,
       getMemberBadge,
       getComposerEmoteCatalog,

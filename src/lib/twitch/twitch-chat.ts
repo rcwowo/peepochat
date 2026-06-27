@@ -16,12 +16,13 @@ import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 /**
  * Browser-native Twitch IRC client over WebSocket.
  *
- * Connects anonymously (read-only) to `wss://irc-ws.chat.twitch.tv:443`
- * using the `justinfan` convention. Requests `twitch.tv/tags` and
- * `twitch.tv/commands` capabilities so every PRIVMSG carries full TMI tags
- * (display-name, color, badges, etc.).
+ * Supports two modes:
+ * - `read`: joins channels anonymously and receives chat (including the local
+ *   user's messages sent through a separate send connection).
+ * - `send`: authenticated, joins channels only for send-status probes, sends PRIVMSG.
  *
- * Zero external dependencies - uses the native browser WebSocket API.
+ * Connects to `wss://irc-ws.chat.twitch.tv:443`. Requests `twitch.tv/tags`
+ * and `twitch.tv/commands` capabilities so every PRIVMSG carries full TMI tags.
  */
 
 // ---------------------------------------------------------------------------
@@ -112,6 +113,7 @@ export type TwitchSystemMessage = {
   level: "info" | "success" | "warning" | "error"
   accentColor: string | null
   msgId: string | null
+  banDurationSeconds: number | null
   actor: TwitchNoticeActor | null
   viewerCount: number | null
   cumulativeMonths: number | null
@@ -123,6 +125,7 @@ export type TwitchSystemMessage = {
 
 export const EMPTY_SYSTEM_MESSAGE_META = {
   msgId: null,
+  banDurationSeconds: null,
   actor: null,
   viewerCount: null,
   cumulativeMonths: null,
@@ -133,6 +136,7 @@ export const EMPTY_SYSTEM_MESSAGE_META = {
 } as const satisfies Pick<
   TwitchSystemMessage,
   | "msgId"
+  | "banDurationSeconds"
   | "actor"
   | "viewerCount"
   | "cumulativeMonths"
@@ -203,6 +207,8 @@ export type TwitchChatConnectOptions = {
   nick?: string
 }
 
+export type TwitchChatClientMode = "read" | "send"
+
 export class TwitchChatClient {
   private ws: WebSocket | null = null
   private desiredChannels = new Set<string>()
@@ -214,9 +220,15 @@ export class TwitchChatClient {
   private intentionalClose = false
   private sessionOpen = false
   private welcomeReceived = false
+  private mode: TwitchChatClientMode
+  private statusProbeChannels = new Set<string>()
 
-  constructor(handler: TwitchChatEventHandler) {
+  constructor(
+    handler: TwitchChatEventHandler,
+    mode: TwitchChatClientMode = "read"
+  ) {
     this.handler = handler
+    this.mode = mode
   }
 
   private emit(event: TwitchChatEvent) {
@@ -226,6 +238,11 @@ export class TwitchChatClient {
 
   /** Open an IRC session (anonymous or authenticated read). */
   open(options: TwitchChatConnectOptions = {}) {
+    if (this.mode === "send") {
+      this.openSendSession(options)
+      return
+    }
+
     if (this.ws && this.ws.readyState <= WebSocket.OPEN) {
       this.connectOptions = options
       return
@@ -236,7 +253,166 @@ export class TwitchChatClient {
     this.welcomeReceived = false
     this.connectOptions = options
     this.joinedChannels.clear()
+    this.openWebSocket(options)
+  }
 
+  /**
+   * Open an authenticated send-only IRC session. The connection never joins
+   * channels but can still send PRIVMSG to any channel.
+   */
+  openSendSession(options: TwitchChatConnectOptions) {
+    if (this.mode !== "send") {
+      return
+    }
+
+    const token = options.accessToken?.trim()
+    const nick = options.nick?.trim().toLowerCase()
+    if (!token || !nick) {
+      return
+    }
+
+    this.connectOptions = options
+
+    if (this.ws && this.ws.readyState <= WebSocket.OPEN) {
+      return
+    }
+
+    this.intentionalClose = false
+    this.sessionOpen = true
+    this.welcomeReceived = false
+    this.openWebSocket(options)
+  }
+
+  /**
+   * Sync joined channels to the desired set. Opens the session when needed.
+   */
+  setChannels(channels: string[], options: TwitchChatConnectOptions = {}) {
+    if (this.mode === "send") {
+      this.openSendSession(options)
+      return
+    }
+
+    const normalized = [
+      ...new Set(
+        channels
+          .map((channel) => normalizeChannelLogin(channel))
+          .filter(Boolean)
+      ),
+    ]
+
+    this.desiredChannels = new Set(normalized)
+    this.connectOptions = options
+
+    if (!this.sessionOpen) {
+      if (normalized.length === 0) {
+        return
+      }
+      this.open(options)
+      return
+    }
+
+    if (!this.isConnected || !this.welcomeReceived) {
+      return
+    }
+
+    this.syncJoins()
+  }
+
+  /** Cleanly disconnect and clear all channels. */
+  close() {
+    this.intentionalClose = true
+    this.sessionOpen = false
+    if (this.mode === "read") {
+      this.desiredChannels.clear()
+    } else {
+      this.statusProbeChannels.clear()
+    }
+    this.clearTimers()
+    if (this.ws) {
+      this.ws.close()
+      this.ws = null
+    }
+  }
+
+  /** @deprecated Use open/setChannels/close instead. */
+  connect(channel: string, options: TwitchChatConnectOptions = {}) {
+    this.setChannels([channel], options)
+  }
+
+  /** @deprecated Use close instead. */
+  disconnect() {
+    this.close()
+  }
+
+  /** Whether there is an active WebSocket connection. */
+  get isConnected() {
+    return this.ws?.readyState === WebSocket.OPEN
+  }
+
+  /**
+   * Join a channel briefly on the send connection to detect ban/timeout status.
+   * The client parts again after USERSTATE or a rejection NOTICE.
+   */
+  probeSendStatus(channels: string[]) {
+    if (this.mode !== "send" || !this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      return
+    }
+
+    for (const channel of channels) {
+      const normalized = normalizeChannelLogin(channel)
+      if (!normalized || this.statusProbeChannels.has(normalized)) {
+        continue
+      }
+
+      this.statusProbeChannels.add(normalized)
+      this.joinChannel(normalized)
+    }
+  }
+
+  private completeStatusProbe(channel: string) {
+    const normalized = normalizeChannelLogin(channel)
+    if (!this.statusProbeChannels.delete(normalized)) {
+      return
+    }
+
+    if (this.joinedChannels.has(normalized)) {
+      this.partChannel(normalized)
+    }
+  }
+
+  /**
+   * Send a chat message to a channel. Read clients cannot send. Send clients
+   * do not need to join the channel first.
+   */
+  sendMessage(
+    channel: string,
+    message: string,
+    options: {
+      replyParentMessageId?: string | null
+      isAction?: boolean
+    } = {}
+  ): boolean {
+    if (this.mode !== "send") {
+      return false
+    }
+
+    const normalized = normalizeChannelLogin(channel)
+    const text = message.replace(/\r?\n/g, " ").trim()
+
+    if (!text || !this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      return false
+    }
+
+    const replyParentMessageId = options.replyParentMessageId?.trim()
+    const replyTag = replyParentMessageId
+      ? `@reply-parent-msg-id=${replyParentMessageId} `
+      : ""
+    const payload = options.isAction ? `\x01ACTION ${text}\x01` : text
+    this.ws.send(`${replyTag}PRIVMSG #${normalized} :${payload}`)
+    return true
+  }
+
+  private openWebSocket(options: TwitchChatConnectOptions) {
     const ws = new WebSocket(TWITCH_WS_URL)
     this.ws = ws
 
@@ -268,10 +444,13 @@ export class TwitchChatClient {
 
       this.clearTimers()
       this.welcomeReceived = false
-      const parted = [...this.joinedChannels]
-      this.joinedChannels.clear()
-      for (const channel of parted) {
-        this.emit({ type: "channel-parted", channel })
+
+      if (this.mode === "read") {
+        const parted = [...this.joinedChannels]
+        this.joinedChannels.clear()
+        for (const channel of parted) {
+          this.emit({ type: "channel-parted", channel })
+        }
       }
 
       if (!this.intentionalClose && this.sessionOpen) {
@@ -292,95 +471,6 @@ export class TwitchChatClient {
 
       this.emit({ type: "error", text: "WebSocket error" })
     })
-  }
-
-  /**
-   * Sync joined channels to the desired set. Opens the session when needed.
-   */
-  setChannels(channels: string[], options: TwitchChatConnectOptions = {}) {
-    const normalized = [
-      ...new Set(
-        channels
-          .map((channel) => normalizeChannelLogin(channel))
-          .filter(Boolean)
-      ),
-    ]
-
-    this.desiredChannels = new Set(normalized)
-    this.connectOptions = options
-
-    if (!this.sessionOpen) {
-      if (normalized.length === 0) {
-        return
-      }
-      this.open(options)
-      return
-    }
-
-    if (!this.isConnected || !this.welcomeReceived) {
-      return
-    }
-
-    this.syncJoins()
-  }
-
-  /** Cleanly disconnect and clear all channels. */
-  close() {
-    this.intentionalClose = true
-    this.sessionOpen = false
-    this.desiredChannels.clear()
-    this.clearTimers()
-    if (this.ws) {
-      this.ws.close()
-      this.ws = null
-    }
-  }
-
-  /** @deprecated Use open/setChannels/close instead. */
-  connect(channel: string, options: TwitchChatConnectOptions = {}) {
-    this.setChannels([channel], options)
-  }
-
-  /** @deprecated Use close instead. */
-  disconnect() {
-    this.close()
-  }
-
-  /** Whether there is an active WebSocket connection. */
-  get isConnected() {
-    return this.ws?.readyState === WebSocket.OPEN
-  }
-
-  /**
-   * Send a chat message to a joined channel. Requires an authenticated session
-   * (non-anonymous nick) and `chat:edit` on the OAuth token.
-   */
-  sendMessage(
-    channel: string,
-    message: string,
-    options: {
-      replyParentMessageId?: string | null
-      isAction?: boolean
-    } = {}
-  ): boolean {
-    const normalized = normalizeChannelLogin(channel)
-    const text = message.replace(/\r?\n/g, " ").trim()
-
-    if (!text || !this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      return false
-    }
-
-    if (!this.joinedChannels.has(normalized)) {
-      return false
-    }
-
-    const replyParentMessageId = options.replyParentMessageId?.trim()
-    const replyTag = replyParentMessageId
-      ? `@reply-parent-msg-id=${replyParentMessageId} `
-      : ""
-    const payload = options.isAction ? `\x01ACTION ${text}\x01` : text
-    this.ws.send(`${replyTag}PRIVMSG #${normalized} :${payload}`)
-    return true
   }
 
   private syncJoins() {
@@ -461,7 +551,9 @@ export class TwitchChatClient {
       }
       this.welcomeReceived = true
       this.emit({ type: "connected" })
-      this.syncJoins()
+      if (this.mode === "read") {
+        this.syncJoins()
+      }
       return
     }
 
@@ -501,6 +593,9 @@ export class TwitchChatClient {
       const state = tagged ? parseUserState(tagged) : null
       if (state) {
         this.emit({ type: "self-state", state })
+        if (this.mode === "send") {
+          this.completeStatusProbe(state.channel)
+        }
       } else {
         devChatLogger.warn("irc:parse-failed", "USERSTATE", raw)
       }
@@ -542,7 +637,12 @@ export class TwitchChatClient {
       const noticeMessage = tagged ? parseNotice(tagged) : null
       if (noticeMessage) {
         this.emit({ type: "system", message: noticeMessage })
-        this.emit({ type: "log", text: noticeMessage.text })
+        if (this.mode === "send" && noticeMessage.channel) {
+          this.completeStatusProbe(noticeMessage.channel)
+        }
+        if (this.mode === "read") {
+          this.emit({ type: "log", text: noticeMessage.text })
+        }
       } else {
         const noticeText = raw.split(" :").pop() ?? raw
         devChatLogger.warn("irc:parse-failed", "NOTICE", raw)
@@ -572,7 +672,7 @@ export class TwitchChatClient {
   private scheduleReconnect() {
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
     if (!this.sessionOpen || this.intentionalClose) return
-    if (this.desiredChannels.size === 0) return
+    if (this.mode === "read" && this.desiredChannels.size === 0) return
 
     this.emit({
       type: "log",
@@ -580,7 +680,13 @@ export class TwitchChatClient {
     })
     this.reconnectTimer = setTimeout(() => {
       this.welcomeReceived = false
-      this.joinedChannels.clear()
+      if (this.mode === "read") {
+        this.joinedChannels.clear()
+      }
+      if (this.mode === "send") {
+        this.openSendSession(this.connectOptions)
+        return
+      }
       this.open(this.connectOptions)
     }, RECONNECT_DELAY_MS)
   }
@@ -711,55 +817,6 @@ function parseUserState(tagged: IrcTaggedLine): TwitchSelfUserState | null {
   }
 }
 
-/** Build a timeline entry for a message the local user just sent (Twitch does not echo PRIVMSG). */
-export function createLocalChatMessage(params: {
-  channel: string
-  roomId: string | null
-  userId?: string | null
-  text: string
-  userName: string
-  displayName: string
-  color: string | null
-  badges: TwitchBadge[]
-  isModerator?: boolean
-  isSubscriber?: boolean
-  isAction?: boolean
-  reply?: TwitchChatReply | null
-}): TwitchChatMessage {
-  const badges = params.badges
-  const id =
-    typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? `local:${crypto.randomUUID()}`
-      : `local:${Date.now()}-${Math.random().toString(36).slice(2)}`
-
-  return {
-    id,
-    channel: params.channel,
-    roomId: params.roomId,
-    userId: params.userId ?? null,
-    userName: params.userName,
-    displayName: params.displayName,
-    text: params.text,
-    color: params.color,
-    receivedAt: new Date().toISOString(),
-    badges,
-    badgeInfo: [],
-    emotes: [],
-    reply: params.reply ?? null,
-    flags: {
-      isBroadcaster: badges.some((badge) => badge.set === "broadcaster"),
-      isModerator:
-        params.isModerator ?? badges.some((badge) => badge.set === "moderator"),
-      isSubscriber:
-        params.isSubscriber ??
-        badges.some((badge) => badge.set === "subscriber"),
-      isVip: badges.some((badge) => badge.set === "vip"),
-      isFirst: false,
-      isAction: params.isAction ?? false,
-    },
-  }
-}
-
 export function parseIrcUserNotice(raw: string): TwitchSystemMessage | null {
   if (!raw.startsWith("@")) return null
   const tagged = splitTaggedLine(raw)
@@ -806,6 +863,7 @@ function parseUserNotice(tagged: IrcTaggedLine): TwitchSystemMessage | null {
         ? resolveAnnouncementColor(announcementTheme)
         : null,
     msgId: msgId || null,
+    banDurationSeconds: null,
     actor: parseNoticeActor(tagged.tags),
     viewerCount: parseOptionalInt(tagged.tags.get("msg-param-viewerCount")),
     cumulativeMonths: parseOptionalInt(
@@ -841,7 +899,8 @@ function parseNotice(tagged: IrcTaggedLine): TwitchSystemMessage | null {
     event: "notice",
     level: "warning",
     accentColor: null,
-    msgId: null,
+    msgId: tagged.tags.get("msg-id") || null,
+    banDurationSeconds: parseOptionalInt(tagged.tags.get("ban-duration")),
     actor: null,
     viewerCount: null,
     cumulativeMonths: null,

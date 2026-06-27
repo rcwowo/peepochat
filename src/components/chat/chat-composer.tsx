@@ -10,6 +10,9 @@ import { useUserCardContext } from "@/hooks/twitch/use-user-card-context"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { usePeepochat } from "@/lib/peepochat/peepochat-context"
+import { CHAT_RATE_LIMIT_MESSAGES } from "@/lib/chat/chat-send"
+import { isPersistentSendBlockText } from "@/lib/chat/chat-send-notice"
+import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 import type { TwitchChatReply } from "@/lib/twitch/twitch-chat"
 import {
   applyEmoteSuggestion,
@@ -62,12 +65,15 @@ export function ChatComposer({
     sendActionMessage,
     executeChatCommand,
     connectionState,
+    getChannelSendBlock,
+    registerSendOutcomeListener,
   } = usePeepochat()
 
   const userCardContext = useUserCardContext()
 
   const [value, setValue] = React.useState("")
   const [error, setError] = React.useState("")
+  const [rateLimitHint, setRateLimitHint] = React.useState<string | null>(null)
   const [reply, setReply] = React.useState<TwitchChatReply | null>(null)
   const [completer, setCompleter] = React.useState<EmoteCompleterState>(() =>
     createEmoteCompleterState()
@@ -90,6 +96,12 @@ export function ChatComposer({
   const historyIndexRef = React.useRef(-1)
   const commandSubmitRef = React.useRef(0)
   const commandPendingRef = React.useRef(false)
+  const pendingSendRef = React.useRef<{
+    composerMessage: string
+    sentText: string
+    isAction: boolean
+    timeoutId: number
+  } | null>(null)
   const [syncedChannelLogin, setSyncedChannelLogin] =
     React.useState(channelLogin)
   const [commandPending, setCommandPending] = React.useState(false)
@@ -115,6 +127,7 @@ export function ChatComposer({
 
   const catalog = getComposerEmoteCatalog(channelLogin)
   const emotesLoading = isComposerEmotesLoading(channelLogin)
+  const sendBlock = getChannelSendBlock(channelLogin)
   const emoteList = React.useMemo(() => [...catalog.byCode.values()], [catalog])
 
   const showEmoteSuggestions =
@@ -133,14 +146,17 @@ export function ChatComposer({
     commandCompleter
   )
 
-  const disabled = !canSendChat || !joined || commandPending
+  const disabled =
+    !canSendChat || !joined || commandPending || Boolean(sendBlock)
   const placeholder = !account
     ? "Sign in with Twitch to send messages"
-    : !connectionState.connected
-      ? "Connect to Twitch chat to send messages"
-      : !joined
-        ? `Connecting to #${channelLogin}…`
-        : `Message #${channelLogin}`
+    : sendBlock
+      ? sendBlock.message
+      : !connectionState.connected
+        ? "Connect to Twitch chat to send messages"
+        : !joined
+          ? `Connecting to #${channelLogin}…`
+          : `Message #${channelLogin}`
 
   React.useEffect(() => {
     if (!error) return
@@ -149,15 +165,127 @@ export function ChatComposer({
     return () => window.clearTimeout(timeout)
   }, [error])
 
+  React.useEffect(() => {
+    if (!rateLimitHint) return
+
+    const timeout = window.setTimeout(() => setRateLimitHint(null), 3000)
+    return () => window.clearTimeout(timeout)
+  }, [rateLimitHint])
+
+  const clearPendingSend = React.useCallback(() => {
+    const pending = pendingSendRef.current
+    if (!pending) return
+
+    window.clearTimeout(pending.timeoutId)
+    pendingSendRef.current = null
+  }, [])
+
   const clearComposerAfterSend = React.useCallback((message: string) => {
+    clearPendingSend()
     setValue("")
     setReply(null)
     setError("")
+    setRateLimitHint(null)
     setCompleter(createEmoteCompleterState())
     setCommandCompleter(createCommandCompleterState())
     historyRef.current = [...historyRef.current, message].slice(-50)
     historyIndexRef.current = -1
-  }, [])
+  }, [clearPendingSend])
+
+  const handleSendResult = React.useCallback(
+    (
+      result: import("@/lib/chat/chat-send").ChatSendResult,
+      composerMessage: string,
+      options: { sentText?: string; isAction?: boolean } = {}
+    ) => {
+      const sentText = options.sentText ?? composerMessage
+      const isAction = options.isAction ?? false
+
+      if (result.ok) {
+        clearPendingSend()
+        const timeoutId = window.setTimeout(() => {
+          const pending = pendingSendRef.current
+          if (pending?.composerMessage !== composerMessage) {
+            return
+          }
+
+          clearComposerAfterSend(composerMessage)
+        }, 8_000)
+        pendingSendRef.current = {
+          composerMessage,
+          sentText,
+          isAction,
+          timeoutId,
+        }
+        return
+      }
+
+      if (result.reason === "too_fast" || result.reason === "too_many") {
+        setRateLimitHint(CHAT_RATE_LIMIT_MESSAGES[result.reason])
+        return
+      }
+
+      if (result.reason === "blocked") {
+        return
+      }
+
+      setError(
+        result.message ??
+          "Message could not be sent. Check your connection and login."
+      )
+      toast.error(result.message ?? "Failed to send message")
+    },
+    [clearComposerAfterSend, clearPendingSend]
+  )
+
+  React.useEffect(() => {
+    return registerSendOutcomeListener((event) => {
+      const normalizedChannel = normalizeChannelLogin(channelLogin)
+
+      if (event.type === "rejected") {
+        if (normalizeChannelLogin(event.channel) !== normalizedChannel) {
+          return
+        }
+
+        clearPendingSend()
+        if (isPersistentSendBlockText(event.message)) {
+          return
+        }
+
+        setError(event.message)
+        toast.error(event.message)
+        return
+      }
+
+      const pending = pendingSendRef.current
+      if (!pending) {
+        return
+      }
+
+      if (normalizeChannelLogin(event.message.channel) !== normalizedChannel) {
+        return
+      }
+
+      if (event.message.text !== pending.sentText) {
+        return
+      }
+
+      if (event.message.flags.isAction !== pending.isAction) {
+        return
+      }
+
+      clearComposerAfterSend(pending.composerMessage)
+    })
+  }, [
+    channelLogin,
+    clearComposerAfterSend,
+    clearPendingSend,
+    registerSendOutcomeListener,
+  ])
+
+  React.useEffect(() => {
+    clearPendingSend()
+  }, [channelLogin, clearPendingSend])
 
   const updateColonCompleter = React.useCallback(
     (text: string, cursor: number) => {
@@ -479,15 +607,15 @@ export function ChatComposer({
         }
 
         if (result.kind === "me") {
-          const sent = sendActionMessage(channelLogin, result.text, reply)
-          if (!sent) {
-            setError(
-              "Message could not be sent. Check your connection and login."
-            )
-            toast.error("Failed to send message")
-            return
-          }
-          clearComposerAfterSend(message)
+          const sendResult = sendActionMessage(
+            channelLogin,
+            result.text,
+            reply
+          )
+          handleSendResult(sendResult, message, {
+            sentText: result.text,
+            isAction: true,
+          })
           return
         }
 
@@ -508,14 +636,8 @@ export function ChatComposer({
       return
     }
 
-    const sent = sendChatMessage(channelLogin, message, reply)
-    if (!sent) {
-      setError("Message could not be sent. Check your connection and login.")
-      toast.error("Failed to send message")
-      return
-    }
-
-    clearComposerAfterSend(message)
+    const sendResult = sendChatMessage(channelLogin, message, reply)
+    handleSendResult(sendResult, message)
   }
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -637,7 +759,7 @@ export function ChatComposer({
 
   return (
     <div className="shrink-0">
-      {error ? (
+      {error && !sendBlock ? (
         <div className="flex items-start gap-2 px-3 py-2 text-sm text-muted-foreground">
           <AlertCircleIcon className="mt-0.5 size-4 shrink-0 text-amber-500" />
           <p>{error}</p>
@@ -669,6 +791,13 @@ export function ChatComposer({
 
       <div className="relative flex items-end gap-1 px-2 py-2">
         <div className="relative min-w-0 flex-1">
+          {rateLimitHint ? (
+            <div className="absolute bottom-full left-0 z-50 mb-1.5 w-full min-w-[min(24rem,100%)] overflow-hidden rounded-lg border border-border bg-popover shadow-md">
+              <div className="space-y-1 px-2.5 py-2 text-xs text-muted-foreground">
+                <p>{rateLimitHint}</p>
+              </div>
+            </div>
+          ) : null}
           <CommandSuggestions
             open={showCommandSuggestions}
             index={commandCompleter.current}
