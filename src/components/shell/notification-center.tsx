@@ -1,5 +1,11 @@
 import * as React from "react"
-import { BellIcon, BellRingIcon, RadioIcon, Trash2Icon } from "lucide-react"
+import {
+  BellIcon,
+  BellOffIcon,
+  BellRingIcon,
+  RadioIcon,
+  Trash2Icon,
+} from "lucide-react"
 
 import { PingMatchText } from "@/components/shell/ping-match-text"
 import { Button } from "@/components/ui/button"
@@ -344,7 +350,8 @@ function useChannelMetaByLogin() {
 
 export function NotificationCenter() {
   const [open, setOpen] = React.useState(false)
-  const { config, setActiveChannel } = usePeepochatSettings()
+  const { config, setActiveChannel, updateConfig } = usePeepochatSettings()
+  const doNotDisturbEnabled = config.highlights.doNotDisturbEnabled
   const channelMetaByLogin = useChannelMetaByLogin()
   const {
     pingNotifications,
@@ -380,6 +387,16 @@ export function NotificationCenter() {
       : liveNotifications.length
   const handleDismissAll =
     resolvedTab === "pings" ? dismissAllPings : dismissAllLive
+
+  const handleToggleDoNotDisturb = React.useCallback(() => {
+    updateConfig((current) => ({
+      ...current,
+      highlights: {
+        ...current.highlights,
+        doNotDisturbEnabled: !current.highlights.doNotDisturbEnabled,
+      },
+    }))
+  }, [updateConfig])
 
   const pingList = (
     <NotificationList
@@ -426,51 +443,91 @@ export function NotificationCenter() {
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <Tooltip>
+      {doNotDisturbEnabled ? (
+        <Tooltip>
+          <PopoverTrigger asChild>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                className="relative"
+                aria-label="Notifications — Do not disturb is on"
+              >
+                <BellOffIcon className="size-4 text-destructive" />
+                {totalCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+                    {totalCount > 99 ? "99+" : totalCount}
+                  </span>
+                )}
+              </Button>
+            </TooltipTrigger>
+          </PopoverTrigger>
+          <TooltipContent>Do not disturb is on</TooltipContent>
+        </Tooltip>
+      ) : (
         <PopoverTrigger asChild>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon"
-              className="relative"
-              aria-label="Notifications"
-            >
-              <BellIcon className="size-4" />
-              {totalCount > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
-                  {totalCount > 99 ? "99+" : totalCount}
-                </span>
-              )}
-            </Button>
-          </TooltipTrigger>
+          <Button
+            variant="outline"
+            size="icon"
+            className="relative"
+            aria-label="Notifications"
+          >
+            <BellIcon className="size-4" />
+            {totalCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+                {totalCount > 99 ? "99+" : totalCount}
+              </span>
+            )}
+          </Button>
         </PopoverTrigger>
-        <TooltipContent>Notifications</TooltipContent>
-      </Tooltip>
+      )}
 
       <PopoverContent
         align="end"
         side="bottom"
         sideOffset={8}
         className="flex w-[min(24rem,calc(100vw-2rem))] flex-col overflow-hidden p-0"
+        onOpenAutoFocus={(event) => event.preventDefault()}
         onWheel={(event) => event.stopPropagation()}
       >
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-2.5">
           <h2 className="font-heading text-sm font-medium text-foreground">
             Notifications
           </h2>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className={`h-7 shrink-0 gap-1.5 text-xs text-muted-foreground ${
-              clearAllCount === 0 ? "pointer-events-none invisible" : ""
-            }`}
-            disabled={clearAllCount === 0}
-            onClick={handleDismissAll}
-          >
-            <Trash2Icon className="size-3.5" />
-            Dismiss all
-          </Button>
+          <div className="flex shrink-0 items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className={`h-7 shrink-0 gap-1.5 text-xs text-muted-foreground ${
+                clearAllCount === 0 ? "pointer-events-none invisible" : ""
+              }`}
+              disabled={clearAllCount === 0}
+              onClick={handleDismissAll}
+            >
+              <Trash2Icon className="size-3.5" />
+              Dismiss all
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="size-7 shrink-0"
+              aria-pressed={doNotDisturbEnabled}
+              aria-label={
+                doNotDisturbEnabled
+                  ? "Do not disturb is on"
+                  : "Turn on do not disturb"
+              }
+              onClick={handleToggleDoNotDisturb}
+            >
+              <BellOffIcon
+                className={`size-4 ${
+                  doNotDisturbEnabled ? "text-destructive" : ""
+                }`}
+              />
+            </Button>
+          </div>
         </div>
 
         {liveNotificationsEnabled ? (

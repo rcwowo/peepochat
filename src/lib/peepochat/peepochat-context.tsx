@@ -362,6 +362,8 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
         wentLiveAt: new Date().toISOString(),
       })
 
+      if (config.highlights.doNotDisturbEnabled) return
+
       if (!canShowDesktopNotifications()) return
       if (document.visibilityState !== "hidden") return
 

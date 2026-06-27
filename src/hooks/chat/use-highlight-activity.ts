@@ -128,6 +128,9 @@ export function useHighlightActivity({
   const pingPushEnabledRef = React.useRef(
     config.highlights.pingPushNotificationsEnabled
   )
+  const doNotDisturbEnabledRef = React.useRef(
+    config.highlights.doNotDisturbEnabled
+  )
 
   const onFocusChannelRef = React.useRef(onFocusChannel)
 
@@ -140,6 +143,10 @@ export function useHighlightActivity({
   React.useEffect(() => {
     pingPushEnabledRef.current = config.highlights.pingPushNotificationsEnabled
   }, [config.highlights.pingPushNotificationsEnabled])
+
+  React.useEffect(() => {
+    doNotDisturbEnabledRef.current = config.highlights.doNotDisturbEnabled
+  }, [config.highlights.doNotDisturbEnabled])
 
   React.useEffect(() => {
     pingOnUsernameMentionRef.current = config.highlights.pingOnUsernameMention
@@ -308,7 +315,9 @@ export function useHighlightActivity({
           readAt: isVisible ? new Date().toISOString() : null,
         })
 
+        const doNotDisturb = doNotDisturbEnabledRef.current
         const shouldNotify =
+          !doNotDisturb &&
           pingPushEnabledRef.current &&
           pingMatch.notify &&
           document.visibilityState === "hidden" &&
@@ -326,14 +335,14 @@ export function useHighlightActivity({
             tag: `ping:${login}:${message.id}`,
             onClick: () => onFocusChannelRef.current?.(login),
           })
+        }
+
+        if (!doNotDisturb) {
           void playAlertSound({
             useDefaultSounds: useDefaultSoundsRef.current,
-            customId: notificationSoundCustomIdRef.current,
-          })
-        } else {
-          void playAlertSound({
-            useDefaultSounds: useDefaultSoundsRef.current,
-            customId: pingSoundCustomIdRef.current,
+            customId: shouldNotify
+              ? notificationSoundCustomIdRef.current
+              : pingSoundCustomIdRef.current,
           })
         }
       }
