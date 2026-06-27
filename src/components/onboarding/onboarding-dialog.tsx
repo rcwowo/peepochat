@@ -15,7 +15,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 
-import logoSrc from "/logo.svg"
+import logoSrc from "/branding/full-logo.svg"
 import { usePeepochatSettings } from "@/lib/peepochat/peepochat-context"
 import {
   clearOnboardingSession,

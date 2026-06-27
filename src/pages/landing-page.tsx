@@ -14,7 +14,7 @@ import { LayoutShowcaseSection } from "@/components/landing/layout-showcase-sect
 import { HeroChatMockup } from "@/components/landing/hero-chat-mockup"
 import { LandingFooter } from "@/components/landing/landing-footer"
 import { Button } from "@/components/ui/button"
-import logoSrc from "/logo.svg"
+import logoSrc from "/branding/full-logo.svg"
 
 const FEATURE_ACCENT = "from-primary/30 to-primary/5"
 

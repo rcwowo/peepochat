@@ -6,8 +6,8 @@ import { RCW_URL } from "@/lib/landing/landing-footer-links"
 import { cn } from "@/lib/utils"
 
 const version: string = __APP_VERSION__
-const iconBkgSrc = "/icon-bkg.png"
-const owoLogoSrc = "/logo-transparent.png"
+const iconBkgSrc = "/branding/icon-background.png"
+const owoLogoSrc = "/branding/owo-logo.png"
 const BLUESKY_URL = "https://bsky.app/profile/rcw.lol"
 const PATREON_URL = "https://www.patreon.com/rcwowo"
 const OWO_SUPPORTER_BADGE_IMAGE = "https://i.rcw.lol/u/VrPTF3.png"

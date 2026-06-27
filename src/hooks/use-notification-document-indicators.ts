@@ -3,8 +3,8 @@ import * as React from "react"
 import { useNotificationCenter } from "@/lib/highlights/notification-center"
 
 const APP_TITLE = "Peepochat"
-const DEFAULT_FAVICON = "/icon.svg"
-const PING_FAVICON = "/icon-ping.svg"
+const DEFAULT_FAVICON = "/branding/icon.svg"
+const PING_FAVICON = "/branding/icon-ping.svg"
 
 function getFaviconLink() {
   return document.querySelector<HTMLLinkElement>('link[rel="icon"]')

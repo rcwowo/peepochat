@@ -23,7 +23,7 @@ export function LandingFooter() {
             aria-label="Peepochat home"
           >
             <img
-              src="/logo-transparent.png"
+              src="/branding/owo-logo.png"
               alt=""
               width={84}
               height={50}

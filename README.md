@@ -1,6 +1,6 @@
 <div align="center">
 
-![Logo](public/social-banner.webp)
+![Logo](public/branding/social-banner.webp)
 # Peepochat
 A fully-featured Twitch chat clilent that runs entirely within your browser.
 

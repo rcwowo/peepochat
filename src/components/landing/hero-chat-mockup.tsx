@@ -9,7 +9,7 @@ import {
 } from "@/components/sidebar/sidebar-channel-icon"
 import { Button } from "@/components/ui/button"
 import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion"
-import logoSrc from "/logo.svg"
+import logoSrc from "/branding/full-logo.svg"
 import { LANDING_CHANNELS } from "@/lib/landing/landing-channels"
 import { LANDING_EMOTES } from "@/lib/landing/landing-emotes"
 import { cn } from "@/lib/utils"

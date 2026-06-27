@@ -1,4 +1,4 @@
-import logoSrc from "/logo.svg"
+import logoSrc from "/branding/full-logo.svg"
 import { AccountMenu } from "@/components/shell/account-menu"
 import { NotificationCenter } from "@/components/shell/notification-center"
 import { useNotificationDocumentIndicators } from "@/hooks/use-notification-document-indicators"
