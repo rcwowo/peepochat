@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Music2Icon, PlayIcon, UploadIcon } from "lucide-react"
+import { Music2Icon, PlayIcon, RotateCcwIcon, UploadIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -71,6 +71,22 @@ export function AlertSoundSettingRow({
     }
   }
 
+  const handleReset = async () => {
+    if (!customId) return
+
+    const idToDelete = customId
+    onCustomIdChange(null)
+    setLoadedCustomName(null)
+
+    try {
+      await deleteCustomSound(idToDelete)
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to reset sound"
+      )
+    }
+  }
+
   const soundLabel = customId ? (customName ?? "Custom sound") : "Default sound"
 
   return (
@@ -104,16 +120,29 @@ export function AlertSoundSettingRow({
           >
             <PlayIcon className="size-3.5" />
           </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            className="text-muted-foreground hover:text-foreground"
-            onClick={() => inputRef.current?.click()}
-            aria-label={`Upload ${title.toLowerCase()}`}
-          >
-            <UploadIcon className="size-3.5" />
-          </Button>
+          {customId ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              className="text-muted-foreground hover:text-foreground"
+              onClick={() => void handleReset()}
+              aria-label={`Reset ${title.toLowerCase()} to default`}
+            >
+              <RotateCcwIcon className="size-3.5" />
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              className="text-muted-foreground hover:text-foreground"
+              onClick={() => inputRef.current?.click()}
+              aria-label={`Upload ${title.toLowerCase()}`}
+            >
+              <UploadIcon className="size-3.5" />
+            </Button>
+          )}
         </div>
       </div>
 
