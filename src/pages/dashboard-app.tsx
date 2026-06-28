@@ -20,6 +20,7 @@ import {
   SettingsDialog,
   type SettingsCategory,
 } from "@/components/settings/settings-dialog"
+import { shouldPreventSettingsDismiss } from "@/lib/settings/settings-portaled-layers"
 import { ChatPage } from "@/pages/chat-page"
 
 function DashboardLayout() {
@@ -96,7 +97,11 @@ function DashboardLayout() {
           type="button"
           aria-label="Close panel"
           className="absolute inset-0 z-50 hidden cursor-default border-0 bg-black/55 sm:block"
-          onClick={() => {
+          onPointerDown={() => {
+            if (shouldPreventSettingsDismiss(null)) {
+              return
+            }
+
             setSettingsOpen(false)
           }}
         />

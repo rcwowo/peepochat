@@ -1,12 +1,20 @@
 import {
+  BanIcon,
+  ClockIcon,
   CopyIcon,
   CornerUpLeftIcon,
+  EraserIcon,
   EyeIcon,
   HistoryIcon,
   LayersIcon,
   Layers2Icon,
+  Trash2Icon,
 } from "lucide-react"
 
+import {
+  canBanOrTimeoutUsers,
+  canDeleteChatMessages,
+} from "@/lib/chat/moderation-permissions"
 import {
   LIVE_MESSAGES_PER_CHANNEL_MAX,
   LIVE_MESSAGES_PER_CHANNEL_MIN,
@@ -43,7 +51,9 @@ const EMOTE_PROVIDER_ROWS = [
 ]
 
 export function BehaviorTab() {
-  const { config, updateConfig } = usePeepochatSettings()
+  const { config, updateConfig, account } = usePeepochatSettings()
+  const canConfigureDelete = canDeleteChatMessages(account)
+  const canConfigureBanOrTimeout = canBanOrTimeoutUsers(account)
 
   const setEmoteProvider = (
     provider: "bttvEnabled" | "ffzEnabled" | "seventvEnabled",
@@ -98,6 +108,18 @@ export function BehaviorTab() {
               }))
             }
           />
+          <SettingsSwitchRow
+            icon={EraserIcon}
+            title="Clear chat when instructed"
+            description="Remove all messages in a channel when instructed. Moderators are exempt from this."
+            checked={config.chat.clearChatWhenInstructed}
+            onCheckedChange={(clearChatWhenInstructed) =>
+              updateConfig((current) => ({
+                ...current,
+                chat: { ...current.chat, clearChatWhenInstructed },
+              }))
+            }
+          />
         </SettingsGroup>
       </SettingsSection>
 
@@ -127,7 +149,7 @@ export function BehaviorTab() {
           <SettingsSwitchRow
             icon={CornerUpLeftIcon}
             title="Reply"
-            description="Start a threaded reply in the composer."
+            description="Start a threaded reply to the message."
             checked={config.chat.messageQuickActions.replyEnabled}
             onCheckedChange={(replyEnabled) =>
               updateConfig((current) => ({
@@ -142,6 +164,66 @@ export function BehaviorTab() {
               }))
             }
           />
+          {canConfigureDelete ? (
+            <SettingsSwitchRow
+              icon={Trash2Icon}
+              title="Delete message"
+              description="Deletes the message in chats you have permissions for."
+              checked={config.chat.messageQuickActions.deleteEnabled}
+              onCheckedChange={(deleteEnabled) =>
+                updateConfig((current) => ({
+                  ...current,
+                  chat: {
+                    ...current.chat,
+                    messageQuickActions: {
+                      ...current.chat.messageQuickActions,
+                      deleteEnabled,
+                    },
+                  },
+                }))
+              }
+            />
+          ) : null}
+          {canConfigureBanOrTimeout ? (
+            <SettingsSwitchRow
+              icon={ClockIcon}
+              title="Timeout"
+              description="Timeout the user in chats you have permissions for."
+              checked={config.chat.messageQuickActions.timeoutEnabled}
+              onCheckedChange={(timeoutEnabled) =>
+                updateConfig((current) => ({
+                  ...current,
+                  chat: {
+                    ...current.chat,
+                    messageQuickActions: {
+                      ...current.chat.messageQuickActions,
+                      timeoutEnabled,
+                    },
+                  },
+                }))
+              }
+            />
+          ) : null}
+          {canConfigureBanOrTimeout ? (
+            <SettingsSwitchRow
+              icon={BanIcon}
+              title="Ban"
+              description="Bans the user in chats you have permissions for."
+              checked={config.chat.messageQuickActions.banEnabled}
+              onCheckedChange={(banEnabled) =>
+                updateConfig((current) => ({
+                  ...current,
+                  chat: {
+                    ...current.chat,
+                    messageQuickActions: {
+                      ...current.chat.messageQuickActions,
+                      banEnabled,
+                    },
+                  },
+                }))
+              }
+            />
+          ) : null}
         </SettingsGroup>
       </SettingsSection>
 

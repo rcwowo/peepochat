@@ -1,5 +1,6 @@
 import * as React from "react"
 
+import { actorIsBroadcasterInChannel } from "@/lib/chat/moderation-permissions"
 import {
   fetchIvrTwitchModVip,
   fetchIvrTwitchSubage,
@@ -11,27 +12,29 @@ import {
 import type { TwitchAccount } from "@/lib/peepochat/peepochat-config"
 import {
   banTwitchUser,
-  fetchTwitchBannedUserStatus,
   fetchTwitchModeratorStatus,
   fetchTwitchUsersById,
   fetchTwitchUsersByLogin,
+  fetchTwitchVipStatus,
   setTwitchModeratorStatus,
+  setTwitchVipStatus,
   TwitchApiError,
-  type TwitchBannedUserStatus,
   type TwitchModeratorStatus,
   type TwitchUser,
+  type TwitchVipStatus,
   unbanTwitchUser,
 } from "@/lib/twitch/twitch-api"
+import type { TwitchSelfChatState } from "@/hooks/twitch/use-twitch-chat"
 import type { TwitchChatMessage } from "@/lib/twitch/twitch-chat"
 
 const PROFILE_TTL_MS = 10 * 60 * 1000
 const STATUS_TTL_MS = 30 * 1000
-const TIMEOUT_DURATION_SECONDS = 10 * 60
+const DEFAULT_TIMEOUT_DURATION_SECONDS = 10 * 60
 
 export const USER_CARD_MODERATION_SCOPES = {
-  ban: "moderator:manage:banned_users",
   moderationRead: "moderation:read",
   manageModerators: "channel:manage:moderators",
+  manageVips: "channel:manage:vips",
 } as const
 
 export type UserCardTarget = {
@@ -48,8 +51,8 @@ export type UserCardChannelRoles = {
 }
 
 export type UserCardChannelStatus = {
-  ban: StatusResult<TwitchBannedUserStatus | null>
   moderator: StatusResult<TwitchModeratorStatus | null>
+  vip: StatusResult<TwitchVipStatus | null>
   channelRoles: StatusResult<UserCardChannelRoles>
   subage: StatusResult<IvrTwitchSubage | null>
   ivrProfile: StatusResult<IvrTwitchUserProfile | null>
@@ -57,11 +60,12 @@ export type UserCardChannelStatus = {
 
 export type UserCardAction =
   | "ban"
-  | "unban"
+  | "pardon"
   | "timeout"
-  | "untimeout"
   | "mod"
   | "unmod"
+  | "vip"
+  | "unvip"
 
 type StatusResult<T> =
   | { state: "available"; value: T }
@@ -223,11 +227,13 @@ async function loadChannelStatus({
   channelRoomId,
   channelLogin,
   profile,
+  selfChatState,
 }: {
   account: TwitchAccount
   channelRoomId: string | null
   channelLogin: string
   profile: TwitchUser
+  selfChatState: TwitchSelfChatState | null
 }): Promise<UserCardChannelStatus> {
   const key = statusCacheKey({
     account,
@@ -247,29 +253,23 @@ async function loadChannelStatus({
 
   const request = (async () => {
     const missingRoomReason = "Channel room ID is not available yet."
-    const canLoadBanStatus =
-      Boolean(channelRoomId) &&
-      (hasScope(account, USER_CARD_MODERATION_SCOPES.ban) ||
-        hasScope(account, USER_CARD_MODERATION_SCOPES.moderationRead))
+    const isBroadcasterInChannel = actorIsBroadcasterInChannel({
+      account,
+      broadcasterId: channelRoomId,
+      channelLogin,
+      selfState: selfChatState,
+    })
     const canLoadModeratorStatus =
       Boolean(channelRoomId) &&
+      isBroadcasterInChannel &&
       (hasScope(account, USER_CARD_MODERATION_SCOPES.moderationRead) ||
-        account.id === channelRoomId)
-    const [ban, moderator, channelRoles, subage, ivrProfile] =
+        hasScope(account, USER_CARD_MODERATION_SCOPES.manageModerators))
+    const canLoadVipStatus =
+      Boolean(channelRoomId) &&
+      hasScope(account, USER_CARD_MODERATION_SCOPES.manageVips) &&
+      account.id === channelRoomId
+    const [moderator, vip, channelRoles, subage, ivrProfile] =
       await Promise.all([
-        optionalStatus(
-          canLoadBanStatus,
-          channelRoomId
-            ? "Re-login with moderation scopes to view ban status."
-            : missingRoomReason,
-          () =>
-            fetchTwitchBannedUserStatus({
-              broadcasterId: channelRoomId!,
-              userId: profile.id,
-              accessToken: account.accessToken,
-              clientId: account.clientId,
-            })
-        ),
         optionalStatus(
           canLoadModeratorStatus,
           channelRoomId
@@ -277,6 +277,19 @@ async function loadChannelStatus({
             : missingRoomReason,
           () =>
             fetchTwitchModeratorStatus({
+              broadcasterId: channelRoomId!,
+              userId: profile.id,
+              accessToken: account.accessToken,
+              clientId: account.clientId,
+            })
+        ),
+        optionalStatus(
+          canLoadVipStatus,
+          channelRoomId
+            ? "VIP status is not available with this token."
+            : missingRoomReason,
+          () =>
+            fetchTwitchVipStatus({
               broadcasterId: channelRoomId!,
               userId: profile.id,
               accessToken: account.accessToken,
@@ -308,8 +321,8 @@ async function loadChannelStatus({
         ),
       ])
     const status: UserCardChannelStatus = {
-      ban,
       moderator,
+      vip,
       channelRoles,
       subage,
       ivrProfile,
@@ -337,18 +350,30 @@ function invalidateStatus(
   }
 }
 
+function getModerationSelfStateKey(
+  selfChatState: TwitchSelfChatState | null
+): string | null {
+  if (!selfChatState) {
+    return null
+  }
+
+  return `${selfChatState.channel}:${selfChatState.roomId ?? ""}:${selfChatState.isBroadcaster}:${selfChatState.isModerator}`
+}
+
 export function useUserCard({
   open,
   account,
   target,
   channelRoomId,
   channelLogin,
+  selfChatState,
 }: {
   open: boolean
   account: TwitchAccount | null
   target: UserCardTarget
   channelRoomId: string | null
   channelLogin: string
+  selfChatState: TwitchSelfChatState | null
 }) {
   const [state, setState] = React.useState<UserCardState>({
     status: "idle",
@@ -360,6 +385,7 @@ export function useUserCard({
     React.useState<UserCardAction | null>(null)
   const pendingActionRef = React.useRef<UserCardAction | null>(null)
   const requestIdRef = React.useRef(0)
+  const moderationSelfStateKey = getModerationSelfStateKey(selfChatState)
 
   const reload = React.useCallback(async () => {
     const requestId = requestIdRef.current + 1
@@ -398,6 +424,7 @@ export function useUserCard({
         channelRoomId,
         channelLogin,
         profile,
+        selfChatState,
       })
 
       if (requestIdRef.current !== requestId) {
@@ -419,7 +446,7 @@ export function useUserCard({
             : "Could not load user details.",
       })
     }
-  }, [account, channelLogin, channelRoomId, open, target])
+  }, [account, channelLogin, channelRoomId, open, selfChatState, target])
 
   React.useEffect(() => {
     if (!open) {
@@ -466,6 +493,7 @@ export function useUserCard({
           channelRoomId,
           channelLogin,
           profile,
+          selfChatState,
         })
 
         if (requestIdRef.current !== requestId) {
@@ -489,10 +517,24 @@ export function useUserCard({
         })
       }
     })()
-  }, [account, channelLogin, channelRoomId, open, target])
+    // Reload only when moderation-relevant self state changes, not every echo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed by moderationSelfStateKey
+  }, [
+    account,
+    channelLogin,
+    channelRoomId,
+    moderationSelfStateKey,
+    open,
+    target,
+  ])
 
   const runAction = React.useCallback(
-    async (action: UserCardAction) => {
+    async (
+      action: UserCardAction,
+      options?: {
+        durationSeconds?: number
+      }
+    ) => {
       if (pendingActionRef.current) {
         throw new Error("Another user action is already in progress.")
       }
@@ -521,18 +563,24 @@ export function useUserCard({
               userId,
               accessToken: account.accessToken,
               clientId: account.clientId,
-              durationSeconds: TIMEOUT_DURATION_SECONDS,
+              durationSeconds:
+                options?.durationSeconds ?? DEFAULT_TIMEOUT_DURATION_SECONDS,
             })
             break
-          case "unban":
-          case "untimeout":
-            await unbanTwitchUser({
-              broadcasterId: channelRoomId,
-              moderatorId: account.id,
-              userId,
-              accessToken: account.accessToken,
-              clientId: account.clientId,
-            })
+          case "pardon":
+            try {
+              await unbanTwitchUser({
+                broadcasterId: channelRoomId,
+                moderatorId: account.id,
+                userId,
+                accessToken: account.accessToken,
+                clientId: account.clientId,
+              })
+            } catch (error) {
+              if (!(error instanceof TwitchApiError && error.status === 404)) {
+                throw error
+              }
+            }
             break
           case "mod":
           case "unmod":
@@ -542,6 +590,16 @@ export function useUserCard({
               accessToken: account.accessToken,
               clientId: account.clientId,
               moderated: action === "mod",
+            })
+            break
+          case "vip":
+          case "unvip":
+            await setTwitchVipStatus({
+              broadcasterId: channelRoomId,
+              userId,
+              accessToken: account.accessToken,
+              clientId: account.clientId,
+              isVip: action === "vip",
             })
             break
         }

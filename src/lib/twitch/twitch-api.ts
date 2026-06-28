@@ -37,6 +37,12 @@ export type TwitchModeratorStatus = {
   userName: string
 }
 
+export type TwitchVipStatus = {
+  userId: string
+  userLogin: string
+  userName: string
+}
+
 export class TwitchApiError extends Error {
   status: number
 
@@ -374,6 +380,49 @@ export async function fetchTwitchModeratorStatus({
       "Could not load moderator status.",
       response.status
     )
+  }
+
+  const payload = (await response.json()) as {
+    data?: Array<{
+      user_id: string
+      user_login: string
+      user_name: string
+    }>
+  }
+
+  const entry = payload.data?.[0]
+  if (!entry) {
+    return null
+  }
+
+  return {
+    userId: entry.user_id,
+    userLogin: entry.user_login,
+    userName: entry.user_name,
+  }
+}
+
+export async function fetchTwitchVipStatus({
+  broadcasterId,
+  userId,
+  accessToken,
+  clientId,
+}: {
+  broadcasterId: string
+  userId: string
+  accessToken: string
+  clientId: string
+}): Promise<TwitchVipStatus | null> {
+  const params = new URLSearchParams({ broadcaster_id: broadcasterId })
+  params.append("user_id", userId)
+
+  const response = await devLoggedFetch(
+    `https://api.twitch.tv/helix/channels/vips?${params.toString()}`,
+    { headers: helixHeaders(accessToken, clientId) }
+  )
+
+  if (!response.ok) {
+    throw new TwitchApiError("Could not load VIP status.", response.status)
   }
 
   const payload = (await response.json()) as {
@@ -877,6 +926,38 @@ async function throwTwitchApiError(
     // ignore parse errors
   }
   throw new TwitchApiError(message, response.status)
+}
+
+export async function deleteTwitchChatMessage({
+  broadcasterId,
+  moderatorId,
+  messageId,
+  accessToken,
+  clientId,
+}: {
+  broadcasterId: string
+  moderatorId: string
+  messageId: string
+  accessToken: string
+  clientId: string
+}): Promise<void> {
+  const params = new URLSearchParams({
+    broadcaster_id: broadcasterId,
+    moderator_id: moderatorId,
+    message_id: messageId,
+  })
+
+  const response = await devLoggedFetch(
+    `https://api.twitch.tv/helix/moderation/chat?${params.toString()}`,
+    {
+      method: "DELETE",
+      headers: helixHeaders(accessToken, clientId),
+    }
+  )
+
+  if (!response.ok) {
+    await throwTwitchApiError(response, "Could not delete message.")
+  }
 }
 
 export async function clearTwitchChat({

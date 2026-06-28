@@ -21,6 +21,7 @@ import {
   SettingsDivider,
   SettingsGroup,
   SettingsInputRow,
+  SettingsSelectRow,
   SettingsSliderRow,
   SettingsSection,
   SettingsSegmented,
@@ -249,6 +250,22 @@ export function AppearanceTab() {
                 chat: { ...current.chat, messageSeparators: checked },
               }))
             }
+          />
+          <SettingsSelectRow
+            title="Deleted messages appearance"
+            description="How messages appear after they've been deleted."
+            value={config.chat.deletedMessagesBehavior}
+            onChange={(deletedMessagesBehavior) =>
+              updateConfig((current) => ({
+                ...current,
+                chat: { ...current.chat, deletedMessagesBehavior },
+              }))
+            }
+            options={[
+              { value: "remove", label: "Remove from list" },
+              { value: "strikethrough", label: "Strikethrough" },
+              { value: "show-on-hover", label: "Show on hover" },
+            ]}
           />
         </SettingsGroup>
       </SettingsSection>

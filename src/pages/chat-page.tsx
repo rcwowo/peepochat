@@ -13,6 +13,7 @@ import {
   type ChatConfig,
   type ChatSplitLayoutNode,
   type SplitLayoutEdge,
+  type DeletedMessagesBehavior,
   type MessageQuickActionsConfig,
   type MessageTimestampFormat,
   type TwitchChannel,
@@ -24,6 +25,7 @@ import { cn } from "@/lib/utils"
 type ChatPaneBindings = {
   timestampFormat: MessageTimestampFormat
   messageQuickActions: MessageQuickActionsConfig
+  deletedMessagesBehavior: DeletedMessagesBehavior
   highlightPingedMessages: boolean
   channelMeta: Map<string, TwitchChannel>
   getTimeline: (login: string) => TwitchTimelineItem[]
@@ -72,6 +74,7 @@ function SingleChannelPane({
         timeline={bindings.getTimeline(login)}
         timestampFormat={bindings.timestampFormat}
         messageQuickActions={bindings.messageQuickActions}
+        deletedMessagesBehavior={bindings.deletedMessagesBehavior}
         highlightPingedMessages={bindings.highlightPingedMessages}
         account={bindings.account}
         loginWithTwitch={bindings.loginWithTwitch}
@@ -116,6 +119,7 @@ function SplitChannelPanes({
           timeline={bindings.getTimeline(login)}
           timestampFormat={bindings.timestampFormat}
           messageQuickActions={bindings.messageQuickActions}
+          deletedMessagesBehavior={bindings.deletedMessagesBehavior}
           highlightPingedMessages={bindings.highlightPingedMessages}
           account={bindings.account}
           loginWithTwitch={bindings.loginWithTwitch}
@@ -246,6 +250,7 @@ export function ChatPage() {
 
   const timestampFormat = config.chat.messageTimestampFormat
   const messageQuickActions = config.chat.messageQuickActions
+  const deletedMessagesBehavior = config.chat.deletedMessagesBehavior
   const highlightPingedMessages = config.highlights.highlightPingedMessages
   const showTwitchBadges = config.chat.badges.twitchEnabled
   const showMemberBadges = config.chat.badges.owoMemberEnabled
@@ -259,6 +264,7 @@ export function ChatPage() {
     () => ({
       timestampFormat,
       messageQuickActions,
+      deletedMessagesBehavior,
       highlightPingedMessages,
       channelMeta,
       getTimeline,
@@ -279,6 +285,7 @@ export function ChatPage() {
     [
       timestampFormat,
       messageQuickActions,
+      deletedMessagesBehavior,
       highlightPingedMessages,
       channelMeta,
       getTimeline,

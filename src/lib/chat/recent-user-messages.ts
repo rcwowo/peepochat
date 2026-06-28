@@ -25,6 +25,10 @@ export function getRecentUserMessages({
     }
 
     const message = entry.message
+    if (message.deletedAt) {
+      continue
+    }
+
     const matchesId = Boolean(userId && message.userId === userId)
     const matchesLogin = message.userName.toLowerCase() === normalizedLogin
     if (!matchesId && !matchesLogin) {
@@ -61,6 +65,10 @@ export function getRecentUserMessageBuckets(
 
   for (const entry of timeline) {
     if (entry.kind !== "chat") {
+      continue
+    }
+
+    if (entry.message.deletedAt) {
       continue
     }
 

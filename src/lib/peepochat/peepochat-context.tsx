@@ -154,6 +154,7 @@ export type PeepochatChatContextValue = {
     login: string,
     input: string
   ) => Promise<import("@/lib/chat/chat-commands").ChatCommandResult>
+  markChatMessageDeleted: (login: string, messageId: string) => void
   canSendChat: boolean
   hasBadgeSupport: boolean
 }
@@ -260,6 +261,9 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     setEmoteLoadContext,
     setRecentMessagesEnabled,
     setLiveMessageLimit,
+    setDeletedMessagesBehavior,
+    setClearChatWhenInstructed,
+    markChatMessageDeleted,
     getComposerEmoteCatalog,
     ensureComposerEmotes,
     isComposerEmotesLoading,
@@ -429,6 +433,14 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     setLiveMessageLimit(config.chat.maxLiveMessagesPerChannel)
   }, [config.chat.maxLiveMessagesPerChannel, setLiveMessageLimit])
+
+  React.useEffect(() => {
+    setDeletedMessagesBehavior(config.chat.deletedMessagesBehavior)
+  }, [config.chat.deletedMessagesBehavior, setDeletedMessagesBehavior])
+
+  React.useEffect(() => {
+    setClearChatWhenInstructed(config.chat.clearChatWhenInstructed)
+  }, [config.chat.clearChatWhenInstructed, setClearChatWhenInstructed])
 
   React.useEffect(() => {
     if (!ready || needsOnboarding) return
@@ -734,6 +746,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       sendChatMessage: sendMessage,
       sendActionMessage,
       executeChatCommand,
+      markChatMessageDeleted,
       canSendChat,
       hasBadgeSupport,
     }),
@@ -757,6 +770,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       sendMessage,
       sendActionMessage,
       executeChatCommand,
+      markChatMessageDeleted,
       canSendChat,
       hasBadgeSupport,
     ]

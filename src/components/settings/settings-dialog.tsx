@@ -28,6 +28,10 @@ import { ChangelogTab } from "@/components/settings/changelog-tab"
 import { DataManagementTab } from "@/components/settings/data-management-tab"
 import { HighlightsTab } from "@/components/settings/highlights-tab"
 import { IS_DEV } from "@/lib/dev/is-dev"
+import {
+  installSettingsPortaledLayerPointerGuard,
+  shouldPreventSettingsDismiss,
+} from "@/lib/settings/settings-portaled-layers"
 
 const DeveloperTab = IS_DEV
   ? React.lazy(async () => {
@@ -153,6 +157,14 @@ export function SettingsDialog({
     React.useState<SettingsCategory>("appearance")
   const allowTooltipOpen = useTooltipPointerOnlyGuard(open)
 
+  React.useEffect(() => {
+    if (!open) {
+      return
+    }
+
+    return installSettingsPortaledLayerPointerGuard()
+  }, [open])
+
   const handleOpenChange = (nextOpen: boolean) => {
     onOpenChange(nextOpen)
     if (nextOpen && initialCategory) {
@@ -166,6 +178,21 @@ export function SettingsDialog({
         side="right"
         showOverlay={false}
         className="h-svh gap-0 p-0 data-[side=right]:w-full max-sm:data-[side=right]:border-l-0 sm:max-w-md sm:data-[side=right]:border-l"
+        onInteractOutside={(event) => {
+          if (shouldPreventSettingsDismiss(event.target)) {
+            event.preventDefault()
+          }
+        }}
+        onPointerDownOutside={(event) => {
+          if (shouldPreventSettingsDismiss(event.target)) {
+            event.preventDefault()
+          }
+        }}
+        onFocusOutside={(event) => {
+          if (shouldPreventSettingsDismiss(event.target)) {
+            event.preventDefault()
+          }
+        }}
       >
         <SheetHeader className="h-12 shrink-0 flex-row items-center justify-between border-b border-border bg-sidebar px-4 py-0">
           <SheetTitle>Settings</SheetTitle>

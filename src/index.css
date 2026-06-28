@@ -216,6 +216,12 @@
     );
   }
 
+  .chat-message--deleted-strikethrough .chat-message-text,
+  .chat-message--deleted-strikethrough .chat-link,
+  .chat-message--deleted-strikethrough .chat-mention {
+    text-decoration: line-through;
+  }
+
   .chat-presentation--alternating-rows .chat-message--alternate {
     background: var(--chat-row-alt);
   }

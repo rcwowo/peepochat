@@ -46,6 +46,7 @@ import {
 } from "@/lib/chat/chat-send-notice"
 import {
   LIVE_MESSAGES_PER_CHANNEL_DEFAULT,
+  type DeletedMessagesBehavior,
   type TwitchAccount,
 } from "@/lib/peepochat/peepochat-config"
 import {
@@ -63,6 +64,70 @@ const EMOTE_LOAD_RETRY_MS = 60_000
 export type TwitchTimelineItem =
   | { kind: "chat"; message: TwitchChatMessage; isHistorical?: boolean }
   | { kind: "system"; message: TwitchSystemMessage; isHistorical?: boolean }
+
+function notifyChatMessageDeleted(channelLogin: string, messageId: string) {
+  if (typeof window === "undefined") {
+    return
+  }
+
+  window.dispatchEvent(
+    new CustomEvent("peepochat:message-deleted", {
+      detail: { channelLogin, messageId },
+    })
+  )
+}
+
+function applyDeletedBehaviorToChatEntry(
+  entry: Extract<TwitchTimelineItem, { kind: "chat" }>,
+  deletedAt: string,
+  behavior: DeletedMessagesBehavior
+): TwitchTimelineItem | null {
+  if (entry.message.deletedAt) {
+    return entry
+  }
+
+  if (behavior === "remove") {
+    return null
+  }
+
+  return {
+    ...entry,
+    message: { ...entry.message, deletedAt },
+  }
+}
+
+function applyDeletedBehaviorToTimeline(
+  timeline: TwitchTimelineItem[],
+  matches: (message: TwitchChatMessage) => boolean,
+  deletedAt: string,
+  behavior: DeletedMessagesBehavior
+): { timeline: TwitchTimelineItem[]; deletedMessageIds: string[] } {
+  const next: TwitchTimelineItem[] = []
+  const deletedMessageIds: string[] = []
+
+  for (const entry of timeline) {
+    if (entry.kind !== "chat" || !matches(entry.message)) {
+      next.push(entry)
+      continue
+    }
+
+    const updated = applyDeletedBehaviorToChatEntry(entry, deletedAt, behavior)
+    if (updated) {
+      next.push(updated)
+    }
+    deletedMessageIds.push(entry.message.id)
+  }
+
+  return { timeline: next, deletedMessageIds }
+}
+
+function purgeDeletedChatEntries(
+  timeline: TwitchTimelineItem[]
+): TwitchTimelineItem[] {
+  return timeline.filter(
+    (entry) => entry.kind !== "chat" || entry.message.deletedAt === null
+  )
+}
 
 export type TwitchChatRoomState = {
   login: string
@@ -213,6 +278,9 @@ export function useTwitchChat(options?: {
   const syncedChannelsRef = React.useRef<string[]>([])
   const recentMessagesEnabledRef = React.useRef(true)
   const liveMessageLimitRef = React.useRef(LIVE_MESSAGES_PER_CHANNEL_DEFAULT)
+  const deletedMessagesBehaviorRef =
+    React.useRef<DeletedMessagesBehavior>("strikethrough")
+  const clearChatWhenInstructedRef = React.useRef(true)
   const historyFetchLimitRef = React.useRef(0)
   const historyLoadedRef = React.useRef(new Set<string>())
   const historyLoadingRef = React.useRef(new Set<string>())
@@ -828,6 +896,121 @@ export function useTwitchChat(options?: {
     ]
   )
 
+  const applyRoomMessageDeletions = React.useCallback(
+    (
+      login: string,
+      matches: (message: TwitchChatMessage) => boolean,
+      deletedAt = new Date().toISOString()
+    ) => {
+      const behavior = deletedMessagesBehaviorRef.current
+      let deletedMessageIds: string[] = []
+
+      updateRoom(login, (room) => {
+        const result = applyDeletedBehaviorToTimeline(
+          room.timeline,
+          matches,
+          deletedAt,
+          behavior
+        )
+        deletedMessageIds = result.deletedMessageIds
+
+        if (result.deletedMessageIds.length === 0) {
+          return room
+        }
+
+        return { ...room, timeline: result.timeline }
+      })
+
+      for (const messageId of deletedMessageIds) {
+        notifyChatMessageDeleted(login, messageId)
+      }
+    },
+    [updateRoom]
+  )
+
+  const markChatMessageDeleted = React.useCallback(
+    (login: string, messageId: string) => {
+      applyRoomMessageDeletions(
+        normalizeChannelLogin(login),
+        (message) => message.id === messageId
+      )
+    },
+    [applyRoomMessageDeletions]
+  )
+
+  const routeClearMsg = React.useCallback(
+    (event: import("@/lib/twitch/twitch-chat").TwitchClearMsgEvent) => {
+      const login = normalizeChannelLogin(event.channel)
+      if (!syncedChannelsRef.current.includes(login)) {
+        return
+      }
+
+      applyRoomMessageDeletions(
+        login,
+        (message) => message.id === event.messageId
+      )
+    },
+    [applyRoomMessageDeletions]
+  )
+
+  const routeClearChat = React.useCallback(
+    (event: import("@/lib/twitch/twitch-chat").TwitchClearChatEvent) => {
+      const login = normalizeChannelLogin(event.channel)
+      if (!syncedChannelsRef.current.includes(login)) {
+        return
+      }
+
+      const hasTarget = Boolean(event.targetUserId || event.targetUserName)
+
+      if (hasTarget) {
+        const normalizedTargetLogin =
+          event.targetUserName?.toLowerCase() ?? null
+        applyRoomMessageDeletions(login, (message) => {
+          if (event.targetUserId && message.userId === event.targetUserId) {
+            return true
+          }
+          if (
+            normalizedTargetLogin &&
+            message.userName.toLowerCase() === normalizedTargetLogin
+          ) {
+            return true
+          }
+          return false
+        })
+        return
+      }
+
+      if (!clearChatWhenInstructedRef.current) {
+        return
+      }
+
+      const selfState = selfStatesRef.current.get(login)
+      if (selfState?.isModerator || selfState?.isBroadcaster) {
+        return
+      }
+
+      updateRoom(login, (room) => {
+        const deletedMessageIds = room.timeline.flatMap((entry) =>
+          entry.kind === "chat" ? [entry.message.id] : []
+        )
+
+        if (deletedMessageIds.length === 0) {
+          return room
+        }
+
+        for (const messageId of deletedMessageIds) {
+          notifyChatMessageDeleted(login, messageId)
+        }
+
+        return {
+          ...room,
+          timeline: room.timeline.filter((entry) => entry.kind !== "chat"),
+        }
+      })
+    },
+    [applyRoomMessageDeletions, updateRoom]
+  )
+
   const routeSystemMessage = React.useCallback(
     (message: TwitchSystemMessage) => {
       const login = message.channel
@@ -872,6 +1055,7 @@ export function useTwitchChat(options?: {
               badgeInfo: [],
               emotes: message.detailsEmotes,
               reply: null,
+              deletedAt: null,
               flags: {
                 isBroadcaster: false,
                 isModerator: false,
@@ -1194,8 +1378,17 @@ export function useTwitchChat(options?: {
           loadRecentMessages(login)
           break
         }
+        case "self-state":
+          updateSelfState(toSelfChatState(event.state))
+          break
         case "message":
           routeMessageToRoom(event.message)
+          break
+        case "clear-msg":
+          routeClearMsg(event.event)
+          break
+        case "clear-chat":
+          routeClearChat(event.event)
           break
         case "system":
           routeSystemMessage(event.message)
@@ -1222,8 +1415,11 @@ export function useTwitchChat(options?: {
     loadRecentMessages,
     ensureRoomEmotes,
     routeMessageToRoom,
+    routeClearMsg,
+    routeClearChat,
     routeSystemMessage,
     updateRoom,
+    updateSelfState,
   ])
 
   const getSendClient = React.useCallback(() => {
@@ -1609,6 +1805,37 @@ export function useTwitchChat(options?: {
     [trimTimeline]
   )
 
+  const setDeletedMessagesBehavior = React.useCallback(
+    (behavior: DeletedMessagesBehavior) => {
+      const previous = deletedMessagesBehaviorRef.current
+      deletedMessagesBehaviorRef.current = behavior
+
+      if (previous !== "remove" && behavior === "remove") {
+        setRooms((current) => {
+          let changed = false
+          const next: Record<string, TwitchChatRoomState> = { ...current }
+
+          for (const [login, room] of Object.entries(current)) {
+            const purged = purgeDeletedChatEntries(room.timeline)
+            if (purged.length === room.timeline.length) {
+              continue
+            }
+
+            changed = true
+            next[login] = { ...room, timeline: purged }
+          }
+
+          return changed ? next : current
+        })
+      }
+    },
+    []
+  )
+
+  const setClearChatWhenInstructed = React.useCallback((enabled: boolean) => {
+    clearChatWhenInstructedRef.current = enabled
+  }, [])
+
   const setRecentMessagesEnabled = React.useCallback(
     (enabled: boolean) => {
       const wasEnabled = recentMessagesEnabledRef.current
@@ -1975,6 +2202,9 @@ export function useTwitchChat(options?: {
     setEmoteLoadContext,
     setRecentMessagesEnabled,
     setLiveMessageLimit,
+    setDeletedMessagesBehavior,
+    setClearChatWhenInstructed,
+    markChatMessageDeleted,
     getComposerEmoteCatalog,
     ensureComposerEmotes,
     isComposerEmotesLoading,

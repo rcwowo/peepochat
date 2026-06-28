@@ -2,6 +2,8 @@ import { devChatLogger, isDevIrcLoggingEnabled } from "@/lib/dev-logger"
 import {
   type IrcTaggedLine,
   isIrcJoinLine,
+  isIrcClearChatLine,
+  isIrcClearMsgLine,
   isIrcNoticeLine,
   isIrcPrivmsgLine,
   isIrcRoomStateLine,
@@ -84,6 +86,8 @@ export type TwitchChatMessage = {
   badgeInfo: TwitchBadge[]
   emotes: TwitchEmote[]
   reply: TwitchChatReply | null
+  /** ISO timestamp when the message was deleted; null while still visible. */
+  deletedAt: string | null
   flags: {
     isBroadcaster: boolean
     isModerator: boolean
@@ -175,6 +179,20 @@ export type TwitchSelfUserState = {
   isVip: boolean
 }
 
+export type TwitchClearMsgEvent = {
+  channel: string
+  messageId: string
+  login: string | null
+  text: string | null
+}
+
+export type TwitchClearChatEvent = {
+  channel: string
+  targetUserName: string | null
+  targetUserId: string | null
+  banDurationSeconds: number | null
+}
+
 export type TwitchChatEvent =
   | { type: "connected" }
   | { type: "disconnected"; reason: string | null }
@@ -183,6 +201,8 @@ export type TwitchChatEvent =
   | { type: "room-state"; state: TwitchRoomState }
   | { type: "self-state"; state: TwitchSelfUserState }
   | { type: "message"; message: TwitchChatMessage }
+  | { type: "clear-msg"; event: TwitchClearMsgEvent }
+  | { type: "clear-chat"; event: TwitchClearChatEvent }
   | { type: "system"; message: TwitchSystemMessage }
   | { type: "log"; text: string }
   | { type: "error"; text: string }
@@ -633,6 +653,32 @@ export class TwitchChatClient {
       return
     }
 
+    if (isIrcClearMsgLine(rest)) {
+      if (isDevIrcLoggingEnabled()) {
+        devChatLogger.debug("irc:kind", "clearmsg")
+      }
+      const clearMsg = tagged ? parseClearMsg(tagged) : null
+      if (clearMsg) {
+        this.emit({ type: "clear-msg", event: clearMsg })
+      } else {
+        devChatLogger.warn("irc:parse-failed", "CLEARMSG", raw)
+      }
+      return
+    }
+
+    if (isIrcClearChatLine(rest)) {
+      if (isDevIrcLoggingEnabled()) {
+        devChatLogger.debug("irc:kind", "clearchat")
+      }
+      const clearChat = tagged ? parseClearChat(tagged) : null
+      if (clearChat) {
+        this.emit({ type: "clear-chat", event: clearChat })
+      } else {
+        devChatLogger.warn("irc:parse-failed", "CLEARCHAT", raw)
+      }
+      return
+    }
+
     // NOTICE - e.g. "No such channel"
     if (isIrcNoticeLine(rest)) {
       if (isDevIrcLoggingEnabled()) {
@@ -781,6 +827,7 @@ function parsePrivmsg(tagged: IrcTaggedLine): TwitchChatMessage | null {
     badgeInfo: parsedBadgeInfo,
     emotes: parsedEmotes,
     reply,
+    deletedAt: null,
     flags: {
       isBroadcaster: badges.includes("broadcaster/"),
       isModerator: tags.get("mod") === "1",
@@ -789,6 +836,47 @@ function parsePrivmsg(tagged: IrcTaggedLine): TwitchChatMessage | null {
       isFirst: tags.get("first-msg") === "1",
       isAction,
     },
+  }
+}
+
+function parseClearMsg(tagged: IrcTaggedLine): TwitchClearMsgEvent | null {
+  const match = tagged.rest.match(/^:\S+ CLEARMSG #(\S+)(?:\s(.*))?$/)
+  if (!match) return null
+
+  const messageId = tagged.tags.get("target-msg-id")?.trim()
+  if (!messageId) return null
+
+  let text = match[2] ?? ""
+  if (text.startsWith(":")) {
+    text = text.slice(1)
+  }
+
+  return {
+    channel: match[1],
+    messageId,
+    login: tagged.tags.get("login")?.trim() || null,
+    text: text || null,
+  }
+}
+
+function parseClearChat(tagged: IrcTaggedLine): TwitchClearChatEvent | null {
+  const match = tagged.rest.match(/^:\S+ CLEARCHAT #(\S+)(?:\s:(\S+))?$/)
+  if (!match) return null
+
+  const banDurationRaw = tagged.tags.get("ban-duration")
+  const banDurationSeconds =
+    banDurationRaw && banDurationRaw.length > 0
+      ? Number.parseInt(banDurationRaw, 10)
+      : null
+
+  return {
+    channel: match[1],
+    targetUserName: match[2]?.trim() || null,
+    targetUserId: tagged.tags.get("target-user-id")?.trim() || null,
+    banDurationSeconds:
+      banDurationSeconds !== null && Number.isFinite(banDurationSeconds)
+        ? banDurationSeconds
+        : null,
   }
 }
 
@@ -1117,6 +1205,21 @@ function summarizeChatEvent(event: TwitchChatEvent): Record<string, unknown> {
         channel: event.state.channel,
         roomId: event.state.roomId,
         displayName: event.state.displayName,
+      }
+    case "clear-msg":
+      return {
+        type: event.type,
+        channel: event.event.channel,
+        messageId: event.event.messageId,
+        login: event.event.login,
+      }
+    case "clear-chat":
+      return {
+        type: event.type,
+        channel: event.event.channel,
+        targetUserName: event.event.targetUserName,
+        targetUserId: event.event.targetUserId,
+        banDurationSeconds: event.event.banDurationSeconds,
       }
     case "channel-joined":
     case "channel-parted":

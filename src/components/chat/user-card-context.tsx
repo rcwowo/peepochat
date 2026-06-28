@@ -128,6 +128,7 @@ export function UserCardProvider({
     },
     channelRoomId,
     channelLogin,
+    selfChatState,
   })
 
   const resetUserCardState = React.useCallback(() => {

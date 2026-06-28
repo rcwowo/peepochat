@@ -33,6 +33,7 @@ import type { TwitchSelfChatState } from "@/hooks/twitch/use-twitch-chat"
 import type { ChatBadgeCatalog } from "@/lib/chat/chat-badges"
 import type { ResolvedMemberBadge } from "@/lib/chat/rcw-badges"
 import type {
+  DeletedMessagesBehavior,
   MessageQuickActionsConfig,
   MessageTimestampFormat,
   TwitchAccount,
@@ -45,8 +46,9 @@ import {
 import { getRecentUserMessageBuckets } from "@/lib/chat/recent-user-messages"
 import { cn } from "@/lib/utils"
 
+import { openExternalTool, CHATLOGS_URL } from "@/lib/chat/moderation-tools"
+
 const CHATVOICE_URL = "https://chatvoice.rcw.lol"
-const CHATLOGS_URL = "https://tv.supa.sh/logs"
 
 function reconcileStableRowStripes(
   rowStripes: Map<string, boolean>,
@@ -86,10 +88,6 @@ function reconcileStableRowStripes(
   return rowStripes
 }
 
-function openExternalTool(url: string) {
-  window.open(url, "_blank", "noopener,noreferrer")
-}
-
 function ChannelPaneAvatar({
   login,
   profileImageUrl,
@@ -121,6 +119,7 @@ type ChatPaneProps = {
   timeline: TwitchTimelineItem[]
   timestampFormat: MessageTimestampFormat
   messageQuickActions: MessageQuickActionsConfig
+  deletedMessagesBehavior: DeletedMessagesBehavior
   highlightPingedMessages: boolean
   account: TwitchAccount | null
   loginWithTwitch: () => void
@@ -146,6 +145,7 @@ function ChatPaneInner({
   timeline,
   timestampFormat,
   messageQuickActions,
+  deletedMessagesBehavior,
   highlightPingedMessages,
   account,
   loginWithTwitch,
@@ -431,8 +431,11 @@ function ChatPaneInner({
                           key={entry.message.id}
                           message={entry.message}
                           timestampFormat={timestampFormat}
-                          showCopyButton={messageQuickActions.copyEnabled}
-                          showReplyButton={messageQuickActions.replyEnabled}
+                          messageQuickActions={messageQuickActions}
+                          deletedMessagesBehavior={deletedMessagesBehavior}
+                          account={account}
+                          channelRoomId={channelRoomId}
+                          selfChatState={selfChatState}
                           recentUserMessages={
                             entry.message.userId
                               ? (recentMessagesByUser.get(

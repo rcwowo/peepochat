@@ -11,7 +11,7 @@ import { normalizeSidebarOrder } from "@/lib/sidebar/sidebar-order"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 
 export const PEEPOCHAT_STORAGE_KEY = "peepochat::config"
-export const PEEPOCHAT_SCHEMA_VERSION = 13
+export const PEEPOCHAT_SCHEMA_VERSION = 14
 
 export const LIVE_MESSAGES_PER_CHANNEL_MIN = 20
 export const LIVE_MESSAGES_PER_CHANNEL_MAX = 500
@@ -46,7 +46,14 @@ const chatBadgesSchema = z.object({
 const messageQuickActionsSchema = z.object({
   copyEnabled: z.boolean().default(true),
   replyEnabled: z.boolean().default(true),
+  deleteEnabled: z.boolean().default(true),
+  timeoutEnabled: z.boolean().default(false),
+  banEnabled: z.boolean().default(false),
 })
+
+const deletedMessagesBehaviorSchema = z
+  .enum(["remove", "strikethrough", "show-on-hover"])
+  .default("strikethrough")
 
 const chatSchema = z.object({
   messageTimestampFormat: messageTimestampFormatSchema,
@@ -75,6 +82,8 @@ const chatSchema = z.object({
     .max(LIVE_MESSAGES_PER_CHANNEL_MAX)
     .default(LIVE_MESSAGES_PER_CHANNEL_DEFAULT),
   messageQuickActions: messageQuickActionsSchema,
+  deletedMessagesBehavior: deletedMessagesBehaviorSchema,
+  clearChatWhenInstructed: z.boolean().default(true),
   emotes: chatEmotesSchema,
   badges: chatBadgesSchema,
 })
@@ -196,6 +205,9 @@ export type ChatBadgesConfig = z.infer<typeof chatBadgesSchema>
 export type MessageQuickActionsConfig = z.infer<
   typeof messageQuickActionsSchema
 >
+export type DeletedMessagesBehavior = z.infer<
+  typeof deletedMessagesBehaviorSchema
+>
 export type ChatSplit = z.infer<typeof chatSplitSchema>
 export type {
   ChatSplitLayoutChild,
@@ -243,7 +255,12 @@ export function createDefaultConfig(): AppConfig {
       messageQuickActions: {
         copyEnabled: true,
         replyEnabled: true,
+        deleteEnabled: true,
+        timeoutEnabled: false,
+        banEnabled: false,
       },
+      deletedMessagesBehavior: "strikethrough",
+      clearChatWhenInstructed: true,
       emotes: {
         bttvEnabled: true,
         ffzEnabled: true,

@@ -549,24 +549,32 @@ export function SettingsSelectRow<T extends string>({
   placeholder?: string
 }) {
   return (
-    <SettingsRow
-      title={title}
-      description={description}
-      control={
-        <Select value={value} onValueChange={(next) => onChange(next as T)}>
-          <SelectTrigger size="sm" className="min-w-[7.5rem]">
-            <SelectValue placeholder={placeholder} />
-          </SelectTrigger>
-          <SelectContent align="end" position="popper" className="z-80">
-            {options.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      }
-    />
+    <div className="px-2.5 py-2">
+      <div>
+        <div className="text-sm leading-tight font-medium">{title}</div>
+        {description ? (
+          <p className="mt-0.5 text-xs leading-snug text-muted-foreground">
+            {description}
+          </p>
+        ) : null}
+      </div>
+      <Select value={value} onValueChange={(next) => onChange(next as T)}>
+        <SelectTrigger size="sm" className="mt-2 w-full bg-muted/30">
+          <SelectValue placeholder={placeholder} />
+        </SelectTrigger>
+        <SelectContent
+          align="start"
+          position="popper"
+          className="z-80 min-w-(--radix-select-trigger-width)"
+        >
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   )
 }
 

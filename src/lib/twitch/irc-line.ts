@@ -70,3 +70,11 @@ export function isIrcUsernoticeLine(rest: string): boolean {
 export function isIrcNoticeLine(rest: string): boolean {
   return /^:\S+ NOTICE #\S+/i.test(rest)
 }
+
+export function isIrcClearMsgLine(rest: string): boolean {
+  return /^:\S+ CLEARMSG #\S+/i.test(rest)
+}
+
+export function isIrcClearChatLine(rest: string): boolean {
+  return /^:\S+ CLEARCHAT #\S+/i.test(rest)
+}

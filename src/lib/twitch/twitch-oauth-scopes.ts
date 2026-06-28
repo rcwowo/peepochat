@@ -45,7 +45,7 @@ export const TWITCH_OAUTH_SCOPE_GROUPS: TwitchOAuthScopeGroup[] = [
       {
         scope: "moderation:read",
         label: "View moderation info",
-        description: "See ban and timeout status on user cards.",
+        description: "See moderator status on user cards.",
       },
       {
         scope: "moderator:manage:banned_users",

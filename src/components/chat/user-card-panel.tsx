@@ -7,13 +7,14 @@ import {
   EllipsisIcon,
   GemIcon,
   ShieldIcon,
+  ShieldCheckIcon,
   ShieldOffIcon,
   SparklesIcon,
-  UserMinusIcon,
-  UserPlusIcon,
   UsersIcon,
   VideoIcon,
   XIcon,
+  ScrollTextIcon,
+  UserSquare2Icon,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -23,18 +24,31 @@ import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
-  USER_CARD_MODERATION_SCOPES,
-  hasUserCardScope,
   type UserCardAction,
   type UserCardTarget,
 } from "@/hooks/twitch/use-user-card"
 import type { useUserCard } from "@/hooks/twitch/use-user-card"
 import type { TwitchSelfChatState } from "@/hooks/twitch/use-twitch-chat"
+import {
+  actorIsBroadcaster,
+  canManageModerators,
+  canManageVips,
+  canModerateTarget,
+} from "@/lib/chat/moderation-permissions"
+import {
+  chatlogsUserUrl,
+  MODERATION_TIMEOUT_PRESETS,
+  openExternalTool,
+  twitchViewerCardUrl,
+} from "@/lib/chat/moderation-tools"
 import { twitchChannelUrl } from "@/lib/chat/user-card"
 import type { TwitchAccount } from "@/lib/peepochat/peepochat-config"
 import type { TwitchChatMessage } from "@/lib/twitch/twitch-chat"
@@ -71,14 +85,6 @@ function formatMessageTime(value: string) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(date)
-}
-
-function isActiveTimeout(expiresAt: string | null) {
-  if (!expiresAt) {
-    return false
-  }
-  const expires = Date.parse(expiresAt)
-  return Number.isFinite(expires) && expires > Date.now()
 }
 
 async function copyText(label: string, value: string | undefined) {
@@ -126,17 +132,12 @@ function StatusPills({
   isBroadcaster,
   isModerator,
   isVip,
-  isBanned,
-  isTimedOut,
 }: {
   isBroadcaster: boolean
   isModerator: boolean
   isVip: boolean
-  isBanned: boolean
-  isTimedOut: boolean
 }) {
-  const hasStatus =
-    isBroadcaster || isModerator || isVip || isTimedOut || isBanned
+  const hasStatus = isBroadcaster || isModerator || isVip
 
   if (!hasStatus) {
     return null
@@ -169,18 +170,6 @@ function StatusPills({
         >
           <GemIcon className="size-3" />
           VIP
-        </Badge>
-      ) : null}
-      {isTimedOut ? (
-        <Badge variant="destructive" className="gap-1">
-          <ClockIcon className="size-3" />
-          Timed out
-        </Badge>
-      ) : null}
-      {isBanned ? (
-        <Badge variant="destructive" className="gap-1">
-          <BanIcon className="size-3" />
-          Banned
         </Badge>
       ) : null}
     </div>
@@ -223,35 +212,65 @@ function UserCardLoading() {
   )
 }
 
-function QuickActionButton({
-  action,
-  label,
-  icon,
-  disabled,
-  pending,
-  variant = "outline",
-  onAction,
-}: {
-  action: UserCardAction
+type ModerationToolbarItem = {
+  key: string
   label: string
-  icon: React.ReactNode
-  disabled: boolean
+  icon?: React.ReactNode
+  tone?: "neutral" | "danger"
   pending: boolean
-  variant?: React.ComponentProps<typeof Button>["variant"]
-  onAction: (action: UserCardAction, label: string) => void
+  disabled: boolean
+  onClick: () => void
+}
+
+function ModerationToolbar({
+  items,
+  columns,
+  tabular = false,
+}: {
+  items: ModerationToolbarItem[]
+  columns?: number
+  tabular?: boolean
 }) {
+  if (items.length === 0) {
+    return null
+  }
+
+  const columnCount = columns ?? items.length
+
   return (
-    <Button
-      type="button"
-      size="xs"
-      variant={variant}
-      className="justify-start"
-      disabled={disabled || pending}
-      onClick={() => onAction(action, label)}
+    <div
+      className="grid overflow-hidden rounded-md border border-border/60 bg-background/40"
+      style={{
+        gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`,
+      }}
     >
-      {icon}
-      {pending ? "Working..." : label}
-    </Button>
+      {items.map((item, index) => (
+        <button
+          key={item.key}
+          type="button"
+          disabled={item.disabled || item.pending}
+          onClick={item.onClick}
+          className={cn(
+            "inline-flex h-6 min-w-0 cursor-pointer items-center justify-center gap-0.5 px-1 text-[10px] leading-none font-medium transition-colors",
+            tabular && "tabular-nums",
+            index % columnCount !== 0 && "border-l border-border/60",
+            "hover:bg-muted/70 disabled:pointer-events-none disabled:opacity-50",
+            item.tone === "danger" && "text-destructive",
+            (!item.tone || item.tone === "neutral") &&
+              "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          {item.pending ? (
+            "…"
+          ) : (
+            <>
+              {item.icon}
+              {item.label}
+            </>
+          )}
+        </button>
+      ))}
+    </div>
   )
 }
 
@@ -290,9 +309,10 @@ export function UserCardPanel({
 }: UserCardPanelProps) {
   const profile = card.status === "ready" ? card.profile : null
   const status = card.status === "ready" ? card.channelStatus : null
-  const banStatus = status?.ban.state === "available" ? status.ban.value : null
   const moderatorStatus =
     status?.moderator.state === "available" ? status.moderator.value : null
+  const vipStatus = status?.vip.state === "available" ? status.vip.value : null
+  const vipStatusAvailable = status?.vip.state === "available"
   const subage =
     status?.subage.state === "available" ? status.subage.value : null
   const ivrProfile =
@@ -302,8 +322,6 @@ export function UserCardPanel({
       ? status.channelRoles.value
       : null
   const subageUnavailable = status?.subage.state === "unavailable"
-  const isTimedOut = Boolean(banStatus && isActiveTimeout(banStatus.expiresAt))
-  const isBanned = Boolean(banStatus && !isTimedOut)
   const isBroadcaster = Boolean(
     target.flags.isBroadcaster ||
     (profile &&
@@ -313,27 +331,35 @@ export function UserCardPanel({
   const isModerator = Boolean(
     moderatorStatus || channelRoles?.isModerator || target.flags.isModerator
   )
-  const isVip = Boolean(channelRoles?.isVip || target.flags.isVip)
+  const isVip = vipStatusAvailable
+    ? Boolean(vipStatus)
+    : Boolean(channelRoles?.isVip || target.flags.isVip)
   const isSelf =
     Boolean(account && profile && account.id === profile.id) ||
     account?.login.toLowerCase() === target.userName.toLowerCase()
-  const actorIsBroadcaster = Boolean(
-    account && channelRoomId && account.id === channelRoomId
-  )
-  const canUseBanApi = hasUserCardScope(
+  const actorIsBroadcasterInChannel = actorIsBroadcaster(account, channelRoomId)
+  const canBanOrTimeout = canModerateTarget({
     account,
-    USER_CARD_MODERATION_SCOPES.ban
-  )
-  const canBanOrTimeout =
-    canUseBanApi &&
-    Boolean(account && channelRoomId && !isSelf && !isBroadcaster) &&
-    (actorIsBroadcaster ||
-      (Boolean(selfChatState?.isModerator) && !isModerator))
+    broadcasterId: channelRoomId,
+    channelLogin,
+    selfState: selfChatState,
+    target: {
+      userId: profile?.id ?? target.userId,
+      userName: profile?.login ?? target.userName,
+      isBroadcaster,
+      isModerator,
+    },
+  })
   const canUseModeratorApi =
-    actorIsBroadcaster &&
+    actorIsBroadcasterInChannel &&
     !isSelf &&
     !isBroadcaster &&
-    hasUserCardScope(account, USER_CARD_MODERATION_SCOPES.manageModerators)
+    canManageModerators(account)
+  const canUseVipApi =
+    actorIsBroadcasterInChannel &&
+    !isSelf &&
+    !isBroadcaster &&
+    canManageVips(account)
   const createdAt = profile ? formatDate(profile.createdAt) : null
   const bannerImageUrl =
     ivrProfile?.bannerImageUrl ?? profile?.bannerImageUrl ?? ""
@@ -350,11 +376,18 @@ export function UserCardPanel({
         ? `${subage.cumulative.months} month${subage.cumulative.months === 1 ? "" : "s"}`
         : "Not subscribed"
   const isActionPending = card.pendingAction !== null
+  const showTimeoutGrid = canBanOrTimeout
+  const showModerationActions =
+    canBanOrTimeout || canUseModeratorApi || canUseVipApi
 
   const handleAction = React.useCallback(
-    (action: UserCardAction, label: string) => {
+    (
+      action: UserCardAction,
+      label: string,
+      options?: { durationSeconds?: number }
+    ) => {
       void card
-        .runAction(action)
+        .runAction(action, options)
         .then(() =>
           toast.success(`${label} succeeded for ${target.displayName}.`)
         )
@@ -366,6 +399,100 @@ export function UserCardPanel({
     },
     [card, target.displayName]
   )
+
+  const timeoutToolbarItems = React.useMemo<ModerationToolbarItem[]>(() => {
+    if (!showTimeoutGrid) {
+      return []
+    }
+
+    return MODERATION_TIMEOUT_PRESETS.map((preset) => ({
+      key: preset.label,
+      label: preset.label,
+      pending: card.pendingAction === "timeout",
+      disabled: isActionPending,
+      onClick: () =>
+        handleAction("timeout", `Timeout ${preset.label}`, {
+          durationSeconds: preset.seconds,
+        }),
+    }))
+  }, [card.pendingAction, handleAction, isActionPending, showTimeoutGrid])
+
+  const roleToolbarItems = React.useMemo<ModerationToolbarItem[]>(() => {
+    const items: ModerationToolbarItem[] = []
+
+    if (canBanOrTimeout) {
+      items.push({
+        key: "ban",
+        label: "Ban",
+        icon: <BanIcon className="size-2.5 shrink-0" />,
+        tone: "danger",
+        pending: card.pendingAction === "ban",
+        disabled: isActionPending,
+        onClick: () => handleAction("ban", "Ban"),
+      })
+    }
+    if (canUseModeratorApi && isModerator) {
+      items.push({
+        key: "unmod",
+        label: "Unmod",
+        icon: <ShieldOffIcon className="size-2.5 shrink-0" />,
+        pending: card.pendingAction === "unmod",
+        disabled: isActionPending,
+        onClick: () => handleAction("unmod", "Unmod"),
+      })
+    }
+    if (canUseModeratorApi && !isModerator) {
+      items.push({
+        key: "mod",
+        label: "Mod",
+        icon: <ShieldIcon className="size-2.5 shrink-0" />,
+        pending: card.pendingAction === "mod",
+        disabled: isActionPending,
+        onClick: () => handleAction("mod", "Mod"),
+      })
+    }
+    if (canUseVipApi && isVip) {
+      items.push({
+        key: "unvip",
+        label: "Unvip",
+        icon: <GemIcon className="size-2.5 shrink-0" />,
+        pending: card.pendingAction === "unvip",
+        disabled: isActionPending,
+        onClick: () => handleAction("unvip", "Unvip"),
+      })
+    }
+    if (canUseVipApi && !isVip) {
+      items.push({
+        key: "vip",
+        label: "VIP",
+        icon: <GemIcon className="size-2.5 shrink-0" />,
+        pending: card.pendingAction === "vip",
+        disabled: isActionPending,
+        onClick: () => handleAction("vip", "VIP"),
+      })
+    }
+    if (canBanOrTimeout) {
+      items.push({
+        key: "pardon",
+        label: "Pardon",
+        icon: <ShieldCheckIcon className="size-2.5 shrink-0" />,
+        pending: card.pendingAction === "pardon",
+        disabled: isActionPending,
+        onClick: () => handleAction("pardon", "Pardon"),
+      })
+    }
+
+    return items
+  }, [
+    canBanOrTimeout,
+    canUseModeratorApi,
+    canUseVipApi,
+    card.pendingAction,
+    handleAction,
+    isActionPending,
+    isModerator,
+    isVip,
+  ])
 
   const openChannel = React.useCallback(() => {
     if (!profile?.login) {
@@ -409,33 +536,60 @@ export function UserCardPanel({
                 <EllipsisIcon className="size-3.5" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuItem
-                onSelect={() => void copyText("Username", profile.login)}
-              >
-                Copy username
-                <CopyIcon className="ml-auto size-3.5 text-muted-foreground" />
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={() => void copyText("User ID", profile.id)}
-              >
-                Copy user&apos;s ID
-                <CopyIcon className="ml-auto size-3.5 text-muted-foreground" />
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={() =>
-                  void copyText("Profile picture URL", profileImageUrl)
-                }
-              >
-                Copy profile picture URL
-                <CopyIcon className="ml-auto size-3.5 text-muted-foreground" />
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={() => void copyText("Banner URL", bannerImageUrl)}
-              >
-                Copy banner URL
-                <CopyIcon className="ml-auto size-3.5 text-muted-foreground" />
-              </DropdownMenuItem>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>Tools</DropdownMenuLabel>
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  onSelect={() =>
+                    openExternalTool(
+                      twitchViewerCardUrl(channelLogin, profile.login)
+                    )
+                  }
+                >
+                  Open viewer card
+                  <UserSquare2Icon className="ml-auto size-3.5 text-muted-foreground" />
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() =>
+                    openExternalTool(
+                      chatlogsUserUrl(channelLogin, profile.login)
+                    )
+                  }
+                >
+                  View user&apos;s chatlogs
+                  <ScrollTextIcon className="ml-auto size-3.5 text-muted-foreground" />
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Metadata</DropdownMenuLabel>
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  onSelect={() => void copyText("Username", profile.login)}
+                >
+                  Copy username
+                  <CopyIcon className="ml-auto size-3.5 text-muted-foreground" />
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => void copyText("User ID", profile.id)}
+                >
+                  Copy user&apos;s ID
+                  <CopyIcon className="ml-auto size-3.5 text-muted-foreground" />
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() =>
+                    void copyText("Profile picture URL", profileImageUrl)
+                  }
+                >
+                  Copy profile picture URL
+                  <CopyIcon className="ml-auto size-3.5 text-muted-foreground" />
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => void copyText("Banner URL", bannerImageUrl)}
+                >
+                  Copy banner URL
+                  <CopyIcon className="ml-auto size-3.5 text-muted-foreground" />
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
         ) : null}
@@ -475,9 +629,9 @@ export function UserCardPanel({
       ) : null}
 
       {card.status === "ready" && profile ? (
-        <div className="max-h-[min(34rem,calc(100vh-2rem))] overflow-y-auto">
+        <div className="flex max-h-[min(34rem,calc(100vh-2rem))] flex-col">
           <div
-            className="relative h-32 cursor-grab touch-none overflow-hidden bg-muted active:cursor-grabbing"
+            className="relative h-32 shrink-0 cursor-grab touch-none overflow-hidden bg-muted active:cursor-grabbing"
             onPointerDown={onDragStart}
           >
             {bannerImageUrl ? (
@@ -512,154 +666,96 @@ export function UserCardPanel({
             </div>
           </div>
 
-          <div className={cn("space-y-4 p-4", !profile.description && "pt-3")}>
-            <StatusPills
-              isBroadcaster={isBroadcaster}
-              isModerator={isModerator}
-              isVip={isVip}
-              isBanned={isBanned}
-              isTimedOut={isTimedOut}
-            />
-
-            {profile.description ? (
-              <p className="text-sm leading-snug text-popover-foreground">
-                {profile.description}
-              </p>
-            ) : null}
-
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              {createdAt ? (
-                <InfoTile
-                  icon={<CalendarDaysIcon className="size-3" />}
-                  label="Created"
-                  value={createdAt}
-                />
-              ) : null}
-              <InfoTile
-                icon={<SparklesIcon className="size-3" />}
-                label="Subscription"
-                value={subscriptionLabel}
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <div
+              className={cn("space-y-4 p-4", !profile.description && "pt-3")}
+            >
+              <StatusPills
+                isBroadcaster={isBroadcaster}
+                isModerator={isModerator}
+                isVip={isVip}
               />
-              <InfoTile
-                icon={<ClockIcon className="size-3" />}
-                label="Followage"
-                value={
-                  subageUnavailable
-                    ? "Unavailable"
-                    : followedAt
-                      ? `Since ${followedAt}`
-                      : "Not following"
-                }
-              />
-              {userType ? (
-                <InfoTile
-                  icon={<UsersIcon className="size-3" />}
-                  label="User Type"
-                  value={userType}
-                />
-              ) : null}
-            </div>
 
-            <div className="space-y-2">
-              <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                Recent messages
-              </h3>
-              {recentMessages.length > 0 ? (
-                <div className="space-y-1.5">
-                  {recentMessages.map((message) => (
-                    <div
-                      key={message.id}
-                      className="rounded-lg bg-muted/50 px-2.5 py-2 text-xs leading-snug"
-                    >
-                      <time className="mr-1.5 text-[11px] text-muted-foreground">
-                        {formatMessageTime(message.receivedAt)}
-                      </time>
-                      <ChatMessageBody
-                        text={message.text}
-                        emotes={message.emotes}
-                      />
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  No recent messages from this user are available in the loaded
-                  chat history.
+              {profile.description ? (
+                <p className="text-sm leading-snug text-popover-foreground">
+                  {profile.description}
                 </p>
-              )}
-            </div>
+              ) : null}
 
-            {canBanOrTimeout || canUseModeratorApi ? (
-              <div className="-mx-4 -mb-4 border-t bg-muted/35 p-4">
-                <h3 className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                  Quick actions
-                </h3>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {canBanOrTimeout && isTimedOut ? (
-                    <QuickActionButton
-                      action="untimeout"
-                      label="Untimeout"
-                      icon={<ClockIcon className="size-3" />}
-                      disabled={isActionPending}
-                      pending={card.pendingAction === "untimeout"}
-                      onAction={handleAction}
-                    />
-                  ) : null}
-                  {canBanOrTimeout && !isBanned ? (
-                    <QuickActionButton
-                      action="timeout"
-                      label="Timeout 10m"
-                      icon={<ClockIcon className="size-3" />}
-                      disabled={isActionPending}
-                      pending={card.pendingAction === "timeout"}
-                      onAction={handleAction}
-                    />
-                  ) : null}
-                  {canBanOrTimeout && isBanned ? (
-                    <QuickActionButton
-                      action="unban"
-                      label="Unban"
-                      icon={<ShieldOffIcon className="size-3" />}
-                      disabled={isActionPending}
-                      pending={card.pendingAction === "unban"}
-                      onAction={handleAction}
-                    />
-                  ) : null}
-                  {canBanOrTimeout && !isBanned ? (
-                    <QuickActionButton
-                      action="ban"
-                      label="Ban"
-                      icon={<BanIcon className="size-3" />}
-                      variant="destructive"
-                      disabled={isActionPending}
-                      pending={card.pendingAction === "ban"}
-                      onAction={handleAction}
-                    />
-                  ) : null}
-                  {canUseModeratorApi && isModerator ? (
-                    <QuickActionButton
-                      action="unmod"
-                      label="Unmod"
-                      icon={<UserMinusIcon className="size-3" />}
-                      disabled={isActionPending}
-                      pending={card.pendingAction === "unmod"}
-                      onAction={handleAction}
-                    />
-                  ) : null}
-                  {canUseModeratorApi && !isModerator ? (
-                    <QuickActionButton
-                      action="mod"
-                      label="Mod"
-                      icon={<UserPlusIcon className="size-3" />}
-                      disabled={isActionPending}
-                      pending={card.pendingAction === "mod"}
-                      onAction={handleAction}
-                    />
-                  ) : null}
-                </div>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                {createdAt ? (
+                  <InfoTile
+                    icon={<CalendarDaysIcon className="size-3" />}
+                    label="Created"
+                    value={createdAt}
+                  />
+                ) : null}
+                <InfoTile
+                  icon={<SparklesIcon className="size-3" />}
+                  label="Subscription"
+                  value={subscriptionLabel}
+                />
+                <InfoTile
+                  icon={<ClockIcon className="size-3" />}
+                  label="Followage"
+                  value={
+                    subageUnavailable
+                      ? "Unavailable"
+                      : followedAt
+                        ? `Since ${followedAt}`
+                        : "Not following"
+                  }
+                />
+                {userType ? (
+                  <InfoTile
+                    icon={<UsersIcon className="size-3" />}
+                    label="User Type"
+                    value={userType}
+                  />
+                ) : null}
               </div>
-            ) : null}
+
+              <div className="space-y-2">
+                <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                  Recent messages
+                </h3>
+                {recentMessages.length > 0 ? (
+                  <div className="space-y-1.5">
+                    {recentMessages.map((message) => (
+                      <div
+                        key={message.id}
+                        className="rounded-lg bg-muted/50 px-2.5 py-2 text-xs leading-snug"
+                      >
+                        <time className="mr-1.5 text-[11px] text-muted-foreground">
+                          {formatMessageTime(message.receivedAt)}
+                        </time>
+                        <ChatMessageBody
+                          text={message.text}
+                          emotes={message.emotes}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    No recent messages from this user are available in the
+                    loaded chat history.
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
+
+          {showModerationActions ? (
+            <div className="shrink-0 space-y-1 border-t bg-muted/35 px-3 py-2">
+              <ModerationToolbar
+                items={timeoutToolbarItems}
+                columns={7}
+                tabular
+              />
+              <ModerationToolbar items={roleToolbarItems} />
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>

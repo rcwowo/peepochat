@@ -570,6 +570,25 @@ export function ChatComposer({
     const handler = (event: Event) => {
       const custom = event as CustomEvent<{
         channelLogin?: string
+        messageId?: string
+      }>
+      if (!custom.detail || custom.detail.channelLogin !== channelLogin) return
+      if (!custom.detail.messageId) return
+
+      setReply((current) =>
+        current?.parentMessageId === custom.detail?.messageId ? null : current
+      )
+    }
+
+    window.addEventListener("peepochat:message-deleted", handler)
+    return () =>
+      window.removeEventListener("peepochat:message-deleted", handler)
+  }, [channelLogin])
+
+  React.useEffect(() => {
+    const handler = (event: Event) => {
+      const custom = event as CustomEvent<{
+        channelLogin?: string
         reply?: TwitchChatReply | null
       }>
       if (!custom.detail || custom.detail.channelLogin !== channelLogin) return
