@@ -42,6 +42,10 @@ export function isIrcWelcomeLine(rest: string): boolean {
   return /^:\S+ 001 \S+ /.test(rest)
 }
 
+export function isIrcPongLine(rest: string): boolean {
+  return /^(?::\S+ )?PONG(?:\s|$)/i.test(rest)
+}
+
 export function isIrcJoinLine(rest: string): boolean {
   return /^:\S+ JOIN #\S+/i.test(rest)
 }

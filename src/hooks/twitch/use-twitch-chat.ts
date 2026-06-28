@@ -1,4 +1,5 @@
 import * as React from "react"
+import { toast } from "sonner"
 
 import { devChatLogger, devFetchLogger } from "@/lib/dev-logger"
 import {
@@ -60,6 +61,7 @@ import {
 } from "@/lib/twitch/twitch-chat"
 /** Back off automatic emote reloads after a failed fetch (avoids 429 retry storms). */
 const EMOTE_LOAD_RETRY_MS = 60_000
+const RECONNECT_TOAST_ID = "twitch-connection-recovery"
 
 export type TwitchTimelineItem =
   | { kind: "chat"; message: TwitchChatMessage; isHistorical?: boolean }
@@ -165,6 +167,17 @@ type PendingConnect = {
   reject: (err: Error) => void
 }
 
+type PendingReadConnect = PendingConnect & {
+  key: string
+  expectedChannels: string[]
+}
+
+type PendingConnectionRecovery = {
+  id: number
+  promise: Promise<void>
+  resolve: () => void
+}
+
 export const SYNC_CHANNELS_SUPERSEDED_MESSAGE = "Channel list updated"
 
 export function isSyncChannelsSupersededError(error: unknown): boolean {
@@ -214,9 +227,15 @@ export function useTwitchChat(options?: {
   const readClientRef = React.useRef<TwitchChatClient | null>(null)
   const sendClientRef = React.useRef<TwitchChatClient | null>(null)
   const rateLimiterRef = React.useRef(createChatRateLimiter())
-  const pendingConnectRef = React.useRef<PendingConnect | null>(null)
+  const pendingConnectRef = React.useRef<PendingReadConnect | null>(null)
   const pendingSendConnectRef = React.useRef<PendingConnect | null>(null)
   const sendConnectKeyRef = React.useRef("")
+  const readJoinedChannelsRef = React.useRef(new Set<string>())
+  const connectionRecoveryRef = React.useRef<PendingConnectionRecovery | null>(
+    null
+  )
+  const connectionRecoveryIdRef = React.useRef(0)
+  const wasFullySyncedRef = React.useRef(false)
   const pendingSyncPromiseRef = React.useRef<{
     key: string
     promise: Promise<void>
@@ -426,6 +445,148 @@ export function useTwitchChat(options?: {
     }
 
     sendClientRef.current?.probeSendStatus(syncedChannelsRef.current)
+  }, [])
+
+  const isReadConnectionSynced = React.useCallback(() => {
+    const expected = syncedChannelsRef.current
+    return (
+      expected.length > 0 &&
+      Boolean(readClientRef.current?.isConnected) &&
+      expected.every((login) => readJoinedChannelsRef.current.has(login))
+    )
+  }, [])
+
+  const isConnectionFullySynced = React.useCallback(() => {
+    const sendConnectionExpected = sendConnectKeyRef.current.length > 0
+    return (
+      isReadConnectionSynced() &&
+      (!sendConnectionExpected || Boolean(sendClientRef.current?.isConnected))
+    )
+  }, [isReadConnectionSynced])
+
+  const finishConnectionRecovery = React.useCallback(() => {
+    const recovery = connectionRecoveryRef.current
+    if (!recovery) {
+      return
+    }
+
+    connectionRecoveryRef.current = null
+    recovery.resolve()
+    toast.success("Reconnected.", {
+      id: RECONNECT_TOAST_ID,
+      duration: 4_000,
+    })
+  }, [])
+
+  const markConnectionSyncedIfReady = React.useCallback(() => {
+    if (!isConnectionFullySynced()) {
+      return
+    }
+
+    wasFullySyncedRef.current = true
+    finishConnectionRecovery()
+  }, [finishConnectionRecovery, isConnectionFullySynced])
+
+  const beginConnectionRecovery = React.useCallback(() => {
+    if (
+      !wasFullySyncedRef.current ||
+      syncedChannelsRef.current.length === 0 ||
+      connectionRecoveryRef.current
+    ) {
+      return
+    }
+
+    let resolveRecovery!: () => void
+    const promise = new Promise<void>((resolve) => {
+      resolveRecovery = resolve
+    })
+    const recovery = {
+      id: connectionRecoveryIdRef.current + 1,
+      promise,
+      resolve: resolveRecovery,
+    }
+
+    connectionRecoveryIdRef.current = recovery.id
+    connectionRecoveryRef.current = recovery
+
+    toast.loading(
+      "It looks like you've lost connection. Trying to reconnect...",
+      {
+        id: RECONNECT_TOAST_ID,
+        duration: Infinity,
+      }
+    )
+  }, [])
+
+  const handleReadConnectionLost = React.useCallback(
+    (reason: string) => {
+      beginConnectionRecovery()
+      setConnectionState((prev) => ({
+        ...prev,
+        connected: false,
+        connecting: true,
+        lastError: reason,
+      }))
+    },
+    [beginConnectionRecovery]
+  )
+
+  const handleSendConnectionLost = React.useCallback(
+    (reason: string) => {
+      beginConnectionRecovery()
+      setSendConnectionState((prev) => ({
+        ...prev,
+        connected: false,
+        connecting: true,
+        lastError: reason,
+      }))
+    },
+    [beginConnectionRecovery]
+  )
+
+  const completePendingReadSyncIfReady = React.useCallback(() => {
+    const pending = pendingConnectRef.current
+    if (!pending || !readClientRef.current?.isConnected) {
+      return
+    }
+
+    if (
+      pending.expectedChannels.some(
+        (login) => !readJoinedChannelsRef.current.has(login)
+      )
+    ) {
+      return
+    }
+
+    pendingConnectRef.current = null
+    pending.resolve()
+  }, [])
+
+  const resolveConnectionRecovery = React.useCallback(() => {
+    const recovery = connectionRecoveryRef.current
+    if (!recovery) {
+      return
+    }
+
+    connectionRecoveryRef.current = null
+    recovery.resolve()
+    toast.dismiss(RECONNECT_TOAST_ID)
+  }, [])
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") {
+      return
+    }
+
+    const handleOffline = () => {
+      readClientRef.current?.forceReconnect("Browser went offline")
+      sendClientRef.current?.forceReconnect("Browser went offline")
+    }
+
+    window.addEventListener("offline", handleOffline)
+    return () => {
+      window.removeEventListener("offline", handleOffline)
+    }
   }, [])
 
   const updateSelfState = React.useCallback((state: TwitchSelfChatState) => {
@@ -1299,6 +1460,9 @@ export function useTwitchChat(options?: {
 
     const client = new TwitchChatClient((event) => {
       switch (event.type) {
+        case "connection-lost":
+          handleReadConnectionLost(event.reason)
+          break
         case "connected":
           setConnectionState((prev) => ({
             ...prev,
@@ -1309,10 +1473,11 @@ export function useTwitchChat(options?: {
           if (!hasAnnouncedConnectedRef.current) {
             hasAnnouncedConnectedRef.current = true
           }
-          pendingConnectRef.current?.resolve()
-          pendingConnectRef.current = null
+          completePendingReadSyncIfReady()
+          markConnectionSyncedIfReady()
           break
         case "disconnected":
+          readJoinedChannelsRef.current.clear()
           senderStateRef.current = {
             color: null,
             badges: [],
@@ -1327,7 +1492,7 @@ export function useTwitchChat(options?: {
           setConnectionState((prev) => ({
             ...prev,
             connected: false,
-            connecting: false,
+            connecting: connectionRecoveryRef.current ? true : false,
             lastError: event.reason,
           }))
           setRooms((current) => {
@@ -1347,14 +1512,18 @@ export function useTwitchChat(options?: {
           pendingConnectRef.current = null
           break
         case "channel-joined":
+          readJoinedChannelsRef.current.add(event.channel)
           updateRoom(event.channel, (room) => ({
             ...room,
             joined: true,
             joining: false,
           }))
           loadRecentMessages(event.channel)
+          completePendingReadSyncIfReady()
+          markConnectionSyncedIfReady()
           break
         case "channel-parted":
+          readJoinedChannelsRef.current.delete(event.channel)
           updateRoom(event.channel, (room) => ({
             ...room,
             joined: false,
@@ -1363,6 +1532,7 @@ export function useTwitchChat(options?: {
           break
         case "room-state": {
           const login = normalizeChannelLogin(event.state.channel)
+          readJoinedChannelsRef.current.add(login)
           updateRoom(login, (room) => ({
             ...room,
             roomId: event.state.roomId,
@@ -1376,6 +1546,8 @@ export function useTwitchChat(options?: {
             ensureRoomEmotes(login, event.state.roomId)
           }
           loadRecentMessages(login)
+          completePendingReadSyncIfReady()
+          markConnectionSyncedIfReady()
           break
         }
         case "self-state":
@@ -1412,8 +1584,11 @@ export function useTwitchChat(options?: {
     return client
   }, [
     appendLog,
+    completePendingReadSyncIfReady,
+    handleReadConnectionLost,
     loadRecentMessages,
     ensureRoomEmotes,
+    markConnectionSyncedIfReady,
     routeMessageToRoom,
     routeClearMsg,
     routeClearChat,
@@ -1427,6 +1602,9 @@ export function useTwitchChat(options?: {
 
     const client = new TwitchChatClient((event) => {
       switch (event.type) {
+        case "connection-lost":
+          handleSendConnectionLost(event.reason)
+          break
         case "connected":
           setSendConnectionState((prev) => ({
             ...prev,
@@ -1437,12 +1615,13 @@ export function useTwitchChat(options?: {
           pendingSendConnectRef.current?.resolve()
           pendingSendConnectRef.current = null
           probeSendRestrictions()
+          markConnectionSyncedIfReady()
           break
         case "disconnected":
           setSendConnectionState((prev) => ({
             ...prev,
             connected: false,
-            connecting: false,
+            connecting: connectionRecoveryRef.current ? true : false,
             lastError: event.reason,
           }))
           pendingSendConnectRef.current?.reject(
@@ -1488,7 +1667,9 @@ export function useTwitchChat(options?: {
   }, [
     appendLog,
     clearSendBlockTimer,
+    handleSendConnectionLost,
     handleSendSystemNotice,
+    markConnectionSyncedIfReady,
     probeSendRestrictions,
     updateSelfState,
   ])
@@ -1531,6 +1712,7 @@ export function useTwitchChat(options?: {
       const removed = new Set(removedLogins)
 
       for (const login of removedLogins) {
+        readJoinedChannelsRef.current.delete(login)
         historyLoadedRef.current.delete(login)
         historyLoadingRef.current.delete(login)
         historyErrorNotifiedRef.current.delete(login)
@@ -1668,13 +1850,11 @@ export function useTwitchChat(options?: {
 
       syncedChannelsRef.current = normalized
 
-      if (
-        unchanged &&
-        normalized.length > 0 &&
-        readClientRef.current?.isConnected
-      ) {
-        void syncSendConnection(options)
-        return Promise.resolve()
+      if (unchanged && normalized.length > 0 && isReadConnectionSynced()) {
+        completePendingReadSyncIfReady()
+        return syncSendConnection(options).then(() => {
+          markConnectionSyncedIfReady()
+        })
       }
 
       const inFlight = pendingSyncPromiseRef.current
@@ -1685,6 +1865,13 @@ export function useTwitchChat(options?: {
 
       if (normalized.length === 0) {
         pendingSyncPromiseRef.current = null
+        pendingConnectRef.current?.resolve()
+        pendingConnectRef.current = null
+        pendingSendConnectRef.current?.resolve()
+        pendingSendConnectRef.current = null
+        readJoinedChannelsRef.current.clear()
+        wasFullySyncedRef.current = false
+        resolveConnectionRecovery()
         readClientRef.current?.close()
         readClientRef.current = null
         sendClientRef.current?.close()
@@ -1748,29 +1935,45 @@ export function useTwitchChat(options?: {
         lastError: null,
       }))
 
-      const promise = new Promise<void>((resolve, reject) => {
-        pendingConnectRef.current = { resolve, reject }
+      const readSyncPromise = new Promise<void>((resolve, reject) => {
+        pendingConnectRef.current = {
+          key: syncKey,
+          expectedChannels: normalized,
+          resolve,
+          reject,
+        }
         getReadClient().setChannels(normalized, {})
       })
+      completePendingReadSyncIfReady()
+
+      const promise = readSyncPromise.then(() =>
+        syncSendConnection(options).then(() => {
+          markConnectionSyncedIfReady()
+        })
+      )
 
       pendingSyncPromiseRef.current = { key: syncKey, promise }
       void promise
-        .then(() => syncSendConnection(options))
         .finally(() => {
           if (pendingSyncPromiseRef.current?.promise === promise) {
             pendingSyncPromiseRef.current = null
           }
         })
+        .catch(() => undefined)
 
       return promise
     },
     [
       clearAllSendBlocks,
       clearRecentMessagesQueue,
+      completePendingReadSyncIfReady,
       ensureRooms,
       getReadClient,
+      isReadConnectionSynced,
       loadRecentMessages,
+      markConnectionSyncedIfReady,
       pruneRemovedChannelState,
+      resolveConnectionRecovery,
       syncSendConnection,
     ]
   )

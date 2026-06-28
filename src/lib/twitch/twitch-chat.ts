@@ -5,6 +5,7 @@ import {
   isIrcClearChatLine,
   isIrcClearMsgLine,
   isIrcNoticeLine,
+  isIrcPongLine,
   isIrcPrivmsgLine,
   isIrcRoomStateLine,
   isIrcUsernoticeLine,
@@ -195,6 +196,7 @@ export type TwitchClearChatEvent = {
 
 export type TwitchChatEvent =
   | { type: "connected" }
+  | { type: "connection-lost"; reason: string }
   | { type: "disconnected"; reason: string | null }
   | { type: "channel-joined"; channel: string }
   | { type: "channel-parted"; channel: string }
@@ -215,8 +217,9 @@ export type TwitchChatEventHandler = (event: TwitchChatEvent) => void
 
 const TWITCH_WS_URL = "wss://irc-ws.chat.twitch.tv:443"
 const ANONYMOUS_NICK = `justinfan${Math.floor(10000 + Math.random() * 90000)}`
-const PING_TIMEOUT_MS = 320_000 // expect a PING within ~5 min
-const RECONNECT_DELAY_MS = 3_000
+const HEARTBEAT_INTERVAL_MS = 5_000
+const HEARTBEAT_PONG_TIMEOUT_MS = 4_000
+const RECONNECT_DELAY_MS = 1_000
 
 // ---------------------------------------------------------------------------
 // Client
@@ -235,7 +238,8 @@ export class TwitchChatClient {
   private joinedChannels = new Set<string>()
   private connectOptions: TwitchChatConnectOptions = {}
   private handler: TwitchChatEventHandler
-  private pingTimer: ReturnType<typeof setTimeout> | null = null
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null
+  private heartbeatPongTimer: ReturnType<typeof setTimeout> | null = null
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private intentionalClose = false
   private sessionOpen = false
@@ -449,7 +453,6 @@ export class TwitchChatClient {
       ws.send("CAP REQ :twitch.tv/tags twitch.tv/commands")
       ws.send(`PASS ${pass}`)
       ws.send(`NICK ${resolvedNick}`)
-      this.resetPingTimer()
     })
 
     ws.addEventListener("message", (event) => {
@@ -495,6 +498,26 @@ export class TwitchChatClient {
 
       this.emit({ type: "error", text: "WebSocket error" })
     })
+  }
+
+  /**
+   * Browser WebSockets do not expose native ping frames. Use this when there is
+   * external evidence (for example `offline`) that the socket is stale.
+   */
+  forceReconnect(reason = "Connection lost") {
+    if (!this.sessionOpen || this.intentionalClose) {
+      return
+    }
+
+    this.emit({ type: "connection-lost", reason })
+
+    if (this.ws) {
+      this.ws.close(4000, reason)
+      return
+    }
+
+    this.emit({ type: "disconnected", reason })
+    this.scheduleReconnect()
   }
 
   private syncJoins() {
@@ -555,18 +578,28 @@ export class TwitchChatClient {
       devChatLogger.debug("irc:line", raw)
     }
 
+    // Inbound IRC traffic proves the socket is still live.
+    this.clearHeartbeatPongTimer()
+
     // PING keep-alive
     if (raw.startsWith("PING")) {
       if (isDevIrcLoggingEnabled()) {
         devChatLogger.debug("irc:kind", "ping")
       }
       this.ws?.send(raw.replace("PING", "PONG"))
-      this.resetPingTimer()
       return
     }
 
     const tagged = raw.startsWith("@") ? splitTaggedLine(raw) : null
     const rest = tagged?.rest ?? raw
+
+    if (isIrcPongLine(rest)) {
+      if (isDevIrcLoggingEnabled()) {
+        devChatLogger.debug("irc:kind", "pong")
+      }
+      this.clearHeartbeatPongTimer()
+      return
+    }
 
     // Successful welcome — join all desired channels (RPL_WELCOME / 001).
     if (isIrcWelcomeLine(rest)) {
@@ -574,6 +607,7 @@ export class TwitchChatClient {
         devChatLogger.debug("irc:kind", "welcome")
       }
       this.welcomeReceived = true
+      this.startHeartbeat()
       this.emit({ type: "connected" })
       if (this.mode === "read") {
         this.syncJoins()
@@ -708,15 +742,51 @@ export class TwitchChatClient {
   // Timers
   // -----------------------------------------------------------------------
 
-  private resetPingTimer() {
-    if (this.pingTimer) clearTimeout(this.pingTimer)
-    this.pingTimer = setTimeout(() => {
+  private startHeartbeat() {
+    this.stopHeartbeat()
+    this.sendHeartbeatPing()
+    this.heartbeatTimer = setInterval(() => {
+      this.sendHeartbeatPing()
+    }, HEARTBEAT_INTERVAL_MS)
+  }
+
+  private stopHeartbeat() {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer)
+      this.heartbeatTimer = null
+    }
+    this.clearHeartbeatPongTimer()
+  }
+
+  private clearHeartbeatPongTimer() {
+    if (this.heartbeatPongTimer) {
+      clearTimeout(this.heartbeatPongTimer)
+      this.heartbeatPongTimer = null
+    }
+  }
+
+  private sendHeartbeatPing() {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      return
+    }
+
+    if (this.heartbeatPongTimer) {
+      return
+    }
+
+    this.ws.send("PING :tmi.twitch.tv")
+    this.heartbeatPongTimer = setTimeout(() => {
+      this.heartbeatPongTimer = null
+      this.emit({
+        type: "connection-lost",
+        reason: "No PONG from Twitch",
+      })
       this.emit({
         type: "error",
-        text: "No PING from Twitch - reconnecting",
+        text: "No PONG from Twitch - reconnecting",
       })
       this.ws?.close()
-    }, PING_TIMEOUT_MS)
+    }, HEARTBEAT_PONG_TIMEOUT_MS)
   }
 
   private scheduleReconnect() {
@@ -742,10 +812,7 @@ export class TwitchChatClient {
   }
 
   private clearTimers() {
-    if (this.pingTimer) {
-      clearTimeout(this.pingTimer)
-      this.pingTimer = null
-    }
+    this.stopHeartbeat()
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer)
       this.reconnectTimer = null
@@ -1224,6 +1291,8 @@ function summarizeChatEvent(event: TwitchChatEvent): Record<string, unknown> {
     case "channel-joined":
     case "channel-parted":
       return { type: event.type, channel: event.channel }
+    case "connection-lost":
+      return { type: event.type, reason: event.reason }
     case "disconnected":
       return { type: event.type, reason: event.reason }
     case "connected":
