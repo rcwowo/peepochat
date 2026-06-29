@@ -11,8 +11,8 @@ const STORAGE_KEYS: Record<DevLogCategory, string> = {
 }
 
 const DEFAULTS: Record<DevLogCategory, boolean> = {
-  chat: true,
-  fetch: true,
+  chat: false,
+  fetch: false,
   irc: false,
 }
 
