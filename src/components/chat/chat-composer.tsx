@@ -540,6 +540,29 @@ export function ChatComposer({
     resizeTextarea()
   }, [resizeTextarea, value])
 
+  React.useLayoutEffect(() => {
+    const el = inputRef.current
+    if (!el || typeof ResizeObserver === "undefined") return
+
+    let observedWidth = el.getBoundingClientRect().width
+    resizeTextarea()
+
+    const observer = new ResizeObserver(([entry]) => {
+      const nextWidth =
+        entry?.contentRect.width ?? el.getBoundingClientRect().width
+      if (nextWidth === observedWidth) return
+
+      observedWidth = nextWidth
+      resizeTextarea()
+    })
+
+    observer.observe(el)
+
+    return () => {
+      observer.disconnect()
+    }
+  }, [resizeTextarea])
+
   React.useEffect(() => {
     const handler = (event: Event) => {
       const custom = event as CustomEvent<{
