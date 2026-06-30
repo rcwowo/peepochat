@@ -11,6 +11,7 @@ import {
 
 import { EmoteShowcaseSection } from "@/components/landing/emote-showcase-section"
 import { LayoutShowcaseSection } from "@/components/landing/layout-showcase-section"
+import { NotificationsShowcaseSection } from "@/components/landing/notifications-showcase-section"
 import { HeroChatMockup } from "@/components/landing/hero-chat-mockup"
 import { LandingFooter } from "@/components/landing/landing-footer"
 import { Button } from "@/components/ui/button"
@@ -183,6 +184,8 @@ export function LandingPage() {
           </section>
 
           <LayoutShowcaseSection />
+
+          <NotificationsShowcaseSection />
 
           <EmoteShowcaseSection />
 
