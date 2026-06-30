@@ -11,7 +11,7 @@ import { normalizeSidebarOrder } from "@/lib/sidebar/sidebar-order"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 
 export const PEEPOCHAT_STORAGE_KEY = "peepochat::config"
-export const PEEPOCHAT_SCHEMA_VERSION = 15
+export const PEEPOCHAT_SCHEMA_VERSION = 1
 
 export const LIVE_MESSAGES_PER_CHANNEL_MIN = 20
 export const LIVE_MESSAGES_PER_CHANNEL_MAX = 500
