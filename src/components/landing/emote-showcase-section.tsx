@@ -368,6 +368,10 @@ export function EmoteShowcaseSection() {
               </li>
             ))}
           </ul>
+
+          <p className="mt-6 text-[0.7rem] leading-relaxed text-[color-mix(in_oklch,white_45%,transparent)] text-shadow-[0_1px_8px_oklch(0_0_0/80%)]">
+            Peepochat has no association with any of the services shown above.
+          </p>
         </div>
       </div>
     </section>

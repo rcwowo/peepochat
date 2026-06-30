@@ -65,6 +65,15 @@ export type LandingEmoteKey = keyof typeof LANDING_EMOTES
 
 export const LANDING_EMOTE_PROVIDERS = [
   {
+    id: "twitch" as const,
+    name: "Twitch",
+    shortName: "Twitch",
+    iconSrc: "/icons/twitch.svg",
+    accent: "#9146ff",
+    emoteKeys: [] as const satisfies readonly LandingEmoteKey[],
+    tagline: "Native global, subscriber, and channel emotes.",
+  },
+  {
     id: "bttv" as const,
     name: "BetterTTV",
     shortName: "BTTV",

@@ -14,6 +14,7 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { toast } from "sonner"
+import { Link } from "react-router-dom"
 
 import logoSrc from "/branding/full-logo.svg"
 import { usePeepochatSettings } from "@/lib/peepochat/peepochat-context"
@@ -331,11 +332,13 @@ export function OnboardingDialog({
 
       <div className="relative z-10 mx-auto flex min-h-svh w-full max-w-5xl flex-col px-5 py-6 sm:px-8 sm:py-8">
         <header className="flex items-center justify-between gap-6">
-          <img
-            src={logoSrc}
-            alt="Peepochat"
-            className="h-7 w-auto brand-mark"
-          />
+          <Link to="/" className="flex shrink-0 items-center">
+            <img
+              src={logoSrc}
+              alt="Peepochat"
+              className="h-7 w-auto brand-mark"
+            />
+          </Link>
           {setupStarted &&
             stepDefinitions.length > 1 &&
             currentStepIndex >= 0 && (
@@ -430,7 +433,7 @@ function StepTrail({
             {index > 0 && (
               <div
                 className={cn(
-                  "hidden h-px w-4 sm:block",
+                  "hidden h-px w-4 shrink-0 self-center sm:block",
                   isComplete ? "bg-primary/50" : "bg-border"
                 )}
               />
@@ -445,7 +448,7 @@ function StepTrail({
             >
               <span
                 className={cn(
-                  "flex size-4 items-center justify-center rounded-full text-[10px] font-semibold sm:size-5 sm:text-[11px]",
+                  "flex size-4 shrink-0 items-center justify-center rounded-full text-[10px] leading-none font-semibold tabular-nums sm:size-5 sm:text-[11px]",
                   isCurrent && "bg-primary text-primary-foreground",
                   isComplete && "bg-primary/25 text-primary",
                   !isCurrent && !isComplete && "bg-muted text-muted-foreground"
@@ -457,7 +460,9 @@ function StepTrail({
                   index + 1
                 )}
               </span>
-              <span className="hidden sm:inline">{entry.label}</span>
+              <span className="hidden leading-none sm:inline">
+                {entry.label}
+              </span>
             </div>
           </React.Fragment>
         )
@@ -497,8 +502,8 @@ function NewLandingStep({
   return (
     <div className="space-y-8">
       <OnboardingHeading
-        title="Ready when you are"
-        description="Start from scratch, or bring your settings back from a backup file."
+        title="Let's get started."
+        description="You can start from scratch or restore your settings from a backup."
       />
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -739,7 +744,7 @@ function ChannelStep({
     <div className="space-y-8">
       <OnboardingHeading
         title="Where are we heading?"
-        description="Type a channel name — you'll be in chat in a second. Add more from the sidebar whenever."
+        description="Type the name of a channel you want to start chatting in. You can add more channels via the sidebar later."
       />
 
       <div className="rounded-2xl border border-white/10 bg-card/40 p-5 backdrop-blur-sm sm:p-6">
@@ -897,8 +902,8 @@ function BookmarkStep({
   return (
     <div className="space-y-8">
       <OnboardingHeading
-        title="You're all set"
-        description="Everything is setup and ready to go, just one more thing."
+        title="You're all set!"
+        description="Everything is setup and ready to go - just one more thing."
       />
 
       <div className="rounded-2xl border border-white/10 bg-card/40 p-6 backdrop-blur-sm sm:p-8">
