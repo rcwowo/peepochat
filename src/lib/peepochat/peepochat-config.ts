@@ -105,7 +105,7 @@ const highlightsSchema = z.object({
   highlightPingedMessages: z.boolean().default(true),
   useDefaultSounds: z.boolean().default(true),
   pingSoundCustomId: z.string().nullable().default(null),
-  notificationSoundCustomId: z.string().nullable().default(null),
+  liveSoundCustomId: z.string().nullable().default(null),
   pings: z.array(highlightPingRuleSchema).default([]),
 })
 
@@ -181,7 +181,7 @@ const appConfigSchema = z.object({
     highlightPingedMessages: true,
     useDefaultSounds: true,
     pingSoundCustomId: null,
-    notificationSoundCustomId: null,
+    liveSoundCustomId: null,
     pings: [],
   }),
 })
@@ -288,7 +288,7 @@ export function createDefaultConfig(): AppConfig {
       highlightPingedMessages: true,
       useDefaultSounds: true,
       pingSoundCustomId: null,
-      notificationSoundCustomId: null,
+      liveSoundCustomId: null,
       pings: [],
     },
   }
@@ -690,14 +690,18 @@ function resolveUseDefaultSounds(
   }
 
   const pingSoundUseDefault = highlights?.pingSoundUseDefault
+  const liveSoundUseDefault = highlights?.liveSoundUseDefault
   const notificationSoundUseDefault = highlights?.notificationSoundUseDefault
   const pingSoundCustomId = highlights?.pingSoundCustomId
+  const liveSoundCustomId = highlights?.liveSoundCustomId
   const notificationSoundCustomId = highlights?.notificationSoundCustomId
 
   const usesCustomSounds =
     pingSoundUseDefault === false ||
+    liveSoundUseDefault === false ||
     notificationSoundUseDefault === false ||
     (typeof pingSoundCustomId === "string" && pingSoundCustomId.trim()) ||
+    (typeof liveSoundCustomId === "string" && liveSoundCustomId.trim()) ||
     (typeof notificationSoundCustomId === "string" &&
       notificationSoundCustomId.trim())
 
@@ -793,10 +797,21 @@ function normalizeConfig(config: AppConfig): AppConfig {
       typeof config.highlights?.pingSoundCustomId === "string"
         ? config.highlights.pingSoundCustomId.trim() || null
         : null,
-    notificationSoundCustomId:
-      typeof config.highlights?.notificationSoundCustomId === "string"
-        ? config.highlights.notificationSoundCustomId.trim() || null
-        : null,
+    liveSoundCustomId: (() => {
+      const liveSoundCustomId = config.highlights?.liveSoundCustomId
+      if (typeof liveSoundCustomId === "string") {
+        return liveSoundCustomId.trim() || null
+      }
+
+      const legacyNotificationSoundCustomId = (
+        rawHighlights as { notificationSoundCustomId?: unknown } | undefined
+      )?.notificationSoundCustomId
+      if (typeof legacyNotificationSoundCustomId === "string") {
+        return legacyNotificationSoundCustomId.trim() || null
+      }
+
+      return null
+    })(),
     pings: (config.highlights?.pings ?? []).map((rule) => ({
       id: rule.id.trim(),
       pattern: rule.pattern,

@@ -250,8 +250,9 @@ export function HighlightsTab() {
               <AlertSoundSettingRow
                 title="Ping sound"
                 description="Plays when a ping rule matches."
+                kind="ping"
                 customId={config.highlights.pingSoundCustomId}
-                otherCustomId={config.highlights.notificationSoundCustomId}
+                otherCustomId={config.highlights.liveSoundCustomId}
                 onCustomIdChange={(customId) =>
                   updateConfig((current) => ({
                     ...current,
@@ -263,16 +264,17 @@ export function HighlightsTab() {
                 }
               />
               <AlertSoundSettingRow
-                title="Notification sound"
-                description="Plays with desktop notifications."
-                customId={config.highlights.notificationSoundCustomId}
+                title="Live notification sound"
+                description="Plays when a channel goes live."
+                kind="live"
+                customId={config.highlights.liveSoundCustomId}
                 otherCustomId={config.highlights.pingSoundCustomId}
                 onCustomIdChange={(customId) =>
                   updateConfig((current) => ({
                     ...current,
                     highlights: {
                       ...current.highlights,
-                      notificationSoundCustomId: customId,
+                      liveSoundCustomId: customId,
                     },
                   }))
                 }

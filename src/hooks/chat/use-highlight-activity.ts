@@ -114,9 +114,6 @@ export function useHighlightActivity({
   )
   const useDefaultSoundsRef = React.useRef(config.highlights.useDefaultSounds)
   const pingSoundCustomIdRef = React.useRef(config.highlights.pingSoundCustomId)
-  const notificationSoundCustomIdRef = React.useRef(
-    config.highlights.notificationSoundCustomId
-  )
 
   const unreadEnabledByLoginRef = React.useRef<Map<string, boolean>>(new Map())
   React.useEffect(() => {
@@ -164,11 +161,6 @@ export function useHighlightActivity({
   React.useEffect(() => {
     pingSoundCustomIdRef.current = config.highlights.pingSoundCustomId
   }, [config.highlights.pingSoundCustomId])
-
-  React.useEffect(() => {
-    notificationSoundCustomIdRef.current =
-      config.highlights.notificationSoundCustomId
-  }, [config.highlights.notificationSoundCustomId])
 
   React.useEffect(() => {
     onFocusChannelRef.current = onFocusChannel
@@ -340,9 +332,8 @@ export function useHighlightActivity({
         if (!doNotDisturb) {
           void playAlertSound({
             useDefaultSounds: useDefaultSoundsRef.current,
-            customId: shouldNotify
-              ? notificationSoundCustomIdRef.current
-              : pingSoundCustomIdRef.current,
+            customId: pingSoundCustomIdRef.current,
+            kind: "ping",
           })
         }
       }

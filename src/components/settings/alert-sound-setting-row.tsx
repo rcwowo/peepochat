@@ -3,7 +3,10 @@ import { Music2Icon, PlayIcon, RotateCcwIcon, UploadIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
-import { playAlertSound } from "@/lib/highlights/alert-sounds"
+import {
+  playAlertSound,
+  type AlertSoundKind,
+} from "@/lib/highlights/alert-sounds"
 import {
   deleteCustomSound,
   getCustomSound,
@@ -13,6 +16,7 @@ import {
 type AlertSoundSettingRowProps = {
   title: string
   description: string
+  kind: AlertSoundKind
   customId: string | null
   onCustomIdChange: (customId: string | null) => void
   otherCustomId?: string | null
@@ -21,6 +25,7 @@ type AlertSoundSettingRowProps = {
 export function AlertSoundSettingRow({
   title,
   description,
+  kind,
   customId,
   onCustomIdChange,
   otherCustomId = null,
@@ -114,7 +119,11 @@ export function AlertSoundSettingRow({
             size="icon-xs"
             className="text-muted-foreground hover:text-foreground"
             onClick={() =>
-              void playAlertSound({ useDefaultSounds: false, customId })
+              void playAlertSound({
+                useDefaultSounds: false,
+                customId,
+                kind,
+              })
             }
             aria-label={`Preview ${title.toLowerCase()}`}
           >

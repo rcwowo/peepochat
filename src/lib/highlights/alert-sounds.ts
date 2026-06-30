@@ -1,6 +1,18 @@
 import { getCustomSoundObjectUrl } from "@/lib/highlights/custom-sounds"
 
-export const DEFAULT_ALERT_SOUND_URL = "/sounds/ping.opus"
+export type AlertSoundKind = "ping" | "live"
+
+const DEFAULT_SOUND_URLS: Record<AlertSoundKind, string> = {
+  ping: "/sounds/ping.opus",
+  live: "/sounds/ping.opus",
+}
+
+export const DEFAULT_PING_SOUND_URL = DEFAULT_SOUND_URLS.ping
+export const DEFAULT_LIVE_SOUND_URL = DEFAULT_SOUND_URLS.live
+
+export function getDefaultAlertSoundUrl(kind: AlertSoundKind): string {
+  return DEFAULT_SOUND_URLS[kind]
+}
 
 const audioCache = new Map<string, HTMLAudioElement>()
 
@@ -17,19 +29,23 @@ function getAudioElement(url: string): HTMLAudioElement {
 }
 
 export async function resolveAlertSoundUrl(
-  customId: string | null | undefined
+  customId: string | null | undefined,
+  kind: AlertSoundKind
 ): Promise<string> {
+  const fallback = DEFAULT_SOUND_URLS[kind]
+
   if (!customId) {
-    return DEFAULT_ALERT_SOUND_URL
+    return fallback
   }
 
   const customUrl = await getCustomSoundObjectUrl(customId)
-  return customUrl ?? DEFAULT_ALERT_SOUND_URL
+  return customUrl ?? fallback
 }
 
 export async function playAlertSound(options: {
   useDefaultSounds: boolean
   customId: string | null | undefined
+  kind: AlertSoundKind
 }) {
   if (typeof window === "undefined") {
     return
@@ -37,7 +53,7 @@ export async function playAlertSound(options: {
 
   try {
     const customId = options.useDefaultSounds ? null : options.customId
-    const url = await resolveAlertSoundUrl(customId)
+    const url = await resolveAlertSoundUrl(customId, options.kind)
     const audio = getAudioElement(url)
     audio.currentTime = 0
     await audio.play()
@@ -46,8 +62,11 @@ export async function playAlertSound(options: {
   }
 }
 
-export function preloadAlertSound(customId: string | null | undefined) {
-  void resolveAlertSoundUrl(customId).then((url) => {
+export function preloadAlertSound(
+  customId: string | null | undefined,
+  kind: AlertSoundKind
+) {
+  void resolveAlertSoundUrl(customId, kind).then((url) => {
     getAudioElement(url)
   })
 }

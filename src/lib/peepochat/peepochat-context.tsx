@@ -385,7 +385,8 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       })
       void playAlertSound({
         useDefaultSounds: config.highlights.useDefaultSounds,
-        customId: config.highlights.notificationSoundCustomId,
+        customId: config.highlights.liveSoundCustomId,
+        kind: "live",
       })
     },
   })
