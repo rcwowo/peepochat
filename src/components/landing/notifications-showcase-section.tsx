@@ -572,7 +572,8 @@ export function NotificationsShowcaseSection() {
               <span className="text-primary">message or stream.</span>
             </h2>
             <p className="mt-4 text-base leading-relaxed text-muted-foreground">
-              Peepochat can send you browser notifications for when someone triggers your pings, or when someone in your sidebar goes live.
+              Peepochat can send you browser notifications for when someone
+              triggers your pings, or when someone in your sidebar goes live.
             </p>
 
             <ul className="mt-8 space-y-4">

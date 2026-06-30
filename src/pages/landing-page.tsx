@@ -60,7 +60,7 @@ const FEATURES = [
 
 export function LandingPage() {
   return (
-    <div className="landing-page dark min-h-svh bg-background text-foreground">
+    <div className="landing-page dark min-h-svh overflow-x-clip bg-background text-foreground">
       <div
         className="landing-grain pointer-events-none fixed inset-0 z-0"
         aria-hidden
@@ -132,7 +132,7 @@ export function LandingPage() {
             </div>
           </section>
 
-          <div className="pointer-events-none relative left-1/2 z-2 mt-12 -mb-44 flex w-screen max-w-none -translate-x-1/2 justify-center overflow-visible px-[clamp(1rem,4vw,2rem)]">
+          <div className="pointer-events-none relative z-2 mt-12 -mb-44 flex justify-center px-[clamp(1rem,4vw,2rem)]">
             <div
               className="pointer-events-auto w-[min(52rem,94vw)] animate-landing-fade-up motion-reduce:animate-none"
               style={{ animationDelay: "120ms" }}
@@ -141,11 +141,11 @@ export function LandingPage() {
             </div>
           </div>
 
-          <section
-            id="features"
-            className="relative z-1 border-t border-white/8 bg-black/20 pt-52"
-          >
-            <div className="mx-auto w-full max-w-6xl px-6 py-20 lg:py-24">
+          <section className="relative z-1 border-t border-white/8 bg-black/20 pt-52">
+            <div
+              id="features"
+              className="mx-auto w-full max-w-6xl scroll-mt-6 px-6 py-20 lg:py-24"
+            >
               <div className="mb-12 max-w-2xl">
                 <p className="font-landing-display text-sm font-medium tracking-[0.18em] text-primary uppercase">
                   Features
