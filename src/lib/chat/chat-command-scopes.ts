@@ -11,4 +11,6 @@ export const CHAT_COMMAND_SCOPES = {
   raids: "channel:manage:raids",
   broadcast: "channel:manage:broadcast",
   whispers: "user:manage:whispers",
+  blockedUsersRead: "user:read:blocked_users",
+  blockedUsersManage: "user:manage:blocked_users",
 } as const

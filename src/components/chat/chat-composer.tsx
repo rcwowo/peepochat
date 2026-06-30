@@ -14,6 +14,7 @@ import { CHAT_RATE_LIMIT_MESSAGES } from "@/lib/chat/chat-send"
 import { isPersistentSendBlockText } from "@/lib/chat/chat-send-notice"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 import type { TwitchChatReply } from "@/lib/twitch/twitch-chat"
+import { maskReplyForBlockedUser } from "@/lib/twitch/blocked-users"
 import {
   applyEmoteSuggestion,
   createEmoteCompleterState,
@@ -67,6 +68,8 @@ export function ChatComposer({
     connectionState,
     getChannelSendBlock,
     registerSendOutcomeListener,
+    hideBlockedUsers,
+    isUserBlocked,
   } = usePeepochat()
 
   const userCardContext = useUserCardContext()
@@ -75,6 +78,17 @@ export function ChatComposer({
   const [error, setError] = React.useState("")
   const [rateLimitHint, setRateLimitHint] = React.useState<string | null>(null)
   const [reply, setReply] = React.useState<TwitchChatReply | null>(null)
+  const displayReply = React.useMemo(() => {
+    if (!reply) {
+      return null
+    }
+
+    if (hideBlockedUsers && isUserBlocked(null, reply.parentUserName)) {
+      return maskReplyForBlockedUser(reply)
+    }
+
+    return reply
+  }, [hideBlockedUsers, isUserBlocked, reply])
   const [completer, setCompleter] = React.useState<EmoteCompleterState>(() =>
     createEmoteCompleterState()
   )
@@ -821,14 +835,14 @@ export function ChatComposer({
         </div>
       ) : null}
 
-      {reply ? (
+      {displayReply ? (
         <div className="px-2 pt-2">
           <div className="flex items-start justify-between gap-2 rounded-md border border-border/60 bg-muted/20 px-2 py-1.5">
             <div className="min-w-0">
               <div className="text-[11px] font-medium text-muted-foreground">
                 Replying to
               </div>
-              <ChatReplyPreview reply={reply} />
+              <ChatReplyPreview reply={displayReply} />
             </div>
             <Button
               type="button"

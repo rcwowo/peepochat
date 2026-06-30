@@ -47,6 +47,7 @@ import { getRecentUserMessageBuckets } from "@/lib/chat/recent-user-messages"
 import { cn } from "@/lib/utils"
 
 import { openExternalTool, CHATLOGS_URL } from "@/lib/chat/moderation-tools"
+import { maskReplyForBlockedUser } from "@/lib/twitch/blocked-users"
 
 const CHATVOICE_URL = "https://chatvoice.rcw.lol"
 
@@ -163,7 +164,14 @@ function ChatPaneInner({
   dragHandleProps,
   className,
 }: ChatPaneProps) {
-  const { refreshEmotes, getComposerEmoteCatalog } = usePeepochatChat()
+  const {
+    refreshEmotes,
+    getComposerEmoteCatalog,
+    hideBlockedUsers,
+    isUserBlocked,
+    blockUser,
+    unblockUser,
+  } = usePeepochatChat()
   const { isChannelLive, getChannelLiveStream } =
     usePeepochatSidebarHighlights()
   const messageHighlights = useChannelMessageHighlights(channelLogin)
@@ -187,13 +195,27 @@ function ChatPaneInner({
     }
   }
 
+  const visibleTimeline = React.useMemo(() => {
+    if (!hideBlockedUsers) {
+      return timeline
+    }
+
+    return timeline.filter((entry) => {
+      if (entry.kind !== "chat") {
+        return true
+      }
+
+      return !isUserBlocked(entry.message.userId, entry.message.userName)
+    })
+  }, [hideBlockedUsers, isUserBlocked, timeline])
+
   const rowStripes = React.useMemo(
-    () => reconcileStableRowStripes(rowStripeCache, timeline),
-    [rowStripeCache, timeline]
+    () => reconcileStableRowStripes(rowStripeCache, visibleTimeline),
+    [rowStripeCache, visibleTimeline]
   )
   const recentMessagesByUser = React.useMemo(() => {
-    return getRecentUserMessageBuckets(timeline)
-  }, [timeline])
+    return getRecentUserMessageBuckets(visibleTimeline)
+  }, [visibleTimeline])
 
   const getRecentMessagesForUser = React.useCallback(
     (target: UserCardTarget) => {
@@ -238,7 +260,7 @@ function ChatPaneInner({
   React.useLayoutEffect(() => {
     if (!isActive || isScrollPaused) return
     scrollToBottom("auto")
-  }, [isActive, timeline, isScrollPaused, scrollToBottom])
+  }, [isActive, visibleTimeline, isScrollPaused, scrollToBottom])
 
   React.useEffect(() => {
     const container = chatContainerRef.current
@@ -271,6 +293,9 @@ function ChatPaneInner({
       selfChatState={selfChatState}
       loginWithTwitch={loginWithTwitch}
       getRecentMessages={getRecentMessagesForUser}
+      isUserBlocked={isUserBlocked}
+      blockUser={blockUser}
+      unblockUser={unblockUser}
     >
       <EmoteCardProvider catalog={composerCatalog}>
         <div
@@ -387,7 +412,7 @@ function ChatPaneInner({
 
           <div className="chat-panel flex min-h-0 flex-1 flex-col overflow-hidden">
             <div className="relative min-h-0 flex-1 overflow-hidden">
-              {timeline.length === 0 ? (
+              {visibleTimeline.length === 0 ? (
                 <div className="flex h-full items-center justify-center p-4">
                   <EmptyState
                     icon={MessagesSquareIcon}
@@ -406,7 +431,7 @@ function ChatPaneInner({
                   className="chat-scroll flex h-full flex-col overflow-y-auto overscroll-contain"
                 >
                   <div ref={messageListRef} className="mt-auto py-1">
-                    {timeline.map((entry) => {
+                    {visibleTimeline.map((entry) => {
                       const isAlternateRow =
                         rowStripes.get(entry.message.id) ?? false
 
@@ -425,11 +450,22 @@ function ChatPaneInner({
                       const messageHighlight = messageHighlights.get(
                         entry.message.id
                       )
+                      const displayMessage =
+                        hideBlockedUsers &&
+                        entry.message.reply &&
+                        isUserBlocked(null, entry.message.reply.parentUserName)
+                          ? {
+                              ...entry.message,
+                              reply: maskReplyForBlockedUser(
+                                entry.message.reply
+                              ),
+                            }
+                          : entry.message
 
                       return (
                         <ChatMessageRow
                           key={entry.message.id}
-                          message={entry.message}
+                          message={displayMessage}
                           timestampFormat={timestampFormat}
                           messageQuickActions={messageQuickActions}
                           deletedMessagesBehavior={deletedMessagesBehavior}
@@ -464,7 +500,7 @@ function ChatPaneInner({
                 </div>
               )}
 
-              {timeline.length > 0 && isScrollPaused ? (
+              {visibleTimeline.length > 0 && isScrollPaused ? (
                 <div className="pointer-events-none absolute right-0 bottom-3 left-0 z-10 flex justify-center px-3">
                   <Button
                     type="button"

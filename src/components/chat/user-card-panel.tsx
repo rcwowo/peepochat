@@ -10,6 +10,7 @@ import {
   ShieldCheckIcon,
   ShieldOffIcon,
   SparklesIcon,
+  UserXIcon,
   UsersIcon,
   VideoIcon,
   XIcon,
@@ -51,6 +52,7 @@ import {
 } from "@/lib/chat/moderation-tools"
 import { twitchChannelUrl } from "@/lib/chat/user-card"
 import type { TwitchAccount } from "@/lib/peepochat/peepochat-config"
+import { hasBlockedUsersManageScope } from "@/hooks/twitch/use-blocked-users"
 import type { TwitchChatMessage } from "@/lib/twitch/twitch-chat"
 import { cn } from "@/lib/utils"
 
@@ -283,6 +285,9 @@ type UserCardPanelProps = {
   selfChatState: TwitchSelfChatState | null
   recentMessages: TwitchChatMessage[]
   loginWithTwitch: () => void
+  isUserBlocked: (userId?: string | null, login?: string | null) => boolean
+  blockUser: (userId: string, login: string) => Promise<void>
+  unblockUser: (userId: string, login?: string) => Promise<void>
   anchorPosition: { left: number; top: number }
   dragOffset: { x: number; y: number }
   panelRef: React.RefObject<HTMLDivElement | null>
@@ -300,6 +305,9 @@ export function UserCardPanel({
   selfChatState,
   recentMessages,
   loginWithTwitch,
+  isUserBlocked,
+  blockUser,
+  unblockUser,
   anchorPosition,
   dragOffset,
   panelRef,
@@ -337,6 +345,15 @@ export function UserCardPanel({
   const isSelf =
     Boolean(account && profile && account.id === profile.id) ||
     account?.login.toLowerCase() === target.userName.toLowerCase()
+  const canManageBlockedUsers = hasBlockedUsersManageScope(account)
+  const targetUserId = profile?.id ?? target.userId
+  const targetLogin = profile?.login ?? target.userName
+  const targetIsBlocked = Boolean(
+    targetUserId || targetLogin
+      ? isUserBlocked(targetUserId, targetLogin)
+      : false
+  )
+  const [blockActionPending, setBlockActionPending] = React.useState(false)
   const actorIsBroadcasterInChannel = actorIsBroadcaster(account, channelRoomId)
   const canBanOrTimeout = canModerateTarget({
     account,
@@ -399,6 +416,36 @@ export function UserCardPanel({
     },
     [card, target.displayName]
   )
+
+  const handleBlockToggle = React.useCallback(() => {
+    if (!profile || !canManageBlockedUsers || isSelf || blockActionPending) {
+      return
+    }
+
+    setBlockActionPending(true)
+    const action = targetIsBlocked ? unblockUser : blockUser
+    const label = targetIsBlocked ? "Unblock" : "Block"
+
+    void action(profile.id, profile.login)
+      .then(() => {
+        toast.success(`${label} succeeded for ${target.displayName}.`)
+      })
+      .catch((error) => {
+        toast.error(error instanceof Error ? error.message : `${label} failed.`)
+      })
+      .finally(() => {
+        setBlockActionPending(false)
+      })
+  }, [
+    blockActionPending,
+    blockUser,
+    canManageBlockedUsers,
+    isSelf,
+    profile,
+    target.displayName,
+    targetIsBlocked,
+    unblockUser,
+  ])
 
   const timeoutToolbarItems = React.useMemo<ModerationToolbarItem[]>(() => {
     if (!showTimeoutGrid) {
@@ -590,6 +637,20 @@ export function UserCardPanel({
                   <CopyIcon className="ml-auto size-3.5 text-muted-foreground" />
                 </DropdownMenuItem>
               </DropdownMenuGroup>
+              {canManageBlockedUsers && !isSelf ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem
+                      disabled={blockActionPending}
+                      onSelect={handleBlockToggle}
+                    >
+                      {targetIsBlocked ? "Unblock user" : "Block user"}
+                      <UserXIcon className="ml-auto size-3.5 text-muted-foreground" />
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                </>
+              ) : null}
             </DropdownMenuContent>
           </DropdownMenu>
         ) : null}

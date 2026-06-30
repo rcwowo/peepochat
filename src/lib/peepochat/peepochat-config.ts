@@ -11,7 +11,7 @@ import { normalizeSidebarOrder } from "@/lib/sidebar/sidebar-order"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 
 export const PEEPOCHAT_STORAGE_KEY = "peepochat::config"
-export const PEEPOCHAT_SCHEMA_VERSION = 14
+export const PEEPOCHAT_SCHEMA_VERSION = 15
 
 export const LIVE_MESSAGES_PER_CHANNEL_MIN = 20
 export const LIVE_MESSAGES_PER_CHANNEL_MAX = 500
@@ -84,6 +84,7 @@ const chatSchema = z.object({
   messageQuickActions: messageQuickActionsSchema,
   deletedMessagesBehavior: deletedMessagesBehaviorSchema,
   clearChatWhenInstructed: z.boolean().default(true),
+  hideBlockedUsers: z.boolean().default(true),
   emotes: chatEmotesSchema,
   badges: chatBadgesSchema,
 })
@@ -261,6 +262,7 @@ export function createDefaultConfig(): AppConfig {
       },
       deletedMessagesBehavior: "strikethrough",
       clearChatWhenInstructed: true,
+      hideBlockedUsers: true,
       emotes: {
         bttvEnabled: true,
         ffzEnabled: true,

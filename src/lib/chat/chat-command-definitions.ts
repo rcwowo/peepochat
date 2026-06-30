@@ -29,6 +29,11 @@ export const CHAT_COMMAND_DEFINITIONS: ChatCommandDefinition[] = [
     description: "Permanently ban a user",
   },
   {
+    name: "block",
+    usage: "<username>",
+    description: "Block a user on Twitch",
+  },
+  {
     name: "commercial",
     usage: "[seconds]",
     description: "Start a commercial (broadcaster only)",
@@ -71,6 +76,11 @@ export const CHAT_COMMAND_DEFINITIONS: ChatCommandDefinition[] = [
   },
   { name: "untimeout", usage: "<username>", description: "Remove a timeout" },
   { name: "unban", usage: "<username>", description: "Unban a user" },
+  {
+    name: "unblock",
+    usage: "<username>",
+    description: "Unblock a user on Twitch",
+  },
   { name: "uniquechat", usage: "", description: "Unique chat mode on" },
   { name: "uniquechatoff", usage: "", description: "Unique chat mode off" },
   { name: "vip", usage: "<username>", description: "Grant VIP" },

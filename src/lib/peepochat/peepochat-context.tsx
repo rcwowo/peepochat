@@ -7,6 +7,7 @@ import {
   type CachedChatView,
 } from "@/hooks/chat/use-chat-layout"
 import { usePeepochatConfig } from "@/hooks/peepochat/use-peepochat-config"
+import { useBlockedUsers } from "@/hooks/twitch/use-blocked-users"
 import { useTwitchAuth } from "@/hooks/twitch/use-twitch-auth"
 import { useTwitchChannels } from "@/hooks/twitch/use-twitch-channels"
 import { useChatBadges } from "@/hooks/chat/use-chat-badges"
@@ -157,6 +158,10 @@ export type PeepochatChatContextValue = {
   markChatMessageDeleted: (login: string, messageId: string) => void
   canSendChat: boolean
   hasBadgeSupport: boolean
+  hideBlockedUsers: boolean
+  isUserBlocked: (userId?: string | null, login?: string | null) => boolean
+  blockUser: (userId: string, login: string) => Promise<void>
+  unblockUser: (userId: string, login?: string) => Promise<void>
 }
 
 export type PeepochatContextValue = PeepochatConfigContextValue &
@@ -263,6 +268,11 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     setLiveMessageLimit,
     setDeletedMessagesBehavior,
     setClearChatWhenInstructed,
+    setHideBlockedUsers,
+    setIsUserBlocked,
+    setChatCommandActions,
+    purgeMessagesFromBlockedUsers,
+    purgeMessagesFromUser,
     markChatMessageDeleted,
     getComposerEmoteCatalog,
     ensureComposerEmotes,
@@ -273,6 +283,11 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     sendActionMessage,
     runChatCommand,
   } = useTwitchChat({ onChatMessageRef })
+  const {
+    isBlocked,
+    blockUser: blockUserBase,
+    unblockUser: unblockUserBase,
+  } = useBlockedUsers(account)
   const { getBadgeCatalog, loadBadgesForRoom, hasBadgeSupport } =
     useChatBadges(account)
   const { getMemberBadge } = useRcwBadges()
@@ -442,6 +457,45 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     setClearChatWhenInstructed(config.chat.clearChatWhenInstructed)
   }, [config.chat.clearChatWhenInstructed, setClearChatWhenInstructed])
+
+  React.useEffect(() => {
+    setHideBlockedUsers(config.chat.hideBlockedUsers)
+  }, [config.chat.hideBlockedUsers, setHideBlockedUsers])
+
+  React.useEffect(() => {
+    setIsUserBlocked(isBlocked)
+  }, [isBlocked, setIsUserBlocked])
+
+  const blockUser = React.useCallback(
+    async (userId: string, login: string) => {
+      await blockUserBase(userId, login)
+      if (config.chat.hideBlockedUsers) {
+        purgeMessagesFromUser(userId, login)
+      }
+    },
+    [blockUserBase, config.chat.hideBlockedUsers, purgeMessagesFromUser]
+  )
+
+  const unblockUser = React.useCallback(
+    async (userId: string, login?: string) => {
+      await unblockUserBase(userId, login)
+    },
+    [unblockUserBase]
+  )
+
+  React.useEffect(() => {
+    setChatCommandActions({ blockUser, unblockUser })
+  }, [blockUser, setChatCommandActions, unblockUser])
+
+  React.useEffect(() => {
+    if (!config.chat.hideBlockedUsers) {
+      return
+    }
+
+    purgeMessagesFromBlockedUsers((message) =>
+      isBlocked(message.userId, message.userName)
+    )
+  }, [config.chat.hideBlockedUsers, isBlocked, purgeMessagesFromBlockedUsers])
 
   React.useEffect(() => {
     if (!ready || needsOnboarding) return
@@ -750,6 +804,10 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       markChatMessageDeleted,
       canSendChat,
       hasBadgeSupport,
+      hideBlockedUsers: config.chat.hideBlockedUsers,
+      isUserBlocked: isBlocked,
+      blockUser,
+      unblockUser,
     }),
     [
       connectionState,
@@ -774,6 +832,10 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       markChatMessageDeleted,
       canSendChat,
       hasBadgeSupport,
+      config.chat.hideBlockedUsers,
+      isBlocked,
+      blockUser,
+      unblockUser,
     ]
   )
 

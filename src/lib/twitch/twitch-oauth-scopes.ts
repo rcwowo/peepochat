@@ -110,6 +110,16 @@ export const TWITCH_OAUTH_SCOPE_GROUPS: TwitchOAuthScopeGroup[] = [
         label: "Send whispers",
         description: "Send private whispers to other Twitch users.",
       },
+      {
+        scope: "user:read:blocked_users",
+        label: "View blocked users",
+        description: "Load your Twitch block list to hide blocked chatters.",
+      },
+      {
+        scope: "user:manage:blocked_users",
+        label: "Block users",
+        description: "Block and unblock users from your Twitch account.",
+      },
     ],
   },
 ]

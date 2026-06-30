@@ -43,6 +43,12 @@ export type TwitchVipStatus = {
   userName: string
 }
 
+export type TwitchBlockedUser = {
+  userId: string
+  userLogin: string
+  userName: string
+}
+
 export class TwitchApiError extends Error {
   status: number
 
@@ -525,6 +531,118 @@ export async function unbanTwitchUser({
       "Could not remove ban or timeout.",
       response.status
     )
+  }
+}
+
+type HelixBlockedUserPayload = {
+  user_id: string
+  user_login: string
+  user_name: string
+}
+
+type HelixBlockedUserListResponse = {
+  data?: HelixBlockedUserPayload[]
+  pagination?: { cursor?: string }
+}
+
+export async function fetchTwitchBlockedUsers({
+  broadcasterId,
+  accessToken,
+  clientId,
+}: {
+  broadcasterId: string
+  accessToken: string
+  clientId: string
+}): Promise<TwitchBlockedUser[]> {
+  const blockedUsers: TwitchBlockedUser[] = []
+  let cursor: string | undefined
+
+  do {
+    const params = new URLSearchParams({
+      broadcaster_id: broadcasterId,
+    })
+    if (cursor) {
+      params.set("after", cursor)
+    }
+
+    const response = await devLoggedFetch(
+      `https://api.twitch.tv/helix/users/blocks?${params.toString()}`,
+      { headers: helixHeaders(accessToken, clientId) }
+    )
+
+    if (!response.ok) {
+      throw new TwitchApiError("Could not load blocked users.", response.status)
+    }
+
+    const payload = (await response.json()) as HelixBlockedUserListResponse
+    for (const entry of payload.data ?? []) {
+      blockedUsers.push({
+        userId: entry.user_id,
+        userLogin: entry.user_login,
+        userName: entry.user_name,
+      })
+    }
+    cursor = payload.pagination?.cursor
+  } while (cursor)
+
+  return blockedUsers
+}
+
+export async function blockTwitchUser({
+  broadcasterId,
+  userId,
+  accessToken,
+  clientId,
+}: {
+  broadcasterId: string
+  userId: string
+  accessToken: string
+  clientId: string
+}): Promise<void> {
+  const params = new URLSearchParams({
+    broadcaster_id: broadcasterId,
+    user_id: userId,
+  })
+
+  const response = await devLoggedFetch(
+    `https://api.twitch.tv/helix/users/blocks?${params.toString()}`,
+    {
+      method: "PUT",
+      headers: helixHeaders(accessToken, clientId),
+    }
+  )
+
+  if (!response.ok) {
+    throw new TwitchApiError("Could not block user.", response.status)
+  }
+}
+
+export async function unblockTwitchUser({
+  broadcasterId,
+  userId,
+  accessToken,
+  clientId,
+}: {
+  broadcasterId: string
+  userId: string
+  accessToken: string
+  clientId: string
+}): Promise<void> {
+  const params = new URLSearchParams({
+    broadcaster_id: broadcasterId,
+    user_id: userId,
+  })
+
+  const response = await devLoggedFetch(
+    `https://api.twitch.tv/helix/users/blocks?${params.toString()}`,
+    {
+      method: "DELETE",
+      headers: helixHeaders(accessToken, clientId),
+    }
+  )
+
+  if (!response.ok) {
+    throw new TwitchApiError("Could not unblock user.", response.status)
   }
 }
 

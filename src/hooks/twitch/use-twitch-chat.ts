@@ -31,6 +31,7 @@ import {
 } from "@/lib/chat/recent-messages"
 import {
   executeChatCommand,
+  type ChatCommandContext,
   type ChatCommandResult,
 } from "@/lib/chat/chat-commands"
 import {
@@ -128,6 +129,15 @@ function purgeDeletedChatEntries(
 ): TwitchTimelineItem[] {
   return timeline.filter(
     (entry) => entry.kind !== "chat" || entry.message.deletedAt === null
+  )
+}
+
+function purgeMessagesFromUsers(
+  timeline: TwitchTimelineItem[],
+  matches: (message: TwitchChatMessage) => boolean
+): TwitchTimelineItem[] {
+  return timeline.filter(
+    (entry) => entry.kind !== "chat" || !matches(entry.message)
   )
 }
 
@@ -300,6 +310,13 @@ export function useTwitchChat(options?: {
   const deletedMessagesBehaviorRef =
     React.useRef<DeletedMessagesBehavior>("strikethrough")
   const clearChatWhenInstructedRef = React.useRef(true)
+  const hideBlockedUsersRef = React.useRef(true)
+  const isUserBlockedRef = React.useRef<
+    (userId?: string | null, login?: string | null) => boolean
+  >(() => false)
+  const chatCommandActionsRef = React.useRef<
+    Pick<ChatCommandContext, "blockUser" | "unblockUser">
+  >({})
   const historyFetchLimitRef = React.useRef(0)
   const historyLoadedRef = React.useRef(new Set<string>())
   const historyLoadingRef = React.useRef(new Set<string>())
@@ -764,6 +781,14 @@ export function useTwitchChat(options?: {
             continue
           }
 
+          if (
+            item.kind === "chat" &&
+            hideBlockedUsersRef.current &&
+            isUserBlockedRef.current(item.message.userId, item.message.userName)
+          ) {
+            continue
+          }
+
           knownIds.add(item.message.id)
           nextHistorical.push({ ...item, isHistorical: true })
         }
@@ -1041,6 +1066,13 @@ export function useTwitchChat(options?: {
         updateSelfState(selfStateFromMessage({ ...hydrated, channel: login }))
         pendingSendRef.current = null
         emitSendOutcome({ type: "echo", message: hydrated })
+      }
+
+      if (
+        hideBlockedUsersRef.current &&
+        isUserBlockedRef.current(message.userId, message.userName)
+      ) {
+        return
       }
 
       appendRoomTimeline(login, [{ kind: "chat", message: hydrated }])
@@ -2039,6 +2071,58 @@ export function useTwitchChat(options?: {
     clearChatWhenInstructedRef.current = enabled
   }, [])
 
+  const setHideBlockedUsers = React.useCallback((enabled: boolean) => {
+    hideBlockedUsersRef.current = enabled
+  }, [])
+
+  const setIsUserBlocked = React.useCallback(
+    (checker: (userId?: string | null, login?: string | null) => boolean) => {
+      isUserBlockedRef.current = checker
+    },
+    []
+  )
+
+  const setChatCommandActions = React.useCallback(
+    (actions: Pick<ChatCommandContext, "blockUser" | "unblockUser">) => {
+      chatCommandActionsRef.current = actions
+    },
+    []
+  )
+
+  const purgeMessagesFromBlockedUsers = React.useCallback(
+    (matches: (message: TwitchChatMessage) => boolean) => {
+      setRooms((current) => {
+        let changed = false
+        const next: Record<string, TwitchChatRoomState> = { ...current }
+
+        for (const [login, room] of Object.entries(current)) {
+          const purged = purgeMessagesFromUsers(room.timeline, matches)
+          if (purged.length === room.timeline.length) {
+            continue
+          }
+
+          changed = true
+          next[login] = { ...room, timeline: purged }
+        }
+
+        return changed ? next : current
+      })
+    },
+    []
+  )
+
+  const purgeMessagesFromUser = React.useCallback(
+    (userId: string, login: string) => {
+      const normalizedLogin = login.toLowerCase()
+      purgeMessagesFromBlockedUsers(
+        (message) =>
+          (userId.length > 0 && message.userId === userId) ||
+          message.userName.toLowerCase() === normalizedLogin
+      )
+    },
+    [purgeMessagesFromBlockedUsers]
+  )
+
   const setRecentMessagesEnabled = React.useCallback(
     (enabled: boolean) => {
       const wasEnabled = recentMessagesEnabledRef.current
@@ -2379,6 +2463,7 @@ export function useTwitchChat(options?: {
         channelLogin: normalized,
         broadcasterId: room?.roomId ?? null,
         selfState: selfStatesRef.current.get(normalized) ?? null,
+        ...chatCommandActionsRef.current,
       })
 
       if (result.handled && result.kind === "feedback") {
@@ -2407,6 +2492,11 @@ export function useTwitchChat(options?: {
     setLiveMessageLimit,
     setDeletedMessagesBehavior,
     setClearChatWhenInstructed,
+    setHideBlockedUsers,
+    setIsUserBlocked,
+    setChatCommandActions,
+    purgeMessagesFromBlockedUsers,
+    purgeMessagesFromUser,
     markChatMessageDeleted,
     getComposerEmoteCatalog,
     ensureComposerEmotes,

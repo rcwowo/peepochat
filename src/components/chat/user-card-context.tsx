@@ -83,6 +83,9 @@ export function UserCardProvider({
   selfChatState,
   loginWithTwitch,
   getRecentMessages,
+  isUserBlocked,
+  blockUser,
+  unblockUser,
   children,
 }: {
   account: TwitchAccount | null
@@ -91,6 +94,9 @@ export function UserCardProvider({
   selfChatState: TwitchSelfChatState | null
   loginWithTwitch: () => void
   getRecentMessages: (target: UserCardTarget) => TwitchChatMessage[]
+  isUserBlocked: (userId?: string | null, login?: string | null) => boolean
+  blockUser: (userId: string, login: string) => Promise<void>
+  unblockUser: (userId: string, login?: string) => Promise<void>
   children: React.ReactNode
 }) {
   const [activeTarget, setActiveTarget] = React.useState<UserCardTarget | null>(
@@ -276,6 +282,9 @@ export function UserCardProvider({
               selfChatState={selfChatState}
               recentMessages={recentMessages}
               loginWithTwitch={loginWithTwitch}
+              isUserBlocked={isUserBlocked}
+              blockUser={blockUser}
+              unblockUser={unblockUser}
               anchorPosition={anchorPosition}
               dragOffset={dragOffset}
               panelRef={panelRef}

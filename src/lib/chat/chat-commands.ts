@@ -52,6 +52,8 @@ export type ChatCommandContext = {
   channelLogin: string
   broadcasterId: string | null
   selfState: TwitchSelfChatState | null
+  blockUser?: (userId: string, login: string) => Promise<void>
+  unblockUser?: (userId: string, login: string) => Promise<void>
 }
 
 function hasScope(account: TwitchAccount | null, scope: string): boolean {
@@ -233,6 +235,85 @@ async function runCommand(
       handled: true,
       kind: "open_user_card",
       target: createUserCardTargetFromTwitchUser(user, context.channelLogin),
+    }
+  }
+
+  if (command.name === "block" || command.name === "unblock") {
+    if (!hasScope(account, CHAT_COMMAND_SCOPES.blockedUsersManage)) {
+      return {
+        handled: true,
+        kind: "feedback",
+        level: "error",
+        message: missingScopeMessage(CHAT_COMMAND_SCOPES.blockedUsersManage),
+      }
+    }
+
+    const [login] = splitFirstToken(command.rawArgs)
+    if (!login) {
+      return {
+        handled: true,
+        kind: "feedback",
+        level: "error",
+        message: `Usage: /${command.name} <username>`,
+      }
+    }
+
+    const users = await fetchTwitchUsersByLogin(
+      [login.replace(/^@/, "").trim()],
+      account.accessToken,
+      account.clientId
+    )
+    const user = users[0]
+    if (!user) {
+      return {
+        handled: true,
+        kind: "feedback",
+        level: "error",
+        message: `User "${login.replace(/^@/, "")}" was not found.`,
+      }
+    }
+
+    if (user.id === account.id) {
+      return {
+        handled: true,
+        kind: "feedback",
+        level: "error",
+        message: "You cannot block yourself.",
+      }
+    }
+
+    if (command.name === "block") {
+      if (!context.blockUser) {
+        return {
+          handled: true,
+          kind: "feedback",
+          level: "error",
+          message: "Blocking is not available right now.",
+        }
+      }
+
+      await context.blockUser(user.id, user.login)
+      return {
+        handled: true,
+        kind: "feedback",
+        message: `Blocked ${user.login}.`,
+      }
+    }
+
+    if (!context.unblockUser) {
+      return {
+        handled: true,
+        kind: "feedback",
+        level: "error",
+        message: "Unblocking is not available right now.",
+      }
+    }
+
+    await context.unblockUser(user.id, user.login)
+    return {
+      handled: true,
+      kind: "feedback",
+      message: `Unblocked ${user.login}.`,
     }
   }
 

@@ -9,6 +9,7 @@ import {
   LayersIcon,
   Layers2Icon,
   Trash2Icon,
+  UserXIcon,
 } from "lucide-react"
 
 import {
@@ -117,6 +118,18 @@ export function BehaviorTab() {
               updateConfig((current) => ({
                 ...current,
                 chat: { ...current.chat, clearChatWhenInstructed },
+              }))
+            }
+          />
+          <SettingsSwitchRow
+            icon={UserXIcon}
+            title="Hide blocked users"
+            description="Do not show messages from users you have blocked on Twitch."
+            checked={config.chat.hideBlockedUsers}
+            onCheckedChange={(hideBlockedUsers) =>
+              updateConfig((current) => ({
+                ...current,
+                chat: { ...current.chat, hideBlockedUsers },
               }))
             }
           />
