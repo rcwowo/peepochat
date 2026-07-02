@@ -357,9 +357,9 @@ function partitionTwitchEmotes(sources: {
   }
 
   const subscriptionCodesOnChannel = new Set(
-    channelEmotes
-      .filter((emote) => isSubscriptionChannelEmote(emote))
-      .map((emote) => emote.name.toLowerCase())
+    channelEmotes.flatMap((emote) =>
+      isSubscriptionChannelEmote(emote) ? [emote.name.toLowerCase()] : []
+    )
   )
 
   pushDraft({
@@ -372,9 +372,9 @@ function partitionTwitchEmotes(sources: {
   })
 
   const followerCodesOnChannel = new Set(
-    channelEmotes
-      .filter((emote) => isFollowerChannelEmote(emote))
-      .map((emote) => emote.name.toLowerCase())
+    channelEmotes.flatMap((emote) =>
+      isFollowerChannelEmote(emote) ? [emote.name.toLowerCase()] : []
+    )
   )
 
   pushDraft({

@@ -102,7 +102,10 @@ export function createDefaultSplitLayout(
   channels: string[],
   direction: SplitLayoutDirection = "row"
 ): ChatSplitLayoutNode {
-  const normalized = channels.map(normalizeLogin).filter(Boolean)
+  const normalized = channels.flatMap((channel) => {
+    const login = normalizeLogin(channel)
+    return login ? [login] : []
+  })
 
   if (normalized.length <= 1) {
     return pane(normalized[0] ?? "")
@@ -178,7 +181,12 @@ export function normalizeSplitLayout(
   channels: string[]
 ): ChatSplitLayoutNode | undefined {
   const normalizedChannels = [
-    ...new Set(channels.map(normalizeLogin).filter(Boolean)),
+    ...new Set(
+      channels.flatMap((channel) => {
+        const login = normalizeLogin(channel)
+        return login ? [login] : []
+      })
+    ),
   ]
   if (normalizedChannels.length === 0) {
     return undefined
@@ -451,9 +459,9 @@ export function clampSplitChildSizes(sizes: number[]): number[] {
   const excess = next.reduce((sum, size) => sum + size, 0) - DEFAULT_SIZE
 
   if (excess > 0) {
-    const flexible = next
-      .map((size, index) => ({ size, index }))
-      .filter((entry) => entry.size > MIN_CHILD_SIZE)
+    const flexible = next.flatMap((size, index) =>
+      size > MIN_CHILD_SIZE ? [{ size, index }] : []
+    )
     const flexibleTotal = flexible.reduce(
       (sum, entry) => sum + (entry.size - MIN_CHILD_SIZE),
       0

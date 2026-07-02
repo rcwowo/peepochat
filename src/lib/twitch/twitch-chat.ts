@@ -318,9 +318,10 @@ export class TwitchChatClient {
 
     const normalized = [
       ...new Set(
-        channels
-          .map((channel) => normalizeChannelLogin(channel))
-          .filter(Boolean)
+        channels.flatMap((channel) => {
+          const login = normalizeChannelLogin(channel)
+          return login ? [login] : []
+        })
       ),
     ]
 

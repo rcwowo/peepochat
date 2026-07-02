@@ -31,7 +31,7 @@ export function sortPickerEmotes<T extends { code: string }>(
   bucketFor?: (emote: T) => EmoteRatioBucket
 ): T[] {
   const resolveBucket = bucketFor ?? (() => 1 as EmoteRatioBucket)
-  return [...emotes].sort((left, right) =>
+  return emotes.toSorted((left, right) =>
     comparePickerEmotes(left, right, resolveBucket)
   )
 }

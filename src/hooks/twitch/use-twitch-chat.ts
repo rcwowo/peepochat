@@ -1981,7 +1981,12 @@ export function useTwitchChat(options?: {
       options: TwitchChatConnectOptions = {}
     ): Promise<void> => {
       const normalized = [
-        ...new Set(channelLogins.map(normalizeChannelLogin).filter(Boolean)),
+        ...new Set(
+          channelLogins.flatMap((login) => {
+            const value = normalizeChannelLogin(login)
+            return value ? [value] : []
+          })
+        ),
       ]
       const syncKey = buildSyncChannelsKey(normalized)
 

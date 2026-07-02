@@ -176,10 +176,10 @@ export function parseTwitchOAuthCallback(
   return {
     accessToken,
     expiresIn: Number.isFinite(expiresIn) ? expiresIn : null,
-    scope: (params.get("scope") ?? "")
-      .split(/[\s+]+/)
-      .map((entry) => entry.trim())
-      .filter(Boolean),
+    scope: (params.get("scope") ?? "").split(/[\s+]+/).flatMap((entry) => {
+      const trimmed = entry.trim()
+      return trimmed ? [trimmed] : []
+    }),
     tokenType: params.get("token_type") ?? "bearer",
   }
 }

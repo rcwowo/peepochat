@@ -24,14 +24,13 @@ function pruneSplitsAfterChannelRemoval(
   removedLogin: string,
   activeSplitId: string | null
 ) {
-  const nextSplits = splits
-    .map((split) => ({
-      ...split,
-      channels: normalizeSplitChannels(
-        split.channels.filter((channel) => channel !== removedLogin)
-      ),
-    }))
-    .filter((split) => split.channels.length >= 2)
+  const nextSplits = splits.flatMap((split) => {
+    const channels = normalizeSplitChannels(
+      split.channels.filter((channel) => channel !== removedLogin)
+    )
+    const next = { ...split, channels }
+    return next.channels.length >= 2 ? [next] : []
+  })
 
   let nextActiveSplitId = activeSplitId
   if (
@@ -173,9 +172,11 @@ export function useTwitchChannels({
         )
 
         const removedKeys = [channelOrderKey(normalized)]
-        const splitKeys = current.layout.splits
-          .filter((split) => !splits.some((entry) => entry.id === split.id))
-          .map((split) => splitOrderKey(split.id))
+        const splitKeys = current.layout.splits.flatMap((split) =>
+          !splits.some((entry) => entry.id === split.id)
+            ? [splitOrderKey(split.id)]
+            : []
+        )
 
         const order = removeKeysFromSidebarOrder(
           normalizeSidebarOrder(current),

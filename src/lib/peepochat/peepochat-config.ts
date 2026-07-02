@@ -748,8 +748,8 @@ function normalizeConfig(config: AppConfig): AppConfig {
   }
 
   const coerced = coerceLayoutShape(config.layout)
-  const splits = coerced.splits
-    .map((split) => ({
+  const splits = coerced.splits.flatMap((split) => {
+    const next = {
       id: split.id.trim(),
       channels: normalizeSplitChannels(split.channels),
       unreadIndicatorEnabled:
@@ -758,8 +758,9 @@ function normalizeConfig(config: AppConfig): AppConfig {
           ? split.unreadIndicatorEnabled
           : null,
       layout: normalizeSplitLayout(split.layout, split.channels),
-    }))
-    .filter((split) => split.id && split.channels.length >= 2)
+    }
+    return next.id && next.channels.length >= 2 ? [next] : []
+  })
 
   let activeSplitId = coerced.activeSplitId
   if (activeSplitId && !splits.some((split) => split.id === activeSplitId)) {

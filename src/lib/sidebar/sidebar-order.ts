@@ -204,9 +204,10 @@ export function replaceChannelsWithSplitInOrder(
   // Insert the split at the position of the earliest channel being replaced.
   // If none of the channels exist in the order (edge cases), keep the split's
   // existing position if present, otherwise append it.
-  const indices = channelKeys
-    .map((key) => order.indexOf(key))
-    .filter((idx) => idx >= 0)
+  const indices = channelKeys.flatMap((key) => {
+    const idx = order.indexOf(key)
+    return idx >= 0 ? [idx] : []
+  })
   const existingSplitIndex = order.indexOf(splitKey)
   const insertIndex =
     indices.length > 0

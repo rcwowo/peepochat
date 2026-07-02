@@ -889,8 +889,7 @@ export function formatMessageTimestamp(
 
   return timestamp12HourFormatter
     .formatToParts(date)
-    .filter((part) => part.type !== "dayPeriod")
-    .map((part) => part.value)
+    .flatMap((part) => (part.type !== "dayPeriod" ? [part.value] : []))
     .join("")
     .trim()
 }

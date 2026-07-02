@@ -136,17 +136,21 @@ export function findCommandSuggestions(
   const token = text.slice(tokenRange.start, tokenRange.end)
   const query = token.slice(1).toLowerCase()
 
-  const suggestions = CHAT_COMMAND_DEFINITIONS.filter((command) => {
+  const suggestions = CHAT_COMMAND_DEFINITIONS.flatMap((command) => {
     if (!query) {
-      return true
+      return [toSuggestion(command)]
     }
 
     if (command.name.startsWith(query)) {
-      return true
+      return [toSuggestion(command)]
     }
 
-    return command.aliases?.some((alias) => alias.startsWith(query)) ?? false
-  }).map(toSuggestion)
+    if (command.aliases?.some((alias) => alias.startsWith(query))) {
+      return [toSuggestion(command)]
+    }
+
+    return []
+  })
 
   return {
     query: token,

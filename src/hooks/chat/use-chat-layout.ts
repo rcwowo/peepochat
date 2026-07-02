@@ -82,16 +82,15 @@ import {
 } from "@/lib/sidebar/sidebar-order"
 
 function pruneSplits(splits: ChatSplit[]): ChatSplit[] {
-  return splits
-    .map((split) => {
-      const channels = normalizeSplitChannels(split.channels)
-      return {
-        ...split,
-        channels,
-        layout: normalizeSplitLayout(split.layout, channels),
-      }
-    })
-    .filter((split) => split.channels.length >= 2)
+  return splits.flatMap((split) => {
+    const channels = normalizeSplitChannels(split.channels)
+    const next = {
+      ...split,
+      channels,
+      layout: normalizeSplitLayout(split.layout, channels),
+    }
+    return next.channels.length >= 2 ? [next] : []
+  })
 }
 
 function commitLayout(

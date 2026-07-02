@@ -662,9 +662,11 @@ function compactSevenTvEmotes(
 ): EmoteCatalogEntry[] {
   const { showUnlistedEmotes } = thirdPartyEmoteFetchOptions
 
-  return entries
-    .filter((emote): emote is EmoteCatalogEntry => emote !== null)
-    .filter((emote) => showUnlistedEmotes || emote.listed !== false)
+  return entries.flatMap((emote) =>
+    emote !== null && (showUnlistedEmotes || emote.listed !== false)
+      ? [emote]
+      : []
+  )
 }
 
 async function fetchSevenTvGlobalEmotes(): Promise<EmoteCatalogEntry[]> {

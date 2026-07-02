@@ -116,6 +116,11 @@ function normalizeAliases(aliases: string[] | undefined, code: string) {
 
   const normalizedCode = code.toLowerCase()
   return [
-    ...new Set(aliases.map((alias) => alias.trim()).filter(Boolean)),
+    ...new Set(
+      aliases.flatMap((alias) => {
+        const trimmed = alias.trim()
+        return trimmed ? [trimmed] : []
+      })
+    ),
   ].filter((alias) => alias.toLowerCase() !== normalizedCode)
 }

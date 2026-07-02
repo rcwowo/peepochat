@@ -127,7 +127,14 @@ export async function fetchTwitchUsersById(
   accessToken: string,
   clientId: string
 ): Promise<TwitchUser[]> {
-  const normalized = [...new Set(ids.map((id) => id.trim()).filter(Boolean))]
+  const normalized = [
+    ...new Set(
+      ids.flatMap((id) => {
+        const trimmed = id.trim()
+        return trimmed ? [trimmed] : []
+      })
+    ),
+  ]
 
   if (normalized.length === 0) {
     return []
@@ -173,9 +180,10 @@ export async function fetchTwitchUsersByLogin(
 ): Promise<TwitchUser[]> {
   const normalized = [
     ...new Set(
-      logins
-        .map((login) => login.trim().replace(/^#/, "").toLowerCase())
-        .filter(Boolean)
+      logins.flatMap((login) => {
+        const value = login.trim().replace(/^#/, "").toLowerCase()
+        return value ? [value] : []
+      })
     ),
   ]
 
@@ -956,9 +964,10 @@ export async function fetchLiveStreamsByLogin(
 ): Promise<TwitchLiveStream[]> {
   const normalized = [
     ...new Set(
-      logins
-        .map((login) => login.trim().replace(/^#/, "").toLowerCase())
-        .filter(Boolean)
+      logins.flatMap((login) => {
+        const value = login.trim().replace(/^#/, "").toLowerCase()
+        return value ? [value] : []
+      })
     ),
   ]
 
