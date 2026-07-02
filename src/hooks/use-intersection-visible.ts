@@ -34,11 +34,5 @@ export function useIntersectionVisible<T extends Element>(
     [rootMargin, threshold]
   )
 
-  React.useEffect(() => {
-    return () => {
-      observerRef.current?.disconnect()
-    }
-  }, [])
-
   return { ref, visible }
 }
