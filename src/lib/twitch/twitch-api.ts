@@ -133,30 +133,37 @@ export async function fetchTwitchUsersById(
     return []
   }
 
-  const users: TwitchUser[] = []
-
+  const chunks: string[][] = []
   for (let index = 0; index < normalized.length; index += 100) {
-    const chunk = normalized.slice(index, index + 100)
-    const params = new URLSearchParams()
-    for (const id of chunk) {
-      params.append("id", id)
-    }
-
-    const response = await devLoggedFetch(
-      `https://api.twitch.tv/helix/users?${params.toString()}`,
-      { headers: helixHeaders(accessToken, clientId) }
-    )
-
-    if (!response.ok) {
-      throw new TwitchApiError("Could not load Twitch users.", response.status)
-    }
-
-    const payload = (await response.json()) as { data?: TwitchUserPayload[] }
-
-    users.push(...(payload.data ?? []).map(parseTwitchUser))
+    chunks.push(normalized.slice(index, index + 100))
   }
 
-  return users
+  const chunkResults = await Promise.all(
+    chunks.map(async (chunk) => {
+      const params = new URLSearchParams()
+      for (const id of chunk) {
+        params.append("id", id)
+      }
+
+      const response = await devLoggedFetch(
+        `https://api.twitch.tv/helix/users?${params.toString()}`,
+        { headers: helixHeaders(accessToken, clientId) }
+      )
+
+      if (!response.ok) {
+        throw new TwitchApiError(
+          "Could not load Twitch users.",
+          response.status
+        )
+      }
+
+      const payload = (await response.json()) as { data?: TwitchUserPayload[] }
+
+      return (payload.data ?? []).map(parseTwitchUser)
+    })
+  )
+
+  return chunkResults.flat()
 }
 
 export async function fetchTwitchUsersByLogin(
@@ -959,39 +966,44 @@ export async function fetchLiveStreamsByLogin(
     return []
   }
 
-  const streams: TwitchLiveStream[] = []
-
+  const chunks: string[][] = []
   for (let index = 0; index < normalized.length; index += 100) {
-    const chunk = normalized.slice(index, index + 100)
-    const params = new URLSearchParams()
-    for (const login of chunk) {
-      params.append("user_login", login)
-    }
+    chunks.push(normalized.slice(index, index + 100))
+  }
 
-    const response = await devLoggedFetch(
-      `https://api.twitch.tv/helix/streams?${params.toString()}`,
-      { headers: helixHeaders(accessToken, clientId) }
-    )
+  const chunkResults = await Promise.all(
+    chunks.map(async (chunk) => {
+      const params = new URLSearchParams()
+      for (const login of chunk) {
+        params.append("user_login", login)
+      }
 
-    if (!response.ok) {
-      throw new TwitchApiError("Could not load live streams.", response.status)
-    }
+      const response = await devLoggedFetch(
+        `https://api.twitch.tv/helix/streams?${params.toString()}`,
+        { headers: helixHeaders(accessToken, clientId) }
+      )
 
-    const payload = (await response.json()) as {
-      data?: Array<{
-        id: string
-        user_id: string
-        user_login: string
-        user_name: string
-        title: string
-        game_name: string
-        viewer_count: number
-        started_at: string
-      }>
-    }
+      if (!response.ok) {
+        throw new TwitchApiError(
+          "Could not load live streams.",
+          response.status
+        )
+      }
 
-    streams.push(
-      ...(payload.data ?? []).map((stream) => ({
+      const payload = (await response.json()) as {
+        data?: Array<{
+          id: string
+          user_id: string
+          user_login: string
+          user_name: string
+          title: string
+          game_name: string
+          viewer_count: number
+          started_at: string
+        }>
+      }
+
+      return (payload.data ?? []).map((stream) => ({
         id: stream.id,
         userId: stream.user_id,
         userLogin: stream.user_login.toLowerCase(),
@@ -1001,10 +1013,10 @@ export async function fetchLiveStreamsByLogin(
         viewerCount: stream.viewer_count,
         startedAt: stream.started_at,
       }))
-    )
-  }
+    })
+  )
 
-  return streams
+  return chunkResults.flat()
 }
 
 export type TwitchChatSettings = {

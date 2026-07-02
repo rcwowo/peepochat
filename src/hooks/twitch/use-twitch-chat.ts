@@ -1638,11 +1638,12 @@ export function useTwitchChat(options?: {
           }))
           commitRooms((current) => {
             const next = { ...current }
+            const syncedChannels = new Set(syncedChannelsRef.current)
             for (const login of Object.keys(next)) {
               next[login] = {
                 ...next[login],
                 joined: false,
-                joining: syncedChannelsRef.current.includes(login),
+                joining: syncedChannels.has(login),
               }
             }
             return next

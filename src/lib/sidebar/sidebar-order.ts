@@ -46,16 +46,19 @@ export function buildSidebarOrder(config: AppConfig): string[] {
 export function normalizeSidebarOrder(config: AppConfig): string[] {
   const defaultOrder = buildSidebarOrder(config)
   const validKeys = new Set(defaultOrder)
+  const seen = new Set<string>()
   const result: string[] = []
 
   for (const key of config.layout.sidebarOrder ?? []) {
-    if (validKeys.has(key) && !result.includes(key)) {
+    if (validKeys.has(key) && !seen.has(key)) {
+      seen.add(key)
       result.push(key)
     }
   }
 
   for (const key of defaultOrder) {
-    if (!result.includes(key)) {
+    if (!seen.has(key)) {
+      seen.add(key)
       result.push(key)
     }
   }

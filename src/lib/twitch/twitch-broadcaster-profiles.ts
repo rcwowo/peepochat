@@ -147,28 +147,23 @@ function scheduleProfileFlush(auth: BroadcasterProfileAuth): Promise<void> {
       pendingLogins.clear()
       pendingIds.clear()
 
-      if (logins.length > 0) {
-        const users = await fetchTwitchUsersByLogin(
-          logins,
-          auth.accessToken,
-          auth.clientId
-        ).catch(() => [] as TwitchUser[])
+      const [loginUsers, idUsers] = await Promise.all([
+        logins.length > 0
+          ? fetchTwitchUsersByLogin(
+              logins,
+              auth.accessToken,
+              auth.clientId
+            ).catch(() => [] as TwitchUser[])
+          : Promise.resolve([] as TwitchUser[]),
+        ids.length > 0
+          ? fetchTwitchUsersById(ids, auth.accessToken, auth.clientId).catch(
+              () => [] as TwitchUser[]
+            )
+          : Promise.resolve([] as TwitchUser[]),
+      ])
 
-        for (const user of users) {
-          rememberUser(user)
-        }
-      }
-
-      if (ids.length > 0) {
-        const users = await fetchTwitchUsersById(
-          ids,
-          auth.accessToken,
-          auth.clientId
-        ).catch(() => [] as TwitchUser[])
-
-        for (const user of users) {
-          rememberUser(user)
-        }
+      for (const user of [...loginUsers, ...idUsers]) {
+        rememberUser(user)
       }
     }
   })().finally(() => {

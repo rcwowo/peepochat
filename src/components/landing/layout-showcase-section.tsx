@@ -378,9 +378,10 @@ function lerpAllPaneRects(
 function blendDividers(from: Divider[], to: Divider[], t: number) {
   const eased = easeInOutCubic(t)
   const out: Divider[] = []
+  const fromById = new Map(from.map((entry) => [entry.id, entry]))
 
   for (const target of to) {
-    const source = from.find((entry) => entry.id === target.id)
+    const source = fromById.get(target.id)
     if (source) {
       out.push({
         ...target,
