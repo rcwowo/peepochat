@@ -854,6 +854,18 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
   )
 }
 
+const timestamp24HourFormatter = new Intl.DateTimeFormat(undefined, {
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+})
+
+const timestamp12HourFormatter = new Intl.DateTimeFormat(undefined, {
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+})
+
 export function formatMessageTimestamp(
   value: string,
   format: MessageTimestampFormat
@@ -868,24 +880,14 @@ export function formatMessageTimestamp(
   }
 
   if (format === "24-hour") {
-    return new Intl.DateTimeFormat(undefined, {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    }).format(date)
+    return timestamp24HourFormatter.format(date)
   }
-
-  const formatter = new Intl.DateTimeFormat(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  })
 
   if (format === "12-hour-meridiem") {
-    return formatter.format(date)
+    return timestamp12HourFormatter.format(date)
   }
 
-  return formatter
+  return timestamp12HourFormatter
     .formatToParts(date)
     .filter((part) => part.type !== "dayPeriod")
     .map((part) => part.value)

@@ -1,5 +1,7 @@
+const viewerCountFormatter = new Intl.NumberFormat()
+
 export function formatViewerCount(count: number): string {
-  return new Intl.NumberFormat().format(count)
+  return viewerCountFormatter.format(count)
 }
 
 export function formatStreamUptime(durationMs: number): string {

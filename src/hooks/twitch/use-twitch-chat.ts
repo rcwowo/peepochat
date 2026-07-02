@@ -702,42 +702,54 @@ export function useTwitchChat(options?: {
         const knownIds = getTimelineMessageIds(room.timeline)
         const nextHistorical = [...historical]
         const nextLive = [...live]
+        const historicalIndexByMessageId = new Map<string, number>()
+        for (let index = 0; index < nextHistorical.length; index++) {
+          historicalIndexByMessageId.set(
+            nextHistorical[index].message.id,
+            index
+          )
+        }
 
         for (const item of items) {
           if (item.isHistorical) {
             continue
           }
 
-          const historicalIndex = nextHistorical.findIndex(
-            (entry) => entry.message.id === item.message.id
-          )
-          if (historicalIndex !== -1) {
+          const messageId = item.message.id
+          const historicalIndex = historicalIndexByMessageId.get(messageId)
+          if (historicalIndex !== undefined) {
             devChatLogger.debugLazy(() => [
               "timeline:promote-historical",
               {
                 login,
-                id: item.message.id,
+                id: messageId,
                 kind: item.kind,
               },
             ])
             nextHistorical.splice(historicalIndex, 1)
+            historicalIndexByMessageId.delete(messageId)
+            for (const [id, index] of historicalIndexByMessageId) {
+              if (index > historicalIndex) {
+                historicalIndexByMessageId.set(id, index - 1)
+              }
+            }
             nextLive.push(item)
             continue
           }
 
-          if (knownIds.has(item.message.id)) {
+          if (knownIds.has(messageId)) {
             devChatLogger.debugLazy(() => [
               "timeline:skip-dedup",
               {
                 login,
-                id: item.message.id,
+                id: messageId,
                 kind: item.kind,
               },
             ])
             continue
           }
 
-          knownIds.add(item.message.id)
+          knownIds.add(messageId)
           nextLive.push(item)
         }
 
