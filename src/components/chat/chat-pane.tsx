@@ -293,6 +293,7 @@ function ChatPaneInner({
       selfChatState={selfChatState}
       loginWithTwitch={loginWithTwitch}
       getRecentMessages={getRecentMessagesForUser}
+      timestampFormat={timestampFormat}
       isUserBlocked={isUserBlocked}
       blockUser={blockUser}
       unblockUser={unblockUser}

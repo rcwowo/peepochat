@@ -6,6 +6,8 @@ import { EMOTE_PLATFORM_META } from "@/lib/chat/emote-platform-meta"
 import type { TwitchEmoteProvider } from "@/lib/twitch/twitch-chat"
 import { cn } from "@/lib/utils"
 
+const EMPTY_OVERLAY_NAMES: string[] = []
+
 type EmoteTooltipContentProps = React.ComponentProps<typeof TooltipContent> & {
   name: string
   provider: TwitchEmoteProvider
@@ -15,7 +17,7 @@ type EmoteTooltipContentProps = React.ComponentProps<typeof TooltipContent> & {
 export function EmoteTooltipContent({
   name,
   provider,
-  overlayNames = [],
+  overlayNames = EMPTY_OVERLAY_NAMES,
   className,
   side = "top",
   sideOffset = 4,

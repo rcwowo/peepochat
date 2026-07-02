@@ -125,8 +125,8 @@ export type PeepochatSidebarHighlightsContextValue = {
 export type PeepochatChatContextValue = {
   connectionState: TwitchConnectionState
   sendConnectionState: TwitchConnectionState
-  rooms: Record<string, TwitchChatRoomState>
   logs: string[]
+  subscribeToRoom: (login: string, listener: () => void) => () => void
   getTimeline: (login: string) => TwitchTimelineItem[]
   getRoom: (login: string) => TwitchChatRoomState | null
   getRoomId: (login: string) => string | null
@@ -254,8 +254,8 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
   const {
     connectionState,
     sendConnectionState,
-    rooms,
     logs,
+    subscribeToRoom,
     syncChannels,
     getTimeline,
     getRoom,
@@ -784,8 +784,8 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     () => ({
       connectionState,
       sendConnectionState,
-      rooms,
       logs,
+      subscribeToRoom,
       getTimeline,
       getRoom,
       getRoomId,
@@ -812,8 +812,8 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     [
       connectionState,
       sendConnectionState,
-      rooms,
       logs,
+      subscribeToRoom,
       getTimeline,
       getRoom,
       getRoomId,

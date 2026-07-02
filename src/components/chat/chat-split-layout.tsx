@@ -12,6 +12,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core"
 
+import { useLazyRef } from "@/hooks/use-lazy-ref"
 import {
   clampSplitChildSizes,
   normalizeSplitLayout,
@@ -343,7 +344,7 @@ export function ChatSplitLayout({
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   )
-  const paneElementsRef = React.useRef(new Map<string, HTMLElement>())
+  const paneElementsRef = useLazyRef(() => new Map<string, HTMLElement>())
   const pointerRef = React.useRef<{ x: number; y: number } | null>(null)
   const frameRef = React.useRef<number | null>(null)
   const resizeRef = React.useRef<ResizeState | null>(null)

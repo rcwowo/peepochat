@@ -49,8 +49,13 @@ function TooltipProvider({
     }
   }, [])
 
+  const resetContextValue = React.useMemo(
+    () => ({ resetCounter, suppressUntilMs }),
+    [resetCounter, suppressUntilMs]
+  )
+
   return (
-    <TooltipResetContext.Provider value={{ resetCounter, suppressUntilMs }}>
+    <TooltipResetContext.Provider value={resetContextValue}>
       <TooltipPrimitive.Provider
         data-slot="tooltip-provider"
         delayDuration={delayDuration}

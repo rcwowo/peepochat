@@ -122,10 +122,12 @@ function ChatBadgeFallback({ badge }: { badge: TwitchBadge }) {
   )
 }
 
+const EMPTY_TWITCH_BADGES: TwitchBadge[] = []
+
 export function ChatBadgeList({
   badges,
   memberBadge = null,
-  unresolved = [],
+  unresolved = EMPTY_TWITCH_BADGES,
   showFallback = false,
 }: {
   badges: ResolvedChatBadge[]

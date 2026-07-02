@@ -36,6 +36,13 @@ import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 
 const profileImageCache = new Map<string, string>()
 
+const notificationRelativeDateFormatter = new Intl.DateTimeFormat(undefined, {
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+})
+
 const notificationRowClassName =
   "relative border-b border-border last:border-b-0 transition-colors hover:bg-muted/40"
 
@@ -63,12 +70,7 @@ function formatRelativeTime(value: string) {
     return `${diffHours}h ago`
   }
 
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(date)
+  return notificationRelativeDateFormatter.format(date)
 }
 
 function NotificationEmptyState({ message }: { message: string }) {

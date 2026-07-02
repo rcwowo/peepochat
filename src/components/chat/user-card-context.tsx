@@ -9,7 +9,10 @@ import {
 import { useUserCard, type UserCardTarget } from "@/hooks/twitch/use-user-card"
 import type { TwitchSelfChatState } from "@/hooks/twitch/use-twitch-chat"
 import { userCardTargetKey } from "@/lib/chat/user-card"
-import type { TwitchAccount } from "@/lib/peepochat/peepochat-config"
+import type {
+  MessageTimestampFormat,
+  TwitchAccount,
+} from "@/lib/peepochat/peepochat-config"
 import type { TwitchChatMessage } from "@/lib/twitch/twitch-chat"
 
 const USER_CARD_WIDTH_PX = 352
@@ -83,6 +86,7 @@ export function UserCardProvider({
   selfChatState,
   loginWithTwitch,
   getRecentMessages,
+  timestampFormat,
   isUserBlocked,
   blockUser,
   unblockUser,
@@ -94,6 +98,7 @@ export function UserCardProvider({
   selfChatState: TwitchSelfChatState | null
   loginWithTwitch: () => void
   getRecentMessages: (target: UserCardTarget) => TwitchChatMessage[]
+  timestampFormat: MessageTimestampFormat
   isUserBlocked: (userId?: string | null, login?: string | null) => boolean
   blockUser: (userId: string, login: string) => Promise<void>
   unblockUser: (userId: string, login?: string) => Promise<void>
@@ -283,6 +288,7 @@ export function UserCardProvider({
               channelRoomId={channelRoomId}
               selfChatState={selfChatState}
               recentMessages={recentMessages}
+              timestampFormat={timestampFormat}
               loginWithTwitch={loginWithTwitch}
               isUserBlocked={isUserBlocked}
               blockUser={blockUser}

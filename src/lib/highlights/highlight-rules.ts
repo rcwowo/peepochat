@@ -10,6 +10,7 @@ export type CompiledPingRule = {
 
 export type PingMatchResult = {
   ruleId: string
+  pattern?: string
   notify: boolean
 }
 
@@ -51,7 +52,7 @@ export function matchPingRules(
   for (const rule of compiled) {
     rule.regex.lastIndex = 0
     if (rule.regex.test(haystack)) {
-      return { ruleId: rule.id, notify: rule.notify }
+      return { ruleId: rule.id, pattern: rule.pattern, notify: rule.notify }
     }
   }
 

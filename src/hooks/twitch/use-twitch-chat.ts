@@ -351,6 +351,80 @@ export function useTwitchChat(options?: {
   React.useEffect(() => {
     roomsRef.current = rooms
   }, [rooms])
+  const roomSubscribersRef = React.useRef<Map<string, Set<() => void>> | null>(
+    null
+  )
+  if (roomSubscribersRef.current === null) {
+    roomSubscribersRef.current = new Map()
+  }
+
+  const notifyRoomSubscribers = React.useCallback((login: string) => {
+    const normalized = normalizeChannelLogin(login)
+    const subscribers = roomSubscribersRef.current?.get(normalized)
+    if (!subscribers) {
+      return
+    }
+
+    for (const listener of subscribers) {
+      listener()
+    }
+  }, [])
+
+  const notifyChangedRoomSubscribers = React.useCallback(
+    (
+      current: Record<string, TwitchChatRoomState>,
+      next: Record<string, TwitchChatRoomState>
+    ) => {
+      const logins = new Set([...Object.keys(current), ...Object.keys(next)])
+      for (const login of logins) {
+        if (current[login] !== next[login]) {
+          notifyRoomSubscribers(login)
+        }
+      }
+    },
+    [notifyRoomSubscribers]
+  )
+
+  const commitRooms = React.useCallback(
+    (
+      updater: (
+        current: Record<string, TwitchChatRoomState>
+      ) => Record<string, TwitchChatRoomState>
+    ) => {
+      setRooms((current) => {
+        const next = updater(current)
+        if (next === current) {
+          return current
+        }
+
+        roomsRef.current = next
+        notifyChangedRoomSubscribers(current, next)
+        return next
+      })
+    },
+    [notifyChangedRoomSubscribers]
+  )
+
+  const subscribeToRoom = React.useCallback(
+    (login: string, listener: () => void) => {
+      const normalized = normalizeChannelLogin(login)
+      const subscribers = roomSubscribersRef.current!
+      let set = subscribers.get(normalized)
+      if (!set) {
+        set = new Set()
+        subscribers.set(normalized, set)
+      }
+      set.add(listener)
+      return () => {
+        set.delete(listener)
+        if (set.size === 0) {
+          subscribers.delete(normalized)
+        }
+      }
+    },
+    []
+  )
+
   const [logs, setLogs] = React.useState<string[]>([])
 
   const appendLog = React.useCallback((text: string) => {
@@ -628,12 +702,13 @@ export function useTwitchChat(options?: {
       login: string,
       updater: (room: TwitchChatRoomState) => TwitchChatRoomState
     ) => {
-      setRooms((current) => {
-        const existing = current[login] ?? createEmptyRoom(login)
-        return { ...current, [login]: updater(existing) }
+      const normalized = normalizeChannelLogin(login)
+      commitRooms((current) => {
+        const existing = current[normalized] ?? createEmptyRoom(normalized)
+        return { ...current, [normalized]: updater(existing) }
       })
     },
-    []
+    [commitRooms]
   )
 
   const partitionTimeline = React.useCallback(
@@ -650,6 +725,26 @@ export function useTwitchChat(options?: {
       }
 
       return { historical, live }
+    },
+    []
+  )
+
+  const partitionTimelineWithKnownIds = React.useCallback(
+    (timeline: TwitchTimelineItem[]) => {
+      const historical: TwitchTimelineItem[] = []
+      const live: TwitchTimelineItem[] = []
+      const knownIds = new Set<string>()
+
+      for (const entry of timeline) {
+        knownIds.add(entry.message.id)
+        if (entry.isHistorical) {
+          historical.push(entry)
+        } else {
+          live.push(entry)
+        }
+      }
+
+      return { historical, live, knownIds }
     },
     []
   )
@@ -776,17 +871,19 @@ export function useTwitchChat(options?: {
       if (items.length === 0) return
 
       updateRoom(login, (room) => {
-        const { historical, live } = partitionTimeline(room.timeline)
-        const knownIds = getTimelineMessageIds(room.timeline)
+        const { historical, live, knownIds } = partitionTimelineWithKnownIds(
+          room.timeline
+        )
         const nextHistorical = [...historical]
 
         for (const item of items) {
-          if (knownIds.has(item.message.id)) {
+          const messageId = item.message.id
+          if (knownIds.has(messageId)) {
             devChatLogger.debugLazy(() => [
               "timeline:skip-historical-dedup",
               {
                 login,
-                id: item.message.id,
+                id: messageId,
                 kind: item.kind,
               },
             ])
@@ -801,7 +898,7 @@ export function useTwitchChat(options?: {
             continue
           }
 
-          knownIds.add(item.message.id)
+          knownIds.add(messageId)
           nextHistorical.push({ ...item, isHistorical: true })
         }
 
@@ -820,7 +917,7 @@ export function useTwitchChat(options?: {
         }
       })
     },
-    [getTimelineMessageIds, partitionTimeline, trimTimeline, updateRoom]
+    [partitionTimelineWithKnownIds, trimTimeline, updateRoom]
   )
 
   const clearHistoricalTimeline = React.useCallback(
@@ -835,7 +932,7 @@ export function useTwitchChat(options?: {
         return
       }
 
-      setRooms((current) => {
+      commitRooms((current) => {
         const next = { ...current }
         for (const channelLogin of Object.keys(next)) {
           next[channelLogin] = clearRoom(next[channelLogin])
@@ -889,7 +986,7 @@ export function useTwitchChat(options?: {
         return
       }
 
-      setRooms((current) => {
+      commitRooms((current) => {
         const room = current[login]
         if (!room) return current
 
@@ -1290,7 +1387,7 @@ export function useTwitchChat(options?: {
         return
       }
 
-      setRooms((current) => {
+      commitRooms((current) => {
         const next = { ...current }
         for (const channelLogin of Object.keys(next)) {
           const room = next[channelLogin]
@@ -1539,7 +1636,7 @@ export function useTwitchChat(options?: {
             connecting: connectionRecoveryRef.current ? true : false,
             lastError: event.reason,
           }))
-          setRooms((current) => {
+          commitRooms((current) => {
             const next = { ...current }
             for (const login of Object.keys(next)) {
               next[login] = {
@@ -1734,7 +1831,7 @@ export function useTwitchChat(options?: {
   }, [])
 
   const ensureRooms = React.useCallback((channelLogins: string[]) => {
-    setRooms((current) => {
+    commitRooms((current) => {
       const next = { ...current }
       for (const login of channelLogins) {
         if (!next[login]) {
@@ -1811,7 +1908,7 @@ export function useTwitchChat(options?: {
         return changed ? next : current
       })
 
-      setRooms((current) => {
+      commitRooms((current) => {
         let changed = false
         const next = { ...current }
         for (const login of removedLogins) {
@@ -1953,7 +2050,7 @@ export function useTwitchChat(options?: {
           connecting: false,
           lastError: null,
         })
-        setRooms({})
+        commitRooms(() => ({}))
         return Promise.resolve()
       }
 
@@ -2028,7 +2125,7 @@ export function useTwitchChat(options?: {
       liveMessageLimitRef.current = limit
 
       if (limit < previous) {
-        setRooms((current) => {
+        commitRooms((current) => {
           let changed = false
           const next: Record<string, TwitchChatRoomState> = { ...current }
 
@@ -2058,7 +2155,7 @@ export function useTwitchChat(options?: {
       deletedMessagesBehaviorRef.current = behavior
 
       if (previous !== "remove" && behavior === "remove") {
-        setRooms((current) => {
+        commitRooms((current) => {
           let changed = false
           const next: Record<string, TwitchChatRoomState> = { ...current }
 
@@ -2103,7 +2200,7 @@ export function useTwitchChat(options?: {
 
   const purgeMessagesFromBlockedUsers = React.useCallback(
     (matches: (message: TwitchChatMessage) => boolean) => {
-      setRooms((current) => {
+      commitRooms((current) => {
         let changed = false
         const next: Record<string, TwitchChatRoomState> = { ...current }
 
@@ -2167,9 +2264,9 @@ export function useTwitchChat(options?: {
   const getRoom = React.useCallback(
     (login: string): TwitchChatRoomState | null => {
       const normalized = normalizeChannelLogin(login)
-      return rooms[normalized] ?? null
+      return roomsRef.current[normalized] ?? null
     },
-    [rooms]
+    []
   )
 
   const getTimeline = React.useCallback(
@@ -2493,9 +2590,9 @@ export function useTwitchChat(options?: {
   return {
     connectionState,
     sendConnectionState,
-    rooms,
     logs,
     syncChannels,
+    subscribeToRoom,
     getRoom,
     getTimeline,
     getRoomId,

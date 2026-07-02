@@ -6,6 +6,8 @@ import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip"
 import type { EmoteCardTarget } from "@/lib/chat/emote-card"
 import { cn } from "@/lib/utils"
 
+const EMPTY_OVERLAY_NAMES: string[] = []
+
 type EmoteCardPopoverProps = {
   target: EmoteCardTarget
   children: React.ReactNode
@@ -19,7 +21,7 @@ type EmoteCardPopoverProps = {
 export function EmoteCardPopover({
   target,
   children,
-  overlayNames = [],
+  overlayNames = EMPTY_OVERLAY_NAMES,
   openOnClick = true,
   className,
 }: EmoteCardPopoverProps) {

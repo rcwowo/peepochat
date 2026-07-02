@@ -2,7 +2,7 @@ import * as React from "react"
 
 import { ChatPane } from "@/components/chat/chat-pane"
 import { ChatSplitLayout } from "@/components/chat/chat-split-layout"
-import type { TwitchTimelineItem } from "@/hooks/twitch/use-twitch-chat"
+import { useChannelRoom } from "@/hooks/chat/use-channel-room"
 import type { TwitchSelfChatState } from "@/hooks/twitch/use-twitch-chat"
 import type { CachedChatView } from "@/hooks/chat/use-chat-layout"
 import type { ChatBadgeCatalog } from "@/lib/chat/chat-badges"
@@ -19,7 +19,6 @@ import {
   type TwitchChannel,
 } from "@/lib/peepochat/peepochat-config"
 import { usePeepochat } from "@/lib/peepochat/peepochat-context"
-import type { TwitchChatRoomState } from "@/hooks/twitch/use-twitch-chat"
 import { cn } from "@/lib/utils"
 
 type ChatPaneBindings = {
@@ -28,9 +27,6 @@ type ChatPaneBindings = {
   deletedMessagesBehavior: DeletedMessagesBehavior
   highlightPingedMessages: boolean
   channelMeta: Map<string, TwitchChannel>
-  getTimeline: (login: string) => TwitchTimelineItem[]
-  getRoom: (login: string) => TwitchChatRoomState | null
-  getRoomId: (login: string) => string | null
   getSelfChatState: (login: string) => TwitchSelfChatState | null
   getBadgeCatalog: (login: string) => ChatBadgeCatalog
   getMemberBadge: (userId: string | null) => ResolvedMemberBadge | null
@@ -63,7 +59,7 @@ function SingleChannelPane({
   bindings: ChatPaneBindings
 }) {
   const meta = bindings.channelMeta.get(login)
-  const room = bindings.getRoom(login)
+  const room = useChannelRoom(login)
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
@@ -71,14 +67,14 @@ function SingleChannelPane({
         channelLogin={login}
         displayName={meta?.displayName}
         profileImageUrl={meta?.profileImageUrl}
-        timeline={bindings.getTimeline(login)}
+        timeline={room?.timeline ?? []}
         timestampFormat={bindings.timestampFormat}
         messageQuickActions={bindings.messageQuickActions}
         deletedMessagesBehavior={bindings.deletedMessagesBehavior}
         highlightPingedMessages={bindings.highlightPingedMessages}
         account={bindings.account}
         loginWithTwitch={bindings.loginWithTwitch}
-        channelRoomId={bindings.getRoomId(login)}
+        channelRoomId={room?.roomId ?? null}
         selfChatState={bindings.getSelfChatState(login)}
         badgeCatalog={bindings.getBadgeCatalog(login)}
         getMemberBadge={bindings.getMemberBadge}
@@ -89,6 +85,48 @@ function SingleChannelPane({
         isActive={isActive}
       />
     </div>
+  )
+}
+
+function SplitChatPane({
+  login,
+  isActive,
+  bindings,
+  dragHandleProps,
+}: {
+  login: string
+  isActive: boolean
+  bindings: ChatPaneBindings
+  dragHandleProps: React.HTMLAttributes<HTMLDivElement>
+}) {
+  const meta = bindings.channelMeta.get(login)
+  const room = useChannelRoom(login)
+
+  return (
+    <ChatPane
+      channelLogin={login}
+      displayName={meta?.displayName}
+      profileImageUrl={meta?.profileImageUrl}
+      timeline={room?.timeline ?? []}
+      timestampFormat={bindings.timestampFormat}
+      messageQuickActions={bindings.messageQuickActions}
+      deletedMessagesBehavior={bindings.deletedMessagesBehavior}
+      highlightPingedMessages={bindings.highlightPingedMessages}
+      account={bindings.account}
+      loginWithTwitch={bindings.loginWithTwitch}
+      channelRoomId={room?.roomId ?? null}
+      selfChatState={bindings.getSelfChatState(login)}
+      badgeCatalog={bindings.getBadgeCatalog(login)}
+      getMemberBadge={bindings.getMemberBadge}
+      showBadgeFallback={!bindings.hasBadgeSupport}
+      showTwitchBadges={bindings.showTwitchBadges}
+      showMemberBadges={bindings.showMemberBadges}
+      joined={room?.joined ?? false}
+      showRemoveSplit
+      onRemoveSplit={bindings.removeSplitChannel}
+      isActive={isActive}
+      dragHandleProps={dragHandleProps}
+    />
   )
 }
 
@@ -106,38 +144,15 @@ function SplitChannelPanes({
   bindings: ChatPaneBindings
 }) {
   const renderPane = React.useCallback(
-    (login: string, dragHandleProps: React.HTMLAttributes<HTMLDivElement>) => {
-      const meta = bindings.channelMeta.get(login)
-      const room = bindings.getRoom(login)
-
-      return (
-        <ChatPane
-          key={login}
-          channelLogin={login}
-          displayName={meta?.displayName}
-          profileImageUrl={meta?.profileImageUrl}
-          timeline={bindings.getTimeline(login)}
-          timestampFormat={bindings.timestampFormat}
-          messageQuickActions={bindings.messageQuickActions}
-          deletedMessagesBehavior={bindings.deletedMessagesBehavior}
-          highlightPingedMessages={bindings.highlightPingedMessages}
-          account={bindings.account}
-          loginWithTwitch={bindings.loginWithTwitch}
-          channelRoomId={bindings.getRoomId(login)}
-          selfChatState={bindings.getSelfChatState(login)}
-          badgeCatalog={bindings.getBadgeCatalog(login)}
-          getMemberBadge={bindings.getMemberBadge}
-          showBadgeFallback={!bindings.hasBadgeSupport}
-          showTwitchBadges={bindings.showTwitchBadges}
-          showMemberBadges={bindings.showMemberBadges}
-          joined={room?.joined ?? false}
-          showRemoveSplit
-          onRemoveSplit={bindings.removeSplitChannel}
-          isActive={isActive}
-          dragHandleProps={dragHandleProps}
-        />
-      )
-    },
+    (login: string, dragHandleProps: React.HTMLAttributes<HTMLDivElement>) => (
+      <SplitChatPane
+        key={login}
+        login={login}
+        isActive={isActive}
+        bindings={bindings}
+        dragHandleProps={dragHandleProps}
+      />
+    ),
     [bindings, isActive]
   )
   const getPanePreview = React.useCallback(
@@ -234,9 +249,6 @@ export function ChatPage() {
     keepChatViewsMounted,
     cachedChatViews,
     activeChatViewKey,
-    getTimeline,
-    getRoom,
-    getRoomId,
     getSelfChatState,
     getBadgeCatalog,
     getMemberBadge,
@@ -267,9 +279,6 @@ export function ChatPage() {
       deletedMessagesBehavior,
       highlightPingedMessages,
       channelMeta,
-      getTimeline,
-      getRoom,
-      getRoomId,
       getSelfChatState,
       getBadgeCatalog,
       getMemberBadge,
@@ -288,9 +297,6 @@ export function ChatPage() {
       deletedMessagesBehavior,
       highlightPingedMessages,
       channelMeta,
-      getTimeline,
-      getRoom,
-      getRoomId,
       getSelfChatState,
       getBadgeCatalog,
       getMemberBadge,

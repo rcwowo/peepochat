@@ -1,5 +1,6 @@
 import * as React from "react"
 
+import { useLazyRef } from "@/hooks/use-lazy-ref"
 import {
   createEmptyBadgeCatalog,
   loadChannelBadgeCatalog,
@@ -17,8 +18,8 @@ export function useChatBadges(account: TwitchAccount | null) {
     Record<string, ChatBadgeCatalog>
   >({})
   const globalLoadingRef = React.useRef(false)
-  const channelLoadingRef = React.useRef(new Set<string>())
-  const loadedRoomIdsRef = React.useRef(new Set<string>())
+  const channelLoadingRef = useLazyRef(() => new Set<string>())
+  const loadedRoomIdsRef = useLazyRef(() => new Set<string>())
 
   React.useEffect(() => {
     if (!account || globalLoadingRef.current) {
@@ -85,7 +86,7 @@ export function useChatBadges(account: TwitchAccount | null) {
     channel: ChatBadgeCatalog
     merged: ChatBadgeCatalog
   }
-  const mergedCatalogsRef = React.useRef(new Map<string, MergedEntry>())
+  const mergedCatalogsRef = useLazyRef(() => new Map<string, MergedEntry>())
 
   const getBadgeCatalog = React.useCallback(
     (roomId: string | null): ChatBadgeCatalog => {

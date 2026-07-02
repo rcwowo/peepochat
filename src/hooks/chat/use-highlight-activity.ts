@@ -1,5 +1,6 @@
 import * as React from "react"
 
+import { useLazyRef } from "@/hooks/use-lazy-ref"
 import { addChannelMessageHighlight } from "@/lib/highlights/channel-message-highlights"
 import {
   addPingNotification,
@@ -47,10 +48,32 @@ function buildPingRulesKey(
   ].join("\u0002")
 }
 
-function buildUnreadEnabledByLogin(config: AppConfig): Map<string, boolean> {
+function buildUnreadConfigKey(
+  highlights: AppConfig["highlights"],
+  channels: AppConfig["twitch"]["channels"]
+) {
+  const channelOverrides = channels
+    .map((channel) => {
+      const override = channel.unreadIndicatorEnabled
+      const value =
+        override === null || override === undefined ? "" : override ? "1" : "0"
+      return `${channel.login}\u0001${value}`
+    })
+    .join("\u0000")
+
+  return [
+    highlights.unreadIndicatorsEnabled ? "1" : "0",
+    channelOverrides,
+  ].join("\u0002")
+}
+
+function buildUnreadEnabledByLogin(
+  config: AppConfig,
+  channels: AppConfig["twitch"]["channels"]
+): Map<string, boolean> {
   const globalEnabled = config.highlights.unreadIndicatorsEnabled
   const map = new Map<string, boolean>()
-  for (const channel of config.twitch.channels) {
+  for (const channel of channels) {
     const override = channel.unreadIndicatorEnabled
     map.set(
       channel.login,
@@ -95,7 +118,7 @@ export function useHighlightActivity({
     [normalizedVisibleChannelLogins]
   )
 
-  const visibleRef = React.useRef<ReadonlySet<string>>(new Set())
+  const visibleRef = useLazyRef(() => new Set<string>())
   React.useEffect(() => {
     visibleRef.current = visibleLoginSet
   }, [visibleLoginSet])
@@ -115,10 +138,18 @@ export function useHighlightActivity({
   const useDefaultSoundsRef = React.useRef(config.highlights.useDefaultSounds)
   const pingSoundCustomIdRef = React.useRef(config.highlights.pingSoundCustomId)
 
-  const unreadEnabledByLoginRef = React.useRef<Map<string, boolean>>(new Map())
+  const unreadEnabledByLoginRef = useLazyRef(() => new Map<string, boolean>())
+
+  const unreadConfigKey = buildUnreadConfigKey(
+    config.highlights,
+    config.twitch.channels
+  )
   React.useEffect(() => {
-    unreadEnabledByLoginRef.current = buildUnreadEnabledByLogin(config)
-  }, [config])
+    unreadEnabledByLoginRef.current = buildUnreadEnabledByLogin(
+      config,
+      config.twitch.channels
+    )
+  }, [unreadConfigKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const accountLoginRef = React.useRef(accountLogin)
 
@@ -278,7 +309,7 @@ export function useHighlightActivity({
 
         const matchPattern = getPingMatchPattern(
           pingMatch.ruleId,
-          compiled.find((rule) => rule.id === pingMatch.ruleId)?.pattern,
+          pingMatch.pattern,
           account
         )
 

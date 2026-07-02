@@ -51,23 +51,29 @@ import {
   twitchViewerCardUrl,
 } from "@/lib/chat/moderation-tools"
 import { twitchChannelUrl } from "@/lib/chat/user-card"
-import type { TwitchAccount } from "@/lib/peepochat/peepochat-config"
+import type {
+  MessageTimestampFormat,
+  TwitchAccount,
+} from "@/lib/peepochat/peepochat-config"
+import { formatMessageTimestamp } from "@/lib/peepochat/peepochat-context"
 import { hasBlockedUsersManageScope } from "@/hooks/twitch/use-blocked-users"
 import type { TwitchChatMessage } from "@/lib/twitch/twitch-chat"
 import { cn } from "@/lib/utils"
 
 type UserCardState = ReturnType<typeof useUserCard>
 
+const userCardDateFormatter = new Intl.DateTimeFormat(undefined, {
+  year: "numeric",
+  month: "short",
+  day: "numeric",
+})
+
 function formatDate(value: string) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) {
     return null
   }
-  return new Intl.DateTimeFormat(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  }).format(date)
+  return userCardDateFormatter.format(date)
 }
 
 function formatUserType(value: string) {
@@ -76,17 +82,6 @@ function formatUserType(value: string) {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
     .join(" ")
-}
-
-function formatMessageTime(value: string) {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return ""
-  }
-  return new Intl.DateTimeFormat(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date)
 }
 
 async function copyText(label: string, value: string | undefined) {
@@ -284,6 +279,7 @@ type UserCardPanelProps = {
   channelRoomId: string | null
   selfChatState: TwitchSelfChatState | null
   recentMessages: TwitchChatMessage[]
+  timestampFormat: MessageTimestampFormat
   loginWithTwitch: () => void
   isUserBlocked: (userId?: string | null, login?: string | null) => boolean
   blockUser: (userId: string, login: string) => Promise<void>
@@ -304,6 +300,7 @@ export function UserCardPanel({
   channelRoomId,
   selfChatState,
   recentMessages,
+  timestampFormat,
   loginWithTwitch,
   isUserBlocked,
   blockUser,
@@ -782,20 +779,29 @@ export function UserCardPanel({
                 </h3>
                 {recentMessages.length > 0 ? (
                   <div className="space-y-1.5">
-                    {recentMessages.map((message) => (
-                      <div
-                        key={message.id}
-                        className="rounded-lg bg-muted/50 px-2.5 py-2 text-xs leading-snug"
-                      >
-                        <time className="mr-1.5 text-[11px] text-muted-foreground">
-                          {formatMessageTime(message.receivedAt)}
-                        </time>
-                        <ChatMessageBody
-                          text={message.text}
-                          emotes={message.emotes}
-                        />
-                      </div>
-                    ))}
+                    {recentMessages.map((message) => {
+                      const timestamp = formatMessageTimestamp(
+                        message.receivedAt,
+                        timestampFormat
+                      )
+
+                      return (
+                        <div
+                          key={message.id}
+                          className="rounded-lg bg-muted/50 px-2.5 py-2 text-xs leading-snug"
+                        >
+                          {timestamp ? (
+                            <time className="mr-1.5 text-[11px] text-muted-foreground">
+                              {timestamp}
+                            </time>
+                          ) : null}
+                          <ChatMessageBody
+                            text={message.text}
+                            emotes={message.emotes}
+                          />
+                        </div>
+                      )
+                    })}
                   </div>
                 ) : (
                   <p className="text-xs text-muted-foreground">
