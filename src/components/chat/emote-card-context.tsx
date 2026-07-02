@@ -149,6 +149,8 @@ export function EmoteCardProvider({
     [dragOffset]
   )
 
+  const onCloseEmoteCard = React.useEffectEvent(closeEmoteCard)
+
   React.useEffect(() => {
     if (!open) {
       return
@@ -162,12 +164,12 @@ export function EmoteCardProvider({
       ) {
         return
       }
-      closeEmoteCard()
+      onCloseEmoteCard()
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        closeEmoteCard()
+        onCloseEmoteCard()
       }
     }
 
@@ -177,7 +179,7 @@ export function EmoteCardProvider({
       window.removeEventListener("pointerdown", handlePointerDown, true)
       window.removeEventListener("keydown", handleKeyDown, true)
     }
-  }, [closeEmoteCard, open])
+  }, [open])
 
   const contextValue = React.useMemo<EmoteCardContextValue>(
     () => ({

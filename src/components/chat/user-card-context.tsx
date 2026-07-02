@@ -222,6 +222,8 @@ export function UserCardProvider({
     [dragOffset]
   )
 
+  const onCloseUserCard = React.useEffectEvent(closeUserCard)
+
   React.useEffect(() => {
     if (!open) {
       return
@@ -238,7 +240,7 @@ export function UserCardProvider({
       if (panelRef.current && isPointerInsidePanel(event, panelRef.current)) {
         return
       }
-      closeUserCard()
+      onCloseUserCard()
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -246,7 +248,7 @@ export function UserCardProvider({
         if (actionsMenuOpenRef.current) {
           return
         }
-        closeUserCard()
+        onCloseUserCard()
       }
     }
 
@@ -256,7 +258,7 @@ export function UserCardProvider({
       window.removeEventListener("pointerdown", handlePointerDown, true)
       window.removeEventListener("keydown", handleKeyDown, true)
     }
-  }, [closeUserCard, open])
+  }, [open])
 
   const contextValue = React.useMemo<UserCardContextValue>(
     () => ({

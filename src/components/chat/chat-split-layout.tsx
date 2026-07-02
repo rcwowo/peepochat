@@ -486,6 +486,12 @@ export function ChatSplitLayout({
     pointerRef.current = null
   }, [setDropTarget])
 
+  const onUpdateDropTargetFromPoint = React.useEffectEvent(
+    (point: { x: number; y: number }, active: string) => {
+      updateDropTargetFromPoint(point, active)
+    }
+  )
+
   React.useEffect(() => {
     if (!activeChannel) {
       return
@@ -494,12 +500,12 @@ export function ChatSplitLayout({
     const handlePointerMove = (event: PointerEvent) => {
       const point = { x: event.clientX, y: event.clientY }
       pointerRef.current = point
-      updateDropTargetFromPoint(point, activeChannel)
+      onUpdateDropTargetFromPoint(point, activeChannel)
     }
 
     window.addEventListener("pointermove", handlePointerMove, { passive: true })
     return () => window.removeEventListener("pointermove", handlePointerMove)
-  }, [activeChannel, updateDropTargetFromPoint])
+  }, [activeChannel])
 
   const handleResizeStart = React.useCallback(
     (
