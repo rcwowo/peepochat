@@ -38,8 +38,8 @@ function ChangelogSection({ entry }: { entry: ChangelogEntry }) {
         <span className="text-xs text-muted-foreground">{entry.date}</span>
       </div>
       <ul className="space-y-1 pl-4 text-sm text-muted-foreground">
-        {entry.items.map((item, i) => (
-          <li key={i} className="list-disc pl-0.5">
+        {entry.items.map((item) => (
+          <li key={item} className="list-disc pl-0.5">
             {item}
           </li>
         ))}

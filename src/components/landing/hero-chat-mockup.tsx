@@ -264,6 +264,36 @@ function MockEmoteImg({ emote }: { emote: MockEmote }) {
   )
 }
 
+function mockMessagePartKey(
+  messageId: string,
+  part: MockMessagePart,
+  offset: number
+): string {
+  if (part.type === "emote") {
+    return `${messageId}-emote-${offset}-${part.emote.url}`
+  }
+
+  return `${messageId}-text-${offset}-${part.value}`
+}
+
+function renderMockMessageParts(message: MockMessage) {
+  let offset = 0
+  const nodes: React.ReactNode[] = []
+
+  for (const part of message.parts) {
+    const key = mockMessagePartKey(message.id, part, offset)
+    if (part.type === "emote") {
+      nodes.push(<MockEmoteImg key={key} emote={part.emote} />)
+    } else {
+      nodes.push(<span key={key}>{part.value}</span>)
+    }
+
+    offset += part.type === "emote" ? part.emote.name.length : part.value.length
+  }
+
+  return nodes
+}
+
 function MockMessageRow({
   message,
   alternate,
@@ -286,16 +316,7 @@ function MockMessageRow({
       </span>
       <span className="chat-colon mx-0.5">:</span>
       <span className="chat-message-text">
-        {message.parts.map((part, index) =>
-          part.type === "emote" ? (
-            <MockEmoteImg
-              key={`${message.id}-emote-${index}`}
-              emote={part.emote}
-            />
-          ) : (
-            <span key={`${message.id}-text-${index}`}>{part.value}</span>
-          )
-        )}
+        {renderMockMessageParts(message)}
       </span>
     </div>
   )

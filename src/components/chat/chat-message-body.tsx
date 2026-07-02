@@ -117,7 +117,7 @@ function renderTextWithLinks(
   const parts: React.ReactNode[] = []
   let lastIdx = 0
 
-  for (const [index, match] of urls.entries()) {
+  for (const match of urls) {
     if (match.start > lastIdx) {
       parts.push(
         ...renderPlainText(
@@ -131,7 +131,7 @@ function renderTextWithLinks(
 
     parts.push(
       <a
-        key={`${keyPrefix}-l-${index}-${match.start}`}
+        key={`${keyPrefix}-l-${match.start}-${match.url}`}
         href={match.url}
         target="_blank"
         rel="noreferrer noopener"

@@ -701,12 +701,12 @@ function rectToInsetStyle(rect: Rect): React.CSSProperties {
 function ShowcasePaneSkeletons() {
   return (
     <div className="flex h-full flex-col justify-start gap-1 px-2 py-1.5">
-      {SKELETON_LINE_WIDTHS.map((width, index) => (
+      {SKELETON_LINE_WIDTHS.map((width, lineIndex) => (
         <div
-          key={index}
+          key={width}
           className={cn(
             "flex items-center gap-1.5 rounded-sm px-1 py-0.5",
-            index % 2 === 1 && "bg-foreground/4"
+            lineIndex % 2 === 1 && "bg-foreground/4"
           )}
         >
           <Skeleton className="h-2.5 w-8 shrink-0 rounded-sm" />

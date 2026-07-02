@@ -300,6 +300,56 @@ function useNotificationShowcaseAnimation(
   return { notification, motion, reducedMotion }
 }
 
+function staticMessagePartKey(
+  messageId: string,
+  part: StaticMessagePart,
+  offset: number
+): string {
+  if (part.type === "emote") {
+    return `${messageId}-emote-${offset}-${part.url}`
+  }
+
+  if (part.type === "ping") {
+    return `${messageId}-ping-${offset}-${part.value}`
+  }
+
+  return `${messageId}-text-${offset}-${part.value}`
+}
+
+function renderStaticMessageParts(message: StaticMessage) {
+  let offset = 0
+  const nodes: React.ReactNode[] = []
+
+  for (const part of message.parts) {
+    const key = staticMessagePartKey(message.id, part, offset)
+    if (part.type === "emote") {
+      nodes.push(
+        <img
+          key={key}
+          src={part.url}
+          alt={part.name}
+          title={part.name}
+          className="mx-0.5 inline-block h-[1.35em] w-auto align-[-0.2em]"
+          draggable={false}
+        />
+      )
+      offset += part.name.length
+      continue
+    }
+
+    if (part.type === "ping") {
+      nodes.push(<PingMatchMark key={key}>{part.value}</PingMatchMark>)
+      offset += part.value.length
+      continue
+    }
+
+    nodes.push(<span key={key}>{part.value}</span>)
+    offset += part.value.length
+  }
+
+  return nodes
+}
+
 function StaticMessageRow({
   message,
   alternate,
@@ -323,30 +373,7 @@ function StaticMessageRow({
       </span>
       <span className="chat-colon mx-0.5">:</span>
       <span className="chat-message-text">
-        {message.parts.map((part, index) => {
-          if (part.type === "emote") {
-            return (
-              <img
-                key={`${message.id}-emote-${index}`}
-                src={part.url}
-                alt={part.name}
-                title={part.name}
-                className="mx-0.5 inline-block h-[1.35em] w-auto align-[-0.2em]"
-                draggable={false}
-              />
-            )
-          }
-
-          if (part.type === "ping") {
-            return (
-              <PingMatchMark key={`${message.id}-ping-${index}`}>
-                {part.value}
-              </PingMatchMark>
-            )
-          }
-
-          return <span key={`${message.id}-text-${index}`}>{part.value}</span>
-        })}
+        {renderStaticMessageParts(message)}
       </span>
     </div>
   )
