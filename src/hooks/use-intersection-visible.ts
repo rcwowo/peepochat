@@ -9,25 +9,36 @@ export function useIntersectionVisible<T extends Element>(
   options: UseIntersectionVisibleOptions = {}
 ) {
   const { rootMargin = "0px", threshold = 0 } = options
-  const ref = React.useRef<T | null>(null)
   const [visible, setVisible] = React.useState(false)
+  const observerRef = React.useRef<IntersectionObserver | null>(null)
+
+  const ref = React.useCallback(
+    (element: T | null) => {
+      observerRef.current?.disconnect()
+      observerRef.current = null
+
+      if (!element) {
+        return
+      }
+
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          setVisible(entry?.isIntersecting ?? false)
+        },
+        { rootMargin, threshold }
+      )
+
+      observer.observe(element)
+      observerRef.current = observer
+    },
+    [rootMargin, threshold]
+  )
 
   React.useEffect(() => {
-    const element = ref.current
-    if (!element) {
-      return
+    return () => {
+      observerRef.current?.disconnect()
     }
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setVisible(entry?.isIntersecting ?? false)
-      },
-      { rootMargin, threshold }
-    )
-
-    observer.observe(element)
-    return () => observer.disconnect()
-  }, [rootMargin, threshold])
+  }, [])
 
   return { ref, visible }
 }
