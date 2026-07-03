@@ -176,9 +176,7 @@ export function OnboardingDialog({
   const [addingChannel, setAddingChannel] = React.useState(false)
   const [importPreview, setImportPreview] =
     React.useState<BackupPreview | null>(null)
-  const [pendingBackupPayload, setPendingBackupPayload] = React.useState<
-    string | null
-  >(null)
+  const pendingBackupPayloadRef = React.useRef<string | null>(null)
   const [importBusy, setImportBusy] = React.useState(false)
   const fileInputRef = React.useRef<HTMLInputElement | null>(null)
 
@@ -234,7 +232,7 @@ export function OnboardingDialog({
   const goToLanding = () => {
     clearOnboardingSession()
     setImportPreview(null)
-    setPendingBackupPayload(null)
+    pendingBackupPayloadRef.current = null
     setFlow("fresh")
     setStep("landing")
   }
@@ -256,7 +254,7 @@ export function OnboardingDialog({
       const preview = parseBackupPreview(payload)
       setFlow("import")
       setOnboardingFlow("import")
-      setPendingBackupPayload(payload)
+      pendingBackupPayloadRef.current = payload
       setImportPreview(preview)
       setStep("import-review")
     } catch (error) {
@@ -269,13 +267,14 @@ export function OnboardingDialog({
   }
 
   const handleConfirmImport = async () => {
-    if (!pendingBackupPayload) return
+    const payload = pendingBackupPayloadRef.current
+    if (!payload) return
 
     setImportBusy(true)
     try {
-      await restoreBackup(pendingBackupPayload)
+      await restoreBackup(payload)
       markImportOnboardingApplied()
-      setPendingBackupPayload(null)
+      pendingBackupPayloadRef.current = null
       setStep("login")
     } catch (error) {
       toast.error(

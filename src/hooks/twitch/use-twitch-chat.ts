@@ -1,6 +1,8 @@
 import * as React from "react"
 import { toast } from "sonner"
 
+import { useLazyRef } from "@/hooks/use-lazy-ref"
+
 import { devChatLogger, devFetchLogger } from "@/lib/dev-logger"
 import {
   clearBroadcasterProfileCache,
@@ -236,11 +238,11 @@ export function useTwitchChat(options?: {
   const onChatMessageRef = options?.onChatMessageRef
   const readClientRef = React.useRef<TwitchChatClient | null>(null)
   const sendClientRef = React.useRef<TwitchChatClient | null>(null)
-  const rateLimiterRef = React.useRef(createChatRateLimiter())
+  const rateLimiterRef = useLazyRef(() => createChatRateLimiter())
   const pendingConnectRef = React.useRef<PendingReadConnect | null>(null)
   const pendingSendConnectRef = React.useRef<PendingConnect | null>(null)
   const sendConnectKeyRef = React.useRef("")
-  const readJoinedChannelsRef = React.useRef(new Set<string>())
+  const readJoinedChannelsRef = useLazyRef(() => new Set<string>())
   const connectionRecoveryRef = React.useRef<PendingConnectionRecovery | null>(
     null
   )
@@ -254,20 +256,20 @@ export function useTwitchChat(options?: {
     channel: string
     recordedAt: number
   } | null>(null)
-  const sendBlockTimersRef = React.useRef(
-    new Map<string, ReturnType<typeof setTimeout>>()
+  const sendBlockTimersRef = useLazyRef(
+    () => new Map<string, ReturnType<typeof setTimeout>>()
   )
   const channelSendBlocksRef = React.useRef<
     Record<string, TwitchChannelSendBlock>
   >({})
-  const sendOutcomeListenersRef = React.useRef(
-    new Set<(event: SendOutcomeEvent) => void>()
+  const sendOutcomeListenersRef = useLazyRef(
+    () => new Set<(event: SendOutcomeEvent) => void>()
   )
-  const emoteCatalogsRef = React.useRef(
-    new Map<string, ThirdPartyEmoteCatalog>()
+  const emoteCatalogsRef = useLazyRef(
+    () => new Map<string, ThirdPartyEmoteCatalog>()
   )
-  const composerCatalogsRef = React.useRef(
-    new Map<string, ComposerEmoteCatalog>()
+  const composerCatalogsRef = useLazyRef(
+    () => new Map<string, ComposerEmoteCatalog>()
   )
   const [composerCatalogs, setComposerCatalogs] = React.useState<
     Record<string, ComposerEmoteCatalog>
@@ -275,11 +277,11 @@ export function useTwitchChat(options?: {
   const [composerCatalogLoading, setComposerCatalogLoading] = React.useState<
     Record<string, boolean>
   >({})
-  const roomEmotesLoadingRef = React.useRef(new Map<string, boolean>())
-  const roomEmotesSettledRef = React.useRef(new Set<string>())
-  const roomEmotesFailedAtRef = React.useRef(new Map<string, number>())
-  const composerCatalogLoadingRef = React.useRef(new Map<string, boolean>())
-  const composerCatalogLoadedRef = React.useRef(new Set<string>())
+  const roomEmotesLoadingRef = useLazyRef(() => new Map<string, boolean>())
+  const roomEmotesSettledRef = useLazyRef(() => new Set<string>())
+  const roomEmotesFailedAtRef = useLazyRef(() => new Map<string, number>())
+  const composerCatalogLoadingRef = useLazyRef(() => new Map<string, boolean>())
+  const composerCatalogLoadedRef = useLazyRef(() => new Set<string>())
   const emoteLoadContextRef = React.useRef<TwitchChatEmoteLoadContext>({})
   const senderStateRef = React.useRef<{
     color: string | null
@@ -298,7 +300,7 @@ export function useTwitchChat(options?: {
     isSubscriber: false,
     isVip: false,
   })
-  const selfStatesRef = React.useRef(new Map<string, TwitchSelfChatState>())
+  const selfStatesRef = useLazyRef(() => new Map<string, TwitchSelfChatState>())
   const [selfStates, setSelfStates] = React.useState<
     Record<string, TwitchSelfChatState>
   >({})
@@ -318,12 +320,12 @@ export function useTwitchChat(options?: {
     Pick<ChatCommandContext, "blockUser" | "unblockUser">
   >({})
   const historyFetchLimitRef = React.useRef(0)
-  const historyLoadedRef = React.useRef(new Set<string>())
-  const historyLoadingRef = React.useRef(new Set<string>())
-  const historyErrorNotifiedRef = React.useRef(new Set<string>())
+  const historyLoadedRef = useLazyRef(() => new Set<string>())
+  const historyLoadingRef = useLazyRef(() => new Set<string>())
+  const historyErrorNotifiedRef = useLazyRef(() => new Set<string>())
   const recentMessagesGenerationRef = React.useRef(0)
   const recentMessagesQueueRef = React.useRef<string[]>([])
-  const recentMessagesQueuedRef = React.useRef(new Set<string>())
+  const recentMessagesQueuedRef = useLazyRef(() => new Set<string>())
   const recentMessagesActiveRef = React.useRef(0)
 
   const [connectionState, setConnectionState] =
@@ -1461,98 +1463,99 @@ export function useTwitchChat(options?: {
           try {
             const outcome = await fetchRecentMessages(normalized, fetchLimit)
 
-            if (!shouldApplyRecentMessagesFetch(normalized, generation)) {
+            if (shouldApplyRecentMessagesFetch(normalized, generation)) {
+              devFetchLogger.debugLazy(() => [
+                "recent-messages:outcome",
+                {
+                  channel: normalized,
+                  status: outcome.status,
+                  messageCount:
+                    outcome.status === "success" ? outcome.messages.length : 0,
+                  error:
+                    outcome.status === "error" ? outcome.message : undefined,
+                },
+              ])
+
+              switch (outcome.status) {
+                case "success": {
+                  historyLoadedRef.current.add(normalized)
+                  historyFetchLimitRef.current = Math.max(
+                    historyFetchLimitRef.current,
+                    fetchLimit
+                  )
+
+                  if (outcome.messages.length === 0) {
+                    break
+                  }
+
+                  const roomId =
+                    outcome.messages.find((message) => message.roomId)
+                      ?.roomId ??
+                    roomsRef.current[normalized]?.roomId ??
+                    null
+
+                  if (roomId) {
+                    updateRoom(normalized, (room) => ({
+                      ...room,
+                      roomId: room.roomId ?? roomId,
+                    }))
+                    if (!roomEmotesSettledRef.current.has(roomId)) {
+                      ensureRoomEmotes(normalized, roomId)
+                    }
+                  }
+
+                  const catalog = roomId
+                    ? (emoteCatalogsRef.current.get(roomId) ?? null)
+                    : null
+
+                  prependHistoricalTimeline(
+                    normalized,
+                    outcome.messages.map((message) => {
+                      const resolvedMessage =
+                        roomId && !message.roomId
+                          ? { ...message, roomId }
+                          : message
+
+                      return {
+                        kind: "chat" as const,
+                        message: hydrateRoomMessage(resolvedMessage, catalog),
+                        isHistorical: true,
+                      }
+                    })
+                  )
+                  break
+                }
+                case "unavailable": {
+                  historyLoadedRef.current.add(normalized)
+                  appendRoomSystemMessage(
+                    normalized,
+                    createRecentMessagesStatusMessage(
+                      normalized,
+                      RECENT_MESSAGES_UNAVAILABLE_TEXT
+                    )
+                  )
+                  break
+                }
+                case "error": {
+                  if (historyErrorNotifiedRef.current.has(normalized)) {
+                    break
+                  }
+
+                  historyErrorNotifiedRef.current.add(normalized)
+                  appendRoomSystemMessage(
+                    normalized,
+                    createRecentMessagesStatusMessage(
+                      normalized,
+                      RECENT_MESSAGES_ERROR_TEXT
+                    )
+                  )
+                }
+              }
+            } else {
               devFetchLogger.debugLazy(() => [
                 "recent-messages:stale",
                 { channel: normalized },
               ])
-              return
-            }
-
-            devFetchLogger.debugLazy(() => [
-              "recent-messages:outcome",
-              {
-                channel: normalized,
-                status: outcome.status,
-                messageCount:
-                  outcome.status === "success" ? outcome.messages.length : 0,
-                error: outcome.status === "error" ? outcome.message : undefined,
-              },
-            ])
-
-            switch (outcome.status) {
-              case "success": {
-                historyLoadedRef.current.add(normalized)
-                historyFetchLimitRef.current = Math.max(
-                  historyFetchLimitRef.current,
-                  fetchLimit
-                )
-
-                if (outcome.messages.length === 0) {
-                  return
-                }
-
-                const roomId =
-                  outcome.messages.find((message) => message.roomId)?.roomId ??
-                  roomsRef.current[normalized]?.roomId ??
-                  null
-
-                if (roomId) {
-                  updateRoom(normalized, (room) => ({
-                    ...room,
-                    roomId: room.roomId ?? roomId,
-                  }))
-                  if (!roomEmotesSettledRef.current.has(roomId)) {
-                    ensureRoomEmotes(normalized, roomId)
-                  }
-                }
-
-                const catalog = roomId
-                  ? (emoteCatalogsRef.current.get(roomId) ?? null)
-                  : null
-
-                prependHistoricalTimeline(
-                  normalized,
-                  outcome.messages.map((message) => {
-                    const resolvedMessage =
-                      roomId && !message.roomId
-                        ? { ...message, roomId }
-                        : message
-
-                    return {
-                      kind: "chat" as const,
-                      message: hydrateRoomMessage(resolvedMessage, catalog),
-                      isHistorical: true,
-                    }
-                  })
-                )
-                return
-              }
-              case "unavailable": {
-                historyLoadedRef.current.add(normalized)
-                appendRoomSystemMessage(
-                  normalized,
-                  createRecentMessagesStatusMessage(
-                    normalized,
-                    RECENT_MESSAGES_UNAVAILABLE_TEXT
-                  )
-                )
-                return
-              }
-              case "error": {
-                if (historyErrorNotifiedRef.current.has(normalized)) {
-                  return
-                }
-
-                historyErrorNotifiedRef.current.add(normalized)
-                appendRoomSystemMessage(
-                  normalized,
-                  createRecentMessagesStatusMessage(
-                    normalized,
-                    RECENT_MESSAGES_ERROR_TEXT
-                  )
-                )
-              }
             }
           } finally {
             historyLoadingRef.current.delete(normalized)
