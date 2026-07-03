@@ -78,7 +78,7 @@ export function useChatBadges(account: TwitchAccount | null) {
           channelLoadingRef.current.delete(roomId)
         })
     },
-    [account]
+    [account, channelLoadingRef, loadedRoomIdsRef]
   )
 
   type MergedEntry = {
@@ -121,7 +121,7 @@ export function useChatBadges(account: TwitchAccount | null) {
       })
       return merged
     },
-    [account, channelCatalogs, globalCatalog]
+    [account, channelCatalogs, globalCatalog, mergedCatalogsRef]
   )
 
   return {

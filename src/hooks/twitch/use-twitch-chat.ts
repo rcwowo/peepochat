@@ -446,11 +446,14 @@ export function useTwitchChat(options?: {
     setLogs((current) => [text, ...current].slice(0, 20))
   }, [])
 
-  const emitSendOutcome = React.useCallback((event: SendOutcomeEvent) => {
-    for (const listener of sendOutcomeListenersRef.current) {
-      listener(event)
-    }
-  }, [])
+  const emitSendOutcome = React.useCallback(
+    (event: SendOutcomeEvent) => {
+      for (const listener of sendOutcomeListenersRef.current) {
+        listener(event)
+      }
+    },
+    [sendOutcomeListenersRef]
+  )
 
   const registerSendOutcomeListener = React.useCallback(
     (listener: (event: SendOutcomeEvent) => void) => {
@@ -459,16 +462,19 @@ export function useTwitchChat(options?: {
         sendOutcomeListenersRef.current.delete(listener)
       }
     },
-    []
+    [sendOutcomeListenersRef]
   )
 
-  const clearSendBlockTimer = React.useCallback((login: string) => {
-    const timer = sendBlockTimersRef.current.get(login)
-    if (timer) {
-      clearTimeout(timer)
-      sendBlockTimersRef.current.delete(login)
-    }
-  }, [])
+  const clearSendBlockTimer = React.useCallback(
+    (login: string) => {
+      const timer = sendBlockTimersRef.current.get(login)
+      if (timer) {
+        clearTimeout(timer)
+        sendBlockTimersRef.current.delete(login)
+      }
+    },
+    [sendBlockTimersRef]
+  )
 
   const scheduleSendBlockClear = React.useCallback(
     (login: string, expiresAt: number) => {
@@ -488,7 +494,7 @@ export function useTwitchChat(options?: {
       }, delay)
       sendBlockTimersRef.current.set(login, timer)
     },
-    [clearSendBlockTimer]
+    [clearSendBlockTimer, sendBlockTimersRef]
   )
 
   const clearAllSendBlocks = React.useCallback(() => {
@@ -498,7 +504,12 @@ export function useTwitchChat(options?: {
     channelSendBlocksRef.current = {}
     setChannelSendBlocks({})
     pendingSendRef.current = null
-  }, [clearSendBlockTimer])
+  }, [
+    clearSendBlockTimer,
+    channelSendBlocksRef,
+    pendingSendRef,
+    sendBlockTimersRef,
+  ])
 
   const handleSendSystemNotice = React.useCallback(
     (message: TwitchSystemMessage) => {
@@ -542,7 +553,13 @@ export function useTwitchChat(options?: {
         message: message.text,
       })
     },
-    [clearSendBlockTimer, emitSendOutcome, scheduleSendBlockClear]
+    [
+      clearSendBlockTimer,
+      emitSendOutcome,
+      pendingSendRef,
+      rateLimiterRef,
+      scheduleSendBlockClear,
+    ]
   )
 
   const probeSendRestrictions = React.useCallback(() => {
@@ -560,7 +577,7 @@ export function useTwitchChat(options?: {
       Boolean(readClientRef.current?.isConnected) &&
       expected.every((login) => readJoinedChannelsRef.current.has(login))
     )
-  }, [])
+  }, [readClientRef, readJoinedChannelsRef, syncedChannelsRef])
 
   const isConnectionFullySynced = React.useCallback(() => {
     const sendConnectionExpected = sendConnectKeyRef.current.length > 0
@@ -666,7 +683,7 @@ export function useTwitchChat(options?: {
 
     pendingConnectRef.current = null
     pending.resolve()
-  }, [])
+  }, [pendingConnectRef, readClientRef, readJoinedChannelsRef])
 
   const resolveConnectionRecovery = React.useCallback(() => {
     const recovery = connectionRecoveryRef.current
@@ -695,22 +712,25 @@ export function useTwitchChat(options?: {
     }
   }, [])
 
-  const updateSelfState = React.useCallback((state: TwitchSelfChatState) => {
-    selfStatesRef.current.set(state.channel, state)
-    setSelfStates((current) => ({
-      ...current,
-      [state.channel]: state,
-    }))
-    senderStateRef.current = {
-      color: state.color,
-      badges: state.badges,
-      displayName: state.displayName || null,
-      isBroadcaster: state.isBroadcaster,
-      isModerator: state.isModerator,
-      isSubscriber: state.isSubscriber,
-      isVip: state.isVip,
-    }
-  }, [])
+  const updateSelfState = React.useCallback(
+    (state: TwitchSelfChatState) => {
+      selfStatesRef.current.set(state.channel, state)
+      setSelfStates((current) => ({
+        ...current,
+        [state.channel]: state,
+      }))
+      senderStateRef.current = {
+        color: state.color,
+        badges: state.badges,
+        displayName: state.displayName || null,
+        isBroadcaster: state.isBroadcaster,
+        isModerator: state.isModerator,
+        isSubscriber: state.isSubscriber,
+        isVip: state.isVip,
+      }
+    },
+    [selfStatesRef, senderStateRef]
+  )
 
   const updateRoom = React.useCallback(
     (
@@ -1053,7 +1073,7 @@ export function useTwitchChat(options?: {
         return next
       })
     },
-    [partitionTimeline, updateRoom]
+    [commitRooms, partitionTimeline, updateRoom]
   )
 
   const appendRoomSystemMessage = React.useCallback(
@@ -1072,7 +1092,7 @@ export function useTwitchChat(options?: {
       const catalog = composerCatalogsRef.current.get(roomId)
       return catalog ? getTwitchEmoteHydration(catalog) : null
     },
-    []
+    [composerCatalogsRef]
   )
 
   const hydrateRoomMessage = React.useCallback(
@@ -1145,7 +1165,7 @@ export function useTwitchChat(options?: {
         }
       })
     },
-    [getTwitchHydration]
+    [commitRooms, emoteCatalogsRef, getTwitchHydration]
   )
 
   /**
@@ -1243,7 +1263,19 @@ export function useTwitchChat(options?: {
           })
         })
     },
-    [appendLog, rehydrateRoomTimeline]
+    [
+      appendLog,
+      composerCatalogLoadedRef,
+      composerCatalogLoadingRef,
+      composerCatalogsRef,
+      emoteCatalogGenerationRef,
+      emoteLoadContextRef,
+      emoteCatalogsRef,
+      rehydrateRoomTimeline,
+      roomEmotesFailedAtRef,
+      roomEmotesLoadingRef,
+      roomEmotesSettledRef,
+    ]
   )
 
   const routeMessageToRoom = React.useCallback(
@@ -1306,13 +1338,19 @@ export function useTwitchChat(options?: {
       onChatMessageRef?.current?.(hydrated)
     },
     [
-      queueLiveRoomTimeline,
+      emoteCatalogsRef,
+      emitSendOutcome,
+      emoteLoadContextRef,
       ensureRoomEmotes,
+      hideBlockedUsersRef,
       hydrateRoomMessage,
+      isUserBlockedRef,
       onChatMessageRef,
+      pendingSendRef,
+      queueLiveRoomTimeline,
+      syncedChannelsRef,
       updateRoom,
       updateSelfState,
-      emitSendOutcome,
     ]
   )
 
@@ -1428,7 +1466,12 @@ export function useTwitchChat(options?: {
         }
       })
     },
-    [applyRoomMessageDeletions, updateRoom]
+    [
+      applyRoomMessageDeletions,
+      clearChatWhenInstructedRef,
+      selfStatesRef,
+      updateRoom,
+    ]
   )
 
   const routeSystemMessage = React.useCallback(
@@ -1524,8 +1567,11 @@ export function useTwitchChat(options?: {
     },
     [
       appendRoomSystemMessage,
+      commitRooms,
+      emoteCatalogsRef,
       hydrateRoomMessage,
       partitionTimeline,
+      syncedChannelsRef,
       trimTimeline,
       updateRoom,
     ]
@@ -1546,7 +1592,11 @@ export function useTwitchChat(options?: {
     recentMessagesQueueRef.current = []
     recentMessagesQueuedRef.current.clear()
     recentMessagesGenerationRef.current += 1
-  }, [])
+  }, [
+    recentMessagesGenerationRef,
+    recentMessagesQueueRef,
+    recentMessagesQueuedRef,
+  ])
 
   const drainRecentMessagesQueue = React.useCallback(() => {
     const runNext = () => {
@@ -1686,9 +1736,21 @@ export function useTwitchChat(options?: {
     runNext()
   }, [
     appendRoomSystemMessage,
-    hydrateRoomMessage,
+    emoteCatalogsRef,
     ensureRoomEmotes,
+    historyErrorNotifiedRef,
+    historyFetchLimitRef,
+    historyLoadedRef,
+    historyLoadingRef,
+    hydrateRoomMessage,
+    liveMessageLimitRef,
     prependHistoricalTimeline,
+    recentMessagesActiveRef,
+    recentMessagesGenerationRef,
+    recentMessagesQueueRef,
+    recentMessagesQueuedRef,
+    roomEmotesSettledRef,
+    roomsRef,
     shouldApplyRecentMessagesFetch,
     updateRoom,
   ])
@@ -1712,7 +1774,14 @@ export function useTwitchChat(options?: {
       recentMessagesQueueRef.current.push(normalized)
       drainRecentMessagesQueue()
     },
-    [drainRecentMessagesQueue]
+    [
+      drainRecentMessagesQueue,
+      historyLoadedRef,
+      historyLoadingRef,
+      recentMessagesEnabledRef,
+      recentMessagesQueuedRef,
+      recentMessagesQueueRef,
+    ]
   )
 
   const getReadClient = React.useCallback(() => {
@@ -1845,15 +1914,25 @@ export function useTwitchChat(options?: {
     return client
   }, [
     appendLog,
+    commitRooms,
     completePendingReadSyncIfReady,
-    handleReadConnectionLost,
-    loadRecentMessages,
+    connectionRecoveryRef,
     ensureRoomEmotes,
+    handleReadConnectionLost,
+    hasAnnouncedConnectedRef,
+    loadRecentMessages,
     markConnectionSyncedIfReady,
-    routeMessageToRoom,
-    routeClearMsg,
+    pendingConnectRef,
+    readClientRef,
+    readJoinedChannelsRef,
+    roomEmotesSettledRef,
     routeClearChat,
+    routeClearMsg,
+    routeMessageToRoom,
     routeSystemMessage,
+    selfStatesRef,
+    senderStateRef,
+    syncedChannelsRef,
     updateRoom,
     updateSelfState,
   ])
@@ -1936,6 +2015,8 @@ export function useTwitchChat(options?: {
   ])
 
   React.useEffect(() => {
+    const readClient = readClientRef
+    const sendClient = sendClientRef
     return () => {
       // React Strict Mode remounts immediately in dev; closing here interrupts
       // the in-flight Twitch IRC handshake before the remounted hook reuses it.
@@ -1943,26 +2024,29 @@ export function useTwitchChat(options?: {
         return
       }
 
-      readClientRef.current?.close()
-      readClientRef.current = null
-      sendClientRef.current?.close()
-      sendClientRef.current = null
+      readClient.current?.close()
+      readClient.current = null
+      sendClient.current?.close()
+      sendClient.current = null
     }
-  }, [])
+  }, [readClientRef, sendClientRef])
 
-  const ensureRooms = React.useCallback((channelLogins: string[]) => {
-    commitRooms((current) => {
-      const next = { ...current }
-      for (const login of channelLogins) {
-        if (!next[login]) {
-          next[login] = createEmptyRoom(login)
-        } else {
-          next[login] = { ...next[login], joining: !next[login].joined }
+  const ensureRooms = React.useCallback(
+    (channelLogins: string[]) => {
+      commitRooms((current) => {
+        const next = { ...current }
+        for (const login of channelLogins) {
+          if (!next[login]) {
+            next[login] = createEmptyRoom(login)
+          } else {
+            next[login] = { ...next[login], joining: !next[login].joined }
+          }
         }
-      }
-      return next
-    })
-  }, [])
+        return next
+      })
+    },
+    [commitRooms]
+  )
 
   const pruneRemovedChannelState = React.useCallback(
     (removedLogins: string[]) => {
@@ -2044,7 +2128,26 @@ export function useTwitchChat(options?: {
         return changed ? next : current
       })
     },
-    []
+    [
+      commitRooms,
+      composerCatalogLoadedRef,
+      composerCatalogLoadingRef,
+      composerCatalogsRef,
+      emoteCatalogsRef,
+      flushLiveTimelineBatchRef,
+      historyErrorNotifiedRef,
+      historyLoadedRef,
+      historyLoadingRef,
+      pendingLiveTimelineRef,
+      readJoinedChannelsRef,
+      recentMessagesQueueRef,
+      recentMessagesQueuedRef,
+      roomEmotesFailedAtRef,
+      roomEmotesLoadingRef,
+      roomEmotesSettledRef,
+      roomsRef,
+      selfStatesRef,
+    ]
   )
 
   const syncSendConnection = React.useCallback(
@@ -2095,7 +2198,13 @@ export function useTwitchChat(options?: {
         return undefined
       })
     },
-    [getSendClient, probeSendRestrictions]
+    [
+      getSendClient,
+      probeSendRestrictions,
+      sendClientRef,
+      sendConnectKeyRef,
+      syncedChannelsRef,
+    ]
   )
 
   const syncChannels = React.useCallback(
@@ -2241,15 +2350,40 @@ export function useTwitchChat(options?: {
     [
       clearAllSendBlocks,
       clearRecentMessagesQueue,
+      commitRooms,
       completePendingReadSyncIfReady,
+      composerCatalogLoadedRef,
+      composerCatalogLoadingRef,
+      composerCatalogsRef,
+      emoteCatalogGenerationRef,
+      emoteCatalogsRef,
       ensureRooms,
+      flushLiveTimelineBatchRef,
       getReadClient,
+      hasAnnouncedConnectedRef,
+      historyErrorNotifiedRef,
+      historyLoadedRef,
+      historyLoadingRef,
       isReadConnectionSynced,
       loadRecentMessages,
       markConnectionSyncedIfReady,
+      pendingConnectRef,
+      pendingLiveTimelineRef,
+      pendingSendConnectRef,
+      pendingSyncPromiseRef,
       pruneRemovedChannelState,
+      rateLimiterRef,
+      readClientRef,
+      readJoinedChannelsRef,
       resolveConnectionRecovery,
+      roomEmotesFailedAtRef,
+      roomEmotesLoadingRef,
+      roomEmotesSettledRef,
+      selfStatesRef,
+      sendClientRef,
+      syncedChannelsRef,
       syncSendConnection,
+      wasFullySyncedRef,
     ]
   )
 
@@ -2280,7 +2414,7 @@ export function useTwitchChat(options?: {
         })
       }
     },
-    [trimTimeline]
+    [commitRooms, liveMessageLimitRef, trimTimeline]
   )
 
   const setDeletedMessagesBehavior = React.useCallback(
@@ -2307,7 +2441,7 @@ export function useTwitchChat(options?: {
         })
       }
     },
-    []
+    [commitRooms, deletedMessagesBehaviorRef]
   )
 
   const setClearChatWhenInstructed = React.useCallback((enabled: boolean) => {
@@ -2351,7 +2485,7 @@ export function useTwitchChat(options?: {
         return changed ? next : current
       })
     },
-    []
+    [commitRooms]
   )
 
   const purgeMessagesFromUser = React.useCallback(
@@ -2392,7 +2526,17 @@ export function useTwitchChat(options?: {
         }
       }
     },
-    [clearHistoricalTimeline, clearRecentMessagesQueue, loadRecentMessages]
+    [
+      clearHistoricalTimeline,
+      clearRecentMessagesQueue,
+      historyErrorNotifiedRef,
+      historyFetchLimitRef,
+      historyLoadedRef,
+      historyLoadingRef,
+      loadRecentMessages,
+      recentMessagesEnabledRef,
+      syncedChannelsRef,
+    ]
   )
 
   const getRoom = React.useCallback(
@@ -2459,7 +2603,18 @@ export function useTwitchChat(options?: {
         }
       }
     },
-    [ensureRoomEmotes]
+    [
+      composerCatalogLoadedRef,
+      composerCatalogLoadingRef,
+      composerCatalogsRef,
+      emoteCatalogGenerationRef,
+      emoteLoadContextRef,
+      ensureRoomEmotes,
+      roomEmotesFailedAtRef,
+      roomEmotesLoadingRef,
+      roomEmotesSettledRef,
+      roomsRef,
+    ]
   )
 
   const getComposerEmoteCatalog = React.useCallback(
@@ -2583,7 +2738,19 @@ export function useTwitchChat(options?: {
 
       return true
     },
-    [rehydrateRoomTimeline]
+    [
+      composerCatalogLoadedRef,
+      composerCatalogLoadingRef,
+      composerCatalogsRef,
+      emoteCatalogGenerationRef,
+      emoteLoadContextRef,
+      emoteCatalogsRef,
+      rehydrateRoomTimeline,
+      roomEmotesFailedAtRef,
+      roomEmotesLoadingRef,
+      roomEmotesSettledRef,
+      roomsRef,
+    ]
   )
 
   const sendChatMessageInternal = React.useCallback(
@@ -2650,7 +2817,15 @@ export function useTwitchChat(options?: {
       }
       return { ok: true }
     },
-    [getSendClient]
+    [
+      channelSendBlocksRef,
+      emoteLoadContextRef,
+      getSendClient,
+      pendingSendRef,
+      rateLimiterRef,
+      selfStatesRef,
+      sendClientRef,
+    ]
   )
 
   const getChannelSendBlock = React.useCallback(
@@ -2718,7 +2893,7 @@ export function useTwitchChat(options?: {
 
       return result
     },
-    [appendRoomSystemMessage]
+    [appendRoomSystemMessage, chatCommandActionsRef, roomsRef, selfStatesRef]
   )
 
   return {

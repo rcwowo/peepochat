@@ -128,10 +128,11 @@ export function ChatComposer({
 
   React.useEffect(() => {
     commandPendingRef.current = false
+    const submitRef = commandSubmitRef
     return () => {
-      commandSubmitRef.current += 1
+      submitRef.current += 1
     }
-  }, [channelLogin])
+  }, [channelLogin, commandSubmitRef])
 
   const roomId = getRoomId(channelLogin)
 

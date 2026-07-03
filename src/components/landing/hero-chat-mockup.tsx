@@ -571,12 +571,14 @@ export function HeroChatMockup() {
   }, [])
 
   React.useEffect(() => {
+    const tiltFrameRefBinding = tiltFrameRef
     return () => {
-      if (tiltFrameRef.current !== 0) {
-        window.cancelAnimationFrame(tiltFrameRef.current)
+      const frameId = tiltFrameRefBinding.current
+      if (frameId !== 0) {
+        window.cancelAnimationFrame(frameId)
       }
     }
-  }, [])
+  }, [tiltFrameRef])
 
   const handlePointerMove = React.useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {

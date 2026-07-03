@@ -35,7 +35,6 @@ export function useStreamLiveStatus({
   const liveLoginsRef = React.useRef(liveLogins)
   const initialPollDoneRef = React.useRef(false)
 
-  const channelLoginsKey = channelLogins.join("\0")
   const onWentLiveRef = React.useRef(onChannelWentLive)
   const pollingActive =
     enabled &&
@@ -110,7 +109,7 @@ export function useStreamLiveStatus({
       cancelled = true
       window.clearInterval(interval)
     }
-  }, [pollingActive, accessToken, clientId, channelLoginsKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pollingActive, accessToken, clientId, channelLogins])
 
   const effectiveLiveLogins = pollingActive ? liveLogins : EMPTY_LIVE_LOGINS
   const effectiveLiveStreams = pollingActive

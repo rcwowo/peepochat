@@ -385,7 +385,12 @@ export function useUserCard({
     React.useState<UserCardAction | null>(null)
   const pendingActionRef = React.useRef<UserCardAction | null>(null)
   const requestIdRef = React.useRef(0)
+  const selfChatStateRef = React.useRef(selfChatState)
   const moderationSelfStateKey = getModerationSelfStateKey(selfChatState)
+
+  React.useEffect(() => {
+    selfChatStateRef.current = selfChatState
+  }, [selfChatState])
 
   const reload = React.useCallback(async () => {
     const requestId = requestIdRef.current + 1
@@ -493,7 +498,7 @@ export function useUserCard({
           channelRoomId,
           channelLogin,
           profile,
-          selfChatState,
+          selfChatState: selfChatStateRef.current,
         })
 
         if (requestIdRef.current !== requestId) {
@@ -517,8 +522,6 @@ export function useUserCard({
         })
       }
     })()
-    // Reload only when moderation-relevant self state changes, not every echo.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed by moderationSelfStateKey
   }, [
     account,
     channelLogin,

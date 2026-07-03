@@ -358,12 +358,14 @@ export function ChatSplitLayout({
   >({})
 
   React.useEffect(() => {
+    const frameRefBinding = frameRef
     return () => {
-      if (frameRef.current !== null) {
-        cancelAnimationFrame(frameRef.current)
+      const frameId = frameRefBinding.current
+      if (frameId !== null) {
+        cancelAnimationFrame(frameId)
       }
     }
-  }, [])
+  }, [frameRef])
 
   const registerPane = React.useCallback(
     (login: string, node: HTMLElement | null) => {
@@ -373,7 +375,7 @@ export function ChatSplitLayout({
       }
       paneElementsRef.current.delete(login)
     },
-    []
+    [paneElementsRef]
   )
 
   const setDropTarget = React.useCallback(
@@ -425,7 +427,7 @@ export function ChatSplitLayout({
 
       setDropTarget(fallback.login, getDropEdge(point, fallback.rect))
     },
-    [setDropTarget]
+    [paneElementsRef, setDropTarget]
   )
 
   const handleDragStart = React.useCallback(
