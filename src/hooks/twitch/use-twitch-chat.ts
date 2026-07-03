@@ -230,6 +230,16 @@ function createEmptyRoom(login: string): TwitchChatRoomState {
   }
 }
 
+type AppendRoomTimelineOptions = {
+  roomId?: string | null
+}
+
+type PendingLiveTimelineBatch = {
+  items: TwitchTimelineItem[]
+  roomId: string | null | undefined
+  frameId: number | null
+}
+
 export function useTwitchChat(options?: {
   onChatMessageRef?: React.RefObject<
     ((message: TwitchChatMessage) => void) | null
@@ -359,6 +369,9 @@ export function useTwitchChat(options?: {
   if (roomSubscribersRef.current === null) {
     roomSubscribersRef.current = new Map()
   }
+  const pendingLiveTimelineRef = React.useRef<
+    Map<string, PendingLiveTimelineBatch>
+  >(new Map())
 
   const notifyRoomSubscribers = React.useCallback((login: string) => {
     const normalized = normalizeChannelLogin(login)
@@ -790,11 +803,17 @@ export function useTwitchChat(options?: {
     []
   )
 
-  const appendRoomTimeline = React.useCallback(
-    (login: string, items: TwitchTimelineItem[]) => {
+  const commitRoomTimelineAppend = React.useCallback(
+    (
+      login: string,
+      items: TwitchTimelineItem[],
+      options?: AppendRoomTimelineOptions
+    ) => {
       if (items.length === 0) return
 
       updateRoom(login, (room) => {
+        const nextRoomId =
+          options?.roomId && !room.roomId ? options.roomId : room.roomId
         const { historical, live } = partitionTimeline(room.timeline)
         const knownIds = getTimelineMessageIds(room.timeline)
         const nextHistorical = [...historical]
@@ -850,23 +869,115 @@ export function useTwitchChat(options?: {
           nextLive.push(item)
         }
 
+        const addedCount = nextLive.length - live.length
+        if (addedCount === 0 && nextRoomId === room.roomId) {
+          return room
+        }
+
         devChatLogger.debugLazy(() => [
           "timeline:append-live",
           {
             login,
-            added: nextLive.length - live.length,
+            added: addedCount,
             total: nextHistorical.length + nextLive.length,
           },
         ])
 
+        const nextTimeline = trimTimeline([...nextHistorical, ...nextLive])
+        if (nextRoomId === room.roomId) {
+          return { ...room, timeline: nextTimeline }
+        }
+
         return {
           ...room,
-          timeline: trimTimeline([...nextHistorical, ...nextLive]),
+          roomId: nextRoomId,
+          timeline: nextTimeline,
         }
       })
     },
     [getTimelineMessageIds, partitionTimeline, trimTimeline, updateRoom]
   )
+
+  const flushLiveTimelineBatch = React.useCallback(
+    (login: string) => {
+      const normalized = normalizeChannelLogin(login)
+      const batch = pendingLiveTimelineRef.current.get(normalized)
+      if (!batch) {
+        return
+      }
+
+      if (batch.frameId !== null) {
+        cancelAnimationFrame(batch.frameId)
+        batch.frameId = null
+      }
+
+      if (batch.items.length === 0) {
+        return
+      }
+
+      const items = batch.items
+      const roomId = batch.roomId
+      batch.items = []
+      batch.roomId = undefined
+
+      commitRoomTimelineAppend(normalized, items, { roomId })
+    },
+    [commitRoomTimelineAppend]
+  )
+
+  const queueLiveRoomTimeline = React.useCallback(
+    (
+      login: string,
+      items: TwitchTimelineItem[],
+      options?: AppendRoomTimelineOptions
+    ) => {
+      if (items.length === 0) {
+        return
+      }
+
+      const normalized = normalizeChannelLogin(login)
+      let batch = pendingLiveTimelineRef.current.get(normalized)
+      if (!batch) {
+        batch = { items: [], roomId: undefined, frameId: null }
+        pendingLiveTimelineRef.current.set(normalized, batch)
+      }
+
+      batch.items.push(...items)
+      if (options?.roomId && batch.roomId === undefined) {
+        batch.roomId = options.roomId
+      }
+
+      if (batch.frameId !== null) {
+        return
+      }
+
+      batch.frameId = requestAnimationFrame(() => {
+        const pending = pendingLiveTimelineRef.current.get(normalized)
+        if (!pending) {
+          return
+        }
+
+        pending.frameId = null
+        flushLiveTimelineBatch(normalized)
+      })
+    },
+    [flushLiveTimelineBatch]
+  )
+
+  React.useEffect(() => {
+    const pendingLiveTimeline = pendingLiveTimelineRef.current
+
+    return () => {
+      for (const login of pendingLiveTimeline.keys()) {
+        flushLiveTimelineBatch(login)
+      }
+    }
+  }, [flushLiveTimelineBatch])
+
+  const flushLiveTimelineBatchRef = React.useRef(flushLiveTimelineBatch)
+  React.useEffect(() => {
+    flushLiveTimelineBatchRef.current = flushLiveTimelineBatch
+  }, [flushLiveTimelineBatch])
 
   const prependHistoricalTimeline = React.useCallback(
     (login: string, items: TwitchTimelineItem[]) => {
@@ -947,9 +1058,9 @@ export function useTwitchChat(options?: {
 
   const appendRoomSystemMessage = React.useCallback(
     (login: string, message: TwitchSystemMessage) => {
-      appendRoomTimeline(login, [{ kind: "system", message }])
+      queueLiveRoomTimeline(login, [{ kind: "system", message }])
     },
-    [appendRoomTimeline]
+    [queueLiveRoomTimeline]
   )
 
   const getTwitchHydration = React.useCallback(
@@ -1145,11 +1256,14 @@ export function useTwitchChat(options?: {
       const roomId = message.roomId
 
       if (roomId) {
-        updateRoom(login, (room) => ({
-          ...room,
-          roomId: room.roomId ?? roomId,
-        }))
         ensureRoomEmotes(login, roomId)
+        updateRoom(login, (room) => {
+          if (room.roomId) {
+            return room
+          }
+
+          return { ...room, roomId }
+        })
       }
 
       const catalog = roomId
@@ -1186,11 +1300,13 @@ export function useTwitchChat(options?: {
         return
       }
 
-      appendRoomTimeline(login, [{ kind: "chat", message: hydrated }])
+      queueLiveRoomTimeline(login, [{ kind: "chat", message: hydrated }], {
+        roomId,
+      })
       onChatMessageRef?.current?.(hydrated)
     },
     [
-      appendRoomTimeline,
+      queueLiveRoomTimeline,
       ensureRoomEmotes,
       hydrateRoomMessage,
       onChatMessageRef,
@@ -1857,6 +1973,10 @@ export function useTwitchChat(options?: {
       const removed = new Set(removedLogins)
 
       for (const login of removedLogins) {
+        const normalized = normalizeChannelLogin(login)
+        flushLiveTimelineBatchRef.current(normalized)
+        pendingLiveTimelineRef.current.delete(normalized)
+
         readJoinedChannelsRef.current.delete(login)
         historyLoadedRef.current.delete(login)
         historyLoadingRef.current.delete(login)
@@ -2014,6 +2134,11 @@ export function useTwitchChat(options?: {
       }
 
       if (normalized.length === 0) {
+        for (const login of pendingLiveTimelineRef.current.keys()) {
+          flushLiveTimelineBatchRef.current(login)
+        }
+        pendingLiveTimelineRef.current.clear()
+
         pendingSyncPromiseRef.current = null
         pendingConnectRef.current?.resolve()
         pendingConnectRef.current = null

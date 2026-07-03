@@ -43,51 +43,21 @@ import {
   usePeepochatChat,
   usePeepochatSidebarHighlights,
 } from "@/lib/peepochat/peepochat-context"
-import { getRecentUserMessageBuckets } from "@/lib/chat/recent-user-messages"
+import {
+  createRecentUserMessageBucketCache,
+  getEmptyRecentUserMessages,
+  updateRecentUserMessageBuckets,
+} from "@/lib/chat/recent-user-messages"
+import {
+  updateStableRowStripes,
+  type RowStripeCache,
+} from "@/lib/chat/chat-row-stripes"
 import { cn } from "@/lib/utils"
 
 import { openExternalTool, CHATLOGS_URL } from "@/lib/chat/moderation-tools"
 import { maskReplyForBlockedUser } from "@/lib/twitch/blocked-users"
 
 const CHATVOICE_URL = "https://chatvoice.rcw.lol"
-
-function reconcileStableRowStripes(
-  rowStripes: Map<string, boolean>,
-  timeline: TwitchTimelineItem[]
-) {
-  const visibleIds = timeline.map((entry) => entry.message.id)
-  const visibleIdSet = new Set(visibleIds)
-
-  for (const id of rowStripes.keys()) {
-    if (!visibleIdSet.has(id)) {
-      rowStripes.delete(id)
-    }
-  }
-
-  const firstKnownIndex = visibleIds.findIndex((id) => rowStripes.has(id))
-
-  if (firstKnownIndex === -1) {
-    visibleIds.forEach((id, index) => {
-      rowStripes.set(id, index % 2 === 1)
-    })
-    return rowStripes
-  }
-
-  for (let index = firstKnownIndex - 1; index >= 0; index -= 1) {
-    const nextStripe = rowStripes.get(visibleIds[index + 1]) ?? false
-    rowStripes.set(visibleIds[index], !nextStripe)
-  }
-
-  for (let index = firstKnownIndex + 1; index < visibleIds.length; index += 1) {
-    const id = visibleIds[index]
-    if (!rowStripes.has(id)) {
-      const previousStripe = rowStripes.get(visibleIds[index - 1]) ?? false
-      rowStripes.set(id, !previousStripe)
-    }
-  }
-
-  return rowStripes
-}
 
 function ChannelPaneAvatar({
   login,
@@ -180,6 +150,12 @@ function ChatPaneInner({
   const messageListRef = React.useRef<HTMLDivElement>(null)
   const isProgrammaticScrollRef = React.useRef(false)
   const [rowStripeCache] = React.useState(() => new Map<string, boolean>())
+  const [rowStripeTimelineCache] = React.useState<
+    RowStripeCache<TwitchTimelineItem>
+  >(() => ({ timeline: null }))
+  const [recentMessagesCache] = React.useState(
+    createRecentUserMessageBucketCache
+  )
   const [isScrollPaused, setIsScrollPaused] = React.useState(false)
   const [liveInfoExpanded, setLiveInfoExpanded] = React.useState(false)
 
@@ -210,11 +186,25 @@ function ChatPaneInner({
   }, [hideBlockedUsers, isUserBlocked, timeline])
 
   const rowStripes = React.useMemo(
-    () => reconcileStableRowStripes(rowStripeCache, visibleTimeline),
-    [rowStripeCache, visibleTimeline]
+    () =>
+      updateStableRowStripes(
+        rowStripeTimelineCache,
+        rowStripeCache,
+        visibleTimeline
+      ),
+    [rowStripeCache, rowStripeTimelineCache, visibleTimeline]
   )
   const recentMessagesByUser = React.useMemo(() => {
-    return getRecentUserMessageBuckets(visibleTimeline)
+    return updateRecentUserMessageBuckets(recentMessagesCache, visibleTimeline)
+  }, [recentMessagesCache, visibleTimeline])
+
+  const timelineScrollKey = React.useMemo(() => {
+    if (visibleTimeline.length === 0) {
+      return "empty"
+    }
+
+    const lastEntry = visibleTimeline[visibleTimeline.length - 1]
+    return `${visibleTimeline.length}:${lastEntry.message.id}`
   }, [visibleTimeline])
 
   const getRecentMessagesForUser = React.useCallback(
@@ -260,7 +250,7 @@ function ChatPaneInner({
   React.useLayoutEffect(() => {
     if (!isActive || isScrollPaused) return
     scrollToBottom("auto")
-  }, [isActive, visibleTimeline, isScrollPaused, scrollToBottom])
+  }, [isActive, timelineScrollKey, isScrollPaused, scrollToBottom])
 
   React.useEffect(() => {
     const container = chatContainerRef.current
@@ -477,10 +467,10 @@ function ChatPaneInner({
                             entry.message.userId
                               ? (recentMessagesByUser.get(
                                   `id:${entry.message.userId}`
-                                ) ?? [])
+                                ) ?? getEmptyRecentUserMessages())
                               : (recentMessagesByUser.get(
                                   `login:${entry.message.userName.toLowerCase()}`
-                                ) ?? [])
+                                ) ?? getEmptyRecentUserMessages())
                           }
                           badgeCatalog={badgeCatalog}
                           getMemberBadge={getMemberBadge}
