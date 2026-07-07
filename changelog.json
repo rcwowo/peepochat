@@ -3,6 +3,8 @@
         "version": "1.0.1",
         "date": "2026-07-31",
         "items": [
+            "Improved user card UX by progressively loading more info as it comes in.",
+            "Fixed notifications not being marked as read when the channel was focused.",
             "Fixed timestamp setting not being respected in user cards.",
             "Lots of small performance improvements to the app."
         ]

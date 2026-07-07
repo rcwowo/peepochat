@@ -4,6 +4,7 @@ import { useLazyRef } from "@/hooks/use-lazy-ref"
 import { addChannelMessageHighlight } from "@/lib/highlights/channel-message-highlights"
 import {
   addPingNotification,
+  markLiveNotificationsReadForChannels,
   markPingNotificationsReadForChannels,
 } from "@/lib/highlights/notification-center"
 import {
@@ -159,6 +160,7 @@ export function useHighlightActivity({
 
   React.useEffect(() => {
     markPingNotificationsReadForChannels(normalizedVisibleChannelLogins)
+    markLiveNotificationsReadForChannels(normalizedVisibleChannelLogins)
   }, [normalizedVisibleChannelLogins])
 
   const clearUnreadForLogins = React.useCallback((logins: string[]) => {
@@ -194,6 +196,7 @@ export function useHighlightActivity({
       const normalized = normalizeChannelLogin(login)
       clearUnreadForLogins([normalized])
       markPingNotificationsReadForChannels([normalized])
+      markLiveNotificationsReadForChannels([normalized])
     },
     [clearUnreadForLogins]
   )
@@ -204,6 +207,7 @@ export function useHighlightActivity({
       if (!split) return
       clearUnreadForLogins(split.channels)
       markPingNotificationsReadForChannels(split.channels)
+      markLiveNotificationsReadForChannels(split.channels)
     },
     [clearUnreadForLogins, splits]
   )

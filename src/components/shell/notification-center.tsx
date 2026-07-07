@@ -273,8 +273,12 @@ function LiveNotificationRow({
   onDismiss: (id: string) => void
   onNavigate: (login: string) => void
 }) {
+  const isUnread = notification.readAt === null
+
   return (
-    <div className={notificationRowClassName}>
+    <div
+      className={`${notificationRowClassName} ${isUnread ? "" : "opacity-70"}`}
+    >
       <button
         type="button"
         className={notificationRowButtonClassName}
@@ -556,7 +560,7 @@ export function NotificationCenter() {
                   Live
                   {liveCount > 0 && (
                     <span className="ml-1 text-xs text-muted-foreground">
-                      ({liveCount})
+                      ({liveCount} unread)
                     </span>
                   )}
                 </TabsTrigger>

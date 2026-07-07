@@ -24,6 +24,7 @@ export type LiveNotification = {
   title: string
   gameName?: string
   wentLiveAt: string
+  readAt: string | null
 }
 
 type NotificationCenterStore = {
@@ -62,6 +63,10 @@ function isPingUnread(notification: PingNotification) {
   return notification.readAt === null
 }
 
+function isLiveUnread(notification: LiveNotification) {
+  return notification.readAt === null
+}
+
 export function addPingNotification(
   notification: Omit<PingNotification, "id" | "readAt"> & {
     readAt?: string | null
@@ -88,7 +93,9 @@ export function addPingNotification(
 }
 
 export function addLiveNotification(
-  notification: Omit<LiveNotification, "id">
+  notification: Omit<LiveNotification, "id" | "readAt"> & {
+    readAt?: string | null
+  }
 ): boolean {
   const channelLogin = normalizeChannelLogin(notification.channelLogin)
   const id = `live:${channelLogin}:${notification.wentLiveAt}`
@@ -98,7 +105,12 @@ export function addLiveNotification(
   }
 
   store.liveNotifications = capNotifications([
-    { ...notification, id, channelLogin },
+    {
+      ...notification,
+      id,
+      channelLogin,
+      readAt: notification.readAt ?? null,
+    },
     ...store.liveNotifications,
   ])
   notifyListeners()
@@ -137,6 +149,41 @@ export function markPingNotificationsReadForChannels(logins: string[]) {
   }
 
   store.pingNotifications = next
+  notifyListeners()
+}
+
+export function markLiveNotificationsReadForChannel(login: string) {
+  markLiveNotificationsReadForChannels([login])
+}
+
+export function markLiveNotificationsReadForChannels(logins: string[]) {
+  if (logins.length === 0) {
+    return
+  }
+
+  const channelLogins = new Set(
+    logins.map((login) => normalizeChannelLogin(login))
+  )
+  const readAt = new Date().toISOString()
+  let changed = false
+
+  const next = store.liveNotifications.map((notification) => {
+    if (
+      !channelLogins.has(notification.channelLogin) ||
+      notification.readAt !== null
+    ) {
+      return notification
+    }
+
+    changed = true
+    return { ...notification, readAt }
+  })
+
+  if (!changed) {
+    return
+  }
+
+  store.liveNotifications = next
   notifyListeners()
 }
 
@@ -220,8 +267,12 @@ function getPingUnreadCount() {
   return store.pingNotifications.filter(isPingUnread).length
 }
 
+function getLiveUnreadCount() {
+  return store.liveNotifications.filter(isLiveUnread).length
+}
+
 function getTotalUnreadCount() {
-  return getPingUnreadCount() + store.liveNotifications.length
+  return getPingUnreadCount() + getLiveUnreadCount()
 }
 
 export function useNotificationCenter() {
@@ -240,6 +291,11 @@ export function useNotificationCenter() {
     getPingUnreadCount,
     getPingUnreadCount
   )
+  const liveUnreadCount = React.useSyncExternalStore(
+    subscribe,
+    getLiveUnreadCount,
+    getLiveUnreadCount
+  )
   const totalUnreadCount = React.useSyncExternalStore(
     subscribe,
     getTotalUnreadCount,
@@ -251,7 +307,7 @@ export function useNotificationCenter() {
       pingNotifications,
       liveNotifications,
       pingCount: pingUnreadCount,
-      liveCount: liveNotifications.length,
+      liveCount: liveUnreadCount,
       totalCount: totalUnreadCount,
       dismissPing: dismissPingNotification,
       dismissLive: dismissLiveNotification,
@@ -259,7 +315,15 @@ export function useNotificationCenter() {
       dismissAllLive: dismissAllLiveNotifications,
       markPingNotificationsReadForChannel,
       markPingNotificationsReadForChannels,
+      markLiveNotificationsReadForChannel,
+      markLiveNotificationsReadForChannels,
     }),
-    [liveNotifications, pingNotifications, pingUnreadCount, totalUnreadCount]
+    [
+      liveNotifications,
+      liveUnreadCount,
+      pingNotifications,
+      pingUnreadCount,
+      totalUnreadCount,
+    ]
   )
 }

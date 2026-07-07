@@ -350,6 +350,11 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     setActiveChannelBase(login)
   })
 
+  const visibleChannelLoginsRef = React.useRef(visibleChannelLogins)
+  React.useEffect(() => {
+    visibleChannelLoginsRef.current = visibleChannelLogins
+  }, [visibleChannelLogins])
+
   const highlightActivity = useHighlightActivity({
     config,
     accountLogin: account?.login ?? null,
@@ -374,11 +379,18 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     onChannelWentLive: (login, title, gameName) => {
       if (!config.highlights.livePushNotificationsEnabled) return
 
+      const normalizedLogin = normalizeChannelLogin(login)
+      const isVisible = visibleChannelLoginsRef.current.some(
+        (channelLogin) =>
+          normalizeChannelLogin(channelLogin) === normalizedLogin
+      )
+
       addLiveNotification({
         channelLogin: login,
         title,
         gameName,
         wentLiveAt: new Date().toISOString(),
+        readAt: isVisible ? new Date().toISOString() : null,
       })
 
       if (config.highlights.doNotDisturbEnabled) return
