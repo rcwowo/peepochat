@@ -45,7 +45,6 @@ import {
 } from "@/lib/peepochat/peepochat-context"
 import {
   createRecentUserMessageBucketCache,
-  getEmptyRecentUserMessages,
   updateRecentUserMessageBuckets,
 } from "@/lib/chat/recent-user-messages"
 import {
@@ -463,15 +462,6 @@ function ChatPaneInner({
                           account={account}
                           channelRoomId={channelRoomId}
                           selfChatState={selfChatState}
-                          recentUserMessages={
-                            entry.message.userId
-                              ? (recentMessagesByUser.get(
-                                  `id:${entry.message.userId}`
-                                ) ?? getEmptyRecentUserMessages())
-                              : (recentMessagesByUser.get(
-                                  `login:${entry.message.userName.toLowerCase()}`
-                                ) ?? getEmptyRecentUserMessages())
-                          }
                           badgeCatalog={badgeCatalog}
                           getMemberBadge={getMemberBadge}
                           showBadgeFallback={showBadgeFallback}

@@ -193,20 +193,8 @@ function InfoTile({
   )
 }
 
-function UserCardLoading() {
-  return (
-    <div className="space-y-3 p-4">
-      <Skeleton className="h-24 w-full rounded-xl" />
-      <div className="flex gap-3">
-        <Skeleton className="size-14 rounded-full" />
-        <div className="flex-1 space-y-2">
-          <Skeleton className="h-4 w-36" />
-          <Skeleton className="h-3 w-24" />
-        </div>
-      </div>
-      <Skeleton className="h-14 w-full" />
-    </div>
-  )
+function InfoTileSkeleton() {
+  return <Skeleton className="h-14 rounded-lg" />
 }
 
 type ModerationToolbarItem = {
@@ -312,8 +300,12 @@ export function UserCardPanel({
   onClose,
   onDragStart,
 }: UserCardPanelProps) {
-  const profile = card.status === "ready" ? card.profile : null
-  const status = card.status === "ready" ? card.channelStatus : null
+  const profile = card.profile
+  const channelStatus = card.channelStatus
+  const isProfileLoading = card.status === "loading" && !profile
+  const isChannelStatusLoading =
+    card.status !== "error" && card.status !== "idle" && !channelStatus
+  const status = card.status === "ready" && channelStatus ? channelStatus : null
   const moderatorStatus =
     status?.moderator.state === "available" ? status.moderator.value : null
   const vipStatus = status?.vip.state === "available" ? status.vip.value : null
@@ -327,6 +319,8 @@ export function UserCardPanel({
       ? status.channelRoles.value
       : null
   const subageUnavailable = status?.subage.state === "unavailable"
+  const displayName = profile?.displayName ?? target.displayName
+  const login = profile?.login ?? target.userName
   const isBroadcaster = Boolean(
     target.flags.isBroadcaster ||
     (profile &&
@@ -382,13 +376,16 @@ export function UserCardPanel({
     ? formatUserType(profile.type || profile.broadcasterType)
     : ""
   const followedAt = subage?.followedAt ? formatDate(subage.followedAt) : null
-  const subscriptionLabel = subageUnavailable
-    ? "Unavailable"
-    : subage?.statusHidden
-      ? "Hidden"
-      : subage?.cumulative
-        ? `${subage.cumulative.months} month${subage.cumulative.months === 1 ? "" : "s"}`
-        : "Not subscribed"
+  const subscriptionLabel = isChannelStatusLoading
+    ? ""
+    : subageUnavailable
+      ? "Unavailable"
+      : subage?.statusHidden
+        ? "Hidden"
+        : subage?.cumulative
+          ? `${subage.cumulative.months} month${subage.cumulative.months === 1 ? "" : "s"}`
+          : "Not subscribed"
+  const showCardContent = card.status === "loading" || card.status === "ready"
   const isActionPending = card.pendingAction !== null
   const showTimeoutGrid = canBanOrTimeout
   const showModerationActions =
@@ -415,7 +412,13 @@ export function UserCardPanel({
   )
 
   const handleBlockToggle = React.useCallback(() => {
-    if (!profile || !canManageBlockedUsers || isSelf || blockActionPending) {
+    if (
+      !targetUserId ||
+      !targetLogin ||
+      !canManageBlockedUsers ||
+      isSelf ||
+      blockActionPending
+    ) {
       return
     }
 
@@ -423,7 +426,7 @@ export function UserCardPanel({
     const action = targetIsBlocked ? unblockUser : blockUser
     const label = targetIsBlocked ? "Unblock" : "Block"
 
-    void action(profile.id, profile.login)
+    void action(targetUserId, targetLogin)
       .then(() => {
         toast.success(`${label} succeeded for ${target.displayName}.`)
       })
@@ -438,9 +441,10 @@ export function UserCardPanel({
     blockUser,
     canManageBlockedUsers,
     isSelf,
-    profile,
     target.displayName,
     targetIsBlocked,
+    targetLogin,
+    targetUserId,
     unblockUser,
   ])
 
@@ -539,15 +543,11 @@ export function UserCardPanel({
   ])
 
   const openChannel = React.useCallback(() => {
-    if (!profile?.login) {
+    if (!login) {
       return
     }
-    window.open(
-      twitchChannelUrl(profile.login),
-      "_blank",
-      "noopener,noreferrer"
-    )
-  }, [profile])
+    window.open(twitchChannelUrl(login), "_blank", "noopener,noreferrer")
+  }, [login])
 
   return (
     <div
@@ -562,7 +562,7 @@ export function UserCardPanel({
       }}
     >
       <div className="absolute top-2 right-2 z-20 flex items-center gap-1">
-        {card.status === "ready" && profile ? (
+        {showCardContent ? (
           <DropdownMenu
             modal={false}
             onOpenChange={(open) => {
@@ -585,9 +585,7 @@ export function UserCardPanel({
               <DropdownMenuGroup>
                 <DropdownMenuItem
                   onSelect={() =>
-                    openExternalTool(
-                      twitchViewerCardUrl(channelLogin, profile.login)
-                    )
+                    openExternalTool(twitchViewerCardUrl(channelLogin, login))
                   }
                 >
                   Open viewer card
@@ -595,9 +593,7 @@ export function UserCardPanel({
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onSelect={() =>
-                    openExternalTool(
-                      chatlogsUserUrl(channelLogin, profile.login)
-                    )
+                    openExternalTool(chatlogsUserUrl(channelLogin, login))
                   }
                 >
                   View user&apos;s chatlogs
@@ -608,18 +604,22 @@ export function UserCardPanel({
               <DropdownMenuLabel>Metadata</DropdownMenuLabel>
               <DropdownMenuGroup>
                 <DropdownMenuItem
-                  onSelect={() => void copyText("Username", profile.login)}
+                  onSelect={() => void copyText("Username", login)}
                 >
                   Copy username
                   <CopyIcon className="ml-auto size-3.5 text-muted-foreground" />
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onSelect={() => void copyText("User ID", profile.id)}
+                  disabled={!targetUserId}
+                  onSelect={() =>
+                    void copyText("User ID", targetUserId ?? undefined)
+                  }
                 >
                   Copy user&apos;s ID
                   <CopyIcon className="ml-auto size-3.5 text-muted-foreground" />
                 </DropdownMenuItem>
                 <DropdownMenuItem
+                  disabled={!profileImageUrl}
                   onSelect={() =>
                     void copyText("Profile picture URL", profileImageUrl)
                   }
@@ -628,13 +628,14 @@ export function UserCardPanel({
                   <CopyIcon className="ml-auto size-3.5 text-muted-foreground" />
                 </DropdownMenuItem>
                 <DropdownMenuItem
+                  disabled={!bannerImageUrl}
                   onSelect={() => void copyText("Banner URL", bannerImageUrl)}
                 >
                   Copy banner URL
                   <CopyIcon className="ml-auto size-3.5 text-muted-foreground" />
                 </DropdownMenuItem>
               </DropdownMenuGroup>
-              {canManageBlockedUsers && !isSelf ? (
+              {canManageBlockedUsers && !isSelf && targetUserId ? (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>
@@ -663,8 +664,6 @@ export function UserCardPanel({
         </Button>
       </div>
 
-      {card.status === "loading" ? <UserCardLoading /> : null}
-
       {card.status === "error" ? (
         <div className="space-y-3 p-4">
           <div className="text-sm font-medium">Could not load user card</div>
@@ -686,7 +685,7 @@ export function UserCardPanel({
         </div>
       ) : null}
 
-      {card.status === "ready" && profile ? (
+      {showCardContent ? (
         <div className="flex max-h-[min(34rem,calc(100vh-2rem))] flex-col">
           <div
             className="relative h-32 shrink-0 cursor-grab touch-none overflow-hidden bg-muted active:cursor-grabbing"
@@ -706,8 +705,8 @@ export function UserCardPanel({
             <div className="absolute inset-0 bg-linear-to-b from-transparent via-black/20 to-popover" />
             <div className="absolute inset-x-0 bottom-0 flex items-end gap-3 px-4 pb-3">
               <UserAvatar
-                profileImageUrl={profile.profileImageUrl}
-                displayName={profile.displayName}
+                profileImageUrl={profileImageUrl || undefined}
+                displayName={displayName}
               />
               <div className="min-w-0 flex-1 pb-1">
                 <button
@@ -715,18 +714,22 @@ export function UserCardPanel({
                   className="block max-w-full cursor-pointer truncate text-left text-lg leading-tight font-semibold hover:underline"
                   onClick={openChannel}
                 >
-                  {profile.displayName}
+                  {displayName}
                 </button>
-                <div className="truncate font-mono text-[11px] text-muted-foreground">
-                  ID {profile.id}
-                </div>
+                {targetUserId ? (
+                  <div className="truncate font-mono text-[11px] text-muted-foreground">
+                    ID {targetUserId}
+                  </div>
+                ) : isProfileLoading ? (
+                  <Skeleton className="mt-1 h-3 w-24" />
+                ) : null}
               </div>
             </div>
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto">
             <div
-              className={cn("space-y-4 p-4", !profile.description && "pt-3")}
+              className={cn("space-y-4 p-4", !profile?.description && "pt-3")}
             >
               <StatusPills
                 isBroadcaster={isBroadcaster}
@@ -734,37 +737,49 @@ export function UserCardPanel({
                 isVip={isVip}
               />
 
-              {profile.description ? (
+              {profile?.description ? (
                 <p className="text-sm leading-snug text-popover-foreground">
                   {profile.description}
                 </p>
               ) : null}
 
               <div className="grid grid-cols-2 gap-2 text-xs">
-                {createdAt ? (
+                {isProfileLoading ? (
+                  <InfoTileSkeleton />
+                ) : createdAt ? (
                   <InfoTile
                     icon={<CalendarDaysIcon className="size-3" />}
                     label="Created"
                     value={createdAt}
                   />
                 ) : null}
-                <InfoTile
-                  icon={<SparklesIcon className="size-3" />}
-                  label="Subscription"
-                  value={subscriptionLabel}
-                />
-                <InfoTile
-                  icon={<ClockIcon className="size-3" />}
-                  label="Followage"
-                  value={
-                    subageUnavailable
-                      ? "Unavailable"
-                      : followedAt
-                        ? `Since ${followedAt}`
-                        : "Not following"
-                  }
-                />
-                {userType ? (
+                {isChannelStatusLoading ? (
+                  <InfoTileSkeleton />
+                ) : (
+                  <InfoTile
+                    icon={<SparklesIcon className="size-3" />}
+                    label="Subscription"
+                    value={subscriptionLabel}
+                  />
+                )}
+                {isChannelStatusLoading ? (
+                  <InfoTileSkeleton />
+                ) : (
+                  <InfoTile
+                    icon={<ClockIcon className="size-3" />}
+                    label="Followage"
+                    value={
+                      subageUnavailable
+                        ? "Unavailable"
+                        : followedAt
+                          ? `Since ${followedAt}`
+                          : "Not following"
+                    }
+                  />
+                )}
+                {isProfileLoading ? (
+                  <InfoTileSkeleton />
+                ) : userType ? (
                   <InfoTile
                     icon={<UsersIcon className="size-3" />}
                     label="User Type"

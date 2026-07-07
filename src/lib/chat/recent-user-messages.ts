@@ -93,16 +93,13 @@ function rememberTimelineEntry(
   )
 }
 
-function bucketsEqualByMessageId(
-  left: TwitchChatMessage[],
-  right: TwitchChatMessage[]
-) {
+function bucketsEqual(left: TwitchChatMessage[], right: TwitchChatMessage[]) {
   if (left.length !== right.length) {
     return false
   }
 
   for (let index = 0; index < left.length; index += 1) {
-    if (left[index].id !== right[index].id) {
+    if (left[index] !== right[index]) {
       return false
     }
   }
@@ -163,7 +160,7 @@ export function updateRecentUserMessageBuckets(
 
   for (const [key, nextBucket] of rebuilt) {
     const previousBucket = cache.buckets.get(key)
-    if (previousBucket && bucketsEqualByMessageId(previousBucket, nextBucket)) {
+    if (previousBucket && bucketsEqual(previousBucket, nextBucket)) {
       buckets.set(key, previousBucket)
     } else {
       buckets.set(key, nextBucket)

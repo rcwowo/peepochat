@@ -3,17 +3,12 @@ import * as React from "react"
 import { useUserCardContext } from "@/hooks/twitch/use-user-card-context"
 import type { UserCardTarget } from "@/hooks/twitch/use-user-card"
 import { getReadableUsernameColor } from "@/lib/chat/chat-username"
-import type { TwitchChatMessage } from "@/lib/twitch/twitch-chat"
 
 type UserCardPopoverProps = {
   target: UserCardTarget
-  recentMessages: TwitchChatMessage[]
 }
 
-export function UserCardPopover({
-  target,
-  recentMessages,
-}: UserCardPopoverProps) {
+export function UserCardPopover({ target }: UserCardPopoverProps) {
   const context = useUserCardContext()
   const triggerRef = React.useRef<HTMLButtonElement>(null)
   const readableColor = getReadableUsernameColor(target.color)
@@ -23,8 +18,8 @@ export function UserCardPopover({
       return
     }
 
-    context.toggleUserCard(target, triggerRef.current, recentMessages)
-  }, [context, recentMessages, target])
+    context.toggleUserCard(target, triggerRef.current)
+  }, [context, target])
 
   if (!context) {
     return (

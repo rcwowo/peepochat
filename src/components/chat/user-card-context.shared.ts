@@ -1,19 +1,13 @@
 import * as React from "react"
 
 import type { UserCardTarget } from "@/hooks/twitch/use-user-card"
-import type { TwitchChatMessage } from "@/lib/twitch/twitch-chat"
 
 export type UserCardContextValue = {
-  openUserCard: (
-    target: UserCardTarget,
-    triggerEl: HTMLElement | null,
-    recentMessages?: TwitchChatMessage[]
-  ) => void
+  openUserCard: (target: UserCardTarget, triggerEl: HTMLElement | null) => void
   closeUserCard: () => void
   toggleUserCard: (
     target: UserCardTarget,
-    triggerEl: HTMLElement | null,
-    recentMessages?: TwitchChatMessage[]
+    triggerEl: HTMLElement | null
   ) => void
   isUserCardOpenFor: (target: UserCardTarget) => boolean
 }

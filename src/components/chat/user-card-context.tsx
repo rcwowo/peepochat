@@ -107,9 +107,6 @@ export function UserCardProvider({
   const [activeTarget, setActiveTarget] = React.useState<UserCardTarget | null>(
     null
   )
-  const [recentMessages, setRecentMessages] = React.useState<
-    TwitchChatMessage[]
-  >([])
   const [open, setOpen] = React.useState(false)
   const [dragOffset, setDragOffset] = React.useState({ x: 0, y: 0 })
   const [anchorPosition, setAnchorPosition] = React.useState<{
@@ -146,7 +143,6 @@ export function UserCardProvider({
     setDragOffset({ x: 0, y: 0 })
     setAnchorPosition(null)
     setActiveTarget(null)
-    setRecentMessages([])
     activeTriggerRef.current = null
   }, [])
 
@@ -156,20 +152,15 @@ export function UserCardProvider({
   }, [resetUserCardState])
 
   const openUserCard = React.useCallback(
-    (
-      target: UserCardTarget,
-      triggerEl: HTMLElement | null,
-      messages?: TwitchChatMessage[]
-    ) => {
+    (target: UserCardTarget, triggerEl: HTMLElement | null) => {
       const rect = triggerEl?.getBoundingClientRect() ?? null
       setActiveTarget(target)
-      setRecentMessages(messages ?? getRecentMessages(target))
       activeTriggerRef.current = triggerEl
       setAnchorPosition(computeAnchorPosition(rect))
       setDragOffset({ x: 0, y: 0 })
       setOpen(true)
     },
-    [getRecentMessages]
+    []
   )
 
   const isUserCardOpenFor = React.useCallback(
@@ -184,16 +175,12 @@ export function UserCardProvider({
   )
 
   const toggleUserCard = React.useCallback(
-    (
-      target: UserCardTarget,
-      triggerEl: HTMLElement | null,
-      messages?: TwitchChatMessage[]
-    ) => {
+    (target: UserCardTarget, triggerEl: HTMLElement | null) => {
       if (isUserCardOpenFor(target)) {
         closeUserCard()
         return
       }
-      openUserCard(target, triggerEl, messages)
+      openUserCard(target, triggerEl)
     },
     [closeUserCard, isUserCardOpenFor, openUserCard]
   )
@@ -287,7 +274,9 @@ export function UserCardProvider({
               channelLogin={channelLogin}
               channelRoomId={channelRoomId}
               selfChatState={selfChatState}
-              recentMessages={recentMessages}
+              recentMessages={
+                activeTarget ? getRecentMessages(activeTarget) : []
+              }
               timestampFormat={timestampFormat}
               loginWithTwitch={loginWithTwitch}
               isUserBlocked={isUserBlocked}

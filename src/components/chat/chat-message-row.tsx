@@ -68,7 +68,6 @@ function ChatMessageRowInner({
   selfChatState,
   pingHighlighted = false,
   pingMatchRange = null,
-  recentUserMessages,
 }: {
   message: TwitchChatMessage
   timestampFormat: MessageTimestampFormat
@@ -86,7 +85,6 @@ function ChatMessageRowInner({
   selfChatState: TwitchSelfChatState | null
   pingHighlighted?: boolean
   pingMatchRange?: PingMatchRange | null
-  recentUserMessages: TwitchChatMessage[]
 }) {
   const [pendingAction, setPendingAction] = React.useState<
     "delete" | "timeout" | "ban" | null
@@ -373,10 +371,7 @@ function ChatMessageRowInner({
           unresolved={message.badges}
           showFallback={showTwitchBadges && showBadgeFallback}
         />
-        <UserCardPopover
-          target={userCardTarget}
-          recentMessages={recentUserMessages}
-        />
+        <UserCardPopover target={userCardTarget} />
         {message.flags.isAction ? null : (
           <span className="chat-colon text-muted-foreground">: </span>
         )}

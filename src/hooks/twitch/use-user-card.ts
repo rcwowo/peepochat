@@ -117,6 +117,16 @@ function profileCacheKeys(target: UserCardTarget) {
   return keys
 }
 
+function getCachedProfile(target: UserCardTarget): TwitchUser | null {
+  for (const key of profileCacheKeys(target)) {
+    const cached = profileCache.get(key)
+    if (cached && isFresh(cached.cachedAt, PROFILE_TTL_MS)) {
+      return cached.value
+    }
+  }
+  return null
+}
+
 function rememberProfile(user: TwitchUser) {
   const cached = { value: user, cachedAt: Date.now() }
   profileCache.set(`id:${user.id}`, cached)
@@ -417,13 +427,25 @@ export function useUserCard({
 
     setState((current) => ({
       status: "loading",
-      profile: current.profile,
+      profile: current.profile ?? getCachedProfile(target),
       channelStatus: null,
       error: null,
     }))
 
     try {
       const profile = await loadUserProfile(target, account)
+
+      if (requestIdRef.current !== requestId) {
+        return
+      }
+
+      setState({
+        status: "loading",
+        profile,
+        channelStatus: null,
+        error: null,
+      })
+
       const channelStatus = await loadChannelStatus({
         account,
         channelRoomId,
@@ -484,7 +506,7 @@ export function useUserCard({
 
       setState((current) => ({
         status: "loading",
-        profile: current.profile,
+        profile: current.profile ?? getCachedProfile(target),
         channelStatus: null,
         error: null,
       }))
@@ -493,6 +515,18 @@ export function useUserCard({
     void (async () => {
       try {
         const profile = await loadUserProfile(target, account)
+
+        if (requestIdRef.current !== requestId) {
+          return
+        }
+
+        setState({
+          status: "loading",
+          profile,
+          channelStatus: null,
+          error: null,
+        })
+
         const channelStatus = await loadChannelStatus({
           account,
           channelRoomId,
@@ -541,7 +575,7 @@ export function useUserCard({
       if (pendingActionRef.current) {
         throw new Error("Another user action is already in progress.")
       }
-      if (!account || !channelRoomId || state.status !== "ready") {
+      if (!account || !channelRoomId || !state.profile) {
         throw new Error("User action is not available yet.")
       }
 
