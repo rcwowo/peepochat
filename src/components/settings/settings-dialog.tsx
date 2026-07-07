@@ -155,7 +155,21 @@ export function SettingsDialog({
 }) {
   const [activeCategory, setActiveCategory] =
     React.useState<SettingsCategory>("appearance")
+  const [openSnapshot, setOpenSnapshot] = React.useState({
+    open,
+    initialCategory,
+  })
   const allowTooltipOpen = useTooltipPointerOnlyGuard(open)
+
+  if (
+    open !== openSnapshot.open ||
+    initialCategory !== openSnapshot.initialCategory
+  ) {
+    setOpenSnapshot({ open, initialCategory })
+    if (open && initialCategory) {
+      setActiveCategory(initialCategory)
+    }
+  }
 
   React.useEffect(() => {
     if (!open) {
@@ -167,9 +181,6 @@ export function SettingsDialog({
 
   const handleOpenChange = (nextOpen: boolean) => {
     onOpenChange(nextOpen)
-    if (nextOpen && initialCategory) {
-      setActiveCategory(initialCategory)
-    }
   }
 
   return (
