@@ -14,7 +14,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Tooltip,
@@ -335,7 +334,11 @@ function NotificationList({
     return <NotificationEmptyState message={emptyMessage} />
   }
 
-  return <ScrollArea className="max-h-[min(24rem,60vh)]">{children}</ScrollArea>
+  return (
+    <div className="max-h-[min(24rem,60vh)] overflow-y-auto overscroll-y-contain">
+      {children}
+    </div>
+  )
 }
 
 function useChannelMetaByLogin() {
@@ -567,10 +570,10 @@ export function NotificationCenter() {
               </TabsList>
             </div>
 
-            <TabsContent value="pings" className="mt-0">
+            <TabsContent value="pings" className="mt-0 min-h-0">
               {pingList}
             </TabsContent>
-            <TabsContent value="live" className="mt-0">
+            <TabsContent value="live" className="mt-0 min-h-0">
               {liveList}
             </TabsContent>
           </Tabs>
