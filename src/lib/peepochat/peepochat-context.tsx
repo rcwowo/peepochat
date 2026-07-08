@@ -24,6 +24,7 @@ import {
 } from "@/hooks/twitch/use-twitch-chat"
 import {
   canShowDesktopNotifications,
+  shouldShowDesktopNotification,
   showDesktopNotification,
 } from "@/lib/highlights/desktop-notifications"
 import { playAlertSound } from "@/lib/highlights/alert-sounds"
@@ -396,7 +397,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       if (config.highlights.doNotDisturbEnabled) return
 
       if (!canShowDesktopNotifications()) return
-      if (document.visibilityState !== "hidden") return
+      if (!shouldShowDesktopNotification()) return
 
       const channel = channels.find(
         (entry) => normalizeChannelLogin(entry.login) === login

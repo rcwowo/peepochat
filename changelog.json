@@ -4,6 +4,8 @@
         "date": "2026-07-31",
         "items": [
             "Improved user card UX by progressively loading more info as it comes in.",
+            "Added enabling notifications as an optional onboarding step.",
+            "Fixed notifications not working properly when installed as an app.",
             "Fixed timestamp setting not being respected in user cards.",
             "Fixed notifications not being marked as read when the channel was focused.",
             "Fixed navigating to this very changelog when an update released.",

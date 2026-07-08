@@ -1,6 +1,7 @@
 import * as React from "react"
 import {
   BookmarkIcon,
+  BellIcon,
   CheckIcon,
   ChevronRightIcon,
   CloudUploadIcon,
@@ -42,6 +43,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
+import {
+  getDesktopNotificationPermission,
+  requestDesktopNotificationPermission,
+  type DesktopNotificationPermission,
+} from "@/lib/highlights/desktop-notifications"
 
 type OnboardingStep =
   | "landing"
@@ -73,7 +79,7 @@ function getStepDefinitions(
   return [
     { id: "login", label: "Sign in" },
     { id: "channel", label: "Channel" },
-    { id: "bookmark", label: "Bookmark" },
+    { id: "bookmark", label: "Finish" },
   ]
 }
 
@@ -897,43 +903,110 @@ function BookmarkStep({
   onContinue: () => void
 }) {
   const keys = shortcutLabel.split(" ")
+  const [notificationPermission, setNotificationPermission] =
+    React.useState<DesktopNotificationPermission>(() =>
+      getDesktopNotificationPermission()
+    )
+  const [requestingNotifications, setRequestingNotifications] =
+    React.useState(false)
+
+  const requestNotifications = async () => {
+    setRequestingNotifications(true)
+    try {
+      const result = await requestDesktopNotificationPermission()
+      setNotificationPermission(result)
+      if (result === "denied") {
+        toast.error("Notifications blocked in browser settings")
+      } else if (result === "unsupported") {
+        toast.error("Notifications are not supported in this browser")
+      }
+    } finally {
+      setRequestingNotifications(false)
+    }
+  }
+
+  const notificationsReady = notificationPermission === "granted"
+  const notificationsUnsupported = notificationPermission === "unsupported"
+  const notificationsDenied = notificationPermission === "denied"
 
   return (
     <div className="space-y-8">
       <OnboardingHeading
         title="You're all set!"
-        description="Everything is setup and ready to go - just one more thing."
+        description="Everything is setup and ready to go - a couple optional things before you jump in."
       />
 
-      <div className="rounded-2xl border border-white/10 bg-card/40 p-6 backdrop-blur-sm sm:p-8">
-        <div className="flex flex-col items-center text-center sm:flex-row sm:text-left">
-          <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-primary/12">
-            <BookmarkIcon className="size-6 text-primary" />
-          </div>
-          <div className="mt-4 sm:mt-0 sm:ml-4">
-            <p className="text-sm leading-relaxed text-muted-foreground">
-              If you plan to come back, consider bookmarking this page to save
-              you from digging through your history later. Press{" "}
-              <span className="inline-flex items-center gap-1 align-middle">
-                {keys.map((key) => (
-                  <kbd
-                    key={key}
-                    className="inline-flex items-center justify-center rounded-md border border-white/12 bg-background/70 px-2 py-0.5 font-mono text-xs font-semibold"
-                  >
-                    {key}
-                  </kbd>
-                ))}
-              </span>{" "}
-              to do it now, or you can bookmark it whenever you're ready.
-            </p>
+      <div className="space-y-4">
+        <div className="rounded-2xl border border-white/10 bg-card/40 p-6 backdrop-blur-sm sm:p-8">
+          <div className="flex flex-col items-center text-center sm:flex-row sm:text-left">
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-primary/12">
+              <BookmarkIcon className="size-6 text-primary" />
+            </div>
+            <div className="mt-4 sm:mt-0 sm:ml-4">
+              <p className="text-sm font-medium">Bookmark this page</p>
+              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                If you plan to come back, save Peepochat so you don't have to
+                dig through your history later. Press{" "}
+                <span className="inline-flex items-center gap-1 align-middle">
+                  {keys.map((key) => (
+                    <kbd
+                      key={key}
+                      className="inline-flex items-center justify-center rounded-md border border-white/12 bg-background/70 px-2 py-0.5 font-mono text-xs font-semibold"
+                    >
+                      {key}
+                    </kbd>
+                  ))}
+                </span>{" "}
+                to bookmark now, or do it whenever you're ready.
+              </p>
+            </div>
           </div>
         </div>
 
-        <Button className="mt-6 h-11 w-full" size="lg" onClick={onContinue}>
-          Open chat
-          <ChevronRightIcon className="size-4" />
-        </Button>
+        {!notificationsUnsupported ? (
+          <div className="rounded-2xl border border-white/10 bg-card/40 p-6 backdrop-blur-sm sm:p-8">
+            <div className="flex flex-col items-center text-center sm:flex-row sm:text-left">
+              <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-primary/12">
+                <BellIcon className="size-6 text-primary" />
+              </div>
+              <div className="mt-4 min-w-0 sm:mt-0 sm:ml-4">
+                <p className="text-sm font-medium">Enable notifications</p>
+                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                  {notificationsReady
+                    ? "You're all set to receive ping and live alerts when Peepochat isn't focused."
+                    : notificationsDenied
+                      ? "Notifications are blocked in your browser. You can enable them later in site settings."
+                      : "Get pinged when your highlight rules match or a channel goes live while you're away."}
+                </p>
+              </div>
+            </div>
+
+            {!notificationsReady && !notificationsDenied ? (
+              <Button
+                className="mt-6 h-11 w-full"
+                size="lg"
+                variant="outline"
+                onClick={() => void requestNotifications()}
+                disabled={requestingNotifications}
+              >
+                {requestingNotifications ? "Enabling…" : "Enable notifications"}
+              </Button>
+            ) : null}
+
+            {notificationsReady ? (
+              <div className="mt-6 flex items-center justify-center gap-2 text-sm font-medium text-primary sm:justify-start">
+                <CheckIcon className="size-4" />
+                Notifications enabled
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
+
+      <Button className="h-11 w-full" size="lg" onClick={onContinue}>
+        Open chat
+        <ChevronRightIcon className="size-4" />
+      </Button>
     </div>
   )
 }

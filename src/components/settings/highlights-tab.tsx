@@ -28,6 +28,7 @@ import { createPingRuleId } from "@/lib/highlights/highlight-rules"
 import {
   getDesktopNotificationPermission,
   requestDesktopNotificationPermission,
+  type DesktopNotificationPermission,
 } from "@/lib/highlights/desktop-notifications"
 import type { HighlightPingRule } from "@/lib/peepochat/peepochat-config"
 import { usePeepochatSettings } from "@/lib/peepochat/peepochat-context"
@@ -122,9 +123,14 @@ export function HighlightsTab() {
   const { config, updateConfig } = usePeepochatSettings()
   const [newPingPattern, setNewPingPattern] = React.useState("")
   const accountLogin = config.twitch.account?.login ?? null
+  const [notificationPermission, setNotificationPermission] =
+    React.useState<DesktopNotificationPermission>(() =>
+      getDesktopNotificationPermission()
+    )
 
   const requestNotifications = async () => {
     const result = await requestDesktopNotificationPermission()
+    setNotificationPermission(result)
     if (result === "granted") {
       return
     }
@@ -137,7 +143,6 @@ export function HighlightsTab() {
     }
   }
 
-  const notificationPermission = getDesktopNotificationPermission()
   const notificationsReady = notificationPermission === "granted"
 
   const addPingRule = () => {
@@ -174,7 +179,7 @@ export function HighlightsTab() {
         description="Browser alerts and sounds when the tab is in the background."
       >
         <SettingsGroup>
-          {!notificationsReady ? (
+          {!notificationsReady && notificationPermission !== "unsupported" ? (
             <div className="flex items-center justify-between gap-3 px-3 py-2.5">
               <div className="min-w-0">
                 <p className="text-sm font-medium">Allow notifications</p>

@@ -33,6 +33,14 @@ export function canShowDesktopNotifications(): boolean {
   return getDesktopNotificationPermission() === "granted"
 }
 
+export function shouldShowDesktopNotification(): boolean {
+  if (typeof document === "undefined") {
+    return false
+  }
+
+  return !document.hasFocus()
+}
+
 export function showDesktopNotification(options: {
   title: string
   body: string

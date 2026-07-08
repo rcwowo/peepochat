@@ -19,6 +19,7 @@ import {
 import { playAlertSound } from "@/lib/highlights/alert-sounds"
 import {
   canShowDesktopNotifications,
+  shouldShowDesktopNotification,
   showDesktopNotification,
 } from "@/lib/highlights/desktop-notifications"
 import type { AppConfig } from "@/lib/peepochat/peepochat-config"
@@ -303,7 +304,7 @@ export function useHighlightActivity({
           !doNotDisturb &&
           pingPushEnabledRef.current &&
           pingMatch.notify &&
-          document.visibilityState === "hidden" &&
+          shouldShowDesktopNotification() &&
           canShowDesktopNotifications()
 
         if (shouldNotify) {
