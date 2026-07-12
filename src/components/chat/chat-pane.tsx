@@ -243,7 +243,7 @@ function ChatPaneInner({
           <div
             {...dragHandleProps}
             className={cn(
-              "flex h-9 shrink-0 items-center justify-between gap-2 border-b border-border px-3",
+              "flex h-9 shrink-0 items-center justify-between gap-2 border-b border-border bg-sidebar px-3",
               dragHandleProps?.className
             )}
           >

@@ -67,7 +67,7 @@ export function ChatPaneLiveInfoBar({ stream }: { stream: TwitchLiveStream }) {
   const uptime = useStreamUptime(stream.startedAt)
 
   return (
-    <div className="grid shrink-0 grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)] items-center gap-2 border-b border-border bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground">
+    <div className="grid shrink-0 grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)] items-center gap-2 border-b border-border bg-background px-3 py-1.5 text-xs text-muted-foreground">
       <span className="flex min-w-0 items-center gap-1 truncate text-red-600 tabular-nums">
         <EyeIcon className="size-3 shrink-0" aria-hidden />
         {formatViewerCount(stream.viewerCount)}

@@ -108,7 +108,7 @@ function ResizeHandle({
       role="separator"
       aria-orientation={direction === "row" ? "vertical" : "horizontal"}
       className={cn(
-        "group relative z-10 shrink-0 touch-none bg-border/70 transition-colors hover:bg-primary/60",
+        "group relative z-10 shrink-0 touch-none bg-border transition-colors hover:bg-primary/60",
         direction === "row"
           ? "h-full w-px cursor-col-resize"
           : "h-px w-full cursor-row-resize"
