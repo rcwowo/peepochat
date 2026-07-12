@@ -177,6 +177,7 @@
 
   .chat-scroll {
     scrollbar-color: var(--chat-scrollbar-thumb) transparent;
+    overflow-anchor: none;
   }
 
   .chat-presentation {
@@ -258,7 +259,7 @@
   }
 
   .chat-presentation--message-separators .chat-message:last-child {
-    border-bottom: none;
+    border-bottom-color: transparent;
   }
 
   .chat-timestamp {

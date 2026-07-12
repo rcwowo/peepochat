@@ -51,6 +51,7 @@ import {
   updateStableRowStripes,
   type RowStripeCache,
 } from "@/lib/chat/chat-row-stripes"
+import { useChatScroll } from "@/hooks/chat/use-chat-scroll"
 import { cn } from "@/lib/utils"
 
 import { openExternalTool, CHATLOGS_URL } from "@/lib/chat/moderation-tools"
@@ -145,9 +146,6 @@ function ChatPaneInner({
     usePeepochatSidebarHighlights()
   const messageHighlights = useChannelMessageHighlights(channelLogin)
   const composerCatalog = getComposerEmoteCatalog(channelLogin)
-  const chatContainerRef = React.useRef<HTMLDivElement>(null)
-  const messageListRef = React.useRef<HTMLDivElement>(null)
-  const isProgrammaticScrollRef = React.useRef(false)
   const [rowStripeCache] = React.useState(() => new Map<string, boolean>())
   const [rowStripeTimelineCache] = React.useState<
     RowStripeCache<TwitchTimelineItem>
@@ -155,7 +153,6 @@ function ChatPaneInner({
   const [recentMessagesCache] = React.useState(
     createRecentUserMessageBucketCache
   )
-  const [isScrollPaused, setIsScrollPaused] = React.useState(false)
   const [liveInfoExpanded, setLiveInfoExpanded] = React.useState(false)
 
   const label = displayName ?? channelLogin
@@ -184,27 +181,30 @@ function ChatPaneInner({
     })
   }, [hideBlockedUsers, isUserBlocked, timeline])
 
+  const {
+    chatContainerRef,
+    messageListRef,
+    displayedTimeline,
+    isScrollPaused,
+    handleChatScroll,
+    resumeScroll,
+  } = useChatScroll({
+    timeline: visibleTimeline,
+    isActive,
+  })
+
   const rowStripes = React.useMemo(
     () =>
       updateStableRowStripes(
         rowStripeTimelineCache,
         rowStripeCache,
-        visibleTimeline
+        displayedTimeline
       ),
-    [rowStripeCache, rowStripeTimelineCache, visibleTimeline]
+    [displayedTimeline, rowStripeCache, rowStripeTimelineCache]
   )
   const recentMessagesByUser = React.useMemo(() => {
     return updateRecentUserMessageBuckets(recentMessagesCache, visibleTimeline)
   }, [recentMessagesCache, visibleTimeline])
-
-  const timelineScrollKey = React.useMemo(() => {
-    if (visibleTimeline.length === 0) {
-      return "empty"
-    }
-
-    const lastEntry = visibleTimeline[visibleTimeline.length - 1]
-    return `${visibleTimeline.length}:${lastEntry.message.id}`
-  }, [visibleTimeline])
 
   const getRecentMessagesForUser = React.useCallback(
     (target: UserCardTarget) => {
@@ -217,62 +217,6 @@ function ChatPaneInner({
     },
     [recentMessagesByUser]
   )
-
-  const scrollToBottom = React.useCallback(
-    (behavior: ScrollBehavior = "auto") => {
-      const el = chatContainerRef.current
-      if (!el) return
-
-      isProgrammaticScrollRef.current = true
-      el.scrollTo({ top: el.scrollHeight, behavior })
-      requestAnimationFrame(() => {
-        isProgrammaticScrollRef.current = false
-      })
-    },
-    []
-  )
-
-  const handleChatScroll = React.useCallback(
-    (event: React.UIEvent<HTMLDivElement>) => {
-      if (isProgrammaticScrollRef.current) return
-
-      const el = event.currentTarget
-      const distanceFromBottom =
-        el.scrollHeight - el.scrollTop - el.clientHeight
-      const isNearBottom = distanceFromBottom <= 24
-
-      setIsScrollPaused(!isNearBottom)
-    },
-    []
-  )
-
-  React.useLayoutEffect(() => {
-    if (!isActive || isScrollPaused) return
-    scrollToBottom("auto")
-  }, [isActive, timelineScrollKey, isScrollPaused, scrollToBottom])
-
-  React.useEffect(() => {
-    const container = chatContainerRef.current
-    const messageList = messageListRef.current
-    if (
-      !isActive ||
-      !container ||
-      !messageList ||
-      isScrollPaused ||
-      typeof ResizeObserver === "undefined"
-    ) {
-      return
-    }
-
-    const observer = new ResizeObserver(() => {
-      scrollToBottom("auto")
-    })
-    observer.observe(messageList)
-
-    return () => {
-      observer.disconnect()
-    }
-  }, [isActive, isScrollPaused, scrollToBottom])
 
   return (
     <UserCardProvider
@@ -402,7 +346,7 @@ function ChatPaneInner({
 
           <div className="chat-panel flex min-h-0 flex-1 flex-col overflow-hidden">
             <div className="relative min-h-0 flex-1 overflow-hidden">
-              {visibleTimeline.length === 0 ? (
+              {displayedTimeline.length === 0 ? (
                 <div className="flex h-full items-center justify-center p-4">
                   <EmptyState
                     icon={MessagesSquareIcon}
@@ -421,7 +365,7 @@ function ChatPaneInner({
                   className="chat-scroll flex h-full flex-col overflow-y-auto overscroll-contain"
                 >
                   <div ref={messageListRef} className="mt-auto py-1">
-                    {visibleTimeline.map((entry) => {
+                    {displayedTimeline.map((entry) => {
                       const isAlternateRow =
                         rowStripes.get(entry.message.id) ?? false
 
@@ -481,16 +425,13 @@ function ChatPaneInner({
                 </div>
               )}
 
-              {visibleTimeline.length > 0 && isScrollPaused ? (
+              {displayedTimeline.length > 0 && isScrollPaused ? (
                 <div className="pointer-events-none absolute right-0 bottom-3 left-0 z-10 flex justify-center px-3">
                   <Button
                     type="button"
                     size="sm"
                     className="pointer-events-auto shadow-md"
-                    onClick={() => {
-                      setIsScrollPaused(false)
-                      scrollToBottom("smooth")
-                    }}
+                    onClick={() => resumeScroll("smooth")}
                   >
                     Scrolling Paused
                   </Button>

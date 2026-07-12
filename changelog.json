@@ -1,5 +1,12 @@
 [
     {
+        "version": "1.0.2",
+        "date": "2026-07-12",
+        "items": [
+            "Changed the behavior of paused scrolling. The message list will be frozen until the user resumes scrolling."
+        ]
+    },
+    {
         "version": "1.0.1",
         "date": "2026-07-31",
         "items": [
