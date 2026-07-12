@@ -1,8 +1,8 @@
 import * as React from "react"
 
-import { EmoteTooltipContent } from "@/components/chat/emote-tooltip-content"
+import { ChatHoverTooltipTarget } from "@/components/chat/chat-hover-tooltip"
+import { EmoteTooltipBody } from "@/components/chat/emote-tooltip-content"
 import { useEmoteCardContext } from "@/hooks/chat/use-emote-card-context"
-import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip"
 import type { EmoteCardTarget } from "@/lib/chat/emote-card"
 import { cn } from "@/lib/utils"
 
@@ -62,24 +62,23 @@ export function EmoteCardPopover({
   }
 
   const trigger = (
-    <span
+    <ChatHoverTooltipTarget
       ref={triggerRef}
       className={cn(openOnClick && "cursor-pointer", className)}
+      tooltipClassName="max-w-[min(16rem,90vw)] px-2 py-1.5"
+      content={
+        <EmoteTooltipBody
+          name={target.code}
+          provider={target.provider}
+          overlayNames={overlayNames}
+        />
+      }
       onClick={handleTriggerClick}
       onContextMenu={handleContextMenu}
     >
       {children}
-    </span>
+    </ChatHoverTooltipTarget>
   )
 
-  return (
-    <Tooltip disableHoverableContent>
-      <TooltipTrigger asChild>{trigger}</TooltipTrigger>
-      <EmoteTooltipContent
-        name={target.code}
-        provider={target.provider}
-        overlayNames={overlayNames}
-      />
-    </Tooltip>
-  )
+  return trigger
 }

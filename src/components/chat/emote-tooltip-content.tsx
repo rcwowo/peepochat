@@ -1,43 +1,34 @@
-import * as React from "react"
-
 import { PickerIcon } from "@/components/chat/picker-icon"
-import { TooltipContent } from "@/components/ui/tooltip"
 import { EMOTE_PLATFORM_META } from "@/lib/chat/emote-platform-meta"
 import type { TwitchEmoteProvider } from "@/lib/twitch/twitch-chat"
 import { cn } from "@/lib/utils"
 
 const EMPTY_OVERLAY_NAMES: string[] = []
 
-type EmoteTooltipContentProps = React.ComponentProps<typeof TooltipContent> & {
+type EmoteTooltipBodyProps = {
   name: string
   provider: TwitchEmoteProvider
   overlayNames?: string[]
+  className?: string
 }
 
-export function EmoteTooltipContent({
+export function EmoteTooltipBody({
   name,
   provider,
   overlayNames = EMPTY_OVERLAY_NAMES,
   className,
-  side = "top",
-  sideOffset = 4,
-  ...props
-}: EmoteTooltipContentProps) {
+}: EmoteTooltipBodyProps) {
   const platform = EMOTE_PLATFORM_META[provider]
   const hasOverlays = overlayNames.length > 0
 
   return (
-    <TooltipContent
-      side={side}
-      sideOffset={sideOffset}
+    <span
       className={cn(
-        "pointer-events-none max-w-[min(16rem,90vw)] px-2 py-1.5 text-xs",
         hasOverlays
           ? "inline-flex flex-col items-center gap-1"
           : "inline-flex items-center justify-center gap-1.5",
         className
       )}
-      {...props}
     >
       <span className="inline-flex items-center justify-center gap-1.5">
         <PickerIcon
@@ -54,6 +45,6 @@ export function EmoteTooltipContent({
           {overlayNames.join(", ")}
         </span>
       ) : null}
-    </TooltipContent>
+    </span>
   )
 }

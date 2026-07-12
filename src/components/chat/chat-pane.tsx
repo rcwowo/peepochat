@@ -8,6 +8,7 @@ import {
 } from "lucide-react"
 
 import { ChatComposer } from "@/components/chat/chat-composer"
+import { ChatHoverTooltipProvider } from "@/components/chat/chat-hover-tooltip"
 import { EmoteCardProvider } from "@/components/chat/emote-card-context"
 import { UserCardProvider } from "@/components/chat/user-card-context"
 import type { UserCardTarget } from "@/hooks/twitch/use-user-card"
@@ -232,6 +233,7 @@ function ChatPaneInner({
       unblockUser={unblockUser}
     >
       <EmoteCardProvider catalog={composerCatalog}>
+        <ChatHoverTooltipProvider>
         <div
           className={cn(
             "flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
@@ -442,6 +444,7 @@ function ChatPaneInner({
             <ChatComposer channelLogin={channelLogin} joined={joined} />
           </div>
         </div>
+        </ChatHoverTooltipProvider>
       </EmoteCardProvider>
     </UserCardProvider>
   )

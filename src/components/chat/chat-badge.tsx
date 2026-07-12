@@ -10,11 +10,8 @@ import {
   Wrench,
 } from "lucide-react"
 
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+import { ChatHoverTooltipTarget } from "@/components/chat/chat-hover-tooltip"
+
 import type { ResolvedChatBadge } from "@/lib/chat/chat-badges"
 import type { ResolvedMemberBadge } from "@/lib/chat/rcw-badges"
 import type { TwitchBadge } from "@/lib/twitch/twitch-chat"
@@ -50,25 +47,19 @@ function ChatBadgeImage({
   description: string
 }) {
   return (
-    <Tooltip disableHoverableContent>
-      <TooltipTrigger asChild>
-        <img
-          className="chat-badge inline-block align-middle"
-          src={imageUrl}
-          srcSet={imageUrl2x ? `${imageUrl} 1x, ${imageUrl2x} 2x` : undefined}
-          alt={description}
-          loading="lazy"
-          decoding="async"
-        />
-      </TooltipTrigger>
-      <TooltipContent
-        side="top"
-        sideOffset={4}
-        className="pointer-events-none px-2 py-1 text-xs"
-      >
-        {title}
-      </TooltipContent>
-    </Tooltip>
+    <ChatHoverTooltipTarget
+      content={title}
+      tooltipClassName="px-2 py-1 text-xs"
+    >
+      <img
+        className="chat-badge inline-block align-middle"
+        src={imageUrl}
+        srcSet={imageUrl2x ? `${imageUrl} 1x, ${imageUrl2x} 2x` : undefined}
+        alt={description}
+        loading="lazy"
+        decoding="async"
+      />
+    </ChatHoverTooltipTarget>
   )
 }
 
@@ -102,23 +93,17 @@ function ChatBadgeFallback({ badge }: { badge: TwitchBadge }) {
   const Icon = role.icon
 
   return (
-    <Tooltip disableHoverableContent>
-      <TooltipTrigger asChild>
-        <span
-          className="chat-badge-fallback inline-flex items-center justify-center rounded-xs align-middle"
-          style={{ backgroundColor: role.bg }}
-        >
-          <Icon className="chat-badge-fallback-icon text-white" />
-        </span>
-      </TooltipTrigger>
-      <TooltipContent
-        side="top"
-        sideOffset={4}
-        className="pointer-events-none px-2 py-1 text-xs"
+    <ChatHoverTooltipTarget
+      content={role.label}
+      tooltipClassName="px-2 py-1 text-xs"
+    >
+      <span
+        className="chat-badge-fallback inline-flex items-center justify-center rounded-xs align-middle"
+        style={{ backgroundColor: role.bg }}
       >
-        {role.label}
-      </TooltipContent>
-    </Tooltip>
+        <Icon className="chat-badge-fallback-icon text-white" />
+      </span>
+    </ChatHoverTooltipTarget>
   )
 }
 
