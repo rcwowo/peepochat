@@ -3,7 +3,10 @@
         "version": "1.0.2",
         "date": "2026-07-12",
         "items": [
-            "Changed the behavior of paused scrolling. The message list will be frozen until the user resumes scrolling."
+            "Changed the behavior of paused scrolling. The message list will be frozen until the user resumes scrolling.",
+            "The sidebar is now collapsible at any window size instead of only on smaller screens.",
+            "Improved tooltips to be more performant and much less buggy.",
+            "Adjusted the background of the top bar of chat panes to look better."
         ]
     },
     {

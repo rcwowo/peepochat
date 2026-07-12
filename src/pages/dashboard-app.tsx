@@ -25,7 +25,7 @@ import { ChatPage } from "@/pages/chat-page"
 
 function DashboardLayout() {
   const { ready, needsOnboarding, completeOnboarding } = usePeepochatSettings()
-  const { isCompact, channelSidebarVisible, toggleChannelSidebar } =
+  const { channelSidebarVisible, toggleChannelSidebar } =
     useChannelSidebarVisibility()
   const [settingsOpen, setSettingsOpen] = React.useState(false)
   const [settingsInitialCategory, setSettingsInitialCategory] = React.useState<
@@ -82,7 +82,6 @@ function DashboardLayout() {
           setSettingsInitialCategory(undefined)
           setSettingsOpen(true)
         }}
-        showChannelSidebarToggle={isCompact}
         channelSidebarVisible={channelSidebarVisible}
         onChannelSidebarToggle={toggleChannelSidebar}
       />
