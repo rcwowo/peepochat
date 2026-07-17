@@ -13,6 +13,12 @@ import {
   type TwitchChatEmote,
   type TwitchUser,
 } from "@/lib/twitch/twitch-api"
+import {
+  bucketUnclaimedTwitchUserEmotes,
+  getTwitchUserEmoteCategoryLabel,
+  isKnownTwitchUserEmoteCategoryId,
+  TWITCH_USER_EMOTE_CATEGORIES,
+} from "@/lib/twitch/twitch-emote-categories"
 import { resolveBroadcasterProfiles } from "@/lib/twitch/twitch-broadcaster-profiles"
 import { loadTwitchEmotesForComposer } from "@/lib/twitch/twitch-emote-session"
 
@@ -83,6 +89,7 @@ type CategoryIconRef =
   | { kind: "platform"; platformId: EmotePickerPlatformId }
   | { kind: "broadcaster"; ownerId: string }
   | { kind: "current-channel" }
+  | { kind: "emote-preview" }
 
 type CategoryDraft = {
   id: string
@@ -313,9 +320,32 @@ function reorderTwitchCategories(
     .filter((category) => category.id.startsWith("twitch-sub-"))
     .sort((left, right) => left.label.localeCompare(right.label))
 
+  const userEntitlements = TWITCH_USER_EMOTE_CATEGORIES.map((definition) =>
+    categories.find((category) => category.id === definition.id)
+  ).filter((category): category is EmotePickerCategory => Boolean(category))
+
+  const channelPoints = categories
+    .filter((category) => category.id.startsWith("twitch-channel-points-"))
+    .sort((left, right) => left.label.localeCompare(right.label))
+
+  const otherTypes = categories
+    .filter(
+      (category) =>
+        category.id.startsWith("twitch-type-") &&
+        !isKnownTwitchUserEmoteCategoryId(category.id)
+    )
+    .sort((left, right) => left.label.localeCompare(right.label))
+
   const global = categories.find((category) => category.id === "twitch-global")
 
-  return [...channel, ...subs, ...(global ? [global] : [])]
+  return [
+    ...channel,
+    ...subs,
+    ...userEntitlements,
+    ...channelPoints,
+    ...otherTypes,
+    ...(global ? [global] : []),
+  ]
 }
 
 function partitionTwitchEmotes(sources: {
@@ -435,14 +465,95 @@ function partitionTwitchEmotes(sources: {
     })
   }
 
+  const unclaimedUserEmotes = userAllEmotes.filter(
+    (emote) => !claimed.has(emote.name.toLowerCase())
+  )
+  const {
+    entitlement,
+    channelPointsByOwner,
+    otherChannelSubsByOwner,
+    extraGlobals,
+  } = bucketUnclaimedTwitchUserEmotes(unclaimedUserEmotes, roomId)
+
+  for (const [ownerId, emotes] of otherChannelSubsByOwner) {
+    pushDraft({
+      id: `twitch-sub-${ownerId}`,
+      label: "Sub emotes",
+      icon: { kind: "broadcaster", ownerId },
+      emotes,
+    })
+  }
+
+  for (const definition of TWITCH_USER_EMOTE_CATEGORIES) {
+    const emotes = entitlement.get(definition.id)
+    if (!emotes || emotes.length === 0) continue
+
+    pushDraft({
+      id: definition.id,
+      label: definition.label,
+      icon: { kind: "emote-preview" },
+      emotes,
+    })
+  }
+
+  for (const [categoryId, emotes] of entitlement) {
+    if (
+      isKnownTwitchUserEmoteCategoryId(categoryId) ||
+      !categoryId.startsWith("twitch-type-")
+    ) {
+      continue
+    }
+
+    pushDraft({
+      id: categoryId,
+      label: getTwitchUserEmoteCategoryLabel(categoryId),
+      icon: { kind: "emote-preview" },
+      emotes,
+    })
+  }
+
+  for (const [ownerId, emotes] of channelPointsByOwner) {
+    pushDraft({
+      id: `twitch-channel-points-${ownerId}`,
+      label: "Channel points",
+      icon: { kind: "broadcaster", ownerId },
+      emotes,
+    })
+  }
+
   pushDraft({
     id: "twitch-global",
     label: "Twitch global",
     icon: { kind: "platform", platformId: "twitch" },
-    emotes: globalEmotes,
+    emotes: [...globalEmotes, ...extraGlobals],
   })
 
   return drafts
+}
+
+function formatBroadcasterEmotesLabel(
+  profile: TwitchUser | undefined,
+  fallbackLogin?: string
+): string {
+  const name =
+    profile?.displayName?.trim() ||
+    profile?.login?.trim() ||
+    fallbackLogin?.trim() ||
+    "Channel"
+
+  return `${name}'s Emotes`
+}
+
+function resolveCategoryLabel(
+  draft: CategoryDraft,
+  profiles: Map<string, TwitchUser>
+): string {
+  if (draft.id.startsWith("twitch-sub-")) {
+    const ownerId = draft.id.slice("twitch-sub-".length)
+    return formatBroadcasterEmotesLabel(profiles.get(ownerId))
+  }
+
+  return draft.label
 }
 
 function resolveCategoryDrafts(
@@ -458,23 +569,26 @@ function resolveCategoryDrafts(
     )
 
   return drafts.map((draft) => {
-    const icon = resolveCategoryIcon(
-      draft.icon,
-      profiles,
-      currentProfile,
-      channelLogin
-    )
     const sorted = dedupeComposerEmotes(
       sortPickerEmotes(
         draft.emotes.map((emote) => toComposerEmote(emote, profiles))
       )
     )
+    const icon = resolveCategoryIcon(
+      draft.icon,
+      profiles,
+      currentProfile,
+      channelLogin,
+      sorted
+    )
+
+    const label = resolveCategoryLabel(draft, profiles)
 
     return {
       id: draft.id,
-      label: icon.alt,
+      label,
       iconSrc: icon.src,
-      iconAlt: icon.alt,
+      iconAlt: label,
       emotes: sorted,
     }
   })
@@ -484,8 +598,17 @@ function resolveCategoryIcon(
   icon: CategoryIconRef,
   profiles: Map<string, TwitchUser>,
   currentProfile: TwitchUser | undefined,
-  channelLogin: string
+  channelLogin: string,
+  emotes: ComposerEmote[] = []
 ): { src: string; alt: string } {
+  if (icon.kind === "emote-preview") {
+    const preview = emotes[0]
+    if (preview?.imageUrl) {
+      return { src: preview.imageUrl, alt: preview.code }
+    }
+    return { src: PLATFORM_META.twitch.iconSrc, alt: PLATFORM_META.twitch.label }
+  }
+
   if (icon.kind === "platform") {
     const meta = PLATFORM_META[icon.platformId]
     return { src: meta.iconSrc, alt: meta.label }
