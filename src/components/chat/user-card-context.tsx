@@ -6,8 +6,9 @@ import {
   UserCardContext,
   type UserCardContextValue,
 } from "@/components/chat/user-card-context.shared"
-import { useUserCard, type UserCardTarget } from "@/hooks/twitch/use-user-card"
-import type { TwitchSelfChatState } from "@/hooks/twitch/use-twitch-chat"
+import { useUserCard } from "@/hooks/twitch/use-user-card"
+import type { UserCardTarget } from "@/lib/chat/user-card"
+import type { TwitchSelfChatState } from "@/lib/twitch/twitch-chat-types"
 import { userCardTargetKey } from "@/lib/chat/user-card"
 import type {
   MessageTimestampFormat,

@@ -12,7 +12,6 @@ import {
   createEmptyComposerCatalog,
   fetchRoomEmoteBundle,
   getTwitchEmoteHydration,
-  type ChannelProfileHint,
   type ComposerEmoteCatalog,
 } from "@/lib/chat/chat-emote-catalog"
 import {
@@ -62,13 +61,15 @@ import {
   type TwitchSelfUserState,
   type TwitchSystemMessage,
 } from "@/lib/twitch/twitch-chat"
+import type {
+  TwitchChatEmoteLoadContext,
+  TwitchChatRoomState,
+  TwitchSelfChatState,
+  TwitchTimelineItem,
+} from "@/lib/twitch/twitch-chat-types"
 /** Back off automatic emote reloads after a failed fetch (avoids 429 retry storms). */
 const EMOTE_LOAD_RETRY_MS = 60_000
 const RECONNECT_TOAST_ID = "twitch-connection-recovery"
-
-export type TwitchTimelineItem =
-  | { kind: "chat"; message: TwitchChatMessage; isHistorical?: boolean }
-  | { kind: "system"; message: TwitchSystemMessage; isHistorical?: boolean }
 
 function notifyChatMessageDeleted(channelLogin: string, messageId: string) {
   if (typeof window === "undefined") {
@@ -141,37 +142,6 @@ function purgeMessagesFromUsers(
   return timeline.filter(
     (entry) => entry.kind !== "chat" || !matches(entry.message)
   )
-}
-
-export type TwitchChatRoomState = {
-  login: string
-  roomId: string | null
-  joined: boolean
-  joining: boolean
-  timeline: TwitchTimelineItem[]
-}
-
-export type { TwitchChannelSendBlock } from "@/lib/chat/chat-send"
-
-export type TwitchSelfChatState = {
-  channel: string
-  roomId: string | null
-  displayName: string
-  color: string | null
-  badges: TwitchBadge[]
-  isBroadcaster: boolean
-  isModerator: boolean
-  isSubscriber: boolean
-  isVip: boolean
-}
-
-export type TwitchChatEmoteLoadContext = {
-  accessToken?: string
-  clientId?: string
-  userId?: string
-  userLogin?: string
-  userDisplayName?: string
-  channelHints?: ChannelProfileHint[]
 }
 
 type PendingConnect = {

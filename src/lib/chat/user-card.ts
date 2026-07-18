@@ -1,6 +1,13 @@
-import type { UserCardTarget } from "@/hooks/twitch/use-user-card"
 import type { TwitchChatMessage } from "@/lib/twitch/twitch-chat"
 import type { TwitchUser } from "@/lib/twitch/twitch-api"
+
+export type UserCardTarget = {
+  userId: string | null
+  userName: string
+  displayName: string
+  color: string | null
+  flags: TwitchChatMessage["flags"]
+}
 
 export function userCardTargetKey(target: UserCardTarget): string {
   if (target.userId) {

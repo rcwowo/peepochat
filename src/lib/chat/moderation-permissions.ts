@@ -1,5 +1,5 @@
 import { CHAT_COMMAND_SCOPES } from "@/lib/chat/chat-command-scopes"
-import type { TwitchSelfChatState } from "@/hooks/twitch/use-twitch-chat"
+import type { TwitchSelfChatState } from "@/lib/twitch/twitch-chat-types"
 import type { TwitchAccount } from "@/lib/peepochat/peepochat-config"
 
 export function hasModerationScope(

@@ -41,7 +41,7 @@ import {
   usePeepochatChat,
 } from "@/lib/peepochat/peepochat-context"
 import type { ResolvedMemberBadge } from "@/lib/chat/rcw-badges"
-import type { TwitchSelfChatState } from "@/hooks/twitch/use-twitch-chat"
+import type { TwitchSelfChatState } from "@/lib/twitch/twitch-chat-types"
 import { banTwitchUser, deleteTwitchChatMessage } from "@/lib/twitch/twitch-api"
 import type { TwitchChatMessage } from "@/lib/twitch/twitch-chat"
 import { cn } from "@/lib/utils"

@@ -1,6 +1,6 @@
 import * as React from "react"
 
-import type { UserCardTarget } from "@/hooks/twitch/use-user-card"
+import type { UserCardTarget } from "@/lib/chat/user-card"
 
 export type UserCardContextValue = {
   openUserCard: (target: UserCardTarget, triggerEl: HTMLElement | null) => void

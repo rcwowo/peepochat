@@ -16,11 +16,13 @@ import { useStreamLiveStatus } from "@/hooks/twitch/use-stream-live-status"
 import {
   useTwitchChat,
   isSyncChannelsSupersededError,
-  type TwitchSelfChatState,
-  type TwitchChatRoomState,
-  type TwitchChannelSendBlock,
-  type TwitchTimelineItem,
 } from "@/hooks/twitch/use-twitch-chat"
+import type { TwitchChannelSendBlock } from "@/lib/chat/chat-send-notice"
+import type {
+  TwitchChatRoomState,
+  TwitchSelfChatState,
+  TwitchTimelineItem,
+} from "@/lib/twitch/twitch-chat-types"
 import {
   canShowDesktopNotifications,
   shouldShowDesktopNotification,
@@ -53,7 +55,7 @@ import type { SendOutcomeEvent } from "@/lib/chat/chat-send-notice"
 import type { ComposerEmoteCatalog } from "@/lib/chat/chat-emote-catalog"
 import type { TwitchConnectionState } from "@/lib/twitch/twitch-chat"
 
-export type { TwitchTimelineItem }
+export type { TwitchTimelineItem } from "@/lib/twitch/twitch-chat-types"
 
 export type PeepochatConfigContextValue = {
   config: AppConfig

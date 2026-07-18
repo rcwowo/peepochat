@@ -8,7 +8,11 @@ import {
   splitFirstToken,
   type ParsedSlashCommand,
 } from "@/lib/chat/chat-command-parse"
-import { createUserCardTargetFromTwitchUser } from "@/lib/chat/user-card"
+import {
+  createUserCardTargetFromTwitchUser,
+  type UserCardTarget,
+} from "@/lib/chat/user-card"
+import type { TwitchSelfChatState } from "@/lib/twitch/twitch-chat-types"
 import type { TwitchAccount } from "@/lib/peepochat/peepochat-config"
 import { fetchIvrTwitchModVip, IvrApiError } from "@/lib/ivr/ivr-api"
 import {
@@ -28,13 +32,10 @@ import {
   unbanTwitchUser,
   updateTwitchChatSettings,
 } from "@/lib/twitch/twitch-api"
-import type { TwitchSelfChatState } from "@/hooks/twitch/use-twitch-chat"
 
 const DEFAULT_TIMEOUT_SECONDS = 10 * 60
 const DEFAULT_COMMERCIAL_SECONDS = 30
 const DEFAULT_SLOW_SECONDS = 30
-
-import type { UserCardTarget } from "@/hooks/twitch/use-user-card"
 
 export type ChatCommandResult =
   | {

@@ -24,8 +24,8 @@ import {
   type TwitchVipStatus,
   unbanTwitchUser,
 } from "@/lib/twitch/twitch-api"
-import type { TwitchSelfChatState } from "@/hooks/twitch/use-twitch-chat"
-import type { TwitchChatMessage } from "@/lib/twitch/twitch-chat"
+import type { UserCardTarget } from "@/lib/chat/user-card"
+import type { TwitchSelfChatState } from "@/lib/twitch/twitch-chat-types"
 
 const PROFILE_TTL_MS = 10 * 60 * 1000
 const STATUS_TTL_MS = 30 * 1000
@@ -37,13 +37,7 @@ export const USER_CARD_MODERATION_SCOPES = {
   manageVips: "channel:manage:vips",
 } as const
 
-export type UserCardTarget = {
-  userId: string | null
-  userName: string
-  displayName: string
-  color: string | null
-  flags: TwitchChatMessage["flags"]
-}
+export type { UserCardTarget } from "@/lib/chat/user-card"
 
 export type UserCardChannelRoles = {
   isModerator: boolean
