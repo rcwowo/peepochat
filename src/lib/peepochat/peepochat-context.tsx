@@ -1,4 +1,3 @@
-/* eslint-disable react-refresh/only-export-components */
 import * as React from "react"
 import { toast } from "sonner"
 
@@ -208,9 +207,6 @@ export function usePeepochatSidebarHighlights() {
   }
   return context
 }
-
-/** @deprecated Prefer `usePeepochatSidebarHighlights` for sidebar-only state. */
-export const usePeepochatHighlights = usePeepochatSidebarHighlights
 
 export function usePeepochatChat() {
   const context = React.useContext(PeepochatChatContext)

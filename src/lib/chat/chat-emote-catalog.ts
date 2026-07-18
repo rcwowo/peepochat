@@ -136,11 +136,6 @@ export function clearRoomEmoteBundleCache(roomId?: string) {
   roomEmoteBundleInflight.clear()
 }
 
-/** @deprecated Use clearRoomEmoteBundleCache */
-export function clearRoomEmoteBundleInflight() {
-  clearRoomEmoteBundleCache()
-}
-
 function normalizeChannelLogin(login: string) {
   return login.trim().replace(/^#/, "").toLowerCase()
 }

@@ -17,9 +17,9 @@ import {
   SidebarSplitAvatarCluster,
 } from "@/components/sidebar/sidebar-channel-icon"
 import {
-  usePeepochatHighlights,
   usePeepochatLayout,
   usePeepochatSettings,
+  usePeepochatSidebarHighlights,
 } from "@/lib/peepochat/peepochat-context"
 import {
   isUnreadIndicatorEnabledForChannel,
@@ -487,7 +487,7 @@ export function ChannelSidebar() {
     markSplitRead,
     isChannelLive,
     isSplitLive,
-  } = usePeepochatHighlights()
+  } = usePeepochatSidebarHighlights()
   const {
     channels,
     activeChannelLogin,

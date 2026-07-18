@@ -28,7 +28,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { EmptyState } from "@/components/shared/dashboard-primitives"
+import { EmptyState } from "@/components/chat/empty-state"
 import type { TwitchTimelineItem } from "@/hooks/twitch/use-twitch-chat"
 import type { TwitchSelfChatState } from "@/hooks/twitch/use-twitch-chat"
 import type { ChatBadgeCatalog } from "@/lib/chat/chat-badges"
