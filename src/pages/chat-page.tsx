@@ -2,12 +2,12 @@ import * as React from "react"
 
 import { ChatPane } from "@/components/chat/chat-pane"
 import { ChatSplitLayout } from "@/components/chat/chat-split-layout"
-import { useChannelRoom } from "@/hooks/chat/use-channel-room"
+import { useChannelRoom } from "@/hooks/chat-ui/use-channel-room"
 import type { TwitchSelfChatState } from "@/lib/twitch/twitch-chat-types"
-import type { CachedChatView } from "@/hooks/chat/use-chat-layout"
+import type { CachedChatView } from "@/hooks/chat-ui/use-chat-layout"
 import type { ChatBadgeCatalog } from "@/lib/chat/chat-badges"
 import type { ResolvedMemberBadge } from "@/lib/chat/rcw-badges"
-import { useChatFontFamily } from "@/hooks/chat/use-chat-font"
+import { useChatFontFamily } from "@/hooks/chat-ui/use-chat-font"
 import { getChatPresentationStyle } from "@/lib/chat/chat-presentation-style"
 import {
   type ChatConfig,

@@ -41,7 +41,7 @@ import type {
   MessageTimestampFormat,
   TwitchAccount,
 } from "@/lib/peepochat/peepochat-config"
-import { useChannelMessageHighlights } from "@/hooks/chat/use-highlight-activity"
+import { useChannelMessageHighlights } from "@/hooks/chat-ui/use-highlight-activity"
 import {
   usePeepochatChat,
   usePeepochatSidebarHighlights,
@@ -54,7 +54,7 @@ import {
   updateStableRowStripes,
   type RowStripeCache,
 } from "@/lib/chat/chat-row-stripes"
-import { useChatScroll } from "@/hooks/chat/use-chat-scroll"
+import { useChatScroll } from "@/hooks/chat-ui/use-chat-scroll"
 import { cn } from "@/lib/utils"
 
 import { openExternalTool, CHATLOGS_URL } from "@/lib/chat/moderation-tools"

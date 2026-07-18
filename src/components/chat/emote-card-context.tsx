@@ -5,7 +5,7 @@ import {
   type EmoteCardContextValue,
 } from "@/components/chat/emote-card-context.shared"
 import { EmoteCardPanel } from "@/components/chat/emote-card-panel"
-import { useEmoteCard } from "@/hooks/chat/use-emote-card"
+import { useEmoteCard } from "@/hooks/chat-ui/use-emote-card"
 import type { ComposerEmoteCatalog } from "@/lib/chat/chat-emote-catalog"
 import { emoteCardTargetKey, type EmoteCardTarget } from "@/lib/chat/emote-card"
 import {

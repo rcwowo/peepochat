@@ -4,14 +4,14 @@ import { toast } from "sonner"
 import {
   useChatLayout,
   type CachedChatView,
-} from "@/hooks/chat/use-chat-layout"
+} from "@/hooks/chat-ui/use-chat-layout"
 import { usePeepochatConfig } from "@/hooks/peepochat/use-peepochat-config"
 import { useBlockedUsers } from "@/hooks/twitch/use-blocked-users"
 import { useTwitchAuth } from "@/hooks/twitch/use-twitch-auth"
 import { useTwitchChannels } from "@/hooks/twitch/use-twitch-channels"
-import { useChatBadges } from "@/hooks/chat/use-chat-badges"
-import { useRcwBadges } from "@/hooks/chat/use-rcw-badges"
-import { useHighlightActivity } from "@/hooks/chat/use-highlight-activity"
+import { useChatBadges } from "@/hooks/chat-ui/use-chat-badges"
+import { useRcwBadges } from "@/hooks/chat-ui/use-rcw-badges"
+import { useHighlightActivity } from "@/hooks/chat-ui/use-highlight-activity"
 import { useStreamLiveStatus } from "@/hooks/twitch/use-stream-live-status"
 import {
   useTwitchChat,
