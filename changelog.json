@@ -1,5 +1,14 @@
 [
     {
+        "version": "1.0.3",
+        "date": "2026-07-20",
+        "items": [
+            "Added better emote picker subcategories to support earned global emotes.",
+            "Fixed emotes being indiced incorrectly when using emojis.",
+            "Fixed the wrapping of tooltips especially near the edges of the window."
+        ]
+    },
+    {
         "version": "1.0.2",
         "date": "2026-07-12",
         "items": [
