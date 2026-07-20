@@ -11,7 +11,7 @@ import {
 import { PickerIcon } from "@/components/chat/picker-icon"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import type { useEmoteCard } from "@/hooks/chat/use-emote-card"
+import type { useEmoteCard } from "@/hooks/chat-ui/use-emote-card"
 import { EMOTE_PLATFORM_META } from "@/lib/chat/emote-platform-meta"
 import {
   getEmotePlatformUrl,

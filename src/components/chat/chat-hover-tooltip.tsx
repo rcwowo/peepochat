@@ -31,6 +31,8 @@ function isAnchorVisible(anchor: HTMLElement) {
   )
 }
 
+const VIEWPORT_MARGIN_PX = 8
+
 function ChatHoverTooltipLayer({
   active,
   onDismiss,
@@ -51,9 +53,36 @@ function ChatHoverTooltipLayer({
       return
     }
 
+    // Measure at an unconstrained origin so width reflects max-width rules,
+    // not premature wrapping from sitting against the viewport edge.
+    tooltip.style.visibility = "hidden"
+    tooltip.style.left = "0px"
+    tooltip.style.top = "0px"
+    tooltip.style.transform = "none"
+
+    const { width, height } = tooltip.getBoundingClientRect()
+
     const anchorRect = active.anchor.getBoundingClientRect()
-    tooltip.style.left = `${anchorRect.left + anchorRect.width / 2}px`
-    tooltip.style.top = `${anchorRect.top - 4}px`
+    const anchorCenterX = anchorRect.left + anchorRect.width / 2
+    const halfWidth = width / 2
+    const minCenterX = VIEWPORT_MARGIN_PX + halfWidth
+    const maxCenterX = window.innerWidth - VIEWPORT_MARGIN_PX - halfWidth
+    const clampedCenterX =
+      minCenterX <= maxCenterX
+        ? Math.min(Math.max(anchorCenterX, minCenterX), maxCenterX)
+        : window.innerWidth / 2
+
+    let top = anchorRect.top - 4
+    let transform = "translate(-50%, -100%)"
+    const minTop = VIEWPORT_MARGIN_PX + height
+    if (top < minTop) {
+      top = anchorRect.bottom + 4
+      transform = "translate(-50%, 0)"
+    }
+
+    tooltip.style.left = `${clampedCenterX}px`
+    tooltip.style.top = `${top}px`
+    tooltip.style.transform = transform
     tooltip.style.visibility = "visible"
   }, [active.anchor, onDismiss])
 
@@ -87,7 +116,7 @@ function ChatHoverTooltipLayer({
         visibility: "hidden",
       }}
       className={cn(
-        "pointer-events-none z-50 inline-flex w-fit max-w-xs origin-center items-center gap-1.5 rounded-md bg-foreground text-xs text-background",
+        "pointer-events-none z-50 inline-flex w-max max-w-xs origin-center items-center gap-1.5 rounded-md bg-foreground text-xs text-background",
         active.className
       )}
     >

@@ -15,6 +15,7 @@ import {
   splitTaggedLine,
 } from "@/lib/twitch/irc-line"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
+import { codePointRangeToUtf16Indices } from "@/lib/twitch/twitch-emote-positions"
 
 /**
  * Browser-native Twitch IRC client over WebSocket.
@@ -1092,15 +1093,24 @@ function parseEmotesTag(raw: string, text: string): TwitchEmote[] {
       const [start, end] = pos.split("-")
       const parsedStart = parseInt(start, 10)
       const parsedEnd = parseInt(end, 10)
-      const code = text.slice(parsedStart, parsedEnd + 1)
+      if (!Number.isFinite(parsedStart) || !Number.isFinite(parsedEnd)) {
+        continue
+      }
+
+      const range = codePointRangeToUtf16Indices(text, parsedStart, parsedEnd)
+      if (!range) {
+        continue
+      }
+
+      const code = text.slice(range.start, range.end + 1)
       emotes.push({
         id,
         code,
         provider: "twitch",
         // Prefer animated (per Twitch docs); the renderer falls back to static if needed.
         imageUrl: `https://static-cdn.jtvnw.net/emoticons/v2/${encodeURIComponent(id)}/animated/dark/1.0`,
-        start: parsedStart,
-        end: parsedEnd,
+        start: range.start,
+        end: range.end,
       })
     }
   }

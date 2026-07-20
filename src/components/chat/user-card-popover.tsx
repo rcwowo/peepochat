@@ -1,7 +1,7 @@
 import * as React from "react"
 
 import { useUserCardContext } from "@/hooks/twitch/use-user-card-context"
-import type { UserCardTarget } from "@/hooks/twitch/use-user-card"
+import type { UserCardTarget } from "@/lib/chat/user-card"
 import { getReadableUsernameColor } from "@/lib/chat/chat-username"
 
 type UserCardPopoverProps = {

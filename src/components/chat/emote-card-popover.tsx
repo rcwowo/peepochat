@@ -2,7 +2,7 @@ import * as React from "react"
 
 import { ChatHoverTooltipTarget } from "@/components/chat/chat-hover-tooltip"
 import { EmoteTooltipBody } from "@/components/chat/emote-tooltip-content"
-import { useEmoteCardContext } from "@/hooks/chat/use-emote-card-context"
+import { useEmoteCardContext } from "@/hooks/chat-ui/use-emote-card-context"
 import type { EmoteCardTarget } from "@/lib/chat/emote-card"
 import { cn } from "@/lib/utils"
 

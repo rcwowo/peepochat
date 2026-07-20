@@ -1,6 +1,6 @@
 import * as React from "react"
 
-import type { TwitchChatRoomState } from "@/hooks/twitch/use-twitch-chat"
+import type { TwitchChatRoomState } from "@/lib/twitch/twitch-chat-types"
 import { usePeepochatChat } from "@/lib/peepochat/peepochat-context"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 

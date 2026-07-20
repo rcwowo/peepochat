@@ -11,7 +11,7 @@ import { ChatComposer } from "@/components/chat/chat-composer"
 import { ChatHoverTooltipProvider } from "@/components/chat/chat-hover-tooltip"
 import { EmoteCardProvider } from "@/components/chat/emote-card-context"
 import { UserCardProvider } from "@/components/chat/user-card-context"
-import type { UserCardTarget } from "@/hooks/twitch/use-user-card"
+import type { UserCardTarget } from "@/lib/chat/user-card"
 import { ChatMessageRow } from "@/components/chat/chat-message-row"
 import { ChatSystemMessage } from "@/components/chat/chat-system-message"
 import {
@@ -28,9 +28,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { EmptyState } from "@/components/shared/dashboard-primitives"
-import type { TwitchTimelineItem } from "@/hooks/twitch/use-twitch-chat"
-import type { TwitchSelfChatState } from "@/hooks/twitch/use-twitch-chat"
+import { EmptyState } from "@/components/chat/empty-state"
+import type {
+  TwitchSelfChatState,
+  TwitchTimelineItem,
+} from "@/lib/twitch/twitch-chat-types"
 import type { ChatBadgeCatalog } from "@/lib/chat/chat-badges"
 import type { ResolvedMemberBadge } from "@/lib/chat/rcw-badges"
 import type {
@@ -39,7 +41,7 @@ import type {
   MessageTimestampFormat,
   TwitchAccount,
 } from "@/lib/peepochat/peepochat-config"
-import { useChannelMessageHighlights } from "@/hooks/chat/use-highlight-activity"
+import { useChannelMessageHighlights } from "@/hooks/chat-ui/use-highlight-activity"
 import {
   usePeepochatChat,
   usePeepochatSidebarHighlights,
@@ -52,7 +54,7 @@ import {
   updateStableRowStripes,
   type RowStripeCache,
 } from "@/lib/chat/chat-row-stripes"
-import { useChatScroll } from "@/hooks/chat/use-chat-scroll"
+import { useChatScroll } from "@/hooks/chat-ui/use-chat-scroll"
 import { cn } from "@/lib/utils"
 
 import { openExternalTool, CHATLOGS_URL } from "@/lib/chat/moderation-tools"

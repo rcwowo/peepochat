@@ -13,6 +13,11 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import type {
   ComposerEmote,
   ComposerEmoteCatalog,
@@ -254,22 +259,27 @@ function CategoryNav({
         const active = activeId === category.id
 
         return (
-          <button
-            key={category.id}
-            type="button"
-            title={category.label}
-            aria-label={category.label}
-            aria-current={active ? "true" : undefined}
-            onClick={() => onSelect(category.id)}
-            className={cn(
-              "mx-auto box-border flex size-8 shrink-0 items-center justify-center rounded-full transition-colors",
-              active
-                ? "border-2 border-primary"
-                : "border-2 border-transparent opacity-75 hover:border-border hover:opacity-100"
-            )}
-          >
-            <PickerIcon src={category.iconSrc} rounded className="size-6" />
-          </button>
+          <Tooltip key={category.id}>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                aria-label={category.label}
+                aria-current={active ? "true" : undefined}
+                onClick={() => onSelect(category.id)}
+                className={cn(
+                  "mx-auto box-border flex size-8 shrink-0 items-center justify-center rounded-full transition-colors",
+                  active
+                    ? "border-2 border-primary"
+                    : "border-2 border-transparent opacity-75 hover:border-border hover:opacity-100"
+                )}
+              >
+                <PickerIcon src={category.iconSrc} rounded className="size-6" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right" sideOffset={8} className="z-[60]">
+              {category.label}
+            </TooltipContent>
+          </Tooltip>
         )
       })}
     </nav>

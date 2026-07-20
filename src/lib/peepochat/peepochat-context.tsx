@@ -1,27 +1,28 @@
-/* eslint-disable react-refresh/only-export-components */
 import * as React from "react"
 import { toast } from "sonner"
 
 import {
   useChatLayout,
   type CachedChatView,
-} from "@/hooks/chat/use-chat-layout"
+} from "@/hooks/chat-ui/use-chat-layout"
 import { usePeepochatConfig } from "@/hooks/peepochat/use-peepochat-config"
 import { useBlockedUsers } from "@/hooks/twitch/use-blocked-users"
 import { useTwitchAuth } from "@/hooks/twitch/use-twitch-auth"
 import { useTwitchChannels } from "@/hooks/twitch/use-twitch-channels"
-import { useChatBadges } from "@/hooks/chat/use-chat-badges"
-import { useRcwBadges } from "@/hooks/chat/use-rcw-badges"
-import { useHighlightActivity } from "@/hooks/chat/use-highlight-activity"
+import { useChatBadges } from "@/hooks/chat-ui/use-chat-badges"
+import { useRcwBadges } from "@/hooks/chat-ui/use-rcw-badges"
+import { useHighlightActivity } from "@/hooks/chat-ui/use-highlight-activity"
 import { useStreamLiveStatus } from "@/hooks/twitch/use-stream-live-status"
 import {
   useTwitchChat,
   isSyncChannelsSupersededError,
-  type TwitchSelfChatState,
-  type TwitchChatRoomState,
-  type TwitchChannelSendBlock,
-  type TwitchTimelineItem,
 } from "@/hooks/twitch/use-twitch-chat"
+import type { TwitchChannelSendBlock } from "@/lib/chat/chat-send-notice"
+import type {
+  TwitchChatRoomState,
+  TwitchSelfChatState,
+  TwitchTimelineItem,
+} from "@/lib/twitch/twitch-chat-types"
 import {
   canShowDesktopNotifications,
   shouldShowDesktopNotification,
@@ -54,7 +55,7 @@ import type { SendOutcomeEvent } from "@/lib/chat/chat-send-notice"
 import type { ComposerEmoteCatalog } from "@/lib/chat/chat-emote-catalog"
 import type { TwitchConnectionState } from "@/lib/twitch/twitch-chat"
 
-export type { TwitchTimelineItem }
+export type { TwitchTimelineItem } from "@/lib/twitch/twitch-chat-types"
 
 export type PeepochatConfigContextValue = {
   config: AppConfig
@@ -208,9 +209,6 @@ export function usePeepochatSidebarHighlights() {
   }
   return context
 }
-
-/** @deprecated Prefer `usePeepochatSidebarHighlights` for sidebar-only state. */
-export const usePeepochatHighlights = usePeepochatSidebarHighlights
 
 export function usePeepochatChat() {
   const context = React.useContext(PeepochatChatContext)
