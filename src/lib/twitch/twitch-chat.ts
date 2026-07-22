@@ -113,6 +113,7 @@ export type TwitchSystemMessage = {
     | "subscription"
     | "raid"
     | "announcement"
+    | "mod_action"
     | "connection"
     | "notice"
     | "status"
@@ -946,6 +947,39 @@ function parseClearChat(tagged: IrcTaggedLine): TwitchClearChatEvent | null {
       banDurationSeconds !== null && Number.isFinite(banDurationSeconds)
         ? banDurationSeconds
         : null,
+  }
+}
+
+export function createClearChatModActionMessage(
+  event: TwitchClearChatEvent,
+  receivedAt = new Date().toISOString()
+): TwitchSystemMessage | null {
+  const targetUserName = event.targetUserName?.trim()
+  if (!targetUserName) {
+    return null
+  }
+
+  const durationSeconds = event.banDurationSeconds
+  if (durationSeconds == null || durationSeconds <= 0) {
+    return null
+  }
+
+  const channel = normalizeChannelLogin(event.channel)
+  const text = `${targetUserName} was timed out for ${durationSeconds}s.`
+
+  return {
+    id: stableSystemMessageId(channel, "mod_action", text),
+    channel,
+    roomId: null,
+    text,
+    headline: text,
+    details: null,
+    receivedAt,
+    event: "mod_action",
+    level: "info",
+    accentColor: null,
+    ...EMPTY_SYSTEM_MESSAGE_META,
+    banDurationSeconds: durationSeconds,
   }
 }
 

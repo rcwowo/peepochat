@@ -11,11 +11,12 @@ import {
   selfStateFromMessage,
 } from "@/lib/twitch/chat-timeline"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
-import type {
-  TwitchChatMessage,
-  TwitchClearChatEvent,
-  TwitchClearMsgEvent,
-  TwitchSystemMessage,
+import {
+  createClearChatModActionMessage,
+  type TwitchChatMessage,
+  type TwitchClearChatEvent,
+  type TwitchClearMsgEvent,
+  type TwitchSystemMessage,
 } from "@/lib/twitch/twitch-chat"
 import type { TwitchSelfChatState } from "@/lib/twitch/twitch-chat-types"
 
@@ -222,6 +223,11 @@ export function useMessageRouting({
           }
           return false
         })
+
+        const modAction = createClearChatModActionMessage(event)
+        if (modAction) {
+          appendRoomSystemMessage(login, modAction)
+        }
         return
       }
 
@@ -254,6 +260,7 @@ export function useMessageRouting({
       })
     },
     [
+      appendRoomSystemMessage,
       applyRoomMessageDeletions,
       clearChatWhenInstructedRef,
       selfStatesRef,

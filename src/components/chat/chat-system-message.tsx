@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Gift, Megaphone, Star, Users } from "lucide-react"
+import { Gift, Megaphone, Shield, Star, Users } from "lucide-react"
 
 import { ChatMessageBody } from "@/components/chat/chat-message-body"
 import { ChatUsername } from "@/components/chat/chat-username"
@@ -71,6 +71,29 @@ function InlineSystemLine({
       />
       <span className="chat-message-size chat-system-text">
         {message.text}
+      </span>
+    </div>
+  )
+}
+
+function ModActionLine({
+  message,
+  timestampFormat,
+  className,
+}: {
+  message: TwitchSystemMessage
+  timestampFormat: MessageTimestampFormat
+  className?: string
+}) {
+  return (
+    <div className={cn("chat-message group px-3 leading-5", className)}>
+      <ChatTimestamp
+        receivedAt={message.receivedAt}
+        timestampFormat={timestampFormat}
+      />
+      <span className="chat-message-size chat-system-text inline-flex max-w-full items-start gap-1.5 align-top">
+        <Shield className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
+        <span>{message.text}</span>
       </span>
     </div>
   )
@@ -294,6 +317,15 @@ function ChatSystemMessageInner({
     case "announcement":
       content = (
         <AnnouncementNotice
+          message={message}
+          timestampFormat={timestampFormat}
+          className={rowClassName}
+        />
+      )
+      break
+    case "mod_action":
+      content = (
+        <ModActionLine
           message={message}
           timestampFormat={timestampFormat}
           className={rowClassName}
