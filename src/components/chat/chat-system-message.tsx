@@ -69,7 +69,7 @@ function InlineSystemLine({
         receivedAt={message.receivedAt}
         timestampFormat={timestampFormat}
       />
-      <span className="chat-message-size chat-system-text italic">
+      <span className="chat-message-size chat-system-text">
         {message.text}
       </span>
     </div>
@@ -95,30 +95,25 @@ function NoticeBlock({
 }) {
   return (
     <div className={cn("chat-message group px-3 leading-5", className)}>
-      <ChatTimestamp
-        receivedAt={message.receivedAt}
-        timestampFormat={timestampFormat}
-      />
-
-      <span className="chat-message-size inline-block min-w-0 align-top">
-        <span
-          className="chat-notice-block inline-block border-l-4 py-1 pr-2 pl-2 align-top"
-          style={{ borderColor }}
-        >
-          <span className="inline-flex max-w-full items-start gap-1.5">
-            <span className="mt-0.5 shrink-0 text-muted-foreground">
-              {icon}
-            </span>
-            <span className="min-w-0">{children}</span>
-          </span>
-
-          {showDetails && message.details ? (
-            <span className="chat-notice-user-message mt-1 block pl-6 leading-5">
-              {message.details}
-            </span>
-          ) : null}
+      <div
+        className="chat-notice-block -mx-3 border-l-4 px-3 py-1"
+        style={{ borderColor }}
+      >
+        <ChatTimestamp
+          receivedAt={message.receivedAt}
+          timestampFormat={timestampFormat}
+        />
+        <span className="chat-message-size inline-flex max-w-full items-start gap-1.5 align-top">
+          <span className="mt-0.5 shrink-0 text-muted-foreground">{icon}</span>
+          <span className="min-w-0">{children}</span>
         </span>
-      </span>
+
+        {showDetails && message.details ? (
+          <span className="chat-notice-user-message mt-1 block pl-6 leading-5">
+            {message.details}
+          </span>
+        ) : null}
+      </div>
     </div>
   )
 }
@@ -150,7 +145,7 @@ function SubscriptionNotice({
       }
       showDetails={false}
     >
-      <span className="chat-notice-body">{message.headline}</span>
+      <span className="chat-notice-body font-bold">{message.headline}</span>
       {message.details ? (
         <span className="chat-notice-user-message mt-1 block leading-5">
           <ChatMessageBody
@@ -186,7 +181,7 @@ function RaidNotice({
       className={className}
       icon={<Users className="size-4" aria-hidden />}
     >
-      <span className="chat-notice-body">
+      <span className="chat-notice-body font-bold">
         {viewerLabel && message.headline === "Raid" ? (
           <>
             {message.actor ? (
@@ -197,8 +192,7 @@ function RaidNotice({
             ) : (
               "A channel"
             )}{" "}
-            is raiding with <span className="font-semibold">{viewerLabel}</span>
-            !
+            is raiding with {viewerLabel}!
           </>
         ) : (
           message.headline
@@ -224,41 +218,38 @@ function AnnouncementNotice({
 
   return (
     <div className={cn("chat-message group px-3 leading-5", className)}>
-      <ChatTimestamp
-        receivedAt={message.receivedAt}
-        timestampFormat={timestampFormat}
-      />
-
-      <span className="inline-block min-w-0 align-top">
-        <span
-          className="chat-announcement inline-block border-x-4 align-top [border-image-slice:1]"
-          style={{
-            borderImageSource: `linear-gradient(180deg, ${start}, ${end})`,
-          }}
-        >
-          <span className="chat-announcement-header flex items-center px-2.5 py-1 text-xs font-medium">
-            <Megaphone className="mr-2 size-3.5 -scale-x-100" aria-hidden />
-            Announcement
-          </span>
-
-          <span className="chat-message-size chat-announcement-body block px-2.5 py-1.5">
-            {message.actor ? (
-              <>
-                <ChatUsername
-                  displayName={message.actor.displayName}
-                  color={message.actor.color}
-                />
-                <span className="text-muted-foreground">: </span>
-              </>
-            ) : null}
-            {message.details ? (
-              <ChatMessageBody text={message.details} emotes={[]} />
-            ) : (
-              <span className="chat-message-text">{message.headline}</span>
-            )}
-          </span>
+      <div
+        className="chat-announcement -mx-3 border-x-4 [border-image-slice:1]"
+        style={{
+          borderImageSource: `linear-gradient(180deg, ${start}, ${end})`,
+        }}
+      >
+        <span className="chat-announcement-header flex items-center px-3 py-1 text-xs font-medium">
+          <Megaphone className="mr-2 size-3.5 -scale-x-100" aria-hidden />
+          Announcement
         </span>
-      </span>
+
+        <span className="chat-message-size chat-announcement-body block px-3 py-1.5">
+          <ChatTimestamp
+            receivedAt={message.receivedAt}
+            timestampFormat={timestampFormat}
+          />
+          {message.actor ? (
+            <>
+              <ChatUsername
+                displayName={message.actor.displayName}
+                color={message.actor.color}
+              />
+              <span className="text-muted-foreground">: </span>
+            </>
+          ) : null}
+          {message.details ? (
+            <ChatMessageBody text={message.details} emotes={[]} />
+          ) : (
+            <span className="chat-message-text">{message.headline}</span>
+          )}
+        </span>
+      </div>
     </div>
   )
 }
