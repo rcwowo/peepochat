@@ -29,9 +29,16 @@ import type { TwitchChatEmoteLoadContext } from "@/lib/twitch/twitch-chat-types"
 type UseChatEmotesOptions = {
   roomStore: RoomStore
   appendLog: (text: string) => void
+  onRoomEmotesSettledRef?: React.RefObject<((roomId: string) => void) | null>
+  onRoomsClearedRef?: React.RefObject<((roomIds: string[]) => void) | null>
 }
 
-export function useChatEmotes({ roomStore, appendLog }: UseChatEmotesOptions) {
+export function useChatEmotes({
+  roomStore,
+  appendLog,
+  onRoomEmotesSettledRef,
+  onRoomsClearedRef,
+}: UseChatEmotesOptions) {
   const { commitRooms, roomsRef, getRoomId } = roomStore
 
   const emoteCatalogsRef = useLazyRef(
@@ -197,6 +204,7 @@ export function useChatEmotes({ roomStore, appendLog }: UseChatEmotesOptions) {
             [roomId]: bundle.composer,
           }))
           rehydrateRoomTimeline(login, roomId)
+          onRoomEmotesSettledRef?.current?.(roomId)
           devFetchLogger.debugLazy(() => [
             "emotes:success",
             {
@@ -242,6 +250,7 @@ export function useChatEmotes({ roomStore, appendLog }: UseChatEmotesOptions) {
       emoteCatalogGenerationRef,
       emoteLoadContextRef,
       emoteCatalogsRef,
+      onRoomEmotesSettledRef,
       rehydrateRoomTimeline,
       roomEmotesFailedAtRef,
       roomEmotesLoadingRef,
@@ -389,6 +398,7 @@ export function useChatEmotes({ roomStore, appendLog }: UseChatEmotesOptions) {
           [roomId]: bundle.composer,
         }))
         rehydrateRoomTimeline(normalized, roomId)
+        onRoomEmotesSettledRef?.current?.(roomId)
       } catch {
         if (generation === emoteCatalogGenerationRef.current) {
           const emptyThirdParty = createEmptyEmoteCatalog()
@@ -425,6 +435,7 @@ export function useChatEmotes({ roomStore, appendLog }: UseChatEmotesOptions) {
       emoteCatalogGenerationRef,
       emoteLoadContextRef,
       emoteCatalogsRef,
+      onRoomEmotesSettledRef,
       rehydrateRoomTimeline,
       roomEmotesFailedAtRef,
       roomEmotesLoadingRef,
@@ -435,6 +446,10 @@ export function useChatEmotes({ roomStore, appendLog }: UseChatEmotesOptions) {
 
   const clearEmotesForRoomIds = React.useCallback(
     (roomIds: string[]) => {
+      if (roomIds.length > 0) {
+        onRoomsClearedRef?.current?.(roomIds)
+      }
+
       for (const roomId of roomIds) {
         emoteCatalogsRef.current.delete(roomId)
         composerCatalogsRef.current.delete(roomId)
@@ -466,6 +481,7 @@ export function useChatEmotes({ roomStore, appendLog }: UseChatEmotesOptions) {
       composerCatalogLoadingRef,
       composerCatalogsRef,
       emoteCatalogsRef,
+      onRoomsClearedRef,
       roomEmotesFailedAtRef,
       roomEmotesLoadingRef,
       roomEmotesSettledRef,
@@ -473,6 +489,11 @@ export function useChatEmotes({ roomStore, appendLog }: UseChatEmotesOptions) {
   )
 
   const clearAllEmoteState = React.useCallback(() => {
+    const roomIds = [...emoteCatalogsRef.current.keys()]
+    if (roomIds.length > 0) {
+      onRoomsClearedRef?.current?.(roomIds)
+    }
+
     emoteCatalogGenerationRef.current += 1
     clearThirdPartyEmoteCache()
     clearTwitchEmoteSessionCache()
@@ -494,6 +515,7 @@ export function useChatEmotes({ roomStore, appendLog }: UseChatEmotesOptions) {
     composerCatalogsRef,
     emoteCatalogGenerationRef,
     emoteCatalogsRef,
+    onRoomsClearedRef,
     roomEmotesFailedAtRef,
     roomEmotesLoadingRef,
     roomEmotesSettledRef,
@@ -511,8 +533,34 @@ export function useChatEmotes({ roomStore, appendLog }: UseChatEmotesOptions) {
     [roomEmotesSettledRef]
   )
 
+  const applyRoomEmoteBundle = React.useCallback(
+    (
+      roomId: string,
+      bundle: {
+        thirdParty: ThirdPartyEmoteCatalog
+        composer: ComposerEmoteCatalog
+      }
+    ) => {
+      emoteCatalogsRef.current.set(roomId, bundle.thirdParty)
+      composerCatalogsRef.current.set(roomId, bundle.composer)
+      composerCatalogLoadedRef.current.add(roomId)
+      roomEmotesSettledRef.current.add(roomId)
+      setComposerCatalogs((current) => ({
+        ...current,
+        [roomId]: bundle.composer,
+      }))
+    },
+    [
+      composerCatalogLoadedRef,
+      composerCatalogsRef,
+      emoteCatalogsRef,
+      roomEmotesSettledRef,
+    ]
+  )
+
   return {
     emoteCatalogsRef,
+    composerCatalogsRef,
     emoteLoadContextRef,
     emoteCatalogGenerationRef,
     roomEmotesSettledRef,
@@ -523,12 +571,14 @@ export function useChatEmotes({ roomStore, appendLog }: UseChatEmotesOptions) {
     getComposerEmoteCatalog,
     ensureComposerEmotes,
     isComposerEmotesLoading,
+    rehydrateRoomTimeline,
     rehydrateAllRoomTimelines,
     refreshEmotes,
     clearEmotesForRoomIds,
     clearAllEmoteState,
     getCatalogForRoom,
     isRoomEmotesSettled,
+    applyRoomEmoteBundle,
   }
 }
 

@@ -136,6 +136,51 @@ export function clearRoomEmoteBundleCache(roomId?: string) {
   roomEmoteBundleInflight.clear()
 }
 
+export async function rebuildRoomThirdPartyEmoteBundle(
+  roomId: string,
+  channelLogin: string,
+  existingComposer: ComposerEmoteCatalog
+): Promise<RoomEmoteBundle> {
+  const sets = await getThirdPartyEmoteSets(roomId)
+  const thirdParty = buildThirdPartyEmoteCatalog(sets)
+  const twitchPlatform = existingComposer.platforms.find(
+    (platform) => platform.id === "twitch"
+  )
+  const channelCategory = existingComposer.platforms
+    .flatMap((platform) => platform.categories)
+    .find((category) =>
+      category.id.endsWith(`-channel-${normalizeChannelLogin(channelLogin)}`)
+    )
+
+  const composer = buildComposerCatalog({
+    channelLogin,
+    thirdPartySets: dedupeThirdPartySets(sets),
+    twitchCategories: twitchPlatform?.categories ?? [],
+    currentChannelProfile: channelCategory
+      ? {
+          id: roomId,
+          login: normalizeChannelLogin(channelLogin),
+          displayName: channelCategory.iconAlt,
+          profileImageUrl: channelCategory.iconSrc,
+          bannerImageUrl: "",
+          description: "",
+          createdAt: "",
+          broadcasterType: "",
+          type: "",
+        }
+      : undefined,
+  })
+
+  const bundle = { composer, thirdParty }
+  for (const key of roomEmoteBundleCache.keys()) {
+    if (key.startsWith(`${roomId}:`)) {
+      roomEmoteBundleCache.set(key, bundle)
+    }
+  }
+
+  return bundle
+}
+
 function normalizeChannelLogin(login: string) {
   return login.trim().replace(/^#/, "").toLowerCase()
 }

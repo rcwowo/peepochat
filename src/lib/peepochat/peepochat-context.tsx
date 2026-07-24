@@ -264,6 +264,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     registerSendOutcomeListener,
     setEmoteLoadContext,
     setRecentMessagesEnabled,
+    setLiveEmoteUpdatesEnabled,
     setLiveMessageLimit,
     setDeletedMessagesBehavior,
     setClearChatWhenInstructed,
@@ -456,6 +457,17 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     setRecentMessagesEnabled(config.chat.recentMessagesEnabled)
   }, [config.chat.recentMessagesEnabled, setRecentMessagesEnabled])
+
+  React.useEffect(() => {
+    setLiveEmoteUpdatesEnabled(
+      config.chat.emotes.seventvEnabled &&
+        config.chat.emotes.liveEmoteUpdatesEnabled
+    )
+  }, [
+    config.chat.emotes.liveEmoteUpdatesEnabled,
+    config.chat.emotes.seventvEnabled,
+    setLiveEmoteUpdatesEnabled,
+  ])
 
   React.useEffect(() => {
     setLiveMessageLimit(config.chat.maxLiveMessagesPerChannel)

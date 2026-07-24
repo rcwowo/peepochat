@@ -36,6 +36,7 @@ const chatEmotesSchema = z.object({
   seventvEnabled: z.boolean().default(true),
   showUnlistedEmotes: z.boolean().default(true),
   zeroWidthEmotesEnabled: z.boolean().default(true),
+  liveEmoteUpdatesEnabled: z.boolean().default(true),
 })
 
 const chatBadgesSchema = z.object({
@@ -269,6 +270,7 @@ export function createDefaultConfig(): AppConfig {
         seventvEnabled: true,
         showUnlistedEmotes: true,
         zeroWidthEmotesEnabled: true,
+        liveEmoteUpdatesEnabled: true,
       },
       badges: {
         twitchEnabled: true,

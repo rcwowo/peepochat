@@ -1,5 +1,6 @@
 import { devLoggedFetch } from "@/lib/dev-logger"
 import { isSevenTvZeroWidthEmote } from "@/lib/chat/seventv-emotes"
+import type { SevenTvActiveEmote } from "@/lib/chat/seventv-event-api"
 import type {
   TwitchChatMessage,
   TwitchEmote,
@@ -73,9 +74,18 @@ type ThirdPartyRoomEmotes = Record<
 
 const roomChannelCache = new Map<string, Promise<ThirdPartyRoomEmotes>>()
 const roomChannelDataCache = new Map<string, ThirdPartyRoomEmotes>()
+const roomSevenTvBindings = new Map<string, SevenTvRoomBinding>()
+const sevenTvEmoteSetRooms = new Map<string, Set<string>>()
+const sevenTvUserRooms = new Map<string, Set<string>>()
 let globalEmotesCache: ThirdPartyGlobalEmotes | null = null
 let globalEmotesInflight: Promise<ThirdPartyGlobalEmotes> | null = null
 let globalOptionsKey: string | null = null
+
+export type SevenTvRoomBinding = {
+  emoteSetId: string
+  seventvUserId: string
+  twitchConnectionIndex: number
+}
 
 export function setThirdPartyEmoteFetchOptions(
   options: ThirdPartyEmoteFetchOptions
@@ -98,14 +108,123 @@ export function clearThirdPartyEmoteCache(roomId?: string) {
   if (roomId) {
     roomChannelCache.delete(roomId)
     roomChannelDataCache.delete(roomId)
+    clearSevenTvRoomBinding(roomId)
     return
   }
 
   roomChannelCache.clear()
   roomChannelDataCache.clear()
+  clearAllSevenTvRoomBindings()
   globalEmotesCache = null
   globalEmotesInflight = null
   globalOptionsKey = null
+}
+
+export function getSevenTvRoomBinding(
+  roomId: string
+): SevenTvRoomBinding | null {
+  return roomSevenTvBindings.get(roomId) ?? null
+}
+
+export function getRoomIdsForSevenTvEmoteSet(emoteSetId: string): string[] {
+  return [...(sevenTvEmoteSetRooms.get(emoteSetId) ?? [])]
+}
+
+export function getRoomIdsForSevenTvUser(userId: string): string[] {
+  return [...(sevenTvUserRooms.get(userId) ?? [])]
+}
+
+export function applySevenTvChannelEmoteAdd(
+  roomId: string,
+  raw: SevenTvActiveEmote
+): EmoteCatalogEntry | null {
+  const room = roomChannelDataCache.get(roomId)
+  if (!room) return null
+
+  const entry = mapSevenTvEmote(raw)
+  if (!entry) return null
+  if (
+    !thirdPartyEmoteFetchOptions.showUnlistedEmotes &&
+    entry.listed === false
+  ) {
+    return null
+  }
+
+  const nextChannel = [
+    ...room["7tv"].filter((emote) => emote.id !== entry.id),
+    entry,
+  ]
+  roomChannelDataCache.set(roomId, { ...room, "7tv": nextChannel })
+  return entry
+}
+
+export function applySevenTvChannelEmoteRemove(
+  roomId: string,
+  emoteId: string
+): EmoteCatalogEntry | null {
+  const room = roomChannelDataCache.get(roomId)
+  if (!room) return null
+
+  const existing = room["7tv"].find((emote) => emote.id === emoteId) ?? null
+  if (!existing) return null
+
+  roomChannelDataCache.set(roomId, {
+    ...room,
+    "7tv": room["7tv"].filter((emote) => emote.id !== emoteId),
+  })
+  return existing
+}
+
+export function applySevenTvChannelEmoteRename(
+  roomId: string,
+  emoteId: string,
+  newName: string
+): { previous: EmoteCatalogEntry; next: EmoteCatalogEntry } | null {
+  const room = roomChannelDataCache.get(roomId)
+  if (!room) return null
+
+  const index = room["7tv"].findIndex((emote) => emote.id === emoteId)
+  if (index < 0) return null
+
+  const previous = room["7tv"][index]!
+  if (previous.code === newName) {
+    return null
+  }
+
+  const next: EmoteCatalogEntry = { ...previous, code: newName }
+  const nextChannel = [...room["7tv"]]
+  nextChannel[index] = next
+  roomChannelDataCache.set(roomId, { ...room, "7tv": nextChannel })
+  return { previous, next }
+}
+
+export async function replaceSevenTvChannelEmotesFromSet(
+  roomId: string,
+  emoteSetId: string
+): Promise<{ emotes: EmoteCatalogEntry[]; setName: string } | null> {
+  const room = roomChannelDataCache.get(roomId)
+  if (!room) return null
+
+  const response = await fetchJson<SevenTvEmoteSet>(
+    `https://7tv.io/v3/emote-sets/${encodeURIComponent(emoteSetId)}`
+  )
+  const emotes = compactSevenTvEmotes(
+    (response.emotes ?? []).map((emote) => mapSevenTvEmote(emote))
+  )
+  roomChannelDataCache.set(roomId, { ...room, "7tv": emotes })
+
+  const binding = roomSevenTvBindings.get(roomId)
+  if (binding) {
+    setSevenTvRoomBinding(roomId, {
+      ...binding,
+      emoteSetId,
+    })
+  }
+
+  return {
+    emotes,
+    setName: response.name?.trim() || "emote set",
+  }
 }
 
 function thirdPartyOptionsKey() {
@@ -181,11 +300,20 @@ type SevenTvEmote = {
 }
 
 type SevenTvEmoteSet = {
+  id?: string
+  name?: string
   emotes?: SevenTvEmote[]
 }
 
 type SevenTvUserResponse = {
   emote_set?: SevenTvEmoteSet
+  user?: {
+    id?: string
+    connections?: Array<{
+      platform?: string
+      id?: string
+    }>
+  }
 }
 
 type TextRange = {
@@ -684,9 +812,83 @@ async function fetchSevenTvRoomEmotes(
   const response = await fetchJson<SevenTvUserResponse>(
     `https://7tv.io/v3/users/twitch/${encodeURIComponent(roomId)}`
   )
+
+  const emoteSetId = response.emote_set?.id?.trim() ?? ""
+  const seventvUserId = response.user?.id?.trim() ?? ""
+  const twitchConnectionIndex = (response.user?.connections ?? []).findIndex(
+    (connection) => connection.platform === "TWITCH"
+  )
+
+  if (emoteSetId || seventvUserId) {
+    setSevenTvRoomBinding(roomId, {
+      emoteSetId,
+      seventvUserId,
+      twitchConnectionIndex: Math.max(twitchConnectionIndex, 0),
+    })
+  } else {
+    clearSevenTvRoomBinding(roomId)
+  }
+
   return compactSevenTvEmotes(
     (response.emote_set?.emotes ?? []).map((emote) => mapSevenTvEmote(emote))
   )
+}
+
+function setSevenTvRoomBinding(roomId: string, binding: SevenTvRoomBinding) {
+  const previous = roomSevenTvBindings.get(roomId)
+  if (previous) {
+    removeRoomFromIndex(sevenTvEmoteSetRooms, previous.emoteSetId, roomId)
+    removeRoomFromIndex(sevenTvUserRooms, previous.seventvUserId, roomId)
+  }
+
+  roomSevenTvBindings.set(roomId, binding)
+  addRoomToIndex(sevenTvEmoteSetRooms, binding.emoteSetId, roomId)
+  addRoomToIndex(sevenTvUserRooms, binding.seventvUserId, roomId)
+}
+
+function clearSevenTvRoomBinding(roomId: string) {
+  const previous = roomSevenTvBindings.get(roomId)
+  if (!previous) return
+
+  roomSevenTvBindings.delete(roomId)
+  removeRoomFromIndex(sevenTvEmoteSetRooms, previous.emoteSetId, roomId)
+  removeRoomFromIndex(sevenTvUserRooms, previous.seventvUserId, roomId)
+}
+
+function clearAllSevenTvRoomBindings() {
+  roomSevenTvBindings.clear()
+  sevenTvEmoteSetRooms.clear()
+  sevenTvUserRooms.clear()
+}
+
+function addRoomToIndex(
+  index: Map<string, Set<string>>,
+  key: string,
+  roomId: string
+) {
+  const normalized = key.trim()
+  if (!normalized) return
+  let rooms = index.get(normalized)
+  if (!rooms) {
+    rooms = new Set()
+    index.set(normalized, rooms)
+  }
+  rooms.add(roomId)
+}
+
+function removeRoomFromIndex(
+  index: Map<string, Set<string>>,
+  key: string,
+  roomId: string
+) {
+  const normalized = key.trim()
+  if (!normalized) return
+  const rooms = index.get(normalized)
+  if (!rooms) return
+  rooms.delete(roomId)
+  if (rooms.size === 0) {
+    index.delete(normalized)
+  }
 }
 
 function extractFrankerFaceZGlobalEmotes(

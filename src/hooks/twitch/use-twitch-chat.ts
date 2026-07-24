@@ -10,6 +10,7 @@ import { useChatSend } from "@/hooks/twitch/chat/use-chat-send"
 import { useMessageRouting } from "@/hooks/twitch/chat/use-message-routing"
 import { useRecentMessages } from "@/hooks/twitch/chat/use-recent-messages"
 import { useRoomStore } from "@/hooks/twitch/chat/use-room-store"
+import { useSevenTvLiveUpdates } from "@/hooks/twitch/chat/use-seventv-live-updates"
 import { useTimeline } from "@/hooks/twitch/chat/use-timeline"
 import { useLazyRef } from "@/hooks/use-lazy-ref"
 import type { TwitchChatClient, TwitchChatMessage } from "@/lib/twitch/twitch-chat"
@@ -51,7 +52,30 @@ export function useTwitchChat(options?: {
     hideBlockedUsersRef,
     isUserBlockedRef,
   })
-  const emotes = useChatEmotes({ roomStore, appendLog })
+  const onRoomEmotesSettledRef = React.useRef<((roomId: string) => void) | null>(
+    null
+  )
+  const onRoomsClearedRef = React.useRef<((roomIds: string[]) => void) | null>(
+    null
+  )
+  const emotes = useChatEmotes({
+    roomStore,
+    appendLog,
+    onRoomEmotesSettledRef,
+    onRoomsClearedRef,
+  })
+  const sevenTvLiveUpdates = useSevenTvLiveUpdates({
+    roomStore,
+    emotes,
+    appendRoomSystemMessage: timeline.appendRoomSystemMessage,
+  })
+  React.useLayoutEffect(() => {
+    onRoomEmotesSettledRef.current = sevenTvLiveUpdates.notifyRoomEmotesSettled
+    onRoomsClearedRef.current = sevenTvLiveUpdates.notifyRoomsRemoved
+  }, [
+    sevenTvLiveUpdates.notifyRoomEmotesSettled,
+    sevenTvLiveUpdates.notifyRoomsRemoved,
+  ])
   const recentMessages = useRecentMessages({
     roomStore,
     timeline,
@@ -174,6 +198,7 @@ export function useTwitchChat(options?: {
     getRoomId: roomStore.getRoomId,
     setEmoteLoadContext: emotes.setEmoteLoadContext,
     setRecentMessagesEnabled: recentMessages.setRecentMessagesEnabled,
+    setLiveEmoteUpdatesEnabled: sevenTvLiveUpdates.setLiveEmoteUpdatesEnabled,
     setLiveMessageLimit: timeline.setLiveMessageLimit,
     setDeletedMessagesBehavior: timeline.setDeletedMessagesBehavior,
     setClearChatWhenInstructed,

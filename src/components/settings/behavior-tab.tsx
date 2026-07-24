@@ -8,6 +8,7 @@ import {
   HistoryIcon,
   LayersIcon,
   Layers2Icon,
+  RadioIcon,
   Trash2Icon,
   UserXIcon,
 } from "lucide-react"
@@ -289,6 +290,21 @@ export function BehaviorTab() {
                   chat: {
                     ...current.chat,
                     emotes: { ...current.chat.emotes, zeroWidthEmotesEnabled },
+                  },
+                }))
+              }
+            />
+            <SettingsSwitchRow
+              icon={RadioIcon}
+              title="Real-time emote updates"
+              description="Apply 7TV channel emote changes as they happen, without refreshing."
+              checked={config.chat.emotes.liveEmoteUpdatesEnabled}
+              onCheckedChange={(liveEmoteUpdatesEnabled) =>
+                updateConfig((current) => ({
+                  ...current,
+                  chat: {
+                    ...current.chat,
+                    emotes: { ...current.chat.emotes, liveEmoteUpdatesEnabled },
                   },
                 }))
               }
