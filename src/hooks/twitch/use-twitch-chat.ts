@@ -14,7 +14,10 @@ import { useSevenTvLiveUpdates } from "@/hooks/twitch/chat/use-seventv-live-upda
 import { useTimeline } from "@/hooks/twitch/chat/use-timeline"
 import { useTwitchEventSub } from "@/hooks/twitch/chat/use-twitch-eventsub"
 import { useLazyRef } from "@/hooks/use-lazy-ref"
-import type { TwitchAccount } from "@/lib/peepochat/peepochat-config"
+import type {
+  DeletedMessagesBehavior,
+  TwitchAccount,
+} from "@/lib/peepochat/peepochat-config"
 import type {
   TwitchChatClient,
   TwitchChatConnectOptions,
@@ -258,6 +261,25 @@ export function useTwitchChat(options?: {
     []
   )
 
+  const {
+    deletedMessagesBehaviorRef,
+    setDeletedMessagesBehavior: applyDeletedMessagesBehavior,
+  } = timeline
+  const { handleDeletedMessagesBehaviorChange } = recentMessages
+
+  const setDeletedMessagesBehavior = React.useCallback(
+    (behavior: DeletedMessagesBehavior) => {
+      const previous = deletedMessagesBehaviorRef.current
+      applyDeletedMessagesBehavior(behavior)
+      handleDeletedMessagesBehaviorChange(previous, behavior)
+    },
+    [
+      applyDeletedMessagesBehavior,
+      deletedMessagesBehaviorRef,
+      handleDeletedMessagesBehaviorChange,
+    ]
+  )
+
   return {
     connectionState: connection.connectionState,
     sendConnectionState: connection.sendConnectionState,
@@ -271,7 +293,7 @@ export function useTwitchChat(options?: {
     setRecentMessagesEnabled: recentMessages.setRecentMessagesEnabled,
     setLiveEmoteUpdatesEnabled: sevenTvLiveUpdates.setLiveEmoteUpdatesEnabled,
     setLiveMessageLimit: timeline.setLiveMessageLimit,
-    setDeletedMessagesBehavior: timeline.setDeletedMessagesBehavior,
+    setDeletedMessagesBehavior,
     setClearChatWhenInstructed,
     setHideBlockedUsers,
     setIsUserBlocked,
