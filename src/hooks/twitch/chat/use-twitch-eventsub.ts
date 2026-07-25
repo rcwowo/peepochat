@@ -3,11 +3,25 @@ import * as React from "react"
 import type { RoomStore } from "@/hooks/twitch/chat/use-room-store"
 import type { TwitchAccount } from "@/lib/peepochat/peepochat-config"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
-import type { TwitchSelfChatState } from "@/lib/twitch/twitch-chat-types"
+import type {
+  TwitchAutomodHeldStatus,
+  TwitchSelfChatState,
+  TwitchTimelineItem,
+} from "@/lib/twitch/twitch-chat-types"
 import {
   isAnonymousBanTimeoutSystemMessage,
   type TwitchSystemMessage,
 } from "@/lib/twitch/twitch-chat"
+import {
+  automodHeldTimelineId,
+  createUserAutomodHeldNotice,
+  createUserAutomodUpdateSystemMessage,
+  parseAutomodHeldMessage,
+  parseAutomodUpdateStatus,
+  parseUserMessageHoldEvent,
+  parseUserMessageUpdateEvent,
+  userAutomodHeldNoticeId,
+} from "@/lib/twitch/twitch-eventsub-automod"
 import { createSystemMessageFromChannelModerate } from "@/lib/twitch/twitch-eventsub-moderate"
 import { buildDesiredEventSubSubscriptions } from "@/lib/twitch/twitch-eventsub-subscriptions"
 import {
@@ -21,6 +35,14 @@ type UseTwitchEventSubOptions = {
   syncedChannelsRef: React.RefObject<string[]>
   selfStatesRef: React.RefObject<Map<string, TwitchSelfChatState>>
   onAuthFailure?: (reason: "expired" | "scopes") => void
+  pushComposerNotice?: (notice: {
+    channel: string
+    message: string
+    id: string
+    discardPending?: boolean
+  }) => void
+  dismissComposerNotice?: (notice: { channel: string; id: string }) => void
+  trimRoomTimeline: (timeline: TwitchTimelineItem[]) => TwitchTimelineItem[]
 }
 
 function extractModerateTargetNames(event: Record<string, unknown>): string[] {
@@ -36,6 +58,20 @@ function extractModerateTargetNames(event: Record<string, unknown>): string[] {
     .map((value) => value.trim())
     .filter(Boolean)
   return [...new Set(names)]
+}
+
+function resolveChannelLogin(
+  notification: TwitchEventSubNotification,
+  fallbackLogin: string | null
+): string {
+  return (
+    notification.channelLogin ||
+    normalizeChannelLogin(
+      typeof notification.event.broadcaster_user_login === "string"
+        ? notification.event.broadcaster_user_login
+        : fallbackLogin || ""
+    )
+  )
 }
 
 function buildSyncKey({
@@ -71,11 +107,17 @@ export function useTwitchEventSub({
   syncedChannelsRef,
   selfStatesRef,
   onAuthFailure,
+  pushComposerNotice,
+  dismissComposerNotice,
+  trimRoomTimeline,
 }: UseTwitchEventSubOptions) {
   const { rooms, roomsRef, updateRoom } = roomStore
   const client = React.useMemo(() => getTwitchEventSubClient(), [])
   const accountRef = React.useRef(account)
   const onAuthFailureRef = React.useRef(onAuthFailure)
+  const pushComposerNoticeRef = React.useRef(pushComposerNotice)
+  const dismissComposerNoticeRef = React.useRef(dismissComposerNotice)
+  const trimRoomTimelineRef = React.useRef(trimRoomTimeline)
   const lastSyncKeyRef = React.useRef("")
 
   React.useLayoutEffect(() => {
@@ -85,6 +127,18 @@ export function useTwitchEventSub({
   React.useLayoutEffect(() => {
     onAuthFailureRef.current = onAuthFailure
   }, [onAuthFailure])
+
+  React.useLayoutEffect(() => {
+    pushComposerNoticeRef.current = pushComposerNotice
+  }, [pushComposerNotice])
+
+  React.useLayoutEffect(() => {
+    dismissComposerNoticeRef.current = dismissComposerNotice
+  }, [dismissComposerNotice])
+
+  React.useLayoutEffect(() => {
+    trimRoomTimelineRef.current = trimRoomTimeline
+  }, [trimRoomTimeline])
 
   const syncDesiredSubscriptions = React.useCallback(() => {
     const currentAccount = accountRef.current
@@ -132,12 +186,13 @@ export function useTwitchEventSub({
     )
   }, [client, roomsRef, selfStatesRef, syncedChannelsRef])
 
-  const appendModerateSystemMessage = React.useCallback(
+  const appendSystemMessage = React.useCallback(
     (
       channelLogin: string,
       message: TwitchSystemMessage,
-      targetNames: string[]
+      options?: { replaceAnonymousTargets?: string[] }
     ) => {
+      const targetNames = options?.replaceAnonymousTargets ?? []
       updateRoom(channelLogin, (room) => {
         const withoutAnonymous =
           targetNames.length === 0
@@ -152,7 +207,8 @@ export function useTwitchEventSub({
         if (
           withoutAnonymous.some(
             (entry) =>
-              entry.kind === "system" && entry.message.id === message.id
+              (entry.kind === "system" || entry.kind === "automod") &&
+              entry.message.id === message.id
           )
         ) {
           if (withoutAnonymous === room.timeline) {
@@ -163,60 +219,262 @@ export function useTwitchEventSub({
 
         return {
           ...room,
-          timeline: [
+          timeline: trimRoomTimelineRef.current([
             ...withoutAnonymous,
             { kind: "system" as const, message },
-          ],
+          ]),
         }
       })
     },
     [updateRoom]
   )
 
-  const appendModerateSystemMessageRef = React.useRef(
-    appendModerateSystemMessage
-  )
+  const appendSystemMessageRef = React.useRef(appendSystemMessage)
   React.useLayoutEffect(() => {
-    appendModerateSystemMessageRef.current = appendModerateSystemMessage
-  }, [appendModerateSystemMessage])
+    appendSystemMessageRef.current = appendSystemMessage
+  }, [appendSystemMessage])
+
+  const upsertAutomodHeldMessage = React.useCallback(
+    (channelLogin: string, held: ReturnType<typeof parseAutomodHeldMessage>) => {
+      if (!held) return
+      updateRoom(channelLogin, (room) => {
+        const existingIndex = room.timeline.findIndex(
+          (entry) => entry.kind === "automod" && entry.message.id === held.id
+        )
+        if (existingIndex >= 0) {
+          const existing = room.timeline[existingIndex]
+          if (existing?.kind !== "automod") return room
+          if (existing.message.status !== "pending") {
+            return room
+          }
+          const next = room.timeline.slice()
+          next[existingIndex] = { kind: "automod", message: held }
+          return { ...room, timeline: trimRoomTimelineRef.current(next) }
+        }
+
+        return {
+          ...room,
+          timeline: trimRoomTimelineRef.current([
+            ...room.timeline,
+            { kind: "automod" as const, message: held },
+          ]),
+        }
+      })
+    },
+    [updateRoom]
+  )
+
+  const resolveAutomodHeldMessageStatus = React.useCallback(
+    (
+      channelLogin: string,
+      messageId: string,
+      status: TwitchAutomodHeldStatus
+    ) => {
+      const timelineId = automodHeldTimelineId(channelLogin, messageId)
+      updateRoom(channelLogin, (room) => {
+        const existingIndex = room.timeline.findIndex(
+          (entry) => entry.kind === "automod" && entry.message.id === timelineId
+        )
+        if (existingIndex < 0) {
+          return room
+        }
+
+        const existing = room.timeline[existingIndex]
+        if (existing?.kind !== "automod" || existing.message.status !== "pending") {
+          return room
+        }
+
+        const next = room.timeline.slice()
+        next[existingIndex] = {
+          kind: "automod",
+          message: { ...existing.message, status },
+        }
+        return { ...room, timeline: next }
+      })
+    },
+    [updateRoom]
+  )
+
+  const removeAutomodHeldMessage = React.useCallback(
+    (channelLogin: string, messageId: string) => {
+      const timelineId = automodHeldTimelineId(channelLogin, messageId)
+      updateRoom(channelLogin, (room) => {
+        const next = room.timeline.filter(
+          (entry) =>
+            !(entry.kind === "automod" && entry.message.id === timelineId)
+        )
+        if (next.length === room.timeline.length) {
+          return room
+        }
+        return { ...room, timeline: next }
+      })
+    },
+    [updateRoom]
+  )
+
+  const upsertAutomodHeldMessageRef = React.useRef(upsertAutomodHeldMessage)
+  const resolveAutomodHeldMessageStatusRef = React.useRef(
+    resolveAutomodHeldMessageStatus
+  )
+  const removeAutomodHeldMessageRef = React.useRef(removeAutomodHeldMessage)
+  React.useLayoutEffect(() => {
+    upsertAutomodHeldMessageRef.current = upsertAutomodHeldMessage
+    resolveAutomodHeldMessageStatusRef.current = resolveAutomodHeldMessageStatus
+    removeAutomodHeldMessageRef.current = removeAutomodHeldMessage
+  }, [
+    removeAutomodHeldMessage,
+    resolveAutomodHeldMessageStatus,
+    upsertAutomodHeldMessage,
+  ])
 
   React.useEffect(() => {
     client.setHandlers({
       onNotification: (notification: TwitchEventSubNotification) => {
-        if (notification.subscriptionType !== "channel.moderate") {
+        const type = notification.subscriptionType
+
+        if (type === "channel.moderate") {
+          const channelLogin = resolveChannelLogin(notification, null)
+          if (
+            !channelLogin ||
+            !syncedChannelsRef.current.includes(channelLogin)
+          ) {
+            return
+          }
+
+          const roomId = roomsRef.current[channelLogin]?.roomId ?? null
+          const message = createSystemMessageFromChannelModerate({
+            event: notification.event,
+            channelLogin,
+            roomId,
+            messageId: notification.messageId,
+            messageTimestamp: notification.messageTimestamp,
+          })
+          if (!message) return
+
+          appendSystemMessageRef.current(channelLogin, message, {
+            replaceAnonymousTargets: extractModerateTargetNames(
+              notification.event
+            ),
+          })
           return
         }
 
-        const channelLogin =
-          notification.channelLogin ||
-          normalizeChannelLogin(
-            typeof notification.event.broadcaster_user_login === "string"
-              ? notification.event.broadcaster_user_login
-              : ""
+        if (type === "automod.message.hold") {
+          const channelLogin = resolveChannelLogin(notification, null)
+          if (
+            !channelLogin ||
+            !syncedChannelsRef.current.includes(channelLogin)
+          ) {
+            return
+          }
+
+          const roomId = roomsRef.current[channelLogin]?.roomId ?? null
+          const held = parseAutomodHeldMessage({
+            event: notification.event,
+            channelLogin,
+            roomId,
+            status: "pending",
+          })
+          if (!held) return
+          upsertAutomodHeldMessageRef.current(channelLogin, held)
+          return
+        }
+
+        if (type === "automod.message.update") {
+          const update = parseAutomodUpdateStatus(notification.event)
+          if (!update) return
+
+          const channelLogin = resolveChannelLogin(
+            notification,
+            update.channelLogin
           )
+          if (
+            !channelLogin ||
+            !syncedChannelsRef.current.includes(channelLogin)
+          ) {
+            return
+          }
 
-        if (
-          !channelLogin ||
-          !syncedChannelsRef.current.includes(channelLogin)
-        ) {
+          if (update.status === "expired") {
+            resolveAutomodHeldMessageStatusRef.current(
+              channelLogin,
+              update.messageId,
+              "expired"
+            )
+            return
+          }
+
+          removeAutomodHeldMessageRef.current(channelLogin, update.messageId)
           return
         }
 
-        const roomId = roomsRef.current[channelLogin]?.roomId ?? null
-        const message = createSystemMessageFromChannelModerate({
-          event: notification.event,
-          channelLogin,
-          roomId,
-          messageId: notification.messageId,
-          messageTimestamp: notification.messageTimestamp,
-        })
-        if (!message) return
+        if (type === "channel.chat.user_message_hold") {
+          const hold = parseUserMessageHoldEvent(notification.event)
+          if (!hold) return
 
-        appendModerateSystemMessageRef.current(
-          channelLogin,
-          message,
-          extractModerateTargetNames(notification.event)
-        )
+          const channelLogin = resolveChannelLogin(
+            notification,
+            hold.channelLogin
+          )
+          if (
+            !channelLogin ||
+            !syncedChannelsRef.current.includes(channelLogin)
+          ) {
+            return
+          }
+
+          const notice = createUserAutomodHeldNotice({
+            channelLogin,
+            messageId: hold.messageId,
+          })
+          if (!notice) return
+          pushComposerNoticeRef.current?.({
+            channel: channelLogin,
+            message: notice.message,
+            id: notice.id,
+            discardPending: true,
+          })
+          return
+        }
+
+        if (type === "channel.chat.user_message_update") {
+          const update = parseUserMessageUpdateEvent(notification.event)
+          if (!update) return
+
+          const channelLogin = resolveChannelLogin(
+            notification,
+            update.channelLogin
+          )
+          if (
+            !channelLogin ||
+            !syncedChannelsRef.current.includes(channelLogin)
+          ) {
+            return
+          }
+
+          const heldNoticeId = userAutomodHeldNoticeId(
+            channelLogin,
+            update.messageId
+          )
+          if (heldNoticeId) {
+            dismissComposerNoticeRef.current?.({
+              channel: channelLogin,
+              id: heldNoticeId,
+            })
+          }
+
+          const roomId =
+            roomsRef.current[channelLogin]?.roomId ?? update.broadcasterUserId
+          const message = createUserAutomodUpdateSystemMessage({
+            channelLogin,
+            roomId,
+            messageId: update.messageId,
+            status: update.status,
+            receivedAt: notification.messageTimestamp,
+          })
+          if (!message) return
+          appendSystemMessageRef.current(channelLogin, message)
+        }
       },
     })
 

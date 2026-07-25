@@ -4,6 +4,7 @@ import type { TwitchChatMessage } from "@/lib/twitch/twitch-chat"
 type TimelineEntry =
   | { kind: "chat"; message: TwitchChatMessage }
   | { kind: "system"; message: { id: string } }
+  | { kind: "automod"; message: { id: string } }
 
 const EMPTY_RECENT_USER_MESSAGES: TwitchChatMessage[] = []
 

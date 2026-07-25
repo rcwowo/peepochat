@@ -100,6 +100,7 @@
   --chat-announcement-background: oklch(0.96 0.003 325.6 / 55%);
   --chat-notice-sub-border: #9146ff;
   --chat-notice-raid-border: #eb0400;
+  --chat-automod-border: #eb0400;
 }
 
 .dark {
@@ -148,6 +149,7 @@
   --chat-announcement-background: oklch(0.22 0.018 322.12 / 55%);
   --chat-notice-sub-border: #bf94ff;
   --chat-notice-raid-border: #ff6b6b;
+  --chat-automod-border: #ff6b6b;
 }
 
 @layer base {

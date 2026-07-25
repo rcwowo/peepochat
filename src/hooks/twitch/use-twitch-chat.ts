@@ -142,6 +142,9 @@ export function useTwitchChat(options?: {
     syncedChannelsRef,
     selfStatesRef,
     onAuthFailure,
+    pushComposerNotice: send.pushComposerNotice,
+    dismissComposerNotice: send.dismissComposerNotice,
+    trimRoomTimeline: timeline.trimWithLimit,
   })
 
   const notifySelfStateChangedRef = React.useRef(

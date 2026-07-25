@@ -95,6 +95,57 @@ export function useChatSend({
     [sendOutcomeListenersRef]
   )
 
+  const pushComposerNotice = React.useCallback(
+    (notice: {
+      channel: string
+      message: string
+      id: string
+      discardPending?: boolean
+    }) => {
+      const login = normalizeChannelLogin(notice.channel)
+      if (!login || !syncedChannelsRef.current.includes(login)) {
+        return
+      }
+
+      if (notice.discardPending) {
+        const pending = pendingSendRef.current
+        if (
+          pending &&
+          pending.channel === login &&
+          Date.now() - pending.recordedAt < 5_000
+        ) {
+          rateLimiterRef.current.unrecordLast(login)
+          pendingSendRef.current = null
+        }
+      }
+
+      emitSendOutcome({
+        type: "notice",
+        channel: login,
+        message: notice.message,
+        id: notice.id,
+        discardPending: notice.discardPending,
+      })
+    },
+    [emitSendOutcome, pendingSendRef, rateLimiterRef, syncedChannelsRef]
+  )
+
+  const dismissComposerNotice = React.useCallback(
+    (notice: { channel: string; id: string }) => {
+      const login = normalizeChannelLogin(notice.channel)
+      if (!login || !syncedChannelsRef.current.includes(login)) {
+        return
+      }
+
+      emitSendOutcome({
+        type: "dismiss-notice",
+        channel: login,
+        id: notice.id,
+      })
+    },
+    [emitSendOutcome, syncedChannelsRef]
+  )
+
   const clearSendBlockTimer = React.useCallback(
     (login: string) => {
       const timer = sendBlockTimersRef.current.get(login)
@@ -374,6 +425,8 @@ export function useChatSend({
     pendingSendRef,
     emitSendOutcome,
     registerSendOutcomeListener,
+    pushComposerNotice,
+    dismissComposerNotice,
     clearSendBlockTimer,
     clearChannelSendBlock,
     clearAllSendBlocks,

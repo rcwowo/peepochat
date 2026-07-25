@@ -2,12 +2,40 @@ import type { ChannelProfileHint } from "@/lib/chat/chat-emote-catalog"
 import type {
   TwitchBadge,
   TwitchChatMessage,
+  TwitchEmote,
   TwitchSystemMessage,
 } from "@/lib/twitch/twitch-chat"
+
+export type TwitchAutomodHeldStatus =
+  | "pending"
+  | "approved"
+  | "denied"
+  | "expired"
+
+export type TwitchAutomodHeldMessage = {
+  id: string
+  messageId: string
+  channel: string
+  roomId: string | null
+  userId: string
+  userName: string
+  displayName: string
+  text: string
+  emotes: TwitchEmote[]
+  color: string | null
+  receivedAt: string
+  heldAt: string
+  status: TwitchAutomodHeldStatus
+}
 
 export type TwitchTimelineItem =
   | { kind: "chat"; message: TwitchChatMessage; isHistorical?: boolean }
   | { kind: "system"; message: TwitchSystemMessage; isHistorical?: boolean }
+  | {
+      kind: "automod"
+      message: TwitchAutomodHeldMessage
+      isHistorical?: boolean
+    }
 
 export type TwitchChatRoomState = {
   login: string

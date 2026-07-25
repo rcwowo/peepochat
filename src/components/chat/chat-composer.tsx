@@ -1,6 +1,5 @@
 import * as React from "react"
-import { AlertCircleIcon, SendHorizontalIcon, XIcon } from "lucide-react"
-import { toast } from "sonner"
+import { InfoIcon, SendHorizontalIcon, XIcon } from "lucide-react"
 
 import { ChatSuggestions } from "@/components/chat/chat-suggestions"
 import { CommandSuggestions } from "@/components/chat/command-suggestions"
@@ -11,7 +10,10 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { usePeepochat } from "@/lib/peepochat/peepochat-context"
 import { CHAT_RATE_LIMIT_MESSAGES } from "@/lib/chat/chat-send"
-import { isPersistentSendBlockText } from "@/lib/chat/chat-send-notice"
+import {
+  isAutomodHoldNoticeText,
+  isPersistentSendBlockText,
+} from "@/lib/chat/chat-send-notice"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 import type { TwitchChatReply } from "@/lib/twitch/twitch-chat"
 import { maskReplyForBlockedUser } from "@/lib/twitch/blocked-users"
@@ -46,6 +48,11 @@ import {
 
 const MESSAGE_LIMIT = 500
 
+type ComposerNotice = {
+  id: string
+  message: string
+}
+
 type ChatComposerProps = {
   channelLogin: string
   joined?: boolean
@@ -75,8 +82,33 @@ export function ChatComposer({
   const userCardContext = useUserCardContext()
 
   const [value, setValue] = React.useState("")
-  const [error, setError] = React.useState("")
+  const [notices, setNotices] = React.useState<ComposerNotice[]>([])
+  const [noticesChannel, setNoticesChannel] = React.useState(channelLogin)
   const [rateLimitHint, setRateLimitHint] = React.useState<string | null>(null)
+  const noticeIdRef = React.useRef(0)
+
+  if (noticesChannel !== channelLogin) {
+    setNoticesChannel(channelLogin)
+    setNotices([])
+  }
+
+  const pushNotice = React.useCallback((notice: ComposerNotice) => {
+    setNotices((current) => {
+      if (current.some((entry) => entry.id === notice.id)) {
+        return current
+      }
+      return [...current, notice]
+    })
+  }, [])
+
+  const dismissFrontNotice = React.useCallback(() => {
+    setNotices((current) => current.slice(1))
+  }, [])
+
+  const dismissNoticeById = React.useCallback((id: string) => {
+    setNotices((current) => current.filter((entry) => entry.id !== id))
+  }, [])
+
   const [reply, setReply] = React.useState<TwitchChatReply | null>(null)
   const displayReply = React.useMemo(() => {
     if (!reply) {
@@ -175,13 +207,6 @@ export function ChatComposer({
           : `Message #${channelLogin}`
 
   React.useEffect(() => {
-    if (!error) return
-
-    const timeout = window.setTimeout(() => setError(""), 5000)
-    return () => window.clearTimeout(timeout)
-  }, [error])
-
-  React.useEffect(() => {
     if (!rateLimitHint) return
 
     const timeout = window.setTimeout(() => setRateLimitHint(null), 3000)
@@ -199,7 +224,6 @@ export function ChatComposer({
   const clearComposerUI = React.useCallback(() => {
     setValue("")
     setReply(null)
-    setError("")
     setRateLimitHint(null)
     setCompleter(createEmoteCompleterState())
     setCommandCompleter(createCommandCompleterState())
@@ -259,18 +283,44 @@ export function ChatComposer({
         return
       }
 
-      setError(
-        result.message ??
-          "Message could not be sent. Check your connection and login."
-      )
-      toast.error(result.message ?? "Failed to send message")
+      noticeIdRef.current += 1
+      pushNotice({
+        id: `send-error:${noticeIdRef.current}`,
+        message:
+          result.message ??
+          "Message could not be sent. Check your connection and login.",
+      })
     },
-    [clearComposerUI, clearPendingSend]
+    [clearComposerUI, clearPendingSend, pushNotice]
   )
 
   React.useEffect(() => {
     return registerSendOutcomeListener((event) => {
       const normalizedChannel = normalizeChannelLogin(channelLogin)
+
+      if (event.type === "dismiss-notice") {
+        if (normalizeChannelLogin(event.channel) !== normalizedChannel) {
+          return
+        }
+        dismissNoticeById(event.id)
+        return
+      }
+
+      if (event.type === "notice") {
+        if (normalizeChannelLogin(event.channel) !== normalizedChannel) {
+          return
+        }
+
+        if (event.discardPending) {
+          clearPendingSend()
+        }
+
+        pushNotice({
+          id: event.id,
+          message: event.message,
+        })
+        return
+      }
 
       if (event.type === "rejected") {
         if (normalizeChannelLogin(event.channel) !== normalizedChannel) {
@@ -283,13 +333,20 @@ export function ChatComposer({
           return
         }
 
+        if (isAutomodHoldNoticeText(event.message)) {
+          return
+        }
+
         if (pending) {
           setValue(pending.composerMessage)
           setReply(pending.reply)
         }
 
-        setError(event.message)
-        toast.error(event.message)
+        noticeIdRef.current += 1
+        pushNotice({
+          id: `rejected:${noticeIdRef.current}`,
+          message: event.message,
+        })
         return
       }
 
@@ -312,7 +369,13 @@ export function ChatComposer({
 
       clearPendingSend()
     })
-  }, [channelLogin, clearPendingSend, registerSendOutcomeListener])
+  }, [
+    channelLogin,
+    clearPendingSend,
+    dismissNoticeById,
+    pushNotice,
+    registerSendOutcomeListener,
+  ])
 
   React.useEffect(() => {
     clearPendingSend()
@@ -827,15 +890,10 @@ export function ChatComposer({
     }
   }
 
+  const activeNotice = !sendBlock ? (notices[0] ?? null) : null
+
   return (
     <div className="shrink-0">
-      {error && !sendBlock ? (
-        <div className="flex items-start gap-2 px-3 py-2 text-sm text-muted-foreground">
-          <AlertCircleIcon className="mt-0.5 size-4 shrink-0 text-amber-500" />
-          <p>{error}</p>
-        </div>
-      ) : null}
-
       {displayReply ? (
         <div className="px-2 pt-2">
           <div className="flex items-start justify-between gap-2 rounded-md border border-border/60 bg-muted/20 px-2 py-1.5">
@@ -884,46 +942,74 @@ export function ChatComposer({
               completeSuggestion(suggestion, { reset: true })
             }
           />
-          <Textarea
-            ref={inputRef}
-            value={value}
-            disabled={disabled}
-            maxLength={MESSAGE_LIMIT}
-            placeholder={placeholder}
-            autoCapitalize="off"
-            autoCorrect="off"
-            spellCheck={false}
-            rows={1}
-            className="field-sizing-fixed max-h-40 min-h-9 resize-none overflow-y-hidden border-border/50 bg-background/40 py-2 pr-10 text-sm leading-5 shadow-none backdrop-blur-sm focus-visible:ring-1 focus-visible:ring-border/40 dark:bg-input/30"
-            onChange={(event) => {
-              const nextValue = event.target.value
-              setValue(nextValue)
+          <div className="overflow-hidden rounded-lg border border-border/50 bg-background/40 shadow-none backdrop-blur-sm focus-within:border-border/40 focus-within:ring-1 focus-within:ring-border/40 dark:bg-input/30">
+            {activeNotice ? (
+              <div className="flex items-center gap-2 border-b border-border/50 px-2.5 py-1.5">
+                <InfoIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                <p className="min-w-0 flex-1 text-[11px] leading-snug text-muted-foreground">
+                  {activeNotice.message}
+                </p>
+                {notices.length > 1 ? (
+                  <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground/70">
+                    1/{notices.length}
+                  </span>
+                ) : null}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="xs"
+                  className="h-5 shrink-0 px-2 text-[11px]"
+                  onClick={dismissFrontNotice}
+                >
+                  Dismiss
+                </Button>
+              </div>
+            ) : null}
+            <div className="relative">
+              <Textarea
+                ref={inputRef}
+                value={value}
+                disabled={disabled}
+                maxLength={MESSAGE_LIMIT}
+                placeholder={placeholder}
+                autoCapitalize="off"
+                autoCorrect="off"
+                spellCheck={false}
+                rows={1}
+                className="field-sizing-fixed max-h-40 min-h-9 resize-none overflow-y-hidden rounded-none border-0 bg-transparent py-2 pr-10 text-sm leading-5 shadow-none focus-visible:border-transparent focus-visible:ring-0 dark:bg-transparent"
+                onChange={(event) => {
+                  const nextValue = event.target.value
+                  setValue(nextValue)
 
-              const cursor = event.target.selectionStart ?? nextValue.length
-              updateCompleters(nextValue, cursor)
-            }}
-            onKeyDown={handleKeyDown}
-            onSelect={(event) => {
-              const cursor = event.currentTarget.selectionStart ?? value.length
-              updateCompleters(event.currentTarget.value, cursor)
-            }}
-            onClick={(event) => {
-              const cursor = event.currentTarget.selectionStart ?? value.length
-              updateCompleters(event.currentTarget.value, cursor)
-            }}
-          />
+                  const cursor = event.target.selectionStart ?? nextValue.length
+                  updateCompleters(nextValue, cursor)
+                }}
+                onKeyDown={handleKeyDown}
+                onSelect={(event) => {
+                  const cursor =
+                    event.currentTarget.selectionStart ?? value.length
+                  updateCompleters(event.currentTarget.value, cursor)
+                }}
+                onClick={(event) => {
+                  const cursor =
+                    event.currentTarget.selectionStart ?? value.length
+                  updateCompleters(event.currentTarget.value, cursor)
+                }}
+              />
 
-          <EmotePicker
-            catalog={catalog}
-            loading={emotesLoading}
-            disabled={disabled}
-            onSelect={(code) => {
-              setValue((current) => insertEmoteAtEnd(current, code))
-              setCompleter(createEmoteCompleterState())
-              setCommandCompleter(createCommandCompleterState())
-              inputRef.current?.focus()
-            }}
-          />
+              <EmotePicker
+                catalog={catalog}
+                loading={emotesLoading}
+                disabled={disabled}
+                onSelect={(code) => {
+                  setValue((current) => insertEmoteAtEnd(current, code))
+                  setCompleter(createEmoteCompleterState())
+                  setCommandCompleter(createCommandCompleterState())
+                  inputRef.current?.focus()
+                }}
+              />
+            </div>
+          </div>
         </div>
 
         <Button

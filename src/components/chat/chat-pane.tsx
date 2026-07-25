@@ -12,6 +12,7 @@ import { ChatHoverTooltipProvider } from "@/components/chat/chat-hover-tooltip"
 import { EmoteCardProvider } from "@/components/chat/emote-card-context"
 import { UserCardProvider } from "@/components/chat/user-card-context"
 import type { UserCardTarget } from "@/lib/chat/user-card"
+import { ChatAutomodMessage } from "@/components/chat/chat-automod-message"
 import { ChatMessageRow } from "@/components/chat/chat-message-row"
 import { ChatSystemMessage } from "@/components/chat/chat-system-message"
 import {
@@ -379,6 +380,19 @@ function ChatPaneInner({
                             key={entry.message.id}
                             message={entry.message}
                             timestampFormat={timestampFormat}
+                            isHistorical={entry.isHistorical}
+                            isAlternateRow={isAlternateRow}
+                          />
+                        )
+                      }
+
+                      if (entry.kind === "automod") {
+                        return (
+                          <ChatAutomodMessage
+                            key={entry.message.id}
+                            message={entry.message}
+                            timestampFormat={timestampFormat}
+                            account={account}
                             isHistorical={entry.isHistorical}
                             isAlternateRow={isAlternateRow}
                           />

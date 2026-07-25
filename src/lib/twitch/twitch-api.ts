@@ -1099,6 +1099,42 @@ export async function deleteTwitchChatMessage({
   }
 }
 
+export async function manageHeldAutomodMessage({
+  moderatorUserId,
+  msgId,
+  action,
+  accessToken,
+  clientId,
+}: {
+  moderatorUserId: string
+  msgId: string
+  action: "ALLOW" | "DENY"
+  accessToken: string
+  clientId: string
+}): Promise<void> {
+  const response = await devLoggedFetch(
+    "https://api.twitch.tv/helix/moderation/automod/message",
+    {
+      method: "POST",
+      headers: helixJsonHeaders(accessToken, clientId),
+      body: JSON.stringify({
+        user_id: moderatorUserId,
+        msg_id: msgId,
+        action,
+      }),
+    }
+  )
+
+  if (!response.ok) {
+    await throwTwitchApiError(
+      response,
+      action === "ALLOW"
+        ? "Could not approve AutoMod message."
+        : "Could not deny AutoMod message."
+    )
+  }
+}
+
 export async function clearTwitchChat({
   broadcasterId,
   moderatorId,

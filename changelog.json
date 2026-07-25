@@ -1,5 +1,15 @@
 [
     {
+        "version": "1.1.0",
+        "date": "2026-08-01",
+        "items": [
+            "Added support for Automod actions and held messages.",
+            "Added support for real-time 7TV updates, like new emotes or emote set swaps.",
+            "Added detailed moderation actions when the user is a moderator.",
+            "Redesigned alerts like subs, announcements, and raids to look better."
+        ]
+    },
+    {
         "version": "1.0.3",
         "date": "2026-07-20",
         "items": [
