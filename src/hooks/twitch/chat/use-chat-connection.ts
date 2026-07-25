@@ -63,6 +63,9 @@ type UseChatConnectionOptions = {
   sendClientRef: React.MutableRefObject<TwitchChatClient | null>
   selfStatesRef: React.MutableRefObject<Map<string, TwitchSelfChatState>>
   appendLog: (text: string) => void
+  onSelfStateChangedRef?: React.RefObject<
+    ((state: TwitchSelfChatState) => void) | null
+  >
 }
 
 export function useChatConnection({
@@ -77,6 +80,7 @@ export function useChatConnection({
   sendClientRef,
   selfStatesRef,
   appendLog,
+  onSelfStateChangedRef,
 }: UseChatConnectionOptions) {
   const { commitRooms, updateRoom, ensureRooms, removeRooms, clearAllRooms, roomsRef } =
     roomStore
@@ -135,8 +139,9 @@ export function useChatConnection({
         isSubscriber: state.isSubscriber,
         isVip: state.isVip,
       }
+      onSelfStateChangedRef?.current?.(state)
     },
-    [selfStatesRef, senderStateRef]
+    [onSelfStateChangedRef, selfStatesRef, senderStateRef]
   )
 
   const getSelfChatState = React.useCallback(

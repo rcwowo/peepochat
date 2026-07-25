@@ -596,7 +596,7 @@ function LoginStep({
     flow === "import"
       ? "To finish importing this backup, you'll need to login again."
       : isReturningUser
-        ? "Your channels and settings are ready — just reconnect Twitch to jump back into chat."
+        ? "Your channels and settings are still here! Just reconnect Twitch to jump back into chat."
         : "Peepochat needs Twitch access to read and send chat. Everything else stays on this device."
 
   return (

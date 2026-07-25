@@ -31,6 +31,12 @@ export const TWITCH_OAUTH_SCOPE_GROUPS: TwitchOAuthScopeGroup[] = [
           "Send messages, replies, and chat commands from your account.",
       },
       {
+        scope: "user:read:chat",
+        label: "Chat events",
+        description:
+          "Receive EventSub events like mod actions or automod.",
+      },
+      {
         scope: "user:read:emotes",
         label: "Subscribed emotes",
         description: "Load emotes from channels you are subscribed to.",
@@ -62,6 +68,41 @@ export const TWITCH_OAUTH_SCOPE_GROUPS: TwitchOAuthScopeGroup[] = [
         label: "Chat settings",
         description:
           "Change slow mode, follower mode, and other chat settings.",
+      },
+      {
+        scope: "moderator:manage:automod",
+        label: "Automod queue",
+        description: "Receive Automod hold and review events as a moderator.",
+      },
+      {
+        scope: "moderator:read:blocked_terms",
+        label: "Blocked terms",
+        description: "Required to receive moderation EventSub actions.",
+      },
+      {
+        scope: "moderator:read:unban_requests",
+        label: "Unban requests",
+        description: "Required to receive moderation EventSub actions.",
+      },
+      {
+        scope: "moderator:read:moderators",
+        label: "View moderators",
+        description: "Required to receive moderation EventSub actions.",
+      },
+      {
+        scope: "moderator:read:vips",
+        label: "View VIPs",
+        description: "Required to receive moderation EventSub actions.",
+      },
+      {
+        scope: "moderator:read:suspicious_users",
+        label: "Suspicious users",
+        description: "Receive suspicious user and message EventSub events.",
+      },
+      {
+        scope: "moderator:read:warnings",
+        label: "Chat warnings",
+        description: "Required for moderation EventSub warnings support.",
       },
       {
         scope: "moderator:manage:announcements",

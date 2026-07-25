@@ -1469,6 +1469,107 @@ export async function sendTwitchWhisper({
   }
 }
 
+export type TwitchEventSubTransport = {
+  method: "websocket"
+  session_id: string
+}
+
+export type TwitchEventSubSubscriptionRequest = {
+  type: string
+  version: string
+  condition: Record<string, string>
+  transport: TwitchEventSubTransport
+}
+
+export type TwitchEventSubSubscription = {
+  id: string
+  status: string
+  type: string
+  version: string
+  condition: Record<string, string>
+  createdAt: string
+}
+
+export async function createTwitchEventSubSubscription({
+  accessToken,
+  clientId,
+  subscription,
+}: {
+  accessToken: string
+  clientId: string
+  subscription: TwitchEventSubSubscriptionRequest
+}): Promise<TwitchEventSubSubscription> {
+  const response = await devLoggedFetch(
+    "https://api.twitch.tv/helix/eventsub/subscriptions",
+    {
+      method: "POST",
+      headers: helixJsonHeaders(accessToken, clientId),
+      body: JSON.stringify(subscription),
+    }
+  )
+
+  if (!response.ok) {
+    await throwTwitchApiError(
+      response,
+      `Could not create EventSub subscription (${subscription.type}).`
+    )
+  }
+
+  const payload = (await response.json()) as {
+    data?: Array<{
+      id: string
+      status: string
+      type: string
+      version: string
+      condition?: Record<string, string>
+      created_at: string
+    }>
+  }
+
+  const created = payload.data?.[0]
+  if (!created) {
+    throw new TwitchApiError(
+      `EventSub subscription response was empty (${subscription.type}).`,
+      500
+    )
+  }
+
+  return {
+    id: created.id,
+    status: created.status,
+    type: created.type,
+    version: created.version,
+    condition: created.condition ?? subscription.condition,
+    createdAt: created.created_at,
+  }
+}
+
+export async function deleteTwitchEventSubSubscription({
+  accessToken,
+  clientId,
+  subscriptionId,
+}: {
+  accessToken: string
+  clientId: string
+  subscriptionId: string
+}): Promise<void> {
+  const params = new URLSearchParams({ id: subscriptionId })
+  const response = await devLoggedFetch(
+    `https://api.twitch.tv/helix/eventsub/subscriptions?${params.toString()}`,
+    {
+      method: "DELETE",
+      headers: helixHeaders(accessToken, clientId),
+    }
+  )
+
+  if (!response.ok && response.status !== 404) {
+    await throwTwitchApiError(
+      response,
+      "Could not delete EventSub subscription."
+    )
+  }
+}
+
 function helixHeaders(accessToken: string, clientId: string): HeadersInit {
   return {
     Authorization: `Bearer ${accessToken}`,

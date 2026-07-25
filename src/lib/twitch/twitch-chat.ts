@@ -959,13 +959,16 @@ export function createClearChatModActionMessage(
     return null
   }
 
-  const durationSeconds = event.banDurationSeconds
-  if (durationSeconds == null || durationSeconds <= 0) {
-    return null
-  }
-
   const channel = normalizeChannelLogin(event.channel)
-  const text = `${targetUserName} was timed out for ${durationSeconds}s.`
+  const durationSeconds = event.banDurationSeconds
+  const isTimeout =
+    durationSeconds != null &&
+    Number.isFinite(durationSeconds) &&
+    durationSeconds > 0
+
+  const text = isTimeout
+    ? `${targetUserName} was timed out for ${durationSeconds}s.`
+    : `${targetUserName} was banned.`
 
   return {
     id: stableSystemMessageId(channel, "mod_action", text),
@@ -979,7 +982,130 @@ export function createClearChatModActionMessage(
     level: "info",
     accentColor: null,
     ...EMPTY_SYSTEM_MESSAGE_META,
-    banDurationSeconds: durationSeconds,
+    banDurationSeconds: isTimeout ? durationSeconds : null,
+  }
+}
+
+export type TwitchModerateActionKind =
+  | "timeout"
+  | "ban"
+  | "untimeout"
+  | "unban"
+
+export type TwitchModerateActionMessageInput = {
+  channelLogin: string
+  roomId?: string | null
+  action: TwitchModerateActionKind
+  moderatorUserName: string
+  moderatorDisplayName: string
+  targetUserName: string
+  targetDisplayName: string
+  banDurationSeconds?: number | null
+  messageId?: string | null
+  receivedAt?: string
+}
+
+function moderateActionDisplayName(
+  displayName: string,
+  userName: string
+): string {
+  const display = displayName.trim()
+  if (display) return display
+  return userName.trim()
+}
+
+export function isAnonymousBanTimeoutSystemMessage(
+  message: TwitchSystemMessage,
+  targetUserName: string
+): boolean {
+  if (message.event !== "mod_action" || message.actor) {
+    return false
+  }
+
+  const target = targetUserName.trim().toLowerCase()
+  if (!target) {
+    return false
+  }
+
+  const text = message.text.trim().toLowerCase()
+  if (text === `${target} was banned.`) {
+    return true
+  }
+
+  const timeoutPrefix = `${target} was timed out for `
+  return text.startsWith(timeoutPrefix) && / for \d+s\.$/.test(text)
+}
+
+export function createModerateActionMessage(
+  input: TwitchModerateActionMessageInput
+): TwitchSystemMessage | null {
+  const channel = normalizeChannelLogin(input.channelLogin)
+  const moderator = moderateActionDisplayName(
+    input.moderatorDisplayName,
+    input.moderatorUserName
+  )
+  const target = moderateActionDisplayName(
+    input.targetDisplayName,
+    input.targetUserName
+  )
+  if (!channel || !moderator || !target) {
+    return null
+  }
+
+  let text: string
+  let banDurationSeconds: number | null = null
+
+  switch (input.action) {
+    case "timeout": {
+      const durationSeconds = input.banDurationSeconds
+      if (
+        durationSeconds != null &&
+        Number.isFinite(durationSeconds) &&
+        durationSeconds > 0
+      ) {
+        banDurationSeconds = Math.floor(durationSeconds)
+        text = `${moderator} timed out ${target} for ${banDurationSeconds}s.`
+      } else {
+        text = `${moderator} timed out ${target}.`
+      }
+      break
+    }
+    case "ban":
+      text = `${moderator} banned ${target}.`
+      break
+    case "untimeout":
+      text = `${moderator} removed ${target}'s timeout.`
+      break
+    case "unban":
+      text = `${moderator} unbanned ${target}.`
+      break
+    default:
+      return null
+  }
+
+  const receivedAt = input.receivedAt ?? new Date().toISOString()
+  const id = input.messageId?.trim()
+    ? `${channel}:eventsub:mod_action:${input.messageId.trim()}`
+    : stableSystemMessageId(channel, "mod_action", text)
+
+  return {
+    id,
+    channel,
+    roomId: input.roomId ?? null,
+    text,
+    headline: text,
+    details: null,
+    receivedAt,
+    event: "mod_action",
+    level: "info",
+    accentColor: null,
+    ...EMPTY_SYSTEM_MESSAGE_META,
+    banDurationSeconds,
+    actor: {
+      userName: input.moderatorUserName.trim().toLowerCase(),
+      displayName: moderator,
+      color: null,
+    },
   }
 }
 

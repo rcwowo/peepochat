@@ -12,8 +12,14 @@ import { useRecentMessages } from "@/hooks/twitch/chat/use-recent-messages"
 import { useRoomStore } from "@/hooks/twitch/chat/use-room-store"
 import { useSevenTvLiveUpdates } from "@/hooks/twitch/chat/use-seventv-live-updates"
 import { useTimeline } from "@/hooks/twitch/chat/use-timeline"
+import { useTwitchEventSub } from "@/hooks/twitch/chat/use-twitch-eventsub"
 import { useLazyRef } from "@/hooks/use-lazy-ref"
-import type { TwitchChatClient, TwitchChatMessage } from "@/lib/twitch/twitch-chat"
+import type { TwitchAccount } from "@/lib/peepochat/peepochat-config"
+import type {
+  TwitchChatClient,
+  TwitchChatConnectOptions,
+  TwitchChatMessage,
+} from "@/lib/twitch/twitch-chat"
 import type { TwitchSelfChatState } from "@/lib/twitch/twitch-chat-types"
 
 export {
@@ -22,10 +28,14 @@ export {
 } from "@/hooks/twitch/chat/types"
 
 export function useTwitchChat(options?: {
+  account?: TwitchAccount | null
+  onAuthFailure?: (reason: "expired" | "scopes") => void
   onChatMessageRef?: React.RefObject<
     ((message: TwitchChatMessage) => void) | null
   >
 }) {
+  const account = options?.account ?? null
+  const onAuthFailure = options?.onAuthFailure
   const onChatMessageRef = options?.onChatMessageRef
 
   const hideBlockedUsersRef = React.useRef(true)
@@ -107,6 +117,9 @@ export function useTwitchChat(options?: {
     onSelfStateChannel: () => undefined,
     probeSendRestrictions: () => undefined,
   })
+  const onSelfStateChangedRef = React.useRef<
+    ((state: TwitchSelfChatState) => void) | null
+  >(null)
 
   const connection = useChatConnection({
     roomStore,
@@ -120,7 +133,53 @@ export function useTwitchChat(options?: {
     sendClientRef,
     selfStatesRef,
     appendLog,
+    onSelfStateChangedRef,
   })
+
+  const eventSub = useTwitchEventSub({
+    account,
+    roomStore,
+    syncedChannelsRef,
+    selfStatesRef,
+    onAuthFailure,
+  })
+
+  const notifySelfStateChangedRef = React.useRef(
+    eventSub.notifySelfStateChanged
+  )
+  const notifyChannelsChangedRef = React.useRef(eventSub.notifyChannelsChanged)
+  const syncChannelsBaseRef = React.useRef(connection.syncChannels)
+
+  React.useLayoutEffect(() => {
+    notifySelfStateChangedRef.current = eventSub.notifySelfStateChanged
+    notifyChannelsChangedRef.current = eventSub.notifyChannelsChanged
+    syncChannelsBaseRef.current = connection.syncChannels
+  }, [
+    connection.syncChannels,
+    eventSub.notifyChannelsChanged,
+    eventSub.notifySelfStateChanged,
+  ])
+
+  const lastSelfModFlagsRef = React.useRef(
+    new Map<string, { isModerator: boolean; isBroadcaster: boolean }>()
+  )
+  React.useLayoutEffect(() => {
+    onSelfStateChangedRef.current = (state) => {
+      const previous = lastSelfModFlagsRef.current.get(state.channel)
+      const next = {
+        isModerator: state.isModerator,
+        isBroadcaster: state.isBroadcaster,
+      }
+      lastSelfModFlagsRef.current.set(state.channel, next)
+      if (
+        !previous ||
+        previous.isModerator !== next.isModerator ||
+        previous.isBroadcaster !== next.isBroadcaster
+      ) {
+        notifySelfStateChangedRef.current()
+      }
+    }
+  }, [])
 
   const routing = useMessageRouting({
     roomStore,
@@ -172,6 +231,15 @@ export function useTwitchChat(options?: {
     send.probeSendRestrictions,
   ])
 
+  const syncChannels = React.useCallback(
+    (logins: string[], options?: TwitchChatConnectOptions) => {
+      const result = syncChannelsBaseRef.current(logins, options)
+      notifyChannelsChangedRef.current()
+      return result
+    },
+    []
+  )
+
   const setClearChatWhenInstructed = React.useCallback((enabled: boolean) => {
     clearChatWhenInstructedRef.current = enabled
   }, [])
@@ -191,7 +259,7 @@ export function useTwitchChat(options?: {
     connectionState: connection.connectionState,
     sendConnectionState: connection.sendConnectionState,
     logs,
-    syncChannels: connection.syncChannels,
+    syncChannels,
     subscribeToRoom: roomStore.subscribeToRoom,
     getRoom: roomStore.getRoom,
     getTimeline: roomStore.getTimeline,

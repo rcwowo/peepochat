@@ -166,6 +166,7 @@ export function useRoomStore() {
   )
 
   return {
+    rooms,
     roomsRef,
     commitRooms,
     updateRoom,

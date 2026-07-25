@@ -14,10 +14,18 @@ const OAUTH_CALLBACK_PARAM_KEYS = [
 /** Scopes for implicit grant (token in redirect fragment). */
 export const TWITCH_OAUTH_SCOPES = [
   "user:read:emotes",
+  "user:read:chat",
   "chat:read",
   "chat:edit",
   "moderation:read",
   "moderator:manage:banned_users",
+  "moderator:manage:automod",
+  "moderator:read:blocked_terms",
+  "moderator:read:unban_requests",
+  "moderator:read:moderators",
+  "moderator:read:vips",
+  "moderator:read:suspicious_users",
+  "moderator:read:warnings",
   "channel:manage:moderators",
   "moderator:manage:announcements",
   "moderator:manage:chat_settings",
@@ -98,6 +106,19 @@ export function startTwitchOAuthLogin(): void {
   }
 
   window.location.assign(buildTwitchAuthorizeUrl(clientId))
+}
+
+export function getMissingTwitchOAuthScopes(
+  grantedScopes: readonly string[] | null | undefined
+): string[] {
+  const granted = new Set(grantedScopes ?? [])
+  return TWITCH_OAUTH_SCOPES.filter((scope) => !granted.has(scope))
+}
+
+export function hasRequiredTwitchOAuthScopes(
+  grantedScopes: readonly string[] | null | undefined
+): boolean {
+  return getMissingTwitchOAuthScopes(grantedScopes).length === 0
 }
 
 function parseOAuthParams(input: string): URLSearchParams {

@@ -224,9 +224,15 @@ export function useMessageRouting({
           return false
         })
 
-        const modAction = createClearChatModActionMessage(event)
-        if (modAction) {
-          appendRoomSystemMessage(login, modAction)
+        const selfState = selfStatesRef.current.get(login)
+        const viewerCanModerate = Boolean(
+          selfState?.isModerator || selfState?.isBroadcaster
+        )
+        if (!viewerCanModerate) {
+          const modAction = createClearChatModActionMessage(event)
+          if (modAction) {
+            appendRoomSystemMessage(login, modAction)
+          }
         }
         return
       }

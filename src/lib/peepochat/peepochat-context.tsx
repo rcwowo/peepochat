@@ -239,11 +239,17 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     updateConfig,
     restoreBackup,
   } = usePeepochatConfig()
-  const { account, oauthBusy, login, logout, isOAuthConfigured } =
-    useTwitchAuth({
-      config,
-      updateConfig,
-    })
+  const {
+    account,
+    oauthBusy,
+    login,
+    logout,
+    invalidateSession,
+    isOAuthConfigured,
+  } = useTwitchAuth({
+    config,
+    updateConfig,
+  })
   const hasAccountValue = account !== null
   const onChatMessageRef = React.useRef<
     | ((message: import("@/lib/twitch/twitch-chat").TwitchChatMessage) => void)
@@ -282,7 +288,11 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     sendMessage,
     sendActionMessage,
     runChatCommand,
-  } = useTwitchChat({ onChatMessageRef })
+  } = useTwitchChat({
+    account,
+    onAuthFailure: invalidateSession,
+    onChatMessageRef,
+  })
   const {
     isBlocked,
     blockUser: blockUserBase,
