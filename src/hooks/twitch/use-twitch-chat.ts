@@ -18,12 +18,17 @@ import type {
   DeletedMessagesBehavior,
   TwitchAccount,
 } from "@/lib/peepochat/peepochat-config"
+import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 import type {
   TwitchChatClient,
   TwitchChatConnectOptions,
   TwitchChatMessage,
+  TwitchSystemMessage,
 } from "@/lib/twitch/twitch-chat"
-import type { TwitchSelfChatState } from "@/lib/twitch/twitch-chat-types"
+import type {
+  TwitchAutomodHeldMessage,
+  TwitchSelfChatState,
+} from "@/lib/twitch/twitch-chat-types"
 
 export {
   SYNC_CHANNELS_SUPERSEDED_MESSAGE,
@@ -280,6 +285,54 @@ export function useTwitchChat(options?: {
     ]
   )
 
+  const isChannelSynced = React.useCallback((login: string) => {
+    return syncedChannelsRef.current.includes(normalizeChannelLogin(login))
+  }, [])
+
+  const { routeMessageToRoom, routeSystemMessage } = routing
+  const { queueLiveRoomTimeline } = timeline
+
+  const injectChatMessage = React.useCallback(
+    (message: TwitchChatMessage) => {
+      const login = normalizeChannelLogin(message.channel)
+      if (!isChannelSynced(login)) {
+        return false
+      }
+
+      routeMessageToRoom(message)
+      return true
+    },
+    [isChannelSynced, routeMessageToRoom]
+  )
+
+  const injectSystemMessage = React.useCallback(
+    (message: TwitchSystemMessage) => {
+      const login = message.channel
+        ? normalizeChannelLogin(message.channel)
+        : null
+      if (login && !isChannelSynced(login)) {
+        return false
+      }
+
+      routeSystemMessage(message)
+      return true
+    },
+    [isChannelSynced, routeSystemMessage]
+  )
+
+  const injectAutomodHeldMessage = React.useCallback(
+    (login: string, message: TwitchAutomodHeldMessage) => {
+      const normalized = normalizeChannelLogin(login)
+      if (!isChannelSynced(normalized)) {
+        return false
+      }
+
+      queueLiveRoomTimeline(normalized, [{ kind: "automod", message }])
+      return true
+    },
+    [isChannelSynced, queueLiveRoomTimeline]
+  )
+
   return {
     connectionState: connection.connectionState,
     sendConnectionState: connection.sendConnectionState,
@@ -301,6 +354,9 @@ export function useTwitchChat(options?: {
     purgeMessagesFromBlockedUsers: timeline.purgeMessagesFromBlockedUsers,
     purgeMessagesFromUser: timeline.purgeMessagesFromUser,
     markChatMessageDeleted: routing.markChatMessageDeleted,
+    injectChatMessage,
+    injectSystemMessage,
+    injectAutomodHeldMessage,
     getComposerEmoteCatalog: emotes.getComposerEmoteCatalog,
     ensureComposerEmotes: emotes.ensureComposerEmotes,
     isComposerEmotesLoading: emotes.isComposerEmotesLoading,

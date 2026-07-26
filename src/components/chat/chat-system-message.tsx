@@ -267,7 +267,10 @@ function AnnouncementNotice({
             </>
           ) : null}
           {message.details ? (
-            <ChatMessageBody text={message.details} emotes={[]} />
+            <ChatMessageBody
+              text={message.details}
+              emotes={message.detailsEmotes ?? []}
+            />
           ) : (
             <span className="chat-message-text">{message.headline}</span>
           )}

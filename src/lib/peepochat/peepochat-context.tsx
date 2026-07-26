@@ -19,10 +19,15 @@ import {
 } from "@/hooks/twitch/use-twitch-chat"
 import type { TwitchChannelSendBlock } from "@/lib/chat/chat-send-notice"
 import type {
+  TwitchAutomodHeldMessage,
   TwitchChatRoomState,
   TwitchSelfChatState,
   TwitchTimelineItem,
 } from "@/lib/twitch/twitch-chat-types"
+import type {
+  TwitchChatMessage,
+  TwitchSystemMessage,
+} from "@/lib/twitch/twitch-chat"
 import {
   canShowDesktopNotifications,
   shouldShowDesktopNotification,
@@ -158,6 +163,12 @@ export type PeepochatChatContextValue = {
     input: string
   ) => Promise<import("@/lib/chat/chat-commands").ChatCommandResult>
   markChatMessageDeleted: (login: string, messageId: string) => void
+  injectChatMessage: (message: TwitchChatMessage) => boolean
+  injectSystemMessage: (message: TwitchSystemMessage) => boolean
+  injectAutomodHeldMessage: (
+    login: string,
+    message: TwitchAutomodHeldMessage
+  ) => boolean
   canSendChat: boolean
   hasBadgeSupport: boolean
   hideBlockedUsers: boolean
@@ -280,6 +291,9 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     purgeMessagesFromBlockedUsers,
     purgeMessagesFromUser,
     markChatMessageDeleted,
+    injectChatMessage,
+    injectSystemMessage,
+    injectAutomodHeldMessage,
     getComposerEmoteCatalog,
     ensureComposerEmotes,
     isComposerEmotesLoading,
@@ -835,6 +849,9 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       sendActionMessage,
       executeChatCommand,
       markChatMessageDeleted,
+      injectChatMessage,
+      injectSystemMessage,
+      injectAutomodHeldMessage,
       canSendChat,
       hasBadgeSupport,
       hideBlockedUsers: config.chat.hideBlockedUsers,
@@ -863,6 +880,9 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       sendActionMessage,
       executeChatCommand,
       markChatMessageDeleted,
+      injectChatMessage,
+      injectSystemMessage,
+      injectAutomodHeldMessage,
       canSendChat,
       hasBadgeSupport,
       config.chat.hideBlockedUsers,
