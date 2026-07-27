@@ -4,6 +4,7 @@ import {
   ClockIcon,
   CopyIcon,
   CornerUpLeftIcon,
+  MessageCirclePlusIcon,
   Trash2Icon,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -227,6 +228,76 @@ function ChatMessageRowInner({
     ]
   )
 
+  const messageContent = (
+    <>
+      {message.reply ? (
+        <div className="chat-reply mb-0.5">
+          <ChatReplyPreview reply={message.reply} />
+        </div>
+      ) : null}
+
+      <div className="chat-message-size min-w-0">
+        {timestamp ? (
+          <time
+            className="chat-timestamp mr-1.5 inline text-xs whitespace-nowrap tabular-nums select-none"
+            dateTime={message.receivedAt}
+          >
+            {timestamp}
+          </time>
+        ) : null}
+        <ChatBadgeList
+          badges={badges}
+          memberBadge={memberBadge}
+          unresolved={message.badges}
+          showFallback={showTwitchBadges && showBadgeFallback}
+        />
+        <UserCardPopover target={userCardTarget} />
+        {message.flags.isAction ? null : (
+          <span className="chat-colon text-muted-foreground">: </span>
+        )}
+        {isDeleted && deletedMessagesBehavior === "show-on-hover" ? (
+          <>
+            <span className="text-muted-foreground italic group-hover:hidden">
+              Message was deleted.
+            </span>
+            <span
+              className={cn(
+                "hidden group-hover:inline",
+                message.flags.isAction ? "chat-action italic" : undefined
+              )}
+              style={
+                message.flags.isAction && usernameColor
+                  ? { color: usernameColor }
+                  : undefined
+              }
+            >
+              <ChatMessageBody
+                text={message.text}
+                emotes={message.emotes}
+                pingMatchRange={pingHighlighted ? pingMatchRange : null}
+              />
+            </span>
+          </>
+        ) : (
+          <span
+            className={message.flags.isAction ? "chat-action italic" : "inline"}
+            style={
+              message.flags.isAction && usernameColor
+                ? { color: usernameColor }
+                : undefined
+            }
+          >
+            <ChatMessageBody
+              text={message.text}
+              emotes={message.emotes}
+              pingMatchRange={pingHighlighted ? pingMatchRange : null}
+            />
+          </span>
+        )}
+      </div>
+    </>
+  )
+
   return (
     <div
       className={cn(
@@ -350,71 +421,23 @@ function ChatMessageRowInner({
         </div>
       ) : null}
 
-      {message.reply ? (
-        <div className="chat-reply mb-0.5">
-          <ChatReplyPreview reply={message.reply} />
-        </div>
-      ) : null}
-
-      <div className="chat-message-size min-w-0">
-        {timestamp ? (
-          <time
-            className="chat-timestamp mr-1.5 inline text-xs whitespace-nowrap tabular-nums select-none"
-            dateTime={message.receivedAt}
-          >
-            {timestamp}
-          </time>
-        ) : null}
-        <ChatBadgeList
-          badges={badges}
-          memberBadge={memberBadge}
-          unresolved={message.badges}
-          showFallback={showTwitchBadges && showBadgeFallback}
-        />
-        <UserCardPopover target={userCardTarget} />
-        {message.flags.isAction ? null : (
-          <span className="chat-colon text-muted-foreground">: </span>
-        )}
-        {isDeleted && deletedMessagesBehavior === "show-on-hover" ? (
-          <>
-            <span className="text-muted-foreground italic group-hover:hidden">
-              Message was deleted.
-            </span>
-            <span
-              className={cn(
-                "hidden group-hover:inline",
-                message.flags.isAction ? "chat-action italic" : undefined
-              )}
-              style={
-                message.flags.isAction && usernameColor
-                  ? { color: usernameColor }
-                  : undefined
-              }
-            >
-              <ChatMessageBody
-                text={message.text}
-                emotes={message.emotes}
-                pingMatchRange={pingHighlighted ? pingMatchRange : null}
-              />
-            </span>
-          </>
-        ) : (
-          <span
-            className={message.flags.isAction ? "chat-action italic" : "inline"}
-            style={
-              message.flags.isAction && usernameColor
-                ? { color: usernameColor }
-                : undefined
-            }
-          >
-            <ChatMessageBody
-              text={message.text}
-              emotes={message.emotes}
-              pingMatchRange={pingHighlighted ? pingMatchRange : null}
+      {message.flags.isFirst ? (
+        <div className="chat-first-message -mx-3 border-l-4 border-[var(--chat-first-message-border)]">
+          <span className="chat-announcement-header flex items-center px-3 py-1 text-xs font-medium">
+            <MessageCirclePlusIcon
+              className="mr-2 size-3.5 shrink-0 text-[var(--chat-first-message-border)]"
+              aria-hidden
             />
+            First Message
           </span>
-        )}
-      </div>
+
+          <div className="chat-announcement-body px-3 py-1.5">
+            {messageContent}
+          </div>
+        </div>
+      ) : (
+        messageContent
+      )}
     </div>
   )
 }

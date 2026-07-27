@@ -101,6 +101,7 @@
   --chat-notice-sub-border: #9146ff;
   --chat-notice-raid-border: #eb0400;
   --chat-automod-border: #eb0400;
+  --chat-first-message-border: #00a865;
 }
 
 .dark {
@@ -150,6 +151,7 @@
   --chat-notice-sub-border: #bf94ff;
   --chat-notice-raid-border: #ff6b6b;
   --chat-automod-border: #ff6b6b;
+  --chat-first-message-border: #00db84;
 }
 
 @layer base {
