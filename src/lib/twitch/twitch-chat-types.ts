@@ -1,3 +1,4 @@
+import type { TwitchChatModes } from "@/lib/chat/chat-modes"
 import type { ChannelProfileHint } from "@/lib/chat/chat-emote-catalog"
 import type {
   TwitchBadge,
@@ -64,6 +65,7 @@ export type TwitchChatRoomState = {
   roomId: string | null
   joined: boolean
   joining: boolean
+  chatModes: TwitchChatModes
   timeline: TwitchTimelineItem[]
 }
 

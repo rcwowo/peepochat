@@ -1,4 +1,5 @@
 import { devChatLogger, isDevIrcLoggingEnabled } from "@/lib/dev-logger"
+import type { TwitchChatModesPatch } from "@/lib/chat/chat-modes"
 import {
   type IrcTaggedLine,
   isIrcJoinLine,
@@ -188,6 +189,8 @@ export type TwitchChannelJoinState = {
 export type TwitchRoomState = {
   channel: string
   roomId: string | null
+  modes: TwitchChatModesPatch
+  isComplete: boolean
 }
 
 /** Tags from USERSTATE after the local user sends a message or joins a channel. */
@@ -1150,9 +1153,45 @@ function parseRoomState(tagged: IrcTaggedLine): TwitchRoomState | null {
   const match = tagged.rest.match(/^:tmi\.twitch\.tv ROOMSTATE #(\S+)$/)
   if (!match) return null
 
+  const tags = tagged.tags
+  const hasEmoteOnly = tags.has("emote-only")
+  const hasSubsOnly = tags.has("subs-only")
+  const hasFollowersOnly = tags.has("followers-only")
+  const hasR9k = tags.has("r9k")
+  const hasSlow = tags.has("slow")
+
+  const modes: TwitchChatModesPatch = {}
+
+  if (hasEmoteOnly) {
+    modes.emoteOnly = tags.get("emote-only") === "1"
+  }
+  if (hasSubsOnly) {
+    modes.subscribersOnly = tags.get("subs-only") === "1"
+  }
+  if (hasFollowersOnly) {
+    const value = Number(tags.get("followers-only"))
+    if (Number.isFinite(value)) {
+      modes.followersOnly = value >= 0
+      modes.followersOnlyMinutes = value > 0 ? value : 0
+    }
+  }
+  if (hasR9k) {
+    modes.uniqueMode = tags.get("r9k") === "1"
+  }
+  if (hasSlow) {
+    const value = Number(tags.get("slow"))
+    if (Number.isFinite(value)) {
+      modes.slowMode = value > 0
+      modes.slowModeSeconds = value > 0 ? value : 0
+    }
+  }
+
   return {
     channel: match[1],
-    roomId: tagged.tags.get("room-id") || null,
+    roomId: tags.get("room-id") || null,
+    modes,
+    isComplete:
+      hasEmoteOnly && hasSubsOnly && hasFollowersOnly && hasR9k && hasSlow,
   }
 }
 
@@ -1480,6 +1519,8 @@ function summarizeChatEvent(event: TwitchChatEvent): Record<string, unknown> {
         type: event.type,
         channel: event.state.channel,
         roomId: event.state.roomId,
+        isComplete: event.state.isComplete,
+        modes: event.state.modes,
       }
     case "self-state":
       return {

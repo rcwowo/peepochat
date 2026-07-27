@@ -8,6 +8,7 @@ import {
 } from "lucide-react"
 
 import { ChatComposer } from "@/components/chat/chat-composer"
+import { ChatModesMenu } from "@/components/chat/chat-modes-panel"
 import { ChatHoverTooltipProvider } from "@/components/chat/chat-hover-tooltip"
 import { EmoteCardProvider } from "@/components/chat/emote-card-context"
 import { UserCardProvider } from "@/components/chat/user-card-context"
@@ -343,6 +344,12 @@ function ChatPaneInner({
                     </DropdownMenuGroup>
                   </DropdownMenuContent>
                 </DropdownMenu>
+                <ChatModesMenu
+                  channelLogin={channelLogin}
+                  channelRoomId={channelRoomId}
+                  account={account}
+                  selfChatState={selfChatState}
+                />
                 {showRemoveSplit && onRemoveSplit ? (
                   <Button
                     type="button"

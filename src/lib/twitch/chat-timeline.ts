@@ -1,3 +1,4 @@
+import { DEFAULT_CHAT_MODES } from "@/lib/chat/chat-modes"
 import type { DeletedMessagesBehavior } from "@/lib/peepochat/peepochat-config"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 import type {
@@ -167,6 +168,7 @@ export function createEmptyRoom(login: string): TwitchChatRoomState {
     roomId: null,
     joined: false,
     joining: true,
+    chatModes: { ...DEFAULT_CHAT_MODES },
     timeline: [],
   }
 }
