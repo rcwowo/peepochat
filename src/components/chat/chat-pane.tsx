@@ -14,6 +14,7 @@ import { UserCardProvider } from "@/components/chat/user-card-context"
 import type { UserCardTarget } from "@/lib/chat/user-card"
 import { ChatAutomodMessage } from "@/components/chat/chat-automod-message"
 import { ChatMessageRow } from "@/components/chat/chat-message-row"
+import { ChatSuspiciousMessage } from "@/components/chat/chat-suspicious-message"
 import { ChatSystemMessage } from "@/components/chat/chat-system-message"
 import {
   ChatPaneLiveBadge,
@@ -177,7 +178,7 @@ function ChatPaneInner({
     }
 
     return timeline.filter((entry) => {
-      if (entry.kind !== "chat") {
+      if (entry.kind !== "chat" && entry.kind !== "suspicious") {
         return true
       }
 
@@ -393,6 +394,18 @@ function ChatPaneInner({
                             message={entry.message}
                             timestampFormat={timestampFormat}
                             account={account}
+                            isHistorical={entry.isHistorical}
+                            isAlternateRow={isAlternateRow}
+                          />
+                        )
+                      }
+
+                      if (entry.kind === "suspicious") {
+                        return (
+                          <ChatSuspiciousMessage
+                            key={entry.message.id}
+                            message={entry.message}
+                            timestampFormat={timestampFormat}
                             isHistorical={entry.isHistorical}
                             isAlternateRow={isAlternateRow}
                           />

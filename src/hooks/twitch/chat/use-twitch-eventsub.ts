@@ -23,11 +23,16 @@ import {
   userAutomodHeldNoticeId,
 } from "@/lib/twitch/twitch-eventsub-automod"
 import { createSystemMessageFromChannelModerate } from "@/lib/twitch/twitch-eventsub-moderate"
+import {
+  createSystemMessageFromSuspiciousUserUpdate,
+  parseSuspiciousUserMessage,
+} from "@/lib/twitch/twitch-eventsub-suspicious"
 import { buildDesiredEventSubSubscriptions } from "@/lib/twitch/twitch-eventsub-subscriptions"
 import {
   getTwitchEventSubClient,
   type TwitchEventSubNotification,
 } from "@/lib/twitch/twitch-eventsub"
+import type { TwitchSuspiciousUserMessage } from "@/lib/twitch/twitch-chat-types"
 
 type UseTwitchEventSubOptions = {
   account: TwitchAccount | null
@@ -43,6 +48,7 @@ type UseTwitchEventSubOptions = {
   }) => void
   dismissComposerNotice?: (notice: { channel: string; id: string }) => void
   trimRoomTimeline: (timeline: TwitchTimelineItem[]) => TwitchTimelineItem[]
+  showSuspiciousActivityRef: React.RefObject<boolean>
 }
 
 function extractModerateTargetNames(event: Record<string, unknown>): string[] {
@@ -110,6 +116,7 @@ export function useTwitchEventSub({
   pushComposerNotice,
   dismissComposerNotice,
   trimRoomTimeline,
+  showSuspiciousActivityRef,
 }: UseTwitchEventSubOptions) {
   const { rooms, roomsRef, updateRoom } = roomStore
   const client = React.useMemo(() => getTwitchEventSubClient(), [])
@@ -327,6 +334,49 @@ export function useTwitchEventSub({
     upsertAutomodHeldMessage,
   ])
 
+  const upsertSuspiciousUserMessage = React.useCallback(
+    (channelLogin: string, message: TwitchSuspiciousUserMessage) => {
+      updateRoom(channelLogin, (room) => {
+        const existingIndex = room.timeline.findIndex(
+          (entry) =>
+            (entry.kind === "chat" || entry.kind === "suspicious") &&
+            entry.message.id === message.id
+        )
+
+        if (existingIndex >= 0) {
+          const existing = room.timeline[existingIndex]
+          if (!existing) return room
+
+          const color =
+            existing.kind === "chat" || existing.kind === "suspicious"
+              ? existing.message.color
+              : null
+          const nextMessage =
+            color && !message.color ? { ...message, color } : message
+          const next = room.timeline.slice()
+          next[existingIndex] = { kind: "suspicious", message: nextMessage }
+          return { ...room, timeline: next }
+        }
+
+        return {
+          ...room,
+          timeline: trimRoomTimelineRef.current([
+            ...room.timeline,
+            { kind: "suspicious" as const, message },
+          ]),
+        }
+      })
+    },
+    [updateRoom]
+  )
+
+  const upsertSuspiciousUserMessageRef = React.useRef(
+    upsertSuspiciousUserMessage
+  )
+  React.useLayoutEffect(() => {
+    upsertSuspiciousUserMessageRef.current = upsertSuspiciousUserMessage
+  }, [upsertSuspiciousUserMessage])
+
   React.useEffect(() => {
     client.setHandlers({
       onNotification: (notification: TwitchEventSubNotification) => {
@@ -474,6 +524,57 @@ export function useTwitchEventSub({
           })
           if (!message) return
           appendSystemMessageRef.current(channelLogin, message)
+          return
+        }
+
+        if (type === "channel.suspicious_user.message") {
+          if (!showSuspiciousActivityRef.current) {
+            return
+          }
+
+          const channelLogin = resolveChannelLogin(notification, null)
+          if (
+            !channelLogin ||
+            !syncedChannelsRef.current.includes(channelLogin)
+          ) {
+            return
+          }
+
+          const roomId = roomsRef.current[channelLogin]?.roomId ?? null
+          const message = parseSuspiciousUserMessage({
+            event: notification.event,
+            channelLogin,
+            roomId,
+            receivedAt: notification.messageTimestamp,
+          })
+          if (!message) return
+          upsertSuspiciousUserMessageRef.current(channelLogin, message)
+          return
+        }
+
+        if (type === "channel.suspicious_user.update") {
+          if (!showSuspiciousActivityRef.current) {
+            return
+          }
+
+          const channelLogin = resolveChannelLogin(notification, null)
+          if (
+            !channelLogin ||
+            !syncedChannelsRef.current.includes(channelLogin)
+          ) {
+            return
+          }
+
+          const roomId = roomsRef.current[channelLogin]?.roomId ?? null
+          const message = createSystemMessageFromSuspiciousUserUpdate({
+            event: notification.event,
+            channelLogin,
+            roomId,
+            messageId: notification.messageId,
+            messageTimestamp: notification.messageTimestamp,
+          })
+          if (!message) return
+          appendSystemMessageRef.current(channelLogin, message)
         }
       },
     })
@@ -481,7 +582,7 @@ export function useTwitchEventSub({
     return () => {
       client.setHandlers({})
     }
-  }, [client, roomsRef, syncedChannelsRef])
+  }, [client, roomsRef, showSuspiciousActivityRef, syncedChannelsRef])
 
   React.useEffect(() => {
     syncDesiredSubscriptions()

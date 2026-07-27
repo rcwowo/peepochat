@@ -51,6 +51,7 @@ export function useTwitchChat(options?: {
     (userId?: string | null, login?: string | null) => boolean
   >(() => false)
   const clearChatWhenInstructedRef = React.useRef(true)
+  const showSuspiciousActivityRef = React.useRef(true)
 
   const syncedChannelsRef = React.useRef<string[]>([])
   const sendClientRef = React.useRef<TwitchChatClient | null>(null)
@@ -153,6 +154,7 @@ export function useTwitchChat(options?: {
     pushComposerNotice: send.pushComposerNotice,
     dismissComposerNotice: send.dismissComposerNotice,
     trimRoomTimeline: timeline.trimWithLimit,
+    showSuspiciousActivityRef,
   })
 
   const notifySelfStateChangedRef = React.useRef(
@@ -259,6 +261,10 @@ export function useTwitchChat(options?: {
     hideBlockedUsersRef.current = enabled
   }, [])
 
+  const setShowSuspiciousActivity = React.useCallback((enabled: boolean) => {
+    showSuspiciousActivityRef.current = enabled
+  }, [])
+
   const setIsUserBlocked = React.useCallback(
     (checker: (userId?: string | null, login?: string | null) => boolean) => {
       isUserBlockedRef.current = checker
@@ -349,6 +355,7 @@ export function useTwitchChat(options?: {
     setDeletedMessagesBehavior,
     setClearChatWhenInstructed,
     setHideBlockedUsers,
+    setShowSuspiciousActivity,
     setIsUserBlocked,
     setChatCommandActions: send.setChatCommandActions,
     purgeMessagesFromBlockedUsers: timeline.purgeMessagesFromBlockedUsers,

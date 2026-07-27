@@ -86,6 +86,7 @@ const chatSchema = z.object({
   deletedMessagesBehavior: deletedMessagesBehaviorSchema,
   clearChatWhenInstructed: z.boolean().default(true),
   hideBlockedUsers: z.boolean().default(true),
+  showSuspiciousActivity: z.boolean().default(true),
   emotes: chatEmotesSchema,
   badges: chatBadgesSchema,
 })
@@ -264,6 +265,7 @@ export function createDefaultConfig(): AppConfig {
       deletedMessagesBehavior: "strikethrough",
       clearChatWhenInstructed: true,
       hideBlockedUsers: true,
+      showSuspiciousActivity: true,
       emotes: {
         bttvEnabled: true,
         ffzEnabled: true,

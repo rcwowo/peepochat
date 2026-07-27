@@ -28,12 +28,35 @@ export type TwitchAutomodHeldMessage = {
   status: TwitchAutomodHeldStatus
 }
 
+export type TwitchSuspiciousUserStatus = "monitored" | "restricted"
+
+export type TwitchSuspiciousUserMessage = {
+  id: string
+  messageId: string
+  channel: string
+  roomId: string | null
+  userId: string
+  userName: string
+  displayName: string
+  text: string
+  emotes: TwitchEmote[]
+  color: string | null
+  receivedAt: string
+  status: TwitchSuspiciousUserStatus
+  deletedAt: string | null
+}
+
 export type TwitchTimelineItem =
   | { kind: "chat"; message: TwitchChatMessage; isHistorical?: boolean }
   | { kind: "system"; message: TwitchSystemMessage; isHistorical?: boolean }
   | {
       kind: "automod"
       message: TwitchAutomodHeldMessage
+      isHistorical?: boolean
+    }
+  | {
+      kind: "suspicious"
+      message: TwitchSuspiciousUserMessage
       isHistorical?: boolean
     }
 

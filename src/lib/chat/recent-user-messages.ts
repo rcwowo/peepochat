@@ -5,6 +5,7 @@ type TimelineEntry =
   | { kind: "chat"; message: TwitchChatMessage }
   | { kind: "system"; message: { id: string } }
   | { kind: "automod"; message: { id: string } }
+  | { kind: "suspicious"; message: { id: string } }
 
 const EMPTY_RECENT_USER_MESSAGES: TwitchChatMessage[] = []
 

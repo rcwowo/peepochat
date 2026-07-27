@@ -286,6 +286,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     setDeletedMessagesBehavior,
     setClearChatWhenInstructed,
     setHideBlockedUsers,
+    setShowSuspiciousActivity,
     setIsUserBlocked,
     setChatCommandActions,
     purgeMessagesFromBlockedUsers,
@@ -508,6 +509,10 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     setHideBlockedUsers(config.chat.hideBlockedUsers)
   }, [config.chat.hideBlockedUsers, setHideBlockedUsers])
+
+  React.useEffect(() => {
+    setShowSuspiciousActivity(config.chat.showSuspiciousActivity)
+  }, [config.chat.showSuspiciousActivity, setShowSuspiciousActivity])
 
   React.useEffect(() => {
     setIsUserBlocked(isBlocked)

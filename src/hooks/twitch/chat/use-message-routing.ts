@@ -9,6 +9,7 @@ import {
   applyDeletedBehaviorToTimeline,
   notifyChatMessageDeleted,
   selfStateFromMessage,
+  type TimelineMatchableMessage,
 } from "@/lib/twitch/chat-timeline"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 import {
@@ -145,7 +146,7 @@ export function useMessageRouting({
   const applyRoomMessageDeletions = React.useCallback(
     (
       login: string,
-      matches: (message: TwitchChatMessage) => boolean,
+      matches: (message: TimelineMatchableMessage) => boolean,
       deletedAt = new Date().toISOString()
     ) => {
       const behavior = deletedMessagesBehaviorRef.current
@@ -248,7 +249,9 @@ export function useMessageRouting({
 
       updateRoom(login, (room) => {
         const deletedMessageIds = room.timeline.flatMap((entry) =>
-          entry.kind === "chat" ? [entry.message.id] : []
+          entry.kind === "chat" || entry.kind === "suspicious"
+            ? [entry.message.id]
+            : []
         )
 
         if (deletedMessageIds.length === 0) {
@@ -261,7 +264,9 @@ export function useMessageRouting({
 
         return {
           ...room,
-          timeline: room.timeline.filter((entry) => entry.kind !== "chat"),
+          timeline: room.timeline.filter(
+            (entry) => entry.kind !== "chat" && entry.kind !== "suspicious"
+          ),
         }
       })
     },
