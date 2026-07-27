@@ -11,15 +11,10 @@ export type ChatSenderPrivileges = {
 }
 
 export type ChatSendFailureReason =
-  | "empty"
-  | "not_connected"
-  | "too_fast"
-  | "too_many"
-  | "blocked"
+  "empty" | "not_connected" | "too_fast" | "too_many" | "blocked"
 
 export type ChatSendResult =
-  | { ok: true }
-  | { ok: false; reason: ChatSendFailureReason; message?: string }
+  { ok: true } | { ok: false; reason: ChatSendFailureReason; message?: string }
 
 export type {
   TwitchChannelSendBlock,

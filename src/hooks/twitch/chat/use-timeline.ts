@@ -18,9 +18,7 @@ import {
   type TimelineMatchableMessage,
 } from "@/lib/twitch/chat-timeline"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
-import type {
-  TwitchSystemMessage,
-} from "@/lib/twitch/twitch-chat"
+import type { TwitchSystemMessage } from "@/lib/twitch/twitch-chat"
 import type {
   TwitchChatRoomState,
   TwitchTimelineItem,

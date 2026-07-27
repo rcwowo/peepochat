@@ -1,8 +1,5 @@
 export type DesktopNotificationPermission =
-  | "default"
-  | "granted"
-  | "denied"
-  | "unsupported"
+  "default" | "granted" | "denied" | "unsupported"
 
 export function getDesktopNotificationPermission(): DesktopNotificationPermission {
   if (typeof window === "undefined" || !("Notification" in window)) {

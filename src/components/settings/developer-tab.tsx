@@ -66,8 +66,7 @@ export function DeveloperTab() {
   const [channelLoginDraft, setChannelLoginDraft] = React.useState(
     () => channels[0]?.login ?? ""
   )
-  const [messageKind, setMessageKind] =
-    React.useState<FakeMessageKind>("chat")
+  const [messageKind, setMessageKind] = React.useState<FakeMessageKind>("chat")
   const [displayName, setDisplayName] = React.useState("FakeUser")
   const [messageText, setMessageText] = React.useState(() =>
     defaultFakeMessageText("chat")

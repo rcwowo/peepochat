@@ -71,9 +71,9 @@ export function useTwitchChat(options?: {
     hideBlockedUsersRef,
     isUserBlockedRef,
   })
-  const onRoomEmotesSettledRef = React.useRef<((roomId: string) => void) | null>(
-    null
-  )
+  const onRoomEmotesSettledRef = React.useRef<
+    ((roomId: string) => void) | null
+  >(null)
   const onRoomsClearedRef = React.useRef<((roomIds: string[]) => void) | null>(
     null
   )

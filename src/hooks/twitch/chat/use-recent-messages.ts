@@ -68,7 +68,11 @@ export function useRecentMessages({
     recentMessagesQueueRef.current = []
     recentMessagesQueuedRef.current.clear()
     recentMessagesGenerationRef.current += 1
-  }, [recentMessagesGenerationRef, recentMessagesQueueRef, recentMessagesQueuedRef])
+  }, [
+    recentMessagesGenerationRef,
+    recentMessagesQueueRef,
+    recentMessagesQueuedRef,
+  ])
 
   const drainRecentMessagesQueue = React.useCallback(() => {
     const runNext = () => {
@@ -164,10 +168,7 @@ export function useRecentMessages({
 
                         return {
                           kind: "chat" as const,
-                          message: hydrateRoomMessage(
-                            resolvedMessage,
-                            catalog
-                          ),
+                          message: hydrateRoomMessage(resolvedMessage, catalog),
                           isHistorical: true,
                         }
                       })
@@ -333,10 +334,7 @@ export function useRecentMessages({
   )
 
   const handleDeletedMessagesBehaviorChange = React.useCallback(
-    (
-      previous: DeletedMessagesBehavior,
-      behavior: DeletedMessagesBehavior
-    ) => {
+    (previous: DeletedMessagesBehavior, behavior: DeletedMessagesBehavior) => {
       if (
         previous !== "remove" ||
         behavior === "remove" ||

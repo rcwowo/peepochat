@@ -72,8 +72,7 @@ export type SevenTvEventApiHandlers = {
 type SubscriptionType = "emote_set.*" | "user.*"
 
 type SubscriptionCondition =
-  | { object_id: string }
-  | { ctx: "channel"; platform: "TWITCH"; id: string }
+  { object_id: string } | { ctx: "channel"; platform: "TWITCH"; id: string }
 
 type DesiredSubscription = {
   type: SubscriptionType
@@ -475,10 +474,7 @@ export class SevenTvEventApi {
     const removed: Array<{ id: string; name: string }> = []
     const renamed: Array<{ id: string; oldName: string; newName: string }> = []
 
-    for (const entry of [
-      ...asArray(body.pushed),
-      ...asArray(body.added),
-    ]) {
+    for (const entry of [...asArray(body.pushed), ...asArray(body.added)]) {
       if (!isRecord(entry)) continue
       const key = asString(entry.key)
       if (key && key !== "emotes") continue
@@ -486,10 +482,7 @@ export class SevenTvEventApi {
       if (emote) added.push(emote)
     }
 
-    for (const entry of [
-      ...asArray(body.pulled),
-      ...asArray(body.removed),
-    ]) {
+    for (const entry of [...asArray(body.pulled), ...asArray(body.removed)]) {
       if (!isRecord(entry)) continue
       const key = asString(entry.key)
       if (key && key !== "emotes") continue

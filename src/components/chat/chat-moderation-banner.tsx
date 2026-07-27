@@ -41,7 +41,9 @@ export function ChatModerationBanner({
         deletedClassName
       )}
     >
-      <div className={cn("-mx-3 border-l-4", contentClassName, borderClassName)}>
+      <div
+        className={cn("-mx-3 border-l-4", contentClassName, borderClassName)}
+      >
         <span className="chat-announcement-header flex items-center gap-2 px-3 py-1 text-xs font-medium">
           <span className="inline-flex min-w-0 items-center">
             <Icon

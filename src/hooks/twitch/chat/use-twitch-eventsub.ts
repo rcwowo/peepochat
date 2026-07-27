@@ -249,7 +249,10 @@ export function useTwitchEventSub({
   }, [appendSystemMessage])
 
   const upsertAutomodHeldMessage = React.useCallback(
-    (channelLogin: string, held: ReturnType<typeof parseAutomodHeldMessage>) => {
+    (
+      channelLogin: string,
+      held: ReturnType<typeof parseAutomodHeldMessage>
+    ) => {
       if (!held) return
       updateRoom(channelLogin, (room) => {
         const existingIndex = room.timeline.findIndex(
@@ -294,7 +297,10 @@ export function useTwitchEventSub({
         }
 
         const existing = room.timeline[existingIndex]
-        if (existing?.kind !== "automod" || existing.message.status !== "pending") {
+        if (
+          existing?.kind !== "automod" ||
+          existing.message.status !== "pending"
+        ) {
           return room
         }
 

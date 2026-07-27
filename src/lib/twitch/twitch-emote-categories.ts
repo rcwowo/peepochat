@@ -85,7 +85,9 @@ export function getTwitchUserEmoteCategoryId(
     return null
   }
 
-  return EMOTE_TYPE_TO_CATEGORY_ID.get(normalized) ?? `twitch-type-${normalized}`
+  return (
+    EMOTE_TYPE_TO_CATEGORY_ID.get(normalized) ?? `twitch-type-${normalized}`
+  )
 }
 
 export function isKnownTwitchUserEmoteCategoryId(categoryId: string): boolean {

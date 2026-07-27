@@ -139,7 +139,9 @@ export function buildSyncChannelsKey(channelLogins: string[]): string {
   return channelLogins.join("\0")
 }
 
-export function toSelfChatState(state: TwitchSelfUserState): TwitchSelfChatState {
+export function toSelfChatState(
+  state: TwitchSelfUserState
+): TwitchSelfChatState {
   return state
 }
 

@@ -51,11 +51,7 @@ export const FAKE_MESSAGE_KIND_OPTIONS: {
 ]
 
 export type FakeAnnouncementTheme =
-  | "primary"
-  | "blue"
-  | "green"
-  | "orange"
-  | "purple"
+  "primary" | "blue" | "green" | "orange" | "purple"
 
 export const FAKE_ANNOUNCEMENT_THEME_OPTIONS: {
   value: FakeAnnouncementTheme
@@ -68,15 +64,17 @@ export const FAKE_ANNOUNCEMENT_THEME_OPTIONS: {
   { value: "purple", label: "Purple" },
 ]
 
-export type FakeChatRole = "none" | "broadcaster" | "moderator" | "vip" | "subscriber"
+export type FakeChatRole =
+  "none" | "broadcaster" | "moderator" | "vip" | "subscriber"
 
-export const FAKE_CHAT_ROLE_OPTIONS: { value: FakeChatRole; label: string }[] = [
-  { value: "none", label: "None" },
-  { value: "broadcaster", label: "Broadcaster" },
-  { value: "moderator", label: "Moderator" },
-  { value: "vip", label: "VIP" },
-  { value: "subscriber", label: "Subscriber" },
-]
+export const FAKE_CHAT_ROLE_OPTIONS: { value: FakeChatRole; label: string }[] =
+  [
+    { value: "none", label: "None" },
+    { value: "broadcaster", label: "Broadcaster" },
+    { value: "moderator", label: "Moderator" },
+    { value: "vip", label: "VIP" },
+    { value: "subscriber", label: "Subscriber" },
+  ]
 
 export type FakeMessageOptions = {
   channelLogin: string

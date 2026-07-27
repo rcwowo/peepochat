@@ -285,7 +285,10 @@ export class TwitchEventSubClient {
     this.openSocket(EVENTSUB_WS_URL)
   }
 
-  private openSocket(url: string, options?: { isReconnectMigration?: boolean }) {
+  private openSocket(
+    url: string,
+    options?: { isReconnectMigration?: boolean }
+  ) {
     this.clearReconnectTimer()
     this.clearKeepaliveTimer()
 
@@ -597,8 +600,7 @@ export class TwitchEventSubClient {
             return
           }
           pending.helixId = created.id
-          pending.status =
-            created.status === "enabled" ? "enabled" : "pending"
+          pending.status = created.status === "enabled" ? "enabled" : "pending"
           if (pending.status === "pending") {
             // Twitch accepted the create; treat as live for websocket transport.
             pending.status = "enabled"

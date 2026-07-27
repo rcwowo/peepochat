@@ -950,7 +950,7 @@ export function ChatComposer({
                   {activeNotice.message}
                 </p>
                 {notices.length > 1 ? (
-                  <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground/70">
+                  <span className="shrink-0 text-[11px] text-muted-foreground/70 tabular-nums">
                     1/{notices.length}
                   </span>
                 ) : null}

@@ -4,7 +4,11 @@ import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
 
 type ChatHoverTooltipContextValue = {
-  show: (anchor: HTMLElement, content: React.ReactNode, className?: string) => void
+  show: (
+    anchor: HTMLElement,
+    content: React.ReactNode,
+    className?: string
+  ) => void
   hide: (anchor: HTMLElement) => void
 }
 
@@ -144,10 +148,7 @@ export function ChatHoverTooltipProvider({
     setActive((current) => (current?.anchor === anchor ? null : current))
   }, [])
 
-  const contextValue = React.useMemo(
-    () => ({ show, hide }),
-    [show, hide]
-  )
+  const contextValue = React.useMemo(() => ({ show, hide }), [show, hide])
 
   return (
     <ChatHoverTooltipContext.Provider value={contextValue}>
@@ -217,7 +218,11 @@ export function ChatHoverTooltipTarget({
 
   if (!context) {
     return (
-      <span className={className} onClick={onClick} onContextMenu={onContextMenu}>
+      <span
+        className={className}
+        onClick={onClick}
+        onContextMenu={onContextMenu}
+      >
         {children}
       </span>
     )

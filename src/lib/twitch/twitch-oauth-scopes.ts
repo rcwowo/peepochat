@@ -33,8 +33,7 @@ export const TWITCH_OAUTH_SCOPE_GROUPS: TwitchOAuthScopeGroup[] = [
       {
         scope: "user:read:chat",
         label: "Chat events",
-        description:
-          "Receive EventSub events like mod actions or automod.",
+        description: "Receive EventSub events like mod actions or automod.",
       },
       {
         scope: "user:read:emotes",

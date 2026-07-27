@@ -248,242 +248,249 @@ function ChatPaneInner({
     >
       <EmoteCardProvider catalog={composerCatalog}>
         <ChatHoverTooltipProvider>
-        <div
-          className={cn(
-            "flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
-            className
-          )}
-        >
           <div
-            {...dragHandleProps}
             className={cn(
-              "flex h-9 shrink-0 items-center justify-between gap-2 border-b border-border bg-sidebar px-3",
-              dragHandleProps?.className
+              "flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
+              className
             )}
           >
-            <div className="flex min-w-0 items-center gap-2">
-              <ChannelPaneAvatar
-                login={channelLogin}
-                profileImageUrl={profileImageUrl}
-              />
-              <span className="truncate text-sm font-medium">{label}</span>
-              {isLive ? (
-                <ChatPaneLiveBadge
-                  expanded={liveInfoExpanded}
-                  onToggle={() => setLiveInfoExpanded((expanded) => !expanded)}
-                />
-              ) : null}
-            </div>
             <div
-              className="flex shrink-0 items-center gap-2"
-              onPointerDown={(event) => event.stopPropagation()}
+              {...dragHandleProps}
+              className={cn(
+                "flex h-9 shrink-0 items-center justify-between gap-2 border-b border-border bg-sidebar px-3",
+                dragHandleProps?.className
+              )}
             >
-              {!joined ? (
-                <span className="text-xs text-muted-foreground">
-                  Connecting…
-                </span>
-              ) : null}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+              <div className="flex min-w-0 items-center gap-2">
+                <ChannelPaneAvatar
+                  login={channelLogin}
+                  profileImageUrl={profileImageUrl}
+                />
+                <span className="truncate text-sm font-medium">{label}</span>
+                {isLive ? (
+                  <ChatPaneLiveBadge
+                    expanded={liveInfoExpanded}
+                    onToggle={() =>
+                      setLiveInfoExpanded((expanded) => !expanded)
+                    }
+                  />
+                ) : null}
+              </div>
+              <div
+                className="flex shrink-0 items-center gap-2"
+                onPointerDown={(event) => event.stopPropagation()}
+              >
+                {!joined ? (
+                  <span className="text-xs text-muted-foreground">
+                    Connecting…
+                  </span>
+                ) : null}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      className="text-muted-foreground hover:text-foreground"
+                      aria-label={`${label} channel options`}
+                    >
+                      <EllipsisIcon className="size-3.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-44">
+                    <DropdownMenuLabel>Channel</DropdownMenuLabel>
+                    <DropdownMenuGroup>
+                      <DropdownMenuItem
+                        onSelect={() => void refreshEmotes(channelLogin)}
+                      >
+                        Refresh Emotes
+                        <RefreshCcwIcon className="ml-auto size-3.5 text-muted-foreground" />
+                      </DropdownMenuItem>
+                    </DropdownMenuGroup>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel>Tools</DropdownMenuLabel>
+                    <DropdownMenuGroup>
+                      <DropdownMenuItem
+                        onSelect={() =>
+                          openExternalTool(
+                            `https://www.twitch.tv/${channelLogin}`
+                          )
+                        }
+                      >
+                        View Channel
+                        <ExternalLinkIcon className="ml-auto size-3.5 text-muted-foreground" />
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={() =>
+                          openExternalTool(
+                            `${CHATVOICE_URL}/?channel=${encodeURIComponent(channelLogin)}`
+                          )
+                        }
+                      >
+                        Open in Chatvoice
+                        <ExternalLinkIcon className="ml-auto size-3.5 text-muted-foreground" />
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={() =>
+                          openExternalTool(
+                            `${CHATLOGS_URL}?c=${encodeURIComponent(channelLogin)}`
+                          )
+                        }
+                      >
+                        View Chatlogs
+                        <ExternalLinkIcon className="ml-auto size-3.5 text-muted-foreground" />
+                      </DropdownMenuItem>
+                    </DropdownMenuGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                {showRemoveSplit && onRemoveSplit ? (
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon-xs"
                     className="text-muted-foreground hover:text-foreground"
-                    aria-label={`${label} channel options`}
+                    aria-label={`Remove #${channelLogin} from split`}
+                    onClick={() => onRemoveSplit(channelLogin)}
                   >
-                    <EllipsisIcon className="size-3.5" />
+                    <XIcon className="size-3.5" />
                   </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-44">
-                  <DropdownMenuLabel>Channel</DropdownMenuLabel>
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem
-                      onSelect={() => void refreshEmotes(channelLogin)}
-                    >
-                      Refresh Emotes
-                      <RefreshCcwIcon className="ml-auto size-3.5 text-muted-foreground" />
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuLabel>Tools</DropdownMenuLabel>
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem
-                      onSelect={() =>
-                        openExternalTool(
-                          `https://www.twitch.tv/${channelLogin}`
-                        )
-                      }
-                    >
-                      View Channel
-                      <ExternalLinkIcon className="ml-auto size-3.5 text-muted-foreground" />
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onSelect={() =>
-                        openExternalTool(
-                          `${CHATVOICE_URL}/?channel=${encodeURIComponent(channelLogin)}`
-                        )
-                      }
-                    >
-                      Open in Chatvoice
-                      <ExternalLinkIcon className="ml-auto size-3.5 text-muted-foreground" />
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onSelect={() =>
-                        openExternalTool(
-                          `${CHATLOGS_URL}?c=${encodeURIComponent(channelLogin)}`
-                        )
-                      }
-                    >
-                      View Chatlogs
-                      <ExternalLinkIcon className="ml-auto size-3.5 text-muted-foreground" />
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              {showRemoveSplit && onRemoveSplit ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  className="text-muted-foreground hover:text-foreground"
-                  aria-label={`Remove #${channelLogin} from split`}
-                  onClick={() => onRemoveSplit(channelLogin)}
-                >
-                  <XIcon className="size-3.5" />
-                </Button>
-              ) : null}
+                ) : null}
+              </div>
             </div>
-          </div>
 
-          {liveInfoExpanded && liveStream ? (
-            <ChatPaneLiveInfoBar stream={liveStream} />
-          ) : null}
+            {liveInfoExpanded && liveStream ? (
+              <ChatPaneLiveInfoBar stream={liveStream} />
+            ) : null}
 
-          <div className="chat-panel flex min-h-0 flex-1 flex-col overflow-hidden">
-            <div className="relative min-h-0 flex-1 overflow-hidden">
-              {displayedTimeline.length === 0 ? (
-                <div className="flex h-full items-center justify-center p-4">
-                  <EmptyState
-                    icon={MessagesSquareIcon}
-                    title="No messages yet"
-                    description={
-                      joined
-                        ? "Messages will appear here once chat activity starts."
-                        : `Connecting to #${channelLogin}…`
-                    }
-                  />
-                </div>
-              ) : (
-                <div
-                  ref={chatContainerRef}
-                  onScroll={handleChatScroll}
-                  className="chat-scroll flex h-full flex-col overflow-y-auto overscroll-contain"
-                >
-                  <div ref={messageListRef} className="mt-auto py-1">
-                    {displayedTimeline.map((entry) => {
-                      const isAlternateRow =
-                        rowStripes.get(entry.message.id) ?? false
-
-                      if (entry.kind === "system") {
-                        return (
-                          <ChatSystemMessage
-                            key={entry.message.id}
-                            message={entry.message}
-                            timestampFormat={timestampFormat}
-                            isHistorical={entry.isHistorical}
-                            isAlternateRow={isAlternateRow}
-                          />
-                        )
+            <div className="chat-panel flex min-h-0 flex-1 flex-col overflow-hidden">
+              <div className="relative min-h-0 flex-1 overflow-hidden">
+                {displayedTimeline.length === 0 ? (
+                  <div className="flex h-full items-center justify-center p-4">
+                    <EmptyState
+                      icon={MessagesSquareIcon}
+                      title="No messages yet"
+                      description={
+                        joined
+                          ? "Messages will appear here once chat activity starts."
+                          : `Connecting to #${channelLogin}…`
                       }
-
-                      if (entry.kind === "automod") {
-                        return (
-                          <ChatAutomodMessage
-                            key={entry.message.id}
-                            message={entry.message}
-                            timestampFormat={timestampFormat}
-                            account={account}
-                            isHistorical={entry.isHistorical}
-                            isAlternateRow={isAlternateRow}
-                          />
-                        )
-                      }
-
-                      if (entry.kind === "suspicious") {
-                        return (
-                          <ChatSuspiciousMessage
-                            key={entry.message.id}
-                            message={entry.message}
-                            timestampFormat={timestampFormat}
-                            deletedMessagesBehavior={deletedMessagesBehavior}
-                            isHistorical={entry.isHistorical}
-                            isAlternateRow={isAlternateRow}
-                          />
-                        )
-                      }
-
-                      const messageHighlight = messageHighlights.get(
-                        entry.message.id
-                      )
-                      const displayMessage =
-                        hideBlockedUsers &&
-                        entry.message.reply &&
-                        isUserBlocked(null, entry.message.reply.parentUserName)
-                          ? {
-                              ...entry.message,
-                              reply: maskReplyForBlockedUser(
-                                entry.message.reply
-                              ),
-                            }
-                          : entry.message
-
-                      return (
-                        <ChatMessageRow
-                          key={entry.message.id}
-                          message={displayMessage}
-                          timestampFormat={timestampFormat}
-                          messageQuickActions={messageQuickActions}
-                          deletedMessagesBehavior={deletedMessagesBehavior}
-                          account={account}
-                          channelRoomId={channelRoomId}
-                          selfChatState={selfChatState}
-                          badgeCatalog={badgeCatalog}
-                          getMemberBadge={getMemberBadge}
-                          showBadgeFallback={showBadgeFallback}
-                          showTwitchBadges={showTwitchBadges}
-                          showMemberBadges={showMemberBadges}
-                          isHistorical={entry.isHistorical}
-                          isAlternateRow={isAlternateRow}
-                          pingHighlighted={
-                            highlightPingedMessages &&
-                            messageHighlight !== undefined
-                          }
-                          pingMatchRange={messageHighlight?.matchRange ?? null}
-                        />
-                      )
-                    })}
+                    />
                   </div>
-                </div>
-              )}
-
-              {displayedTimeline.length > 0 && isScrollPaused ? (
-                <div className="pointer-events-none absolute right-0 bottom-3 left-0 z-10 flex justify-center px-3">
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="pointer-events-auto shadow-md"
-                    onClick={() => resumeScroll("smooth")}
+                ) : (
+                  <div
+                    ref={chatContainerRef}
+                    onScroll={handleChatScroll}
+                    className="chat-scroll flex h-full flex-col overflow-y-auto overscroll-contain"
                   >
-                    Scrolling Paused
-                  </Button>
-                </div>
-              ) : null}
-            </div>
+                    <div ref={messageListRef} className="mt-auto py-1">
+                      {displayedTimeline.map((entry) => {
+                        const isAlternateRow =
+                          rowStripes.get(entry.message.id) ?? false
 
-            <ChatComposer channelLogin={channelLogin} joined={joined} />
+                        if (entry.kind === "system") {
+                          return (
+                            <ChatSystemMessage
+                              key={entry.message.id}
+                              message={entry.message}
+                              timestampFormat={timestampFormat}
+                              isHistorical={entry.isHistorical}
+                              isAlternateRow={isAlternateRow}
+                            />
+                          )
+                        }
+
+                        if (entry.kind === "automod") {
+                          return (
+                            <ChatAutomodMessage
+                              key={entry.message.id}
+                              message={entry.message}
+                              timestampFormat={timestampFormat}
+                              account={account}
+                              isHistorical={entry.isHistorical}
+                              isAlternateRow={isAlternateRow}
+                            />
+                          )
+                        }
+
+                        if (entry.kind === "suspicious") {
+                          return (
+                            <ChatSuspiciousMessage
+                              key={entry.message.id}
+                              message={entry.message}
+                              timestampFormat={timestampFormat}
+                              deletedMessagesBehavior={deletedMessagesBehavior}
+                              isHistorical={entry.isHistorical}
+                              isAlternateRow={isAlternateRow}
+                            />
+                          )
+                        }
+
+                        const messageHighlight = messageHighlights.get(
+                          entry.message.id
+                        )
+                        const displayMessage =
+                          hideBlockedUsers &&
+                          entry.message.reply &&
+                          isUserBlocked(
+                            null,
+                            entry.message.reply.parentUserName
+                          )
+                            ? {
+                                ...entry.message,
+                                reply: maskReplyForBlockedUser(
+                                  entry.message.reply
+                                ),
+                              }
+                            : entry.message
+
+                        return (
+                          <ChatMessageRow
+                            key={entry.message.id}
+                            message={displayMessage}
+                            timestampFormat={timestampFormat}
+                            messageQuickActions={messageQuickActions}
+                            deletedMessagesBehavior={deletedMessagesBehavior}
+                            account={account}
+                            channelRoomId={channelRoomId}
+                            selfChatState={selfChatState}
+                            badgeCatalog={badgeCatalog}
+                            getMemberBadge={getMemberBadge}
+                            showBadgeFallback={showBadgeFallback}
+                            showTwitchBadges={showTwitchBadges}
+                            showMemberBadges={showMemberBadges}
+                            isHistorical={entry.isHistorical}
+                            isAlternateRow={isAlternateRow}
+                            pingHighlighted={
+                              highlightPingedMessages &&
+                              messageHighlight !== undefined
+                            }
+                            pingMatchRange={
+                              messageHighlight?.matchRange ?? null
+                            }
+                          />
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {displayedTimeline.length > 0 && isScrollPaused ? (
+                  <div className="pointer-events-none absolute right-0 bottom-3 left-0 z-10 flex justify-center px-3">
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="pointer-events-auto shadow-md"
+                      onClick={() => resumeScroll("smooth")}
+                    >
+                      Scrolling Paused
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+
+              <ChatComposer channelLogin={channelLogin} joined={joined} />
+            </div>
           </div>
-        </div>
         </ChatHoverTooltipProvider>
       </EmoteCardProvider>
     </UserCardProvider>

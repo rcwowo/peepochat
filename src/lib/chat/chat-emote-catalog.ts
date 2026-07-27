@@ -646,7 +646,10 @@ function resolveCategoryIcon(
     if (preview?.imageUrl) {
       return { src: preview.imageUrl, alt: preview.code }
     }
-    return { src: PLATFORM_META.twitch.iconSrc, alt: PLATFORM_META.twitch.label }
+    return {
+      src: PLATFORM_META.twitch.iconSrc,
+      alt: PLATFORM_META.twitch.label,
+    }
   }
 
   if (icon.kind === "platform") {

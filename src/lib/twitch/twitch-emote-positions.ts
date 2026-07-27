@@ -47,11 +47,7 @@ export function sliceByCodePointRange(
   codePointStart: number,
   codePointEnd: number
 ): string | null {
-  const range = codePointRangeToUtf16Indices(
-    text,
-    codePointStart,
-    codePointEnd
-  )
+  const range = codePointRangeToUtf16Indices(text, codePointStart, codePointEnd)
   if (!range) {
     return null
   }

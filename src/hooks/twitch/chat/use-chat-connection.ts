@@ -82,8 +82,14 @@ export function useChatConnection({
   appendLog,
   onSelfStateChangedRef,
 }: UseChatConnectionOptions) {
-  const { commitRooms, updateRoom, ensureRooms, removeRooms, clearAllRooms, roomsRef } =
-    roomStore
+  const {
+    commitRooms,
+    updateRoom,
+    ensureRooms,
+    removeRooms,
+    clearAllRooms,
+    roomsRef,
+  } = roomStore
   const { flushPendingForLogins, flushAllPending } = timeline
   const { clearEmotesForRoomIds, clearAllEmoteState } = emotes
   const { clearHistoryForLogins, clearAllHistoryState } = recentMessages

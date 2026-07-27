@@ -50,11 +50,7 @@ import {
 } from "@/lib/highlights/desktop-notifications"
 
 type OnboardingStep =
-  | "landing"
-  | "import-review"
-  | "login"
-  | "channel"
-  | "bookmark"
+  "landing" | "import-review" | "login" | "channel" | "bookmark"
 
 type StepDefinition = {
   id: OnboardingStep

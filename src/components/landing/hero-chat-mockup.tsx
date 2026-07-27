@@ -29,8 +29,7 @@ type MockEmote = {
 const EMOTES = LANDING_EMOTES
 
 type MockMessagePart =
-  | { type: "text"; value: string }
-  | { type: "emote"; emote: MockEmote }
+  { type: "text"; value: string } | { type: "emote"; emote: MockEmote }
 
 type MockMessageTemplate = {
   user: string

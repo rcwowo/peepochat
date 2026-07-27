@@ -986,11 +986,7 @@ export function createClearChatModActionMessage(
   }
 }
 
-export type TwitchModerateActionKind =
-  | "timeout"
-  | "ban"
-  | "untimeout"
-  | "unban"
+export type TwitchModerateActionKind = "timeout" | "ban" | "untimeout" | "unban"
 
 export type TwitchModerateActionMessageInput = {
   channelLogin: string

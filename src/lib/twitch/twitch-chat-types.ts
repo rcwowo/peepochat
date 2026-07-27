@@ -7,10 +7,7 @@ import type {
 } from "@/lib/twitch/twitch-chat"
 
 export type TwitchAutomodHeldStatus =
-  | "pending"
-  | "approved"
-  | "denied"
-  | "expired"
+  "pending" | "approved" | "denied" | "expired"
 
 export type TwitchAutomodHeldMessage = {
   id: string

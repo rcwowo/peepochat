@@ -37,8 +37,7 @@ function ChatSuspiciousMessageInner({
   isAlternateRow?: boolean
 }) {
   const isDeleted = message.deletedAt !== null
-  const showOnHover =
-    isDeleted && deletedMessagesBehavior === "show-on-hover"
+  const showOnHover = isDeleted && deletedMessagesBehavior === "show-on-hover"
 
   return (
     <ChatModerationBanner

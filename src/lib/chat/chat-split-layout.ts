@@ -14,8 +14,7 @@ export type ChatSplitLayoutSplitNode = {
 }
 
 export type ChatSplitLayoutNode =
-  | ChatSplitLayoutPaneNode
-  | ChatSplitLayoutSplitNode
+  ChatSplitLayoutPaneNode | ChatSplitLayoutSplitNode
 
 export type ChatSplitLayoutChild = {
   node: ChatSplitLayoutNode
