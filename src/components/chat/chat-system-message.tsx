@@ -1,9 +1,17 @@
 import * as React from "react"
 import { Gift, Megaphone, Shield, Star, Users } from "lucide-react"
 
+import { ChatBadgeList } from "@/components/chat/chat-badge"
 import { ChatMessageBody } from "@/components/chat/chat-message-body"
+import {
+  NoticeUserCard,
+  TextWithClickableName,
+} from "@/components/chat/chat-notice-username"
 import { ChatTimestamp } from "@/components/chat/chat-timestamp"
-import { ChatUsername } from "@/components/chat/chat-username"
+import {
+  resolveMessageBadges,
+  type ChatBadgeCatalog,
+} from "@/lib/chat/chat-badges"
 import type { MessageTimestampFormat } from "@/lib/peepochat/peepochat-config"
 import type { TwitchSystemMessage } from "@/lib/twitch/twitch-chat"
 import { cn } from "@/lib/utils"
@@ -48,9 +56,138 @@ function InlineSystemLine({
         receivedAt={message.receivedAt}
         timestampFormat={timestampFormat}
       />
-      <span className="chat-message-size chat-system-text">{message.text}</span>
+      <span className="chat-message-size chat-system-text">
+        <TextWithClickableName text={message.text} actor={message.actor} />
+      </span>
     </div>
   )
+}
+
+function ModActionBody({ message }: { message: TwitchSystemMessage }) {
+  const actor = message.actor
+  const target = message.target
+  const duration = message.banDurationSeconds
+
+  switch (message.modActionKind) {
+    case "timeout":
+      if (actor && target) {
+        return (
+          <>
+            <NoticeUserCard actor={actor} />
+            {" timed out "}
+            <NoticeUserCard actor={target} />
+            {duration != null ? ` for ${duration}s.` : "."}
+          </>
+        )
+      }
+      break
+    case "ban":
+      if (actor && target) {
+        return (
+          <>
+            <NoticeUserCard actor={actor} />
+            {" banned "}
+            <NoticeUserCard actor={target} />
+            {"."}
+          </>
+        )
+      }
+      break
+    case "untimeout":
+      if (actor && target) {
+        return (
+          <>
+            <NoticeUserCard actor={actor} />
+            {" removed "}
+            <NoticeUserCard actor={target} />
+            {"'s timeout."}
+          </>
+        )
+      }
+      break
+    case "unban":
+      if (actor && target) {
+        return (
+          <>
+            <NoticeUserCard actor={actor} />
+            {" unbanned "}
+            <NoticeUserCard actor={target} />
+            {"."}
+          </>
+        )
+      }
+      break
+    case "anonymous_timeout":
+      if (target) {
+        return (
+          <>
+            <NoticeUserCard actor={target} />
+            {duration != null
+              ? ` was timed out for ${duration}s.`
+              : " was timed out."}
+          </>
+        )
+      }
+      break
+    case "anonymous_ban":
+      if (target) {
+        return (
+          <>
+            <NoticeUserCard actor={target} />
+            {" was banned."}
+          </>
+        )
+      }
+      break
+    case "suspicious_monitored":
+      if (actor && target) {
+        return (
+          <>
+            <NoticeUserCard actor={actor} />
+            {" added "}
+            <NoticeUserCard actor={target} />
+            {" as a monitored suspicious chatter."}
+          </>
+        )
+      }
+      break
+    case "suspicious_restricted":
+      if (actor && target) {
+        return (
+          <>
+            <NoticeUserCard actor={actor} />
+            {" added "}
+            <NoticeUserCard actor={target} />
+            {" as a restricted suspicious chatter."}
+          </>
+        )
+      }
+      break
+    case "suspicious_removed":
+      if (actor && target) {
+        return (
+          <>
+            <NoticeUserCard actor={actor} />
+            {" removed "}
+            <NoticeUserCard actor={target} />
+            {" from the suspicious user list."}
+          </>
+        )
+      }
+      break
+    default:
+      break
+  }
+
+  if (actor && target) {
+    return <TextWithClickableName text={message.text} actor={actor} />
+  }
+
+  if (target) {
+    return <TextWithClickableName text={message.text} actor={target} />
+  }
+
+  return <TextWithClickableName text={message.text} actor={actor} />
 }
 
 function ModActionLine({
@@ -73,7 +210,9 @@ function ModActionLine({
           className="mt-0.5 size-4 shrink-0 text-muted-foreground"
           aria-hidden
         />
-        <span>{message.text}</span>
+        <span>
+          <ModActionBody message={message} />
+        </span>
       </span>
     </div>
   )
@@ -148,7 +287,9 @@ function SubscriptionNotice({
       }
       showDetails={false}
     >
-      <span className="chat-notice-body font-bold">{message.headline}</span>
+      <span className="chat-notice-body font-bold">
+        <TextWithClickableName text={message.headline} actor={message.actor} />
+      </span>
       {message.details ? (
         <span className="chat-notice-user-message mt-1 block leading-5">
           <ChatMessageBody
@@ -185,20 +326,16 @@ function RaidNotice({
       icon={<Users className="size-4" aria-hidden />}
     >
       <span className="chat-notice-body font-bold">
-        {viewerLabel && message.headline === "Raid" ? (
+        {viewerLabel && message.actor ? (
           <>
-            {message.actor ? (
-              <ChatUsername
-                displayName={message.actor.displayName}
-                color={message.actor.color}
-              />
-            ) : (
-              "A channel"
-            )}{" "}
-            is raiding with {viewerLabel}!
+            <NoticeUserCard actor={message.actor} /> is raiding with{" "}
+            {viewerLabel}!
           </>
         ) : (
-          message.headline
+          <TextWithClickableName
+            text={message.headline}
+            actor={message.actor}
+          />
         )}
       </span>
     </NoticeBlock>
@@ -208,16 +345,25 @@ function RaidNotice({
 function AnnouncementNotice({
   message,
   timestampFormat,
+  badgeCatalog,
+  showTwitchBadges,
+  showBadgeFallback,
   className,
 }: {
   message: TwitchSystemMessage
   timestampFormat: MessageTimestampFormat
+  badgeCatalog: ChatBadgeCatalog
+  showTwitchBadges: boolean
+  showBadgeFallback: boolean
   className?: string
 }) {
   const [start, end] = getAnnouncementGradient(
     message.announcementTheme,
     message.accentColor
   )
+  const badges = showTwitchBadges
+    ? resolveMessageBadges(message.badges, badgeCatalog)
+    : []
 
   return (
     <div className={cn("chat-message group px-3 leading-5", className)}>
@@ -239,10 +385,12 @@ function AnnouncementNotice({
           />
           {message.actor ? (
             <>
-              <ChatUsername
-                displayName={message.actor.displayName}
-                color={message.actor.color}
+              <ChatBadgeList
+                badges={badges}
+                unresolved={message.badges}
+                showFallback={showTwitchBadges && showBadgeFallback}
               />
+              <NoticeUserCard actor={message.actor} />
               <span className="text-muted-foreground">: </span>
             </>
           ) : null}
@@ -263,11 +411,17 @@ function AnnouncementNotice({
 function ChatSystemMessageInner({
   message,
   timestampFormat,
+  badgeCatalog,
+  showTwitchBadges = true,
+  showBadgeFallback = false,
   isHistorical = false,
   isAlternateRow = false,
 }: {
   message: TwitchSystemMessage
   timestampFormat: MessageTimestampFormat
+  badgeCatalog: ChatBadgeCatalog
+  showTwitchBadges?: boolean
+  showBadgeFallback?: boolean
   isHistorical?: boolean
   isAlternateRow?: boolean
 }) {
@@ -302,6 +456,9 @@ function ChatSystemMessageInner({
         <AnnouncementNotice
           message={message}
           timestampFormat={timestampFormat}
+          badgeCatalog={badgeCatalog}
+          showTwitchBadges={showTwitchBadges}
+          showBadgeFallback={showBadgeFallback}
           className={rowClassName}
         />
       )

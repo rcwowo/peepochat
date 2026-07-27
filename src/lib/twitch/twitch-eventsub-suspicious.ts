@@ -10,6 +10,7 @@ import type {
 import {
   asRecord,
   asString,
+  badgesFromEventSub,
   emotesFromV2Fragments,
 } from "@/lib/twitch/twitch-eventsub-parse"
 
@@ -99,6 +100,7 @@ export function parseSuspiciousUserMessage({
     displayName,
     text,
     emotes,
+    badges: badgesFromEventSub(event.badges),
     color: null,
     receivedAt: receivedAt?.trim() || new Date().toISOString(),
     status,
@@ -124,11 +126,13 @@ export function createSystemMessageFromSuspiciousUserUpdate({
       channelLogin || asString(event.broadcaster_user_login)
     ) || null
   const status = parseSuspiciousUpdateStatus(event.low_trust_status)
+  const moderatorUserId = asString(event.moderator_user_id).trim() || null
   const moderatorUserName = asString(event.moderator_user_login)
     .trim()
     .toLowerCase()
   const moderatorDisplayName =
     asString(event.moderator_user_name).trim() || moderatorUserName
+  const targetUserId = asString(event.user_id).trim() || null
   const targetUserName = asString(event.user_login).trim().toLowerCase()
   const targetDisplayName = asString(event.user_name).trim() || targetUserName
 
@@ -145,15 +149,20 @@ export function createSystemMessageFromSuspiciousUserUpdate({
   const target = targetDisplayName || targetUserName
 
   let text: string
+  let modActionKind:
+    "suspicious_monitored" | "suspicious_restricted" | "suspicious_removed"
   switch (status) {
     case "monitored":
       text = `${moderator} added ${target} as a monitored suspicious chatter.`
+      modActionKind = "suspicious_monitored"
       break
     case "restricted":
       text = `${moderator} added ${target} as a restricted suspicious chatter.`
+      modActionKind = "suspicious_restricted"
       break
     case "none":
       text = `${moderator} removed ${target} from the suspicious user list.`
+      modActionKind = "suspicious_removed"
       break
     default:
       return null
@@ -176,9 +185,17 @@ export function createSystemMessageFromSuspiciousUserUpdate({
     level: "info",
     accentColor: null,
     ...EMPTY_SYSTEM_MESSAGE_META,
+    modActionKind,
     actor: {
+      userId: moderatorUserId,
       userName: moderatorUserName || moderatorDisplayName.toLowerCase(),
       displayName: moderator,
+      color: null,
+    },
+    target: {
+      userId: targetUserId,
+      userName: targetUserName || targetDisplayName.toLowerCase(),
+      displayName: target,
       color: null,
     },
   }

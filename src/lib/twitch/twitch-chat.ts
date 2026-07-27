@@ -69,10 +69,22 @@ export type TwitchChatReply = {
 }
 
 export type TwitchNoticeActor = {
+  userId: string | null
   userName: string
   displayName: string
   color: string | null
 }
+
+export type TwitchSystemModActionKind =
+  | "timeout"
+  | "ban"
+  | "untimeout"
+  | "unban"
+  | "anonymous_timeout"
+  | "anonymous_ban"
+  | "suspicious_monitored"
+  | "suspicious_restricted"
+  | "suspicious_removed"
 
 export type TwitchChatMessage = {
   id: string
@@ -122,6 +134,9 @@ export type TwitchSystemMessage = {
   msgId: string | null
   banDurationSeconds: number | null
   actor: TwitchNoticeActor | null
+  target: TwitchNoticeActor | null
+  badges: TwitchBadge[]
+  modActionKind: TwitchSystemModActionKind | null
   viewerCount: number | null
   cumulativeMonths: number | null
   streakMonths: number | null
@@ -134,6 +149,9 @@ export const EMPTY_SYSTEM_MESSAGE_META = {
   msgId: null,
   banDurationSeconds: null,
   actor: null,
+  target: null,
+  badges: [],
+  modActionKind: null,
   viewerCount: null,
   cumulativeMonths: null,
   streakMonths: null,
@@ -145,6 +163,9 @@ export const EMPTY_SYSTEM_MESSAGE_META = {
   | "msgId"
   | "banDurationSeconds"
   | "actor"
+  | "target"
+  | "badges"
+  | "modActionKind"
   | "viewerCount"
   | "cumulativeMonths"
   | "streakMonths"
@@ -970,6 +991,9 @@ export function createClearChatModActionMessage(
     ? `${targetUserName} was timed out for ${durationSeconds}s.`
     : `${targetUserName} was banned.`
 
+  const targetDisplayName = targetUserName
+  const targetLogin = targetUserName.toLowerCase()
+
   return {
     id: stableSystemMessageId(channel, "mod_action", text),
     channel,
@@ -983,6 +1007,13 @@ export function createClearChatModActionMessage(
     accentColor: null,
     ...EMPTY_SYSTEM_MESSAGE_META,
     banDurationSeconds: isTimeout ? durationSeconds : null,
+    modActionKind: isTimeout ? "anonymous_timeout" : "anonymous_ban",
+    target: {
+      userId: event.targetUserId?.trim() || null,
+      userName: targetLogin,
+      displayName: targetDisplayName,
+      color: null,
+    },
   }
 }
 
@@ -992,8 +1023,10 @@ export type TwitchModerateActionMessageInput = {
   channelLogin: string
   roomId?: string | null
   action: TwitchModerateActionKind
+  moderatorUserId?: string | null
   moderatorUserName: string
   moderatorDisplayName: string
+  targetUserId?: string | null
   targetUserName: string
   targetDisplayName: string
   banDurationSeconds?: number | null
@@ -1097,9 +1130,17 @@ export function createModerateActionMessage(
     accentColor: null,
     ...EMPTY_SYSTEM_MESSAGE_META,
     banDurationSeconds,
+    modActionKind: input.action,
     actor: {
+      userId: input.moderatorUserId?.trim() || null,
       userName: input.moderatorUserName.trim().toLowerCase(),
       displayName: moderator,
+      color: null,
+    },
+    target: {
+      userId: input.targetUserId?.trim() || null,
+      userName: input.targetUserName.trim().toLowerCase(),
+      displayName: target,
       color: null,
     },
   }
@@ -1182,6 +1223,9 @@ function parseUserNotice(tagged: IrcTaggedLine): TwitchSystemMessage | null {
     msgId: msgId || null,
     banDurationSeconds: null,
     actor: parseNoticeActor(tagged.tags),
+    target: null,
+    badges: parseBadgesTag(tagged.tags.get("badges") ?? ""),
+    modActionKind: null,
     viewerCount: parseOptionalInt(tagged.tags.get("msg-param-viewerCount")),
     cumulativeMonths: parseOptionalInt(
       tagged.tags.get("msg-param-cumulative-months") ??
@@ -1219,6 +1263,9 @@ function parseNotice(tagged: IrcTaggedLine): TwitchSystemMessage | null {
     msgId: tagged.tags.get("msg-id") || null,
     banDurationSeconds: parseOptionalInt(tagged.tags.get("ban-duration")),
     actor: null,
+    target: null,
+    badges: [],
+    modActionKind: null,
     viewerCount: null,
     cumulativeMonths: null,
     streakMonths: null,
@@ -1354,6 +1401,7 @@ function parseNoticeActor(tags: Map<string, string>): TwitchNoticeActor | null {
   }
 
   return {
+    userId: tags.get("user-id") || null,
     userName,
     displayName,
     color: tags.get("color") || null,

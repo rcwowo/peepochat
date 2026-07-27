@@ -2,10 +2,16 @@ import * as React from "react"
 import { ShieldAlert } from "lucide-react"
 import { toast } from "sonner"
 
+import { ChatBadgeList } from "@/components/chat/chat-badge"
 import { ChatMessageBody } from "@/components/chat/chat-message-body"
 import { ChatModerationBanner } from "@/components/chat/chat-moderation-banner"
-import { ChatUsername } from "@/components/chat/chat-username"
+import { UserCardPopover } from "@/components/chat/user-card-popover"
 import { Button } from "@/components/ui/button"
+import {
+  resolveMessageBadges,
+  type ChatBadgeCatalog,
+} from "@/lib/chat/chat-badges"
+import { createUserCardTargetFromNoticeActor } from "@/lib/chat/user-card"
 import type {
   MessageTimestampFormat,
   TwitchAccount,
@@ -33,12 +39,18 @@ function ChatAutomodMessageInner({
   message,
   timestampFormat,
   account,
+  badgeCatalog,
+  showTwitchBadges = true,
+  showBadgeFallback = false,
   isHistorical = false,
   isAlternateRow = false,
 }: {
   message: TwitchAutomodHeldMessage
   timestampFormat: MessageTimestampFormat
   account: TwitchAccount | null
+  badgeCatalog: ChatBadgeCatalog
+  showTwitchBadges?: boolean
+  showBadgeFallback?: boolean
   isHistorical?: boolean
   isAlternateRow?: boolean
 }) {
@@ -60,6 +72,19 @@ function ChatAutomodMessageInner({
     effectiveStatus === "pending" &&
     !isHistorical &&
     Boolean(account?.scopes.includes("moderator:manage:automod"))
+  const badges = showTwitchBadges
+    ? resolveMessageBadges(message.badges, badgeCatalog)
+    : []
+  const userCardTarget = React.useMemo(
+    () =>
+      createUserCardTargetFromNoticeActor({
+        userId: message.userId,
+        userName: message.userName,
+        displayName: message.displayName,
+        color: message.color,
+      }),
+    [message.color, message.displayName, message.userId, message.userName]
+  )
 
   const resolveHeldMessage = React.useCallback(
     async (action: "ALLOW" | "DENY") => {
@@ -137,7 +162,12 @@ function ChatAutomodMessageInner({
         ) : null
       }
     >
-      <ChatUsername displayName={message.displayName} color={message.color} />
+      <ChatBadgeList
+        badges={badges}
+        unresolved={message.badges}
+        showFallback={showTwitchBadges && showBadgeFallback}
+      />
+      <UserCardPopover target={userCardTarget} />
       <span className="text-muted-foreground">: </span>
       <ChatMessageBody text={message.text} emotes={message.emotes} />
     </ChatModerationBanner>

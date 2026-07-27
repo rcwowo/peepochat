@@ -299,7 +299,8 @@ export function useMessageRouting({
         }
 
         if (
-          message.event === "subscription" &&
+          (message.event === "subscription" ||
+            message.event === "announcement") &&
           message.details &&
           message.detailsEmotes &&
           message.detailsEmotes.length > 0

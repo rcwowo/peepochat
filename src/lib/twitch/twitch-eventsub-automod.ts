@@ -9,6 +9,7 @@ import type {
 } from "@/lib/twitch/twitch-chat-types"
 import {
   asString,
+  badgesFromEventSub,
   parseEventSubMessageBody,
 } from "@/lib/twitch/twitch-eventsub-parse"
 
@@ -70,6 +71,7 @@ export function parseAutomodHeldMessage({
     displayName,
     text,
     emotes,
+    badges: badgesFromEventSub(event.badges),
     color: null,
     receivedAt: heldAt,
     heldAt,

@@ -7,17 +7,20 @@ import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 import { asRecord, asString } from "@/lib/twitch/twitch-eventsub-parse"
 
 function targetFromActionObject(value: unknown): {
+  userId: string | null
   userName: string
   displayName: string
   expiresAt: string | null
 } | null {
   const record = asRecord(value)
   if (!record) return null
+  const userId = asString(record.user_id).trim() || null
   const userName = asString(record.user_login).trim()
   const displayName = asString(record.user_name).trim() || userName
   if (!userName && !displayName) return null
   const expiresAt = asString(record.expires_at).trim() || null
   return {
+    userId,
     userName: userName || displayName.toLowerCase(),
     displayName,
     expiresAt,
@@ -102,6 +105,7 @@ export function createSystemMessageFromChannelModerate({
   const target = targetFromActionObject(event[actionObjectKey(actionRaw)])
   if (!target) return null
 
+  const moderatorUserId = asString(event.moderator_user_id).trim() || null
   const moderatorUserName = asString(event.moderator_user_login).trim()
   const moderatorDisplayName =
     asString(event.moderator_user_name).trim() || moderatorUserName
@@ -122,8 +126,10 @@ export function createSystemMessageFromChannelModerate({
     channelLogin: channel,
     roomId: roomId ?? (asString(event.broadcaster_user_id) || null),
     action: kind,
+    moderatorUserId,
     moderatorUserName: moderatorUserName || moderatorDisplayName.toLowerCase(),
     moderatorDisplayName,
+    targetUserId: target.userId,
     targetUserName: target.userName,
     targetDisplayName: target.displayName,
     banDurationSeconds,

@@ -1,4 +1,4 @@
-import type { TwitchEmote } from "@/lib/twitch/twitch-chat"
+import type { TwitchBadge, TwitchEmote } from "@/lib/twitch/twitch-chat"
 
 export function asString(value: unknown): string {
   return typeof value === "string" ? value : ""
@@ -136,4 +136,20 @@ export function extractModerateTargetNames(
     .map((value) => value.trim())
     .filter(Boolean)
   return [...new Set(names)]
+}
+
+export function badgesFromEventSub(value: unknown): TwitchBadge[] {
+  if (!Array.isArray(value)) return []
+
+  const badges: TwitchBadge[] = []
+  for (const entry of value) {
+    const record = asRecord(entry)
+    if (!record) continue
+    const set = asString(record.set_id).trim() || asString(record.setId).trim()
+    const version =
+      asString(record.id).trim() || asString(record.version).trim() || "1"
+    if (!set) continue
+    badges.push({ set, version })
+  }
+  return badges
 }

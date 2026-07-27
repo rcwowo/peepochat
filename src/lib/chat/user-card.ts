@@ -1,4 +1,7 @@
-import type { TwitchChatMessage } from "@/lib/twitch/twitch-chat"
+import type {
+  TwitchChatMessage,
+  TwitchNoticeActor,
+} from "@/lib/twitch/twitch-chat"
 import type { TwitchUser } from "@/lib/twitch/twitch-api"
 
 export type UserCardTarget = {
@@ -24,6 +27,18 @@ export function createEmptyUserCardFlags(): TwitchChatMessage["flags"] {
     isVip: false,
     isFirst: false,
     isAction: false,
+  }
+}
+
+export function createUserCardTargetFromNoticeActor(
+  actor: TwitchNoticeActor
+): UserCardTarget {
+  return {
+    userId: actor.userId,
+    userName: actor.userName,
+    displayName: actor.displayName,
+    color: actor.color,
+    flags: createEmptyUserCardFlags(),
   }
 }
 

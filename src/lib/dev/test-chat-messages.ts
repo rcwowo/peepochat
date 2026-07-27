@@ -292,6 +292,7 @@ function buildSystemMessage(
     options.userName ?? ""
   )
   const actor = {
+    userId: `dev-${userName}`,
     userName,
     displayName,
     color: options.color ?? "#9146ff",
@@ -307,8 +308,10 @@ function buildSystemMessage(
       channelLogin: channel,
       roomId,
       action,
+      moderatorUserId: "dev-fakemod",
       moderatorUserName: "fakemod",
       moderatorDisplayName: "FakeMod",
+      targetUserId: `dev-${targetName.toLowerCase().replace(/[^a-z0-9_]/g, "")}`,
       targetUserName: targetName.toLowerCase().replace(/[^a-z0-9_]/g, ""),
       targetDisplayName: targetName,
       banDurationSeconds:
@@ -438,6 +441,10 @@ function buildSystemMessage(
       ...EMPTY_SYSTEM_MESSAGE_META,
       msgId: "announcement",
       actor,
+      badges: [
+        { set: "moderator", version: "1" },
+        { set: "subscriber", version: "0" },
+      ],
       announcementTheme: theme,
     }
   }
@@ -503,6 +510,10 @@ function buildAutomodMessage(
     displayName,
     text: withEmotes.text,
     emotes: withEmotes.emotes,
+    badges: [
+      { set: "subscriber", version: "0" },
+      { set: "premium", version: "1" },
+    ],
     color: options.color ?? "#ff7f50",
     receivedAt: heldAt,
     heldAt,

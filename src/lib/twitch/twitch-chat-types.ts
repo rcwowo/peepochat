@@ -19,6 +19,7 @@ export type TwitchAutomodHeldMessage = {
   displayName: string
   text: string
   emotes: TwitchEmote[]
+  badges: TwitchBadge[]
   color: string | null
   receivedAt: string
   heldAt: string
@@ -37,6 +38,7 @@ export type TwitchSuspiciousUserMessage = {
   displayName: string
   text: string
   emotes: TwitchEmote[]
+  badges: TwitchBadge[]
   color: string | null
   receivedAt: string
   status: TwitchSuspiciousUserStatus

@@ -393,6 +393,9 @@ function ChatPaneInner({
                               key={entry.message.id}
                               message={entry.message}
                               timestampFormat={timestampFormat}
+                              badgeCatalog={badgeCatalog}
+                              showTwitchBadges={showTwitchBadges}
+                              showBadgeFallback={showBadgeFallback}
                               isHistorical={entry.isHistorical}
                               isAlternateRow={isAlternateRow}
                             />
@@ -406,6 +409,9 @@ function ChatPaneInner({
                               message={entry.message}
                               timestampFormat={timestampFormat}
                               account={account}
+                              badgeCatalog={badgeCatalog}
+                              showTwitchBadges={showTwitchBadges}
+                              showBadgeFallback={showBadgeFallback}
                               isHistorical={entry.isHistorical}
                               isAlternateRow={isAlternateRow}
                             />
@@ -419,6 +425,9 @@ function ChatPaneInner({
                               message={entry.message}
                               timestampFormat={timestampFormat}
                               deletedMessagesBehavior={deletedMessagesBehavior}
+                              badgeCatalog={badgeCatalog}
+                              showTwitchBadges={showTwitchBadges}
+                              showBadgeFallback={showBadgeFallback}
                               isHistorical={entry.isHistorical}
                               isAlternateRow={isAlternateRow}
                             />
