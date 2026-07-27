@@ -2,9 +2,9 @@ import * as React from "react"
 import { Gift, Megaphone, Shield, Star, Users } from "lucide-react"
 
 import { ChatMessageBody } from "@/components/chat/chat-message-body"
+import { ChatTimestamp } from "@/components/chat/chat-timestamp"
 import { ChatUsername } from "@/components/chat/chat-username"
 import type { MessageTimestampFormat } from "@/lib/peepochat/peepochat-config"
-import { formatMessageTimestamp } from "@/lib/peepochat/peepochat-context"
 import type { TwitchSystemMessage } from "@/lib/twitch/twitch-chat"
 import { cn } from "@/lib/utils"
 
@@ -31,27 +31,6 @@ function getAnnouncementGradient(
 
 function isGiftNotice(msgId: string | null) {
   return Boolean(msgId && /gift|anon/i.test(msgId))
-}
-
-function ChatTimestamp({
-  receivedAt,
-  timestampFormat,
-  className = "chat-timestamp mr-1.5 inline-block align-top text-xs tabular-nums select-none",
-}: {
-  receivedAt: string
-  timestampFormat: MessageTimestampFormat
-  className?: string
-}) {
-  const timestamp = formatMessageTimestamp(receivedAt, timestampFormat)
-  if (!timestamp) {
-    return null
-  }
-
-  return (
-    <time className={className} dateTime={receivedAt}>
-      {timestamp}
-    </time>
-  )
 }
 
 function InlineSystemLine({

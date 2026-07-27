@@ -102,7 +102,7 @@ export const TWITCH_OAUTH_SCOPE_GROUPS: TwitchOAuthScopeGroup[] = [
       {
         scope: "moderator:read:warnings",
         label: "Chat warnings",
-        description: "Required for moderation EventSub warnings support.",
+        description: "Required to receive moderation EventSub actions.",
       },
       {
         scope: "moderator:manage:announcements",

@@ -63,10 +63,12 @@ export function buildDesiredEventSubSubscriptions({
   account,
   channels,
   selfStates,
+  showSuspiciousActivity = true,
 }: {
   account: TwitchAccount
   channels: EventSubChannelTarget[]
   selfStates: Map<string, TwitchSelfChatState>
+  showSuspiciousActivity?: boolean
 }): TwitchEventSubDesiredSubscription[] {
   const out: TwitchEventSubDesiredSubscription[] = []
   const moderatorUserId = account.id
@@ -83,8 +85,6 @@ export function buildDesiredEventSubSubscriptions({
       selfState,
       login
     )
-
-    pushSub(out, "channel.update", "2", { broadcaster_user_id: broadcasterUserId }, login)
 
     if (hasScope(account, "user:read:chat")) {
       pushSub(
@@ -149,7 +149,10 @@ export function buildDesiredEventSubSubscriptions({
       )
     }
 
-    if (hasScope(account, "moderator:read:suspicious_users")) {
+    if (
+      showSuspiciousActivity &&
+      hasScope(account, "moderator:read:suspicious_users")
+    ) {
       pushSub(
         out,
         "channel.suspicious_user.message",

@@ -1,11 +1,7 @@
 import { devLoggedFetch } from "@/lib/dev-logger"
 import { isSevenTvZeroWidthEmote } from "@/lib/chat/seventv-emotes"
 import type { SevenTvActiveEmote } from "@/lib/chat/seventv-event-api"
-import type {
-  TwitchChatMessage,
-  TwitchEmote,
-  TwitchEmoteProvider,
-} from "@/lib/twitch/twitch-chat"
+import type { TwitchEmote, TwitchEmoteProvider } from "@/lib/twitch/twitch-chat"
 
 export type EmoteCatalogEntry = {
   id: string
@@ -518,11 +514,13 @@ function overlaysEqual(
   return true
 }
 
-export function hydrateMessageEmotes(
-  message: TwitchChatMessage,
+export function hydrateMessageEmotes<
+  T extends { text: string; emotes: TwitchEmote[] },
+>(
+  message: T,
   catalog: ThirdPartyEmoteCatalog | null,
   twitchCatalog?: TwitchEmoteHydration | null
-): TwitchChatMessage {
+): T {
   const nativeEmotes = upgradeTwitchEmoteImages(
     message.emotes.filter((emote) => emote.provider === "twitch"),
     twitchCatalog

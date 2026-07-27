@@ -46,6 +46,7 @@ import type {
 import { useChannelMessageHighlights } from "@/hooks/chat-ui/use-highlight-activity"
 import {
   usePeepochatChat,
+  usePeepochatSettings,
   usePeepochatSidebarHighlights,
 } from "@/lib/peepochat/peepochat-context"
 import {
@@ -147,6 +148,8 @@ function ChatPaneInner({
     blockUser,
     unblockUser,
   } = usePeepochatChat()
+  const { config } = usePeepochatSettings()
+  const showSuspiciousActivity = config.chat.showSuspiciousActivity
   const { isChannelLive, getChannelLiveStream } =
     usePeepochatSidebarHighlights()
   const messageHighlights = useChannelMessageHighlights(channelLogin)
@@ -173,18 +176,25 @@ function ChatPaneInner({
   }
 
   const visibleTimeline = React.useMemo(() => {
-    if (!hideBlockedUsers) {
-      return timeline
+    if (hideBlockedUsers || !showSuspiciousActivity) {
+      return timeline.filter((entry) => {
+        if (entry.kind === "suspicious" && !showSuspiciousActivity) {
+          return false
+        }
+
+        if (
+          hideBlockedUsers &&
+          (entry.kind === "chat" || entry.kind === "suspicious")
+        ) {
+          return !isUserBlocked(entry.message.userId, entry.message.userName)
+        }
+
+        return true
+      })
     }
 
-    return timeline.filter((entry) => {
-      if (entry.kind !== "chat" && entry.kind !== "suspicious") {
-        return true
-      }
-
-      return !isUserBlocked(entry.message.userId, entry.message.userName)
-    })
-  }, [hideBlockedUsers, isUserBlocked, timeline])
+    return timeline
+  }, [hideBlockedUsers, isUserBlocked, showSuspiciousActivity, timeline])
 
   const {
     chatContainerRef,
@@ -406,6 +416,7 @@ function ChatPaneInner({
                             key={entry.message.id}
                             message={entry.message}
                             timestampFormat={timestampFormat}
+                            deletedMessagesBehavior={deletedMessagesBehavior}
                             isHistorical={entry.isHistorical}
                             isAlternateRow={isAlternateRow}
                           />

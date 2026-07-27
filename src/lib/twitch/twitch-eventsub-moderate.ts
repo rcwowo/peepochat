@@ -4,17 +4,7 @@ import {
   type TwitchSystemMessage,
 } from "@/lib/twitch/twitch-chat"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
-
-function asString(value: unknown): string {
-  return typeof value === "string" ? value : ""
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return null
-  }
-  return value as Record<string, unknown>
-}
+import { asRecord, asString } from "@/lib/twitch/twitch-eventsub-parse"
 
 function targetFromActionObject(value: unknown): {
   userName: string

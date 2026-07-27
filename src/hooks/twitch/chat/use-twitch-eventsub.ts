@@ -23,6 +23,7 @@ import {
   userAutomodHeldNoticeId,
 } from "@/lib/twitch/twitch-eventsub-automod"
 import { createSystemMessageFromChannelModerate } from "@/lib/twitch/twitch-eventsub-moderate"
+import { extractModerateTargetNames } from "@/lib/twitch/twitch-eventsub-parse"
 import {
   createSystemMessageFromSuspiciousUserUpdate,
   parseSuspiciousUserMessage,
@@ -49,21 +50,10 @@ type UseTwitchEventSubOptions = {
   dismissComposerNotice?: (notice: { channel: string; id: string }) => void
   trimRoomTimeline: (timeline: TwitchTimelineItem[]) => TwitchTimelineItem[]
   showSuspiciousActivityRef: React.RefObject<boolean>
-}
-
-function extractModerateTargetNames(event: Record<string, unknown>): string[] {
-  const action = typeof event.action === "string" ? event.action : ""
-  if (!action) return []
-  const target = event[action]
-  if (typeof target !== "object" || target === null || Array.isArray(target)) {
-    return []
-  }
-  const record = target as Record<string, unknown>
-  const names = [record.user_login, record.user_name]
-    .filter((value): value is string => typeof value === "string")
-    .map((value) => value.trim())
-    .filter(Boolean)
-  return [...new Set(names)]
+  hideBlockedUsersRef: React.RefObject<boolean>
+  isUserBlockedRef: React.RefObject<
+    (userId?: string | null, login?: string | null) => boolean
+  >
 }
 
 function resolveChannelLogin(
@@ -85,11 +75,13 @@ function buildSyncKey({
   syncedChannels,
   rooms,
   selfStates,
+  showSuspiciousActivity,
 }: {
   account: TwitchAccount
   syncedChannels: readonly string[]
   rooms: RoomStore["rooms"]
   selfStates: Map<string, TwitchSelfChatState>
+  showSuspiciousActivity: boolean
 }): string {
   const channelPart = syncedChannels
     .map((login) => {
@@ -104,7 +96,8 @@ function buildSyncKey({
     })
     .join("|")
 
-  return `${account.id}::${account.accessToken}::${channelPart}`
+  const scopesPart = [...account.scopes].sort().join(" ")
+  return `${account.id}::${account.accessToken}::${scopesPart}::${showSuspiciousActivity ? "1" : "0"}::${channelPart}`
 }
 
 export function useTwitchEventSub({
@@ -117,6 +110,8 @@ export function useTwitchEventSub({
   dismissComposerNotice,
   trimRoomTimeline,
   showSuspiciousActivityRef,
+  hideBlockedUsersRef,
+  isUserBlockedRef,
 }: UseTwitchEventSubOptions) {
   const { rooms, roomsRef, updateRoom } = roomStore
   const client = React.useMemo(() => getTwitchEventSubClient(), [])
@@ -126,6 +121,10 @@ export function useTwitchEventSub({
   const dismissComposerNoticeRef = React.useRef(dismissComposerNotice)
   const trimRoomTimelineRef = React.useRef(trimRoomTimeline)
   const lastSyncKeyRef = React.useRef("")
+  const roomIdsKey = Object.keys(rooms)
+    .sort()
+    .map((login) => `${login}:${rooms[login]?.roomId?.trim() ?? ""}`)
+    .join("|")
 
   React.useLayoutEffect(() => {
     accountRef.current = account
@@ -162,6 +161,7 @@ export function useTwitchEventSub({
       syncedChannels,
       rooms: roomsRef.current,
       selfStates: selfStatesRef.current,
+      showSuspiciousActivity: showSuspiciousActivityRef.current,
     })
 
     if (syncKey === lastSyncKeyRef.current) {
@@ -189,9 +189,16 @@ export function useTwitchEventSub({
         account: currentAccount,
         channels,
         selfStates: selfStatesRef.current,
+        showSuspiciousActivity: showSuspiciousActivityRef.current,
       })
     )
-  }, [client, roomsRef, selfStatesRef, syncedChannelsRef])
+  }, [
+    client,
+    roomsRef,
+    selfStatesRef,
+    showSuspiciousActivityRef,
+    syncedChannelsRef,
+  ])
 
   const appendSystemMessage = React.useCallback(
     (
@@ -347,12 +354,23 @@ export function useTwitchEventSub({
           const existing = room.timeline[existingIndex]
           if (!existing) return room
 
-          const color =
+          const existingMessage =
             existing.kind === "chat" || existing.kind === "suspicious"
-              ? existing.message.color
+              ? existing.message
               : null
-          const nextMessage =
-            color && !message.color ? { ...message, color } : message
+          if (!existingMessage) return room
+
+          let nextMessage = message
+          if (existingMessage.color && !message.color) {
+            nextMessage = { ...nextMessage, color: existingMessage.color }
+          }
+          if (existingMessage.deletedAt) {
+            nextMessage = {
+              ...nextMessage,
+              deletedAt: existingMessage.deletedAt,
+            }
+          }
+
           const next = room.timeline.slice()
           next[existingIndex] = { kind: "suspicious", message: nextMessage }
           return { ...room, timeline: next }
@@ -548,6 +566,14 @@ export function useTwitchEventSub({
             receivedAt: notification.messageTimestamp,
           })
           if (!message) return
+
+          if (
+            hideBlockedUsersRef.current &&
+            isUserBlockedRef.current(message.userId, message.userName)
+          ) {
+            return
+          }
+
           upsertSuspiciousUserMessageRef.current(channelLogin, message)
           return
         }
@@ -582,11 +608,18 @@ export function useTwitchEventSub({
     return () => {
       client.setHandlers({})
     }
-  }, [client, roomsRef, showSuspiciousActivityRef, syncedChannelsRef])
+  }, [
+    client,
+    hideBlockedUsersRef,
+    isUserBlockedRef,
+    roomsRef,
+    showSuspiciousActivityRef,
+    syncedChannelsRef,
+  ])
 
   React.useEffect(() => {
     syncDesiredSubscriptions()
-  }, [account, rooms, syncDesiredSubscriptions])
+  }, [account, roomIdsKey, syncDesiredSubscriptions])
 
   React.useEffect(() => {
     return () => {
@@ -606,8 +639,21 @@ export function useTwitchEventSub({
     syncDesiredSubscriptions()
   }, [syncDesiredSubscriptions])
 
+  const notifySuspiciousSettingChanged = React.useCallback(() => {
+    lastSyncKeyRef.current = ""
+    syncDesiredSubscriptions()
+  }, [syncDesiredSubscriptions])
+
+  const hasEnabledModActionSubscription = React.useCallback(
+    (channelLogin: string) =>
+      client.hasEnabledModActionSubscription(channelLogin),
+    [client]
+  )
+
   return {
     notifySelfStateChanged,
     notifyChannelsChanged,
+    notifySuspiciousSettingChanged,
+    hasEnabledModActionSubscription,
   }
 }

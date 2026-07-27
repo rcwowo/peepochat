@@ -1,6 +1,5 @@
 import {
   EMPTY_SYSTEM_MESSAGE_META,
-  type TwitchEmote,
   type TwitchSystemMessage,
 } from "@/lib/twitch/twitch-chat"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
@@ -8,68 +7,16 @@ import type {
   TwitchSuspiciousUserMessage,
   TwitchSuspiciousUserStatus,
 } from "@/lib/twitch/twitch-chat-types"
-
-function asString(value: unknown): string {
-  return typeof value === "string" ? value : ""
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return null
-  }
-  return value as Record<string, unknown>
-}
-
-function twitchEmoteImageUrl(emoteId: string): string {
-  return `https://static-cdn.jtvnw.net/emoticons/v2/${encodeURIComponent(emoteId)}/animated/dark/1.0`
-}
-
-function emotesFromFragments(fragments: unknown): {
-  text: string
-  emotes: TwitchEmote[]
-} {
-  if (!Array.isArray(fragments)) {
-    return { text: "", emotes: [] }
-  }
-
-  let text = ""
-  const emotes: TwitchEmote[] = []
-
-  for (const fragment of fragments) {
-    const record = asRecord(fragment)
-    if (!record) continue
-
-    const fragmentText = asString(record.text)
-    if (!fragmentText) continue
-
-    const type = asString(record.type)
-    const start = text.length
-    text += fragmentText
-    const end = text.length - 1
-
-    if (type !== "emote") continue
-
-    const emote = asRecord(record.emote)
-    const emoteId = asString(emote?.id).trim()
-    if (!emoteId) continue
-
-    emotes.push({
-      id: emoteId,
-      code: fragmentText,
-      provider: "twitch",
-      imageUrl: twitchEmoteImageUrl(emoteId),
-      start,
-      end,
-    })
-  }
-
-  return { text, emotes }
-}
+import {
+  asRecord,
+  asString,
+  emotesFromV2Fragments,
+} from "@/lib/twitch/twitch-eventsub-parse"
 
 function parseMessageBody(event: Record<string, unknown>): {
   messageId: string
   text: string
-  emotes: TwitchEmote[]
+  emotes: ReturnType<typeof emotesFromV2Fragments>["emotes"]
 } {
   const record = asRecord(event.message)
   if (!record) {
@@ -77,7 +24,7 @@ function parseMessageBody(event: Record<string, unknown>): {
   }
 
   const messageId = asString(record.message_id).trim()
-  const fromFragments = emotesFromFragments(record.fragments)
+  const fromFragments = emotesFromV2Fragments(record.fragments)
   const text = asString(record.text) || fromFragments.text
 
   return {
@@ -100,9 +47,7 @@ function parseSuspiciousStatus(
   }
 }
 
-export type SuspiciousUserUpdateStatus =
-  | TwitchSuspiciousUserStatus
-  | "none"
+export type SuspiciousUserUpdateStatus = TwitchSuspiciousUserStatus | "none"
 
 function parseSuspiciousUpdateStatus(
   value: unknown
@@ -185,8 +130,7 @@ export function createSystemMessageFromSuspiciousUserUpdate({
   const moderatorDisplayName =
     asString(event.moderator_user_name).trim() || moderatorUserName
   const targetUserName = asString(event.user_login).trim().toLowerCase()
-  const targetDisplayName =
-    asString(event.user_name).trim() || targetUserName
+  const targetDisplayName = asString(event.user_name).trim() || targetUserName
 
   if (
     !channel ||

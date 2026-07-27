@@ -450,13 +450,18 @@ export class TwitchEventSubClient {
       : {}
     const key = eventSubSubscriptionKey(type, version, condition)
     const active = this.active.get(key)
+    const subscriptionId = asString(subscription.id)
+    if (active && !active.helixId && subscriptionId) {
+      active.helixId = subscriptionId
+      active.status = "enabled"
+    }
 
     this.handlers.onNotification?.({
       messageId: asString(frame.metadata?.message_id),
       messageTimestamp: asString(frame.metadata?.message_timestamp),
       subscriptionType: type,
       subscriptionVersion: version,
-      subscriptionId: asString(subscription.id),
+      subscriptionId,
       condition,
       event,
       channelLogin: active?.channelLogin ?? null,
@@ -478,13 +483,19 @@ export class TwitchEventSubClient {
         )
       : {}
 
+    let removed = false
     for (const [key, active] of this.active) {
       if (
         active.type === type &&
         conditionKey(active.condition) === conditionKey(condition)
       ) {
         this.active.delete(key)
+        removed = true
       }
+    }
+
+    if (removed && this.desired.size > 0) {
+      this.queueSyncSubscriptions()
     }
   }
 
@@ -595,18 +606,20 @@ export class TwitchEventSubClient {
         } catch (error) {
           if (generation !== this.syncGeneration) return
           if (error instanceof TwitchApiError && error.status === 409) {
-            // Already bound to this session (or a racing create). Do not retry.
+            // Already bound to this session (or a racing create). Treat as live;
+            // helixId is filled in from the next notification when available.
             pending.status = "enabled"
             return
           }
           pending.status = "failed"
-          if (
-            !authFailureReported &&
-            error instanceof TwitchApiError &&
-            error.status === 401
-          ) {
-            authFailureReported = true
-            auth.onAuthFailure?.("expired")
+          if (!authFailureReported && error instanceof TwitchApiError) {
+            if (error.status === 401) {
+              authFailureReported = true
+              auth.onAuthFailure?.("expired")
+            } else if (error.status === 403) {
+              authFailureReported = true
+              auth.onAuthFailure?.("scopes")
+            }
           }
         }
       })

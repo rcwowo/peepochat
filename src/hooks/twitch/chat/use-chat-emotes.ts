@@ -103,7 +103,13 @@ export function useChatEmotes({
 
         let changed = false
         const timeline = room.timeline.map((entry) => {
-          if (entry.kind !== "chat") return entry
+          if (
+            entry.kind !== "chat" &&
+            entry.kind !== "automod" &&
+            entry.kind !== "suspicious"
+          ) {
+            return entry
+          }
 
           const messageChannel = normalizeChannelLogin(entry.message.channel)
           if (messageChannel !== normalizedLogin) {
@@ -115,11 +121,44 @@ export function useChatEmotes({
             return entry
           }
 
+          if (entry.kind === "chat") {
+            const message =
+              messageRoomId === null
+                ? { ...entry.message, roomId }
+                : entry.message
+            const hydrated = hydrateMessageEmotes(
+              message,
+              thirdPartyCatalog,
+              twitchHydration
+            )
+            if (message === entry.message && hydrated === entry.message) {
+              return entry
+            }
+            changed = true
+            return { ...entry, message: hydrated }
+          }
+
+          if (entry.kind === "automod") {
+            const message =
+              messageRoomId === null
+                ? { ...entry.message, roomId }
+                : entry.message
+            const hydrated = hydrateMessageEmotes(
+              message,
+              thirdPartyCatalog,
+              twitchHydration
+            )
+            if (message === entry.message && hydrated === entry.message) {
+              return entry
+            }
+            changed = true
+            return { ...entry, message: hydrated }
+          }
+
           const message =
             messageRoomId === null
               ? { ...entry.message, roomId }
               : entry.message
-
           const hydrated = hydrateMessageEmotes(
             message,
             thirdPartyCatalog,
@@ -128,7 +167,6 @@ export function useChatEmotes({
           if (message === entry.message && hydrated === entry.message) {
             return entry
           }
-
           changed = true
           return { ...entry, message: hydrated }
         })
