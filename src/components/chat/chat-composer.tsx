@@ -1,8 +1,9 @@
 import * as React from "react"
-import { InfoIcon, SendHorizontalIcon, XIcon } from "lucide-react"
+import { SendHorizontalIcon, XIcon } from "lucide-react"
 
 import { ChatSuggestions } from "@/components/chat/chat-suggestions"
 import { CommandSuggestions } from "@/components/chat/command-suggestions"
+import { ComposerNoticeBanner } from "@/components/chat/composer-notice-banner"
 import { EmotePicker } from "@/components/chat/emote-picker"
 import { ChatReplyPreview } from "@/components/chat/chat-reply-preview"
 import { useUserCardContext } from "@/hooks/twitch/use-user-card-context"
@@ -77,9 +78,14 @@ export function ChatComposer({
     registerSendOutcomeListener,
     hideBlockedUsers,
     isUserBlocked,
+    visibleChannelLogins,
   } = usePeepochat()
 
   const userCardContext = useUserCardContext()
+  const chatVisible = visibleChannelLogins.some(
+    (login) =>
+      normalizeChannelLogin(login) === normalizeChannelLogin(channelLogin)
+  )
 
   const [value, setValue] = React.useState("")
   const [notices, setNotices] = React.useState<ComposerNotice[]>([])
@@ -944,26 +950,13 @@ export function ChatComposer({
           />
           <div className="overflow-hidden rounded-lg border border-border/50 bg-background/40 shadow-none backdrop-blur-sm focus-within:border-border/40 focus-within:ring-1 focus-within:ring-border/40 dark:bg-input/30">
             {activeNotice ? (
-              <div className="flex items-center gap-2 border-b border-border/50 px-2.5 py-1.5">
-                <InfoIcon className="size-3.5 shrink-0 text-muted-foreground" />
-                <p className="min-w-0 flex-1 text-[11px] leading-snug text-muted-foreground">
-                  {activeNotice.message}
-                </p>
-                {notices.length > 1 ? (
-                  <span className="shrink-0 text-[11px] text-muted-foreground/70 tabular-nums">
-                    1/{notices.length}
-                  </span>
-                ) : null}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="xs"
-                  className="h-5 shrink-0 px-2 text-[11px]"
-                  onClick={dismissFrontNotice}
-                >
-                  Dismiss
-                </Button>
-              </div>
+              <ComposerNoticeBanner
+                noticeId={activeNotice.id}
+                message={activeNotice.message}
+                queueCount={notices.length}
+                chatVisible={chatVisible}
+                onDismiss={dismissFrontNotice}
+              />
             ) : null}
             <div className="relative">
               <Textarea
