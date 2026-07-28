@@ -397,10 +397,10 @@ function NotificationsShowcaseChat() {
 
       <div className="flex h-[min(19.5rem,52vw)] min-h-60">
         <aside
-          className="flex w-18 shrink-0 flex-col border-r border-sidebar-border bg-sidebar"
-          style={{ "--sidebar-width-icon": "4.5rem" } as React.CSSProperties}
+          className="flex w-[4.375rem] shrink-0 flex-col border-r border-sidebar-border bg-sidebar"
+          style={{ "--sidebar-width-icon": "4.375rem" } as React.CSSProperties}
         >
-          <div className="flex flex-col items-stretch gap-2 px-0 py-3">
+          <div className="flex flex-col items-stretch gap-3 px-0 py-3">
             {SIDEBAR_CHANNELS.map(({ channel: entry, isActive, showPing }) => (
               <SidebarChannelRow
                 key={entry.displayName}
@@ -423,13 +423,12 @@ function NotificationsShowcaseChat() {
           <div className="mt-auto flex items-center justify-center p-1.5">
             <Button
               type="button"
-              variant="outline"
               size="icon"
               className="size-9 shrink-0"
               tabIndex={-1}
               aria-hidden
             >
-              <PlusIcon className="size-3.5 shrink-0" />
+              <PlusIcon className="size-4 shrink-0" />
             </Button>
           </div>
         </aside>

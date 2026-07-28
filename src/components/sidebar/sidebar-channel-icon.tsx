@@ -33,54 +33,46 @@ function SidebarLiveBadge() {
 
 const indicatorShadow = "shadow-[0_0_0_1px_rgba(0,0,0,0.35)]"
 
-/** Active channel: vertical pill on the screen edge. */
-function SidebarActiveIndicator() {
-  return (
-    <span
-      className={cn(
-        "h-6 w-[3px] rounded-r-full bg-sidebar-foreground",
-        indicatorShadow
-      )}
-      aria-hidden
-    />
-  )
-}
+const indicatorTransition =
+  "transition-[height,width,border-radius,transform,opacity,margin] duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
 
-/**
- * Unread: circle centered on the left edge so only the right half shows (semicircle).
- */
-function SidebarUnreadIndicator() {
-  return (
-    <span
-      className={cn(
-        "size-2 -translate-x-1/2 rounded-full bg-sidebar-foreground",
-        indicatorShadow
-      )}
-      aria-hidden
-    />
-  )
-}
+const tileRadiusTransition =
+  "transition-[border-radius,background-color] duration-200 ease-[cubic-bezier(0.3,0.7,0.4,1)]"
 
 export function SidebarIconTile({
   children,
   isActive,
   showPing,
   showLive,
+  variant = "channel",
 }: {
   children: React.ReactNode
   isActive: boolean
   showPing: boolean
   showLive: boolean
+  variant?: "channel" | "split"
 }) {
+  const radiusClass = cn(
+    "rounded-[1.375rem]",
+    isActive ? "rounded-[0.95rem]" : "group-hover/icon:rounded-[1.15rem]"
+  )
+
   return (
     <span
       className={cn(
-        "relative size-10 shrink-0 overflow-visible rounded-full bg-secondary ring-[2.5px] ring-transparent transition-shadow",
-        isActive && "bg-sidebar-accent ring-sidebar-foreground",
-        !isActive && "group-hover/icon:ring-sidebar-foreground/55"
+        "relative size-11 shrink-0 overflow-visible bg-secondary",
+        tileRadiusTransition,
+        radiusClass,
+        variant === "split" && isActive && "bg-sidebar-foreground/15"
       )}
     >
-      <span className="absolute inset-0 overflow-hidden rounded-full">
+      <span
+        className={cn(
+          "absolute inset-0 overflow-hidden",
+          tileRadiusTransition,
+          radiusClass
+        )}
+      >
         {children}
       </span>
       {showPing ? <SidebarPingBadge /> : null}
@@ -102,15 +94,25 @@ export function SidebarChannelRow({
   const showUnreadIndicator = showUnread && !isActive
 
   return (
-    <div className="relative flex h-11 w-full min-w-0 items-center justify-center overflow-visible">
-      {isActive || showUnreadIndicator ? (
+    <div className="group/row relative flex h-11 w-full min-w-0 items-center justify-center overflow-visible">
+      <span
+        className="pointer-events-none absolute top-1/2 left-0 z-10 flex -translate-y-1/2 items-center"
+        aria-hidden
+      >
         <span
-          className="pointer-events-none absolute top-1/2 left-0 z-10 flex -translate-y-1/2 items-center"
-          aria-hidden
-        >
-          {isActive ? <SidebarActiveIndicator /> : <SidebarUnreadIndicator />}
-        </span>
-      ) : null}
+          className={cn(
+            "bg-sidebar-foreground",
+            indicatorShadow,
+            indicatorTransition,
+            isActive && "h-8 w-[3px] rounded-r-full",
+            showUnreadIndicator &&
+              "size-2 -translate-x-1/2 rounded-full group-hover/row:h-5 group-hover/row:w-[3px] group-hover/row:translate-x-0 group-hover/row:rounded-r-full",
+            !isActive &&
+              !showUnreadIndicator &&
+              "h-0 w-[3px] rounded-r-full opacity-0 group-hover/row:h-5 group-hover/row:opacity-100"
+          )}
+        />
+      </span>
       {children}
     </div>
   )
@@ -132,7 +134,7 @@ export function SidebarChannelAvatar({
         alt=""
         draggable={false}
         className={cn(
-          "pointer-events-none size-full rounded-full object-cover",
+          "pointer-events-none size-full rounded-[inherit] object-cover",
           className
         )}
       />
