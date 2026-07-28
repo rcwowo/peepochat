@@ -1029,6 +1029,79 @@ export async function fetchLiveStreamsByLogin(
   return chunkResults.flat()
 }
 
+export type TwitchChannelInformation = {
+  broadcasterId: string
+  broadcasterLogin: string
+  title: string
+  gameName: string
+  gameId: string
+}
+
+export async function fetchChannelsByBroadcasterId(
+  broadcasterIds: string[],
+  accessToken: string,
+  clientId: string
+): Promise<TwitchChannelInformation[]> {
+  const normalized = [
+    ...new Set(
+      broadcasterIds.flatMap((id) => {
+        const value = id.trim()
+        return value ? [value] : []
+      })
+    ),
+  ]
+
+  if (normalized.length === 0) {
+    return []
+  }
+
+  const chunks: string[][] = []
+  for (let index = 0; index < normalized.length; index += 100) {
+    chunks.push(normalized.slice(index, index + 100))
+  }
+
+  const chunkResults = await Promise.all(
+    chunks.map(async (chunk) => {
+      const params = new URLSearchParams()
+      for (const broadcasterId of chunk) {
+        params.append("broadcaster_id", broadcasterId)
+      }
+
+      const response = await devLoggedFetch(
+        `https://api.twitch.tv/helix/channels?${params.toString()}`,
+        { headers: helixHeaders(accessToken, clientId) }
+      )
+
+      if (!response.ok) {
+        throw new TwitchApiError(
+          "Could not load channel information.",
+          response.status
+        )
+      }
+
+      const payload = (await response.json()) as {
+        data?: Array<{
+          broadcaster_id: string
+          broadcaster_login: string
+          title: string
+          game_name: string
+          game_id: string
+        }>
+      }
+
+      return (payload.data ?? []).map((channel) => ({
+        broadcasterId: channel.broadcaster_id,
+        broadcasterLogin: channel.broadcaster_login.toLowerCase(),
+        title: channel.title ?? "",
+        gameName: channel.game_name ?? "",
+        gameId: channel.game_id ?? "",
+      }))
+    })
+  )
+
+  return chunkResults.flat()
+}
+
 export type TwitchChatSettings = {
   slowMode: boolean
   slowModeWaitTime: number | null

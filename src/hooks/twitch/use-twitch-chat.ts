@@ -52,6 +52,7 @@ export function useTwitchChat(options?: {
   >(() => false)
   const clearChatWhenInstructedRef = React.useRef(true)
   const showSuspiciousActivityRef = React.useRef(true)
+  const showChannelUpdatesRef = React.useRef(true)
 
   const syncedChannelsRef = React.useRef<string[]>([])
   const sendClientRef = React.useRef<TwitchChatClient | null>(null)
@@ -155,6 +156,7 @@ export function useTwitchChat(options?: {
     dismissComposerNotice: send.dismissComposerNotice,
     trimRoomTimeline: timeline.trimWithLimit,
     showSuspiciousActivityRef,
+    showChannelUpdatesRef,
     hideBlockedUsersRef,
     isUserBlockedRef,
   })
@@ -166,6 +168,9 @@ export function useTwitchChat(options?: {
   const notifySuspiciousSettingChangedRef = React.useRef(
     eventSub.notifySuspiciousSettingChanged
   )
+  const notifyChannelUpdatesSettingChangedRef = React.useRef(
+    eventSub.notifyChannelUpdatesSettingChanged
+  )
   const syncChannelsBaseRef = React.useRef(connection.syncChannels)
 
   React.useLayoutEffect(() => {
@@ -173,9 +178,12 @@ export function useTwitchChat(options?: {
     notifyChannelsChangedRef.current = eventSub.notifyChannelsChanged
     notifySuspiciousSettingChangedRef.current =
       eventSub.notifySuspiciousSettingChanged
+    notifyChannelUpdatesSettingChangedRef.current =
+      eventSub.notifyChannelUpdatesSettingChanged
     syncChannelsBaseRef.current = connection.syncChannels
   }, [
     connection.syncChannels,
+    eventSub.notifyChannelUpdatesSettingChanged,
     eventSub.notifyChannelsChanged,
     eventSub.notifySelfStateChanged,
     eventSub.notifySuspiciousSettingChanged,
@@ -278,6 +286,14 @@ export function useTwitchChat(options?: {
     notifySuspiciousSettingChangedRef.current()
   }, [])
 
+  const setShowChannelUpdates = React.useCallback((enabled: boolean) => {
+    if (showChannelUpdatesRef.current === enabled) {
+      return
+    }
+    showChannelUpdatesRef.current = enabled
+    notifyChannelUpdatesSettingChangedRef.current()
+  }, [])
+
   const setIsUserBlocked = React.useCallback(
     (checker: (userId?: string | null, login?: string | null) => boolean) => {
       isUserBlockedRef.current = checker
@@ -369,6 +385,7 @@ export function useTwitchChat(options?: {
     setClearChatWhenInstructed,
     setHideBlockedUsers,
     setShowSuspiciousActivity,
+    setShowChannelUpdates,
     setIsUserBlocked,
     setChatCommandActions: send.setChatCommandActions,
     purgeMessagesFromBlockedUsers: timeline.purgeMessagesFromBlockedUsers,

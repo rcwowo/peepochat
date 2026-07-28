@@ -22,6 +22,12 @@ import {
   parseUserMessageUpdateEvent,
   userAutomodHeldNoticeId,
 } from "@/lib/twitch/twitch-eventsub-automod"
+import { fetchChannelsByBroadcasterId } from "@/lib/twitch/twitch-api"
+import {
+  createChannelUpdateSystemMessages,
+  parseChannelUpdateEvent,
+  type ChannelUpdateSnapshot,
+} from "@/lib/twitch/twitch-eventsub-channel-update"
 import { createSystemMessageFromChannelModerate } from "@/lib/twitch/twitch-eventsub-moderate"
 import { extractModerateTargetNames } from "@/lib/twitch/twitch-eventsub-parse"
 import {
@@ -50,6 +56,7 @@ type UseTwitchEventSubOptions = {
   dismissComposerNotice?: (notice: { channel: string; id: string }) => void
   trimRoomTimeline: (timeline: TwitchTimelineItem[]) => TwitchTimelineItem[]
   showSuspiciousActivityRef: React.RefObject<boolean>
+  showChannelUpdatesRef: React.RefObject<boolean>
   hideBlockedUsersRef: React.RefObject<boolean>
   isUserBlockedRef: React.RefObject<
     (userId?: string | null, login?: string | null) => boolean
@@ -76,12 +83,14 @@ function buildSyncKey({
   rooms,
   selfStates,
   showSuspiciousActivity,
+  showChannelUpdates,
 }: {
   account: TwitchAccount
   syncedChannels: readonly string[]
   rooms: RoomStore["rooms"]
   selfStates: Map<string, TwitchSelfChatState>
   showSuspiciousActivity: boolean
+  showChannelUpdates: boolean
 }): string {
   const channelPart = syncedChannels
     .map((login) => {
@@ -97,7 +106,7 @@ function buildSyncKey({
     .join("|")
 
   const scopesPart = [...account.scopes].sort().join(" ")
-  return `${account.id}::${account.accessToken}::${scopesPart}::${showSuspiciousActivity ? "1" : "0"}::${channelPart}`
+  return `${account.id}::${account.accessToken}::${scopesPart}::${showSuspiciousActivity ? "1" : "0"}::${showChannelUpdates ? "1" : "0"}::${channelPart}`
 }
 
 export function useTwitchEventSub({
@@ -110,6 +119,7 @@ export function useTwitchEventSub({
   dismissComposerNotice,
   trimRoomTimeline,
   showSuspiciousActivityRef,
+  showChannelUpdatesRef,
   hideBlockedUsersRef,
   isUserBlockedRef,
 }: UseTwitchEventSubOptions) {
@@ -121,6 +131,21 @@ export function useTwitchEventSub({
   const dismissComposerNoticeRef = React.useRef(dismissComposerNotice)
   const trimRoomTimelineRef = React.useRef(trimRoomTimeline)
   const lastSyncKeyRef = React.useRef("")
+  const channelUpdateStateRef = React.useRef(
+    new Map<string, ChannelUpdateSnapshot>()
+  )
+  const channelUpdatePendingRef = React.useRef(
+    new Map<
+      string,
+      Array<{
+        snapshot: ChannelUpdateSnapshot
+        roomId: string | null
+        messageId: string | null
+        messageTimestamp: string | null
+      }>
+    >()
+  )
+  const channelUpdateSeedKeyRef = React.useRef("")
   const roomIdsKey = Object.keys(rooms)
     .sort()
     .map((login) => `${login}:${rooms[login]?.roomId?.trim() ?? ""}`)
@@ -162,6 +187,7 @@ export function useTwitchEventSub({
       rooms: roomsRef.current,
       selfStates: selfStatesRef.current,
       showSuspiciousActivity: showSuspiciousActivityRef.current,
+      showChannelUpdates: showChannelUpdatesRef.current,
     })
 
     if (syncKey === lastSyncKeyRef.current) {
@@ -184,18 +210,32 @@ export function useTwitchEventSub({
       return [{ login, roomId }]
     })
 
+    const syncedLoginSet = new Set(channels.map((channel) => channel.login))
+    for (const login of channelUpdateStateRef.current.keys()) {
+      if (!syncedLoginSet.has(login)) {
+        channelUpdateStateRef.current.delete(login)
+      }
+    }
+    for (const login of channelUpdatePendingRef.current.keys()) {
+      if (!syncedLoginSet.has(login)) {
+        channelUpdatePendingRef.current.delete(login)
+      }
+    }
+
     client.setDesiredSubscriptions(
       buildDesiredEventSubSubscriptions({
         account: currentAccount,
         channels,
         selfStates: selfStatesRef.current,
         showSuspiciousActivity: showSuspiciousActivityRef.current,
+        showChannelUpdates: showChannelUpdatesRef.current,
       })
     )
   }, [
     client,
     roomsRef,
     selfStatesRef,
+    showChannelUpdatesRef,
     showSuspiciousActivityRef,
     syncedChannelsRef,
   ])
@@ -247,6 +287,132 @@ export function useTwitchEventSub({
   React.useLayoutEffect(() => {
     appendSystemMessageRef.current = appendSystemMessage
   }, [appendSystemMessage])
+
+  const applyChannelUpdateSnapshot = React.useCallback(
+    (
+      channelLogin: string,
+      nextSnapshot: ChannelUpdateSnapshot,
+      meta: {
+        roomId: string | null
+        messageId: string | null
+        messageTimestamp: string | null
+      }
+    ) => {
+      const previous = channelUpdateStateRef.current.get(channelLogin) ?? null
+      channelUpdateStateRef.current.set(channelLogin, nextSnapshot)
+
+      const messages = createChannelUpdateSystemMessages({
+        channelLogin,
+        roomId: meta.roomId,
+        messageId: meta.messageId,
+        messageTimestamp: meta.messageTimestamp,
+        previous,
+        next: nextSnapshot,
+      })
+      for (const message of messages) {
+        appendSystemMessageRef.current(channelLogin, message)
+      }
+    },
+    []
+  )
+
+  const flushPendingChannelUpdates = React.useCallback(
+    (channelLogin: string) => {
+      const pending = channelUpdatePendingRef.current.get(channelLogin)
+      if (!pending || pending.length === 0) {
+        return
+      }
+      channelUpdatePendingRef.current.delete(channelLogin)
+      for (const entry of pending) {
+        applyChannelUpdateSnapshot(channelLogin, entry.snapshot, entry)
+      }
+    },
+    [applyChannelUpdateSnapshot]
+  )
+
+  const seedChannelUpdateBaselines = React.useCallback(async () => {
+    const currentAccount = accountRef.current
+    if (!currentAccount || !showChannelUpdatesRef.current) {
+      channelUpdateSeedKeyRef.current = ""
+      return
+    }
+
+    const syncedChannels = syncedChannelsRef.current
+    const targets = syncedChannels.flatMap((login) => {
+      const roomId = roomsRef.current[login]?.roomId?.trim()
+      if (!roomId) return []
+      return [{ login, roomId }]
+    })
+
+    const seedKey = `${currentAccount.id}::${targets
+      .map((target) => `${target.login}:${target.roomId}`)
+      .join("|")}`
+    if (seedKey === channelUpdateSeedKeyRef.current) {
+      return
+    }
+    channelUpdateSeedKeyRef.current = seedKey
+
+    const missing = targets.filter(
+      (target) => !channelUpdateStateRef.current.has(target.login)
+    )
+    if (missing.length === 0) {
+      for (const target of targets) {
+        flushPendingChannelUpdates(target.login)
+      }
+      return
+    }
+
+    try {
+      const channels = await fetchChannelsByBroadcasterId(
+        missing.map((target) => target.roomId),
+        currentAccount.accessToken,
+        currentAccount.clientId
+      )
+      if (channelUpdateSeedKeyRef.current !== seedKey) {
+        return
+      }
+
+      const seededLogins = new Set<string>()
+      for (const channel of channels) {
+        const login = normalizeChannelLogin(channel.broadcasterLogin)
+        if (!login || channelUpdateStateRef.current.has(login)) {
+          continue
+        }
+        channelUpdateStateRef.current.set(login, {
+          title: channel.title,
+          categoryName: channel.gameName,
+        })
+        seededLogins.add(login)
+      }
+
+      for (const login of seededLogins) {
+        flushPendingChannelUpdates(login)
+      }
+
+      for (const target of missing) {
+        if (channelUpdateStateRef.current.has(target.login)) {
+          continue
+        }
+        const pending = channelUpdatePendingRef.current.get(target.login)
+        if (!pending || pending.length === 0) {
+          continue
+        }
+        channelUpdatePendingRef.current.delete(target.login)
+        for (const entry of pending) {
+          channelUpdateStateRef.current.set(target.login, entry.snapshot)
+        }
+      }
+    } catch {
+      if (channelUpdateSeedKeyRef.current === seedKey) {
+        channelUpdateSeedKeyRef.current = ""
+      }
+    }
+  }, [
+    flushPendingChannelUpdates,
+    roomsRef,
+    showChannelUpdatesRef,
+    syncedChannelsRef,
+  ])
 
   const upsertAutomodHeldMessage = React.useCallback(
     (
@@ -433,6 +599,50 @@ export function useTwitchEventSub({
           return
         }
 
+        if (type === "channel.update") {
+          if (!showChannelUpdatesRef.current) {
+            return
+          }
+
+          const parsed = parseChannelUpdateEvent(notification.event)
+          if (!parsed) return
+
+          const channelLogin = resolveChannelLogin(
+            notification,
+            parsed.channelLogin
+          )
+          if (
+            !channelLogin ||
+            !syncedChannelsRef.current.includes(channelLogin)
+          ) {
+            return
+          }
+
+          const nextSnapshot: ChannelUpdateSnapshot = {
+            title: parsed.title,
+            categoryName: parsed.categoryName,
+          }
+          const roomId =
+            roomsRef.current[channelLogin]?.roomId ?? parsed.broadcasterUserId
+          const meta = {
+            snapshot: nextSnapshot,
+            roomId,
+            messageId: notification.messageId,
+            messageTimestamp: notification.messageTimestamp,
+          }
+
+          if (!channelUpdateStateRef.current.has(channelLogin)) {
+            const pending =
+              channelUpdatePendingRef.current.get(channelLogin) ?? []
+            pending.push(meta)
+            channelUpdatePendingRef.current.set(channelLogin, pending)
+            return
+          }
+
+          applyChannelUpdateSnapshot(channelLogin, nextSnapshot, meta)
+          return
+        }
+
         if (type === "automod.message.hold") {
           const channelLogin = resolveChannelLogin(notification, null)
           if (
@@ -615,21 +825,34 @@ export function useTwitchEventSub({
       client.setHandlers({})
     }
   }, [
+    applyChannelUpdateSnapshot,
     client,
     hideBlockedUsersRef,
     isUserBlockedRef,
     roomsRef,
+    showChannelUpdatesRef,
     showSuspiciousActivityRef,
     syncedChannelsRef,
   ])
 
   React.useEffect(() => {
     syncDesiredSubscriptions()
-  }, [account, roomIdsKey, syncDesiredSubscriptions])
+    void seedChannelUpdateBaselines()
+  }, [
+    account,
+    roomIdsKey,
+    seedChannelUpdateBaselines,
+    syncDesiredSubscriptions,
+  ])
 
   React.useEffect(() => {
+    const channelUpdateState = channelUpdateStateRef.current
+    const channelUpdatePending = channelUpdatePendingRef.current
     return () => {
       lastSyncKeyRef.current = ""
+      channelUpdateSeedKeyRef.current = ""
+      channelUpdateState.clear()
+      channelUpdatePending.clear()
       client.setDesiredSubscriptions([])
       client.setAuth(null)
     }
@@ -643,12 +866,28 @@ export function useTwitchEventSub({
   const notifyChannelsChanged = React.useCallback(() => {
     lastSyncKeyRef.current = ""
     syncDesiredSubscriptions()
-  }, [syncDesiredSubscriptions])
+    void seedChannelUpdateBaselines()
+  }, [seedChannelUpdateBaselines, syncDesiredSubscriptions])
 
   const notifySuspiciousSettingChanged = React.useCallback(() => {
     lastSyncKeyRef.current = ""
     syncDesiredSubscriptions()
   }, [syncDesiredSubscriptions])
+
+  const notifyChannelUpdatesSettingChanged = React.useCallback(() => {
+    lastSyncKeyRef.current = ""
+    if (!showChannelUpdatesRef.current) {
+      channelUpdateSeedKeyRef.current = ""
+      channelUpdateStateRef.current.clear()
+      channelUpdatePendingRef.current.clear()
+    }
+    syncDesiredSubscriptions()
+    void seedChannelUpdateBaselines()
+  }, [
+    seedChannelUpdateBaselines,
+    showChannelUpdatesRef,
+    syncDesiredSubscriptions,
+  ])
 
   const hasEnabledModActionSubscription = React.useCallback(
     (channelLogin: string) =>
@@ -660,6 +899,7 @@ export function useTwitchEventSub({
     notifySelfStateChanged,
     notifyChannelsChanged,
     notifySuspiciousSettingChanged,
+    notifyChannelUpdatesSettingChanged,
     hasEnabledModActionSubscription,
   }
 }

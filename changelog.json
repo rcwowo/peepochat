@@ -8,6 +8,7 @@
             "Added detailed moderation actions when the user is a moderator.",
             "Added a mod panel to manage chat modes like emote only or subscribers only.",
             "Added visual support for cheermotes.",
+            "Added channel updates for when a channel's stream title or category changes.",
             "Chat history now follows your deleted message appearance setting instead of being hidden.",
             "Redesigned and improved the appearance of alerts like subs, announcements, and raids."
         ]

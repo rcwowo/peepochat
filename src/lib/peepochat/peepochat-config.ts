@@ -87,6 +87,7 @@ const chatSchema = z.object({
   clearChatWhenInstructed: z.boolean().default(true),
   hideBlockedUsers: z.boolean().default(true),
   showSuspiciousActivity: z.boolean().default(true),
+  showChannelUpdates: z.boolean().default(true),
   emotes: chatEmotesSchema,
   badges: chatBadgesSchema,
 })
@@ -266,6 +267,7 @@ export function createDefaultConfig(): AppConfig {
       clearChatWhenInstructed: true,
       hideBlockedUsers: true,
       showSuspiciousActivity: true,
+      showChannelUpdates: true,
       emotes: {
         bttvEnabled: true,
         ffzEnabled: true,

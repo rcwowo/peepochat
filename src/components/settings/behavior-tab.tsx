@@ -9,6 +9,7 @@ import {
   LayersIcon,
   Layers2Icon,
   RadioIcon,
+  RefreshCwIcon,
   ShieldAlertIcon,
   Trash2Icon,
   UserXIcon,
@@ -144,6 +145,18 @@ export function BehaviorTab() {
               updateConfig((current) => ({
                 ...current,
                 chat: { ...current.chat, showSuspiciousActivity },
+              }))
+            }
+          />
+          <SettingsSwitchRow
+            icon={RefreshCwIcon}
+            title="Show channel updates"
+            description="Show updates for when a channel's stream title or category changes."
+            checked={config.chat.showChannelUpdates}
+            onCheckedChange={(showChannelUpdates) =>
+              updateConfig((current) => ({
+                ...current,
+                chat: { ...current.chat, showChannelUpdates },
               }))
             }
           />
