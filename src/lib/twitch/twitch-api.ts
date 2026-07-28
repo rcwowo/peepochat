@@ -724,6 +724,7 @@ function parseChatBadgeSets(
 }
 
 export type TwitchEmoteFormat = "static" | "animated"
+export type TwitchEmoteAnimationSetting = "default" | TwitchEmoteFormat
 
 export type TwitchChatEmote = {
   id: string
@@ -908,7 +909,7 @@ function normalizeEmoteFormats(
 
 export function buildTwitchEmoteCdnUrl(
   emoteId: string,
-  format: TwitchEmoteFormat = "static",
+  format: TwitchEmoteAnimationSetting = "default",
   themeMode: "light" | "dark" = "dark",
   scale = "1.0"
 ): string {

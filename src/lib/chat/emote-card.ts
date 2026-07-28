@@ -1,4 +1,5 @@
 import type { EmoteCatalogEntry } from "@/lib/chat/chat-emotes"
+import { buildTwitchEmoteCdnUrl } from "@/lib/twitch/twitch-api"
 import type { TwitchEmoteProvider } from "@/lib/twitch/twitch-chat"
 
 export type EmoteCardTarget = {
@@ -37,8 +38,11 @@ export function toEmoteCardTarget(emote: {
   }
 }
 
-export function getTwitchEmoteBaseUrl(imageUrl: string) {
-  return imageUrl.replace(/\/1\.0$/, "")
+export function getTwitchEmoteBaseUrl(emoteId: string) {
+  return buildTwitchEmoteCdnUrl(emoteId, "default", "dark").replace(
+    /\/1\.0$/,
+    ""
+  )
 }
 
 export function getEmotePlatformUrl(provider: TwitchEmoteProvider, id: string) {
@@ -64,7 +68,7 @@ export function getTwitchChannelUrl(login: string) {
 
 export function getLargeEmotePreviewUrl(target: EmoteCardTarget) {
   if (target.provider === "twitch") {
-    return `${getTwitchEmoteBaseUrl(target.imageUrl)}/3.0`
+    return buildTwitchEmoteCdnUrl(target.id, "default", "dark", "3.0")
   }
 
   if (target.provider === "7tv") {

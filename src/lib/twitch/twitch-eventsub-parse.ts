@@ -1,4 +1,5 @@
 import type { TwitchBadge, TwitchEmote } from "@/lib/twitch/twitch-chat"
+import { buildTwitchEmoteCdnUrl } from "@/lib/twitch/twitch-api"
 
 export function asString(value: unknown): string {
   return typeof value === "string" ? value : ""
@@ -12,7 +13,7 @@ export function asRecord(value: unknown): Record<string, unknown> | null {
 }
 
 function twitchEmoteImageUrl(emoteId: string): string {
-  return `https://static-cdn.jtvnw.net/emoticons/v2/${encodeURIComponent(emoteId)}/animated/dark/1.0`
+  return buildTwitchEmoteCdnUrl(emoteId)
 }
 
 export function emotesFromV2Fragments(fragments: unknown): {

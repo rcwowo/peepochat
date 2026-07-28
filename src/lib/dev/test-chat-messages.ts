@@ -8,6 +8,7 @@ import {
 } from "@/lib/twitch/twitch-chat"
 import type { TwitchAutomodHeldMessage } from "@/lib/twitch/twitch-chat-types"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
+import { buildTwitchEmoteCdnUrl } from "@/lib/twitch/twitch-api"
 
 export const FAKE_MESSAGE_KINDS = [
   "chat",
@@ -119,7 +120,7 @@ function nextFakeId(prefix: string) {
 }
 
 function twitchEmoteImageUrl(emoteId: string) {
-  return `https://static-cdn.jtvnw.net/emoticons/v2/${encodeURIComponent(emoteId)}/animated/dark/1.0`
+  return buildTwitchEmoteCdnUrl(emoteId)
 }
 
 function appendSampleEmotes(text: string): {
