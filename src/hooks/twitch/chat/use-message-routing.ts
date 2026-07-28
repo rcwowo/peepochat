@@ -325,6 +325,7 @@ export function useMessageRouting({
               badgeInfo: [],
               emotes: message.detailsEmotes,
               reply: null,
+              bits: null,
               deletedAt: null,
               flags: {
                 isBroadcaster: false,

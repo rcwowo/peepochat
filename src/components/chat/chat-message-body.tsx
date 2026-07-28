@@ -1,6 +1,7 @@
 import * as React from "react"
 
 import { ChatEmote } from "@/components/chat/chat-emote"
+import { ChatCheermote } from "@/components/chat/chat-cheermote"
 import type { PingMatchRange } from "@/lib/highlights/highlight-rules"
 import { PingMatchMark } from "@/lib/highlights/ping-match-mark"
 import { findMessageUrls } from "@/lib/peepochat/peepochat-config"
@@ -187,13 +188,25 @@ export function ChatMessageBody({
     }
 
     const emoteName = text.slice(emote.start, emote.end + 1)
-    parts.push(
-      <ChatEmote
-        key={`e-${emote.provider}-${emote.id}-${emote.start}`}
-        emote={emote}
-        label={emoteName}
-      />
-    )
+    if (emote.cheermote) {
+      parts.push(
+        <ChatCheermote
+          key={`c-${emote.start}-${emote.cheermote.amount}`}
+          imageUrl={emote.imageUrl}
+          amount={emote.cheermote.amount}
+          color={emote.cheermote.color}
+          label={emoteName}
+        />
+      )
+    } else {
+      parts.push(
+        <ChatEmote
+          key={`e-${emote.provider}-${emote.id}-${emote.start}`}
+          emote={emote}
+          label={emoteName}
+        />
+      )
+    }
     lastIdx = getEmoteConsumedEnd(emote)
   }
 

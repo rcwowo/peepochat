@@ -42,6 +42,12 @@ export type TwitchBadge = {
 
 export type TwitchEmoteProvider = "twitch" | "bttv" | "ffz" | "7tv"
 
+export type TwitchCheermoteMeta = {
+  prefix: string
+  amount: number
+  color: string
+}
+
 export type TwitchEmote = {
   id: string
   code: string
@@ -49,6 +55,7 @@ export type TwitchEmote = {
   imageUrl: string
   start: number
   end: number
+  cheermote?: TwitchCheermoteMeta
   /** 7TV zero-width emotes rendered on top of this emote. */
   overlays?: TwitchEmote[]
 }
@@ -102,6 +109,7 @@ export type TwitchChatMessage = {
   badgeInfo: TwitchBadge[]
   emotes: TwitchEmote[]
   reply: TwitchChatReply | null
+  bits: number | null
   /** ISO timestamp when the message was deleted; null while still visible. */
   deletedAt: string | null
   flags: {
@@ -922,6 +930,7 @@ function parsePrivmsg(tagged: IrcTaggedLine): TwitchChatMessage | null {
     badgeInfo: parsedBadgeInfo,
     emotes: parsedEmotes,
     reply,
+    bits: parseOptionalInt(tags.get("bits")),
     deletedAt: null,
     flags: {
       isBroadcaster: badges.includes("broadcaster/"),

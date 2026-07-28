@@ -30,6 +30,7 @@ function suspiciousAsChatMessage(
     badgeInfo: [],
     emotes: message.emotes,
     reply: null,
+    bits: null,
     deletedAt: message.deletedAt,
     flags: {
       isBroadcaster: false,

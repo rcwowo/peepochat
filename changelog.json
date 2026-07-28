@@ -7,6 +7,7 @@
             "Added support for real-time 7TV updates, like new emotes or emote set swaps.",
             "Added detailed moderation actions when the user is a moderator.",
             "Added a mod panel to manage chat modes like emote only or subscribers only.",
+            "Added visual support for cheermotes.",
             "Chat history now follows your deleted message appearance setting instead of being hidden.",
             "Redesigned and improved the appearance of alerts like subs, announcements, and raids."
         ]

@@ -16,6 +16,7 @@ export const FAKE_MESSAGE_KINDS = [
   "first_message",
   "reply",
   "deleted",
+  "cheer",
   "subscription",
   "gift_sub",
   "raid",
@@ -39,6 +40,7 @@ export const FAKE_MESSAGE_KIND_OPTIONS: {
   { value: "first_message", label: "First-time chatter" },
   { value: "reply", label: "Reply" },
   { value: "deleted", label: "Deleted message" },
+  { value: "cheer", label: "Bits cheer" },
   { value: "subscription", label: "Subscription" },
   { value: "gift_sub", label: "Gift sub" },
   { value: "raid", label: "Raid" },
@@ -197,6 +199,8 @@ function defaultTextForKind(kind: FakeMessageKind): string {
       return "Yeah, I totally agree with that"
     case "deleted":
       return "This message should appear deleted"
+    case "cheer":
+      return "Cheer300 Please take my money."
     case "subscription":
       return "Thanks for the great stream!"
     case "gift_sub":
@@ -218,6 +222,47 @@ function defaultTextForKind(kind: FakeMessageKind): string {
     case "chat":
     default:
       return "Hello chat, this is a test message!"
+  }
+}
+
+function buildCheerMessage(options: FakeMessageOptions): TwitchChatMessage {
+  const channel = normalizeChannelLogin(options.channelLogin)
+  const { displayName, userName } = normalizeActorName(
+    options.displayName ?? "FakeUser",
+    options.userName ?? ""
+  )
+  const role = options.role ?? "none"
+  const { badges, flags } = badgesForRole(role)
+  const text = options.text?.trim() || "Cheer300 Please take my money."
+  const cheerToken = text.match(/\S+/)?.[0] ?? "Cheer300"
+  const cheerEnd = cheerToken.length - 1
+
+  return {
+    id: nextFakeId("cheer"),
+    channel,
+    roomId: options.roomId ?? null,
+    userId: `dev-${userName}`,
+    userName,
+    displayName,
+    text,
+    color: options.color ?? "#ff7f50",
+    receivedAt: new Date().toISOString(),
+    badges,
+    badgeInfo: [],
+    emotes: [
+      {
+        id: "100",
+        code: cheerToken,
+        provider: "twitch",
+        imageUrl: buildTwitchEmoteCdnUrl("100"),
+        start: 0,
+        end: cheerEnd,
+      },
+    ],
+    reply: null,
+    bits: 300,
+    deletedAt: null,
+    flags,
   }
 }
 
@@ -266,6 +311,7 @@ function buildChatMessage(
             parentColor: "#9146ff",
           }
         : null,
+    bits: null,
     deletedAt: kind === "deleted" ? new Date().toISOString() : null,
     flags,
   }
@@ -533,6 +579,8 @@ export function buildFakeTimelineItem(
     case "reply":
     case "deleted":
       return { kind: "chat", message: buildChatMessage(kind, options) }
+    case "cheer":
+      return { kind: "chat", message: buildCheerMessage(options) }
     case "automod":
       return {
         kind: "automod",
@@ -573,7 +621,8 @@ export function supportsFakeChatRole(kind: FakeMessageKind) {
     kind === "action" ||
     kind === "first_message" ||
     kind === "reply" ||
-    kind === "deleted"
+    kind === "deleted" ||
+    kind === "cheer"
   )
 }
 

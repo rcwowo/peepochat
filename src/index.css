@@ -328,6 +328,17 @@
     pointer-events: none;
   }
 
+  .chat-cheermote {
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+    gap: 0.0625rem;
+  }
+
+  .chat-cheermote-amount {
+    font-weight: 600;
+  }
+
   .chat-system-text {
     color: var(--chat-system-foreground);
   }

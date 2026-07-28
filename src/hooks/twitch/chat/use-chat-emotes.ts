@@ -23,6 +23,11 @@ import {
 } from "@/lib/chat/chat-emotes"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 import { clearTwitchEmoteIvrCache } from "@/lib/twitch/twitch-emote-ivr"
+import {
+  clearCheermoteCache,
+  DEFAULT_CHEERMOTE_CATALOG,
+  type CheermoteCatalog,
+} from "@/lib/twitch/twitch-cheermotes"
 import type { TwitchChatMessage } from "@/lib/twitch/twitch-chat"
 import type { TwitchChatEmoteLoadContext } from "@/lib/twitch/twitch-chat-types"
 
@@ -47,6 +52,9 @@ export function useChatEmotes({
   const composerCatalogsRef = useLazyRef(
     () => new Map<string, ComposerEmoteCatalog>()
   )
+  const cheermoteCatalogsRef = useLazyRef(
+    () => new Map<string, CheermoteCatalog>()
+  )
   const [composerCatalogs, setComposerCatalogs] = React.useState<
     Record<string, ComposerEmoteCatalog>
   >({})
@@ -68,9 +76,16 @@ export function useChatEmotes({
       }
 
       const catalog = composerCatalogsRef.current.get(roomId)
-      return catalog ? getTwitchEmoteHydration(catalog) : null
+      const cheermotes =
+        cheermoteCatalogsRef.current.get(roomId) ?? DEFAULT_CHEERMOTE_CATALOG
+
+      if (!catalog) {
+        return getTwitchEmoteHydration(createEmptyComposerCatalog(), cheermotes)
+      }
+
+      return getTwitchEmoteHydration(catalog, cheermotes)
     },
-    [composerCatalogsRef]
+    [cheermoteCatalogsRef, composerCatalogsRef]
   )
 
   const hydrateRoomMessage = React.useCallback(
@@ -234,6 +249,7 @@ export function useChatEmotes({
 
           roomEmotesFailedAtRef.current.delete(roomId)
           emoteCatalogsRef.current.set(roomId, bundle.thirdParty)
+          cheermoteCatalogsRef.current.set(roomId, bundle.cheermotes)
           composerCatalogLoadedRef.current.add(roomId)
           composerCatalogsRef.current.set(roomId, bundle.composer)
           roomEmotesSettledRef.current.add(roomId)
@@ -282,6 +298,7 @@ export function useChatEmotes({
     },
     [
       appendLog,
+      cheermoteCatalogsRef,
       composerCatalogLoadedRef,
       composerCatalogLoadingRef,
       composerCatalogsRef,
@@ -314,11 +331,13 @@ export function useChatEmotes({
       clearBroadcasterProfileCache()
       clearTwitchEmoteIvrCache()
       clearRoomEmoteBundleCache()
+      clearCheermoteCache()
       emoteCatalogGenerationRef.current += 1
       roomEmotesSettledRef.current.clear()
       roomEmotesFailedAtRef.current.clear()
       setComposerCatalogs({})
       composerCatalogsRef.current.clear()
+      cheermoteCatalogsRef.current.clear()
       composerCatalogLoadedRef.current.clear()
       composerCatalogLoadingRef.current.clear()
       roomEmotesLoadingRef.current.clear()
@@ -331,6 +350,7 @@ export function useChatEmotes({
       }
     },
     [
+      cheermoteCatalogsRef,
       composerCatalogLoadedRef,
       composerCatalogLoadingRef,
       composerCatalogsRef,
@@ -389,6 +409,7 @@ export function useChatEmotes({
       clearThirdPartyEmoteCache(roomId)
       clearChannelTwitchEmoteCache(roomId)
       clearRoomEmoteBundleCache(roomId)
+      clearCheermoteCache(roomId)
 
       emoteCatalogsRef.current.delete(roomId)
       roomEmotesLoadingRef.current.delete(roomId)
@@ -428,6 +449,7 @@ export function useChatEmotes({
 
         roomEmotesFailedAtRef.current.delete(roomId)
         emoteCatalogsRef.current.set(roomId, bundle.thirdParty)
+        cheermoteCatalogsRef.current.set(roomId, bundle.cheermotes)
         composerCatalogLoadedRef.current.add(roomId)
         composerCatalogsRef.current.set(roomId, bundle.composer)
         roomEmotesSettledRef.current.add(roomId)
@@ -467,6 +489,7 @@ export function useChatEmotes({
       return true
     },
     [
+      cheermoteCatalogsRef,
       composerCatalogLoadedRef,
       composerCatalogLoadingRef,
       composerCatalogsRef,
@@ -491,6 +514,7 @@ export function useChatEmotes({
       for (const roomId of roomIds) {
         emoteCatalogsRef.current.delete(roomId)
         composerCatalogsRef.current.delete(roomId)
+        cheermoteCatalogsRef.current.delete(roomId)
         composerCatalogLoadedRef.current.delete(roomId)
         composerCatalogLoadingRef.current.delete(roomId)
         roomEmotesLoadingRef.current.delete(roomId)
@@ -515,6 +539,7 @@ export function useChatEmotes({
       }
     },
     [
+      cheermoteCatalogsRef,
       composerCatalogLoadedRef,
       composerCatalogLoadingRef,
       composerCatalogsRef,
@@ -538,8 +563,10 @@ export function useChatEmotes({
     clearBroadcasterProfileCache()
     clearTwitchEmoteIvrCache()
     clearRoomEmoteBundleCache()
+    clearCheermoteCache()
     emoteCatalogsRef.current.clear()
     composerCatalogsRef.current.clear()
+    cheermoteCatalogsRef.current.clear()
     setComposerCatalogs({})
     composerCatalogLoadedRef.current.clear()
     roomEmotesLoadingRef.current.clear()
@@ -548,6 +575,7 @@ export function useChatEmotes({
     composerCatalogLoadingRef.current.clear()
     setComposerCatalogLoading({})
   }, [
+    cheermoteCatalogsRef,
     composerCatalogLoadedRef,
     composerCatalogLoadingRef,
     composerCatalogsRef,
@@ -577,9 +605,11 @@ export function useChatEmotes({
       bundle: {
         thirdParty: ThirdPartyEmoteCatalog
         composer: ComposerEmoteCatalog
+        cheermotes: CheermoteCatalog
       }
     ) => {
       emoteCatalogsRef.current.set(roomId, bundle.thirdParty)
+      cheermoteCatalogsRef.current.set(roomId, bundle.cheermotes)
       composerCatalogsRef.current.set(roomId, bundle.composer)
       composerCatalogLoadedRef.current.add(roomId)
       roomEmotesSettledRef.current.add(roomId)
@@ -589,6 +619,7 @@ export function useChatEmotes({
       }))
     },
     [
+      cheermoteCatalogsRef,
       composerCatalogLoadedRef,
       composerCatalogsRef,
       emoteCatalogsRef,

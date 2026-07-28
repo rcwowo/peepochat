@@ -1,6 +1,11 @@
 import { devLoggedFetch } from "@/lib/dev-logger"
 import { isSevenTvZeroWidthEmote } from "@/lib/chat/seventv-emotes"
 import type { SevenTvActiveEmote } from "@/lib/chat/seventv-event-api"
+import {
+  DEFAULT_CHEERMOTE_CATALOG,
+  hydrateCheermotes,
+  type CheermoteCatalog,
+} from "@/lib/twitch/twitch-cheermotes"
 import type { TwitchEmote, TwitchEmoteProvider } from "@/lib/twitch/twitch-chat"
 
 export type EmoteCatalogEntry = {
@@ -459,6 +464,7 @@ export async function fetchThirdPartyEmoteCatalog(
 export type TwitchEmoteHydration = {
   byCode: Map<string, EmoteCatalogEntry>
   byId: Map<string, EmoteCatalogEntry>
+  cheermotes?: CheermoteCatalog
 }
 
 function emotesEqual(left: TwitchEmote[], right: TwitchEmote[]): boolean {
@@ -476,6 +482,9 @@ function emotesEqual(left: TwitchEmote[], right: TwitchEmote[]): boolean {
       a.imageUrl !== b.imageUrl ||
       a.start !== b.start ||
       a.end !== b.end ||
+      a.cheermote?.amount !== b.cheermote?.amount ||
+      a.cheermote?.color !== b.cheermote?.color ||
+      a.cheermote?.prefix !== b.cheermote?.prefix ||
       !overlaysEqual(a.overlays, b.overlays)
     ) {
       return false
@@ -515,26 +524,45 @@ function overlaysEqual(
 }
 
 export function hydrateMessageEmotes<
-  T extends { text: string; emotes: TwitchEmote[] },
+  T extends {
+    text: string
+    emotes: TwitchEmote[]
+    bits?: number | null
+  },
 >(
   message: T,
   catalog: ThirdPartyEmoteCatalog | null,
   twitchCatalog?: TwitchEmoteHydration | null
 ): T {
+  const cheermoteCatalog =
+    twitchCatalog?.cheermotes ?? DEFAULT_CHEERMOTE_CATALOG
+  const hydrated = hydrateCheermotes(message, cheermoteCatalog)
+
   const nativeEmotes = upgradeTwitchEmoteImages(
-    message.emotes.filter((emote) => emote.provider === "twitch"),
+    hydrated.emotes.filter((emote) => emote.provider === "twitch"),
     twitchCatalog
   )
 
-  let emotes = nativeEmotes
+  let emotes = hydrated.emotes.map((emote) => {
+    if (emote.provider !== "twitch" || emote.cheermote) {
+      return emote
+    }
+
+    const upgraded = nativeEmotes.find(
+      (candidate) =>
+        candidate.start === emote.start && candidate.end === emote.end
+    )
+
+    return upgraded ?? emote
+  })
 
   if (catalog) {
-    emotes = mergeEmotesFromCodeCatalog(message.text, emotes, catalog)
+    emotes = mergeEmotesFromCodeCatalog(hydrated.text, emotes, catalog)
   }
 
   if (twitchCatalog) {
     emotes = mergeEmotesFromCodeCatalog(
-      message.text,
+      hydrated.text,
       emotes,
       twitchCatalog.byCode,
       (entry) => entry.provider === "twitch"
@@ -545,7 +573,7 @@ export function hydrateMessageEmotes<
     return message
   }
 
-  return { ...message, emotes }
+  return { ...hydrated, emotes }
 }
 
 function upgradeTwitchEmoteImages(
@@ -557,6 +585,10 @@ function upgradeTwitchEmoteImages(
   }
 
   return emotes.map((emote) => {
+    if (emote.cheermote) {
+      return emote
+    }
+
     const fromCatalog =
       twitchCatalog.byId.get(emote.id) ?? twitchCatalog.byCode.get(emote.code)
 
