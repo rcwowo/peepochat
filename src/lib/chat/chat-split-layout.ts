@@ -22,7 +22,7 @@ export type ChatSplitLayoutChild = {
 }
 
 const DEFAULT_SIZE = 100
-const MIN_CHILD_SIZE = 8
+const MIN_CHILD_SIZE = 2
 
 function normalizeLogin(login: string) {
   return login.trim().replace(/^#/, "").toLowerCase()
@@ -319,8 +319,12 @@ function insertNearPane(
     const nextChildren = [...node.children]
     const offset = shouldInsertBefore(edge) ? 0 : 1
     nextChildren.splice(targetIndex + offset, 0, child(inserted))
+    const size = evenSize(nextChildren.length)
     return {
-      node: { ...node, children: rebalanceChildren(nextChildren) },
+      node: {
+        ...node,
+        children: nextChildren.map((entry) => child(entry.node, size)),
+      },
       inserted: true,
     }
   }
@@ -441,6 +445,30 @@ export function resizeSplitLayoutChildren({
   return normalizeSplitLayout(updateSizesAtPath(base, path, sizes), channels)
 }
 
+export function clampAdjacentSplitSizes(
+  sizes: number[],
+  index: number,
+  minSize = MIN_CHILD_SIZE
+): number[] {
+  if (index < 0 || index + 1 >= sizes.length) {
+    return sizes
+  }
+
+  const next = [...sizes]
+  const pairTotal = next[index] + next[index + 1]
+  if (pairTotal <= 0) {
+    return sizes
+  }
+
+  const effectiveMin = Math.min(minSize, pairTotal / 2)
+  next[index] = Math.min(
+    pairTotal - effectiveMin,
+    Math.max(effectiveMin, next[index])
+  )
+  next[index + 1] = pairTotal - next[index]
+  return next
+}
+
 export function clampSplitChildSizes(sizes: number[]): number[] {
   if (sizes.length === 0) {
     return []
@@ -450,25 +478,27 @@ export function clampSplitChildSizes(sizes: number[]): number[] {
     sizes.map((size) => child(pane(""), size))
   ).map((entry) => entry.size)
 
-  if (normalized.length * MIN_CHILD_SIZE >= DEFAULT_SIZE) {
-    return normalized.map(() => evenSize(normalized.length))
-  }
-
-  const next = normalized.map((size) => Math.max(size, MIN_CHILD_SIZE))
+  const effectiveMin = Math.min(
+    MIN_CHILD_SIZE,
+    DEFAULT_SIZE / normalized.length
+  )
+  const next = normalized.map((size) => Math.max(size, effectiveMin))
   const excess = next.reduce((sum, size) => sum + size, 0) - DEFAULT_SIZE
 
   if (excess > 0) {
     const flexible = next.flatMap((size, index) =>
-      size > MIN_CHILD_SIZE ? [{ size, index }] : []
+      size > effectiveMin ? [{ size, index }] : []
     )
     const flexibleTotal = flexible.reduce(
-      (sum, entry) => sum + (entry.size - MIN_CHILD_SIZE),
+      (sum, entry) => sum + (entry.size - effectiveMin),
       0
     )
 
-    for (const entry of flexible) {
-      next[entry.index] -=
-        (excess * (entry.size - MIN_CHILD_SIZE)) / flexibleTotal
+    if (flexibleTotal > 0) {
+      for (const entry of flexible) {
+        next[entry.index] -=
+          (excess * (entry.size - effectiveMin)) / flexibleTotal
+      }
     }
   }
 

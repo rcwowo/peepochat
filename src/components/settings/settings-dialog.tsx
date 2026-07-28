@@ -7,14 +7,17 @@ import {
   ScrollTextIcon,
   BellIcon,
   CodeIcon,
+  XIcon,
 } from "lucide-react"
 
 import {
   Sheet,
+  SheetClose,
   SheetContent,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
+import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import {
   Tooltip,
@@ -187,6 +190,7 @@ export function SettingsDialog({
     <Sheet open={open} onOpenChange={handleOpenChange} modal={false}>
       <SheetContent
         side="right"
+        showCloseButton={false}
         showOverlay={false}
         className="h-svh gap-0 p-0 data-[side=right]:w-full max-sm:data-[side=right]:border-l-0 sm:max-w-md sm:data-[side=right]:border-l"
         onInteractOutside={(event) => {
@@ -207,6 +211,12 @@ export function SettingsDialog({
       >
         <SheetHeader className="h-12 shrink-0 flex-row items-center justify-between border-b border-border bg-sidebar px-4 py-0">
           <SheetTitle>Settings</SheetTitle>
+          <SheetClose asChild>
+            <Button variant="ghost" size="icon-sm">
+              <XIcon />
+              <span className="sr-only">Close</span>
+            </Button>
+          </SheetClose>
         </SheetHeader>
 
         <div className="flex min-h-0 flex-1">
