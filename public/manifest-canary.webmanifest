@@ -1,0 +1,17 @@
+{
+  "name": "Peepochat Canary",
+  "short_name": "Peepochat Canary",
+  "description": "Preview the latest features to the fully-featured Twitch chat client for the web.",
+  "start_url": "/app",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#64119F",
+  "icons": [
+    {
+      "src": "/branding/appicon-canary.png",
+      "sizes": "256x256",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
