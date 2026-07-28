@@ -119,6 +119,7 @@ export function useChatConnection({
     promise: Promise<void>
   } | null>(null)
   const hasAnnouncedConnectedRef = React.useRef(false)
+  const pendingChatModesNoticeRef = useLazyRef(() => new Set<string>())
 
   const senderStateRef = React.useRef<SenderState>(createEmptySenderState())
   const [selfStates, setSelfStates] = React.useState<
@@ -333,6 +334,9 @@ export function useChatConnection({
           break
         case "disconnected":
           readJoinedChannelsRef.current.clear()
+          for (const login of syncedChannelsRef.current) {
+            pendingChatModesNoticeRef.current.add(login)
+          }
           senderStateRef.current = createEmptySenderState()
           selfStatesRef.current.clear()
           setSelfStates({})
@@ -372,6 +376,7 @@ export function useChatConnection({
           break
         case "channel-parted":
           readJoinedChannelsRef.current.delete(event.channel)
+          pendingChatModesNoticeRef.current.add(event.channel)
           updateRoom(event.channel, (room) => ({
             ...room,
             joined: false,
@@ -381,7 +386,6 @@ export function useChatConnection({
         case "room-state": {
           const login = normalizeChannelLogin(event.state.channel)
           const previousRoom = roomsRef.current[login]
-          const wasJoined = previousRoom?.joined ?? false
           const nextModes = mergeChatModes(
             previousRoom?.chatModes,
             event.state.modes
@@ -395,17 +399,19 @@ export function useChatConnection({
             joining: false,
           }))
           if (
-            !wasJoined &&
             event.state.isComplete &&
-            hasAnyChatModeEnabled(nextModes)
+            pendingChatModesNoticeRef.current.has(login)
           ) {
-            const message = formatChatModesNotice(nextModes)
-            if (message) {
-              pushComposerNotice({
-                channel: login,
-                message,
-                id: chatModesNoticeId(login),
-              })
+            pendingChatModesNoticeRef.current.delete(login)
+            if (hasAnyChatModeEnabled(nextModes)) {
+              const message = formatChatModesNotice(nextModes)
+              if (message) {
+                pushComposerNotice({
+                  channel: login,
+                  message,
+                  id: chatModesNoticeId(login),
+                })
+              }
             }
           }
           if (
@@ -460,6 +466,7 @@ export function useChatConnection({
     hasAnnouncedConnectedRef,
     markConnectionSyncedIfReady,
     pendingConnectRef,
+    pendingChatModesNoticeRef,
     pushComposerNotice,
     readClientRef,
     readHandlersRef,
@@ -569,6 +576,7 @@ export function useChatConnection({
       const roomIds: string[] = []
       for (const login of removedLogins) {
         readJoinedChannelsRef.current.delete(login)
+        pendingChatModesNoticeRef.current.delete(login)
         selfStatesRef.current.delete(login)
 
         const roomId = roomsRef.current[login]?.roomId
@@ -598,6 +606,7 @@ export function useChatConnection({
       clearEmotesForRoomIds,
       clearHistoryForLogins,
       flushPendingForLogins,
+      pendingChatModesNoticeRef,
       readJoinedChannelsRef,
       removeRooms,
       roomsRef,
@@ -682,6 +691,12 @@ export function useChatConnection({
         previous.length === normalized.length &&
         previous.every((login, index) => login === normalized[index])
 
+      for (const login of normalized) {
+        if (!previous.includes(login)) {
+          pendingChatModesNoticeRef.current.add(login)
+        }
+      }
+
       syncedChannelsRef.current = normalized
 
       if (unchanged && normalized.length > 0 && isReadConnectionSynced()) {
@@ -730,6 +745,7 @@ export function useChatConnection({
           lastError: null,
         })
         clearAllRooms()
+        pendingChatModesNoticeRef.current.clear()
         return Promise.resolve()
       }
 
@@ -798,6 +814,7 @@ export function useChatConnection({
       pendingConnectRef,
       pendingSendConnectRef,
       pendingSyncPromiseRef,
+      pendingChatModesNoticeRef,
       pruneRemovedChannelState,
       readClientRef,
       readHandlersRef,

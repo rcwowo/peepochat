@@ -1,5 +1,7 @@
 import type { TwitchSystemMessage } from "@/lib/twitch/twitch-chat"
 
+export const COMPOSER_NOTICE_AUTO_DISMISS_MS = 5000
+
 export type TwitchChannelSendBlock = {
   kind: "ban" | "timeout"
   message: string

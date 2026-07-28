@@ -140,7 +140,8 @@ export type PeepochatChatContextValue = {
   getSelfChatState: (login: string) => TwitchSelfChatState | null
   getChannelSendBlock: (login: string) => TwitchChannelSendBlock | null
   registerSendOutcomeListener: (
-    listener: (event: SendOutcomeEvent) => void
+    listener: (event: SendOutcomeEvent) => void,
+    options?: { channel?: string }
   ) => () => void
   getBadgeCatalog: (login: string) => ChatBadgeCatalog
   getMemberBadge: (userId: string | null) => ResolvedMemberBadge | null

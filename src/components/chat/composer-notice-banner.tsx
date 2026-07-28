@@ -1,8 +1,7 @@
 import * as React from "react"
 
 import { Button } from "@/components/ui/button"
-
-export const COMPOSER_NOTICE_AUTO_DISMISS_MS = 5000
+import { COMPOSER_NOTICE_AUTO_DISMISS_MS } from "@/lib/chat/chat-send-notice"
 
 type ComposerNoticeBannerProps = {
   noticeId: string

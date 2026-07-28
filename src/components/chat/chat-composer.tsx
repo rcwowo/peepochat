@@ -301,80 +301,85 @@ export function ChatComposer({
   )
 
   React.useEffect(() => {
-    return registerSendOutcomeListener((event) => {
-      const normalizedChannel = normalizeChannelLogin(channelLogin)
+    return registerSendOutcomeListener(
+      (event) => {
+        const normalizedChannel = normalizeChannelLogin(channelLogin)
 
-      if (event.type === "dismiss-notice") {
-        if (normalizeChannelLogin(event.channel) !== normalizedChannel) {
-          return
-        }
-        dismissNoticeById(event.id)
-        return
-      }
-
-      if (event.type === "notice") {
-        if (normalizeChannelLogin(event.channel) !== normalizedChannel) {
+        if (event.type === "dismiss-notice") {
+          if (normalizeChannelLogin(event.channel) !== normalizedChannel) {
+            return
+          }
+          dismissNoticeById(event.id)
           return
         }
 
-        if (event.discardPending) {
+        if (event.type === "notice") {
+          if (normalizeChannelLogin(event.channel) !== normalizedChannel) {
+            return
+          }
+
+          if (event.discardPending) {
+            clearPendingSend()
+          }
+
+          pushNotice({
+            id: event.id,
+            message: event.message,
+          })
+          return
+        }
+
+        if (event.type === "rejected") {
+          if (normalizeChannelLogin(event.channel) !== normalizedChannel) {
+            return
+          }
+
+          const pending = pendingSendRef.current
           clearPendingSend()
-        }
+          if (isPersistentSendBlockText(event.message)) {
+            return
+          }
 
-        pushNotice({
-          id: event.id,
-          message: event.message,
-        })
-        return
-      }
+          if (isAutomodHoldNoticeText(event.message)) {
+            return
+          }
 
-      if (event.type === "rejected") {
-        if (normalizeChannelLogin(event.channel) !== normalizedChannel) {
+          if (pending) {
+            setValue(pending.composerMessage)
+            setReply(pending.reply)
+          }
+
+          noticeIdRef.current += 1
+          pushNotice({
+            id: `rejected:${noticeIdRef.current}`,
+            message: event.message,
+          })
           return
         }
 
         const pending = pendingSendRef.current
+        if (!pending) {
+          return
+        }
+
+        if (
+          normalizeChannelLogin(event.message.channel) !== normalizedChannel
+        ) {
+          return
+        }
+
+        if (event.message.text !== pending.sentText) {
+          return
+        }
+
+        if (event.message.flags.isAction !== pending.isAction) {
+          return
+        }
+
         clearPendingSend()
-        if (isPersistentSendBlockText(event.message)) {
-          return
-        }
-
-        if (isAutomodHoldNoticeText(event.message)) {
-          return
-        }
-
-        if (pending) {
-          setValue(pending.composerMessage)
-          setReply(pending.reply)
-        }
-
-        noticeIdRef.current += 1
-        pushNotice({
-          id: `rejected:${noticeIdRef.current}`,
-          message: event.message,
-        })
-        return
-      }
-
-      const pending = pendingSendRef.current
-      if (!pending) {
-        return
-      }
-
-      if (normalizeChannelLogin(event.message.channel) !== normalizedChannel) {
-        return
-      }
-
-      if (event.message.text !== pending.sentText) {
-        return
-      }
-
-      if (event.message.flags.isAction !== pending.isAction) {
-        return
-      }
-
-      clearPendingSend()
-    })
+      },
+      { channel: channelLogin }
+    )
   }, [
     channelLogin,
     clearPendingSend,

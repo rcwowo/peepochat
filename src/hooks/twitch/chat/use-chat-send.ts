@@ -14,6 +14,7 @@ import {
   type TwitchChannelSendBlock,
 } from "@/lib/chat/chat-send"
 import {
+  COMPOSER_NOTICE_AUTO_DISMISS_MS,
   classifySendNotice,
   isSendRejectionNotice,
   type SendOutcomeEvent,
@@ -65,6 +66,20 @@ export function useChatSend({
   const sendOutcomeListenersRef = useLazyRef(
     () => new Set<(event: SendOutcomeEvent) => void>()
   )
+  const pendingComposerNoticesRef = useLazyRef(
+    () =>
+      new Map<
+        string,
+        {
+          type: "notice"
+          channel: string
+          message: string
+          id: string
+          discardPending?: boolean
+          createdAt: number
+        }
+      >()
+  )
   const chatCommandActionsRef = React.useRef<
     Pick<ChatCommandContext, "blockUser" | "unblockUser">
   >({})
@@ -86,13 +101,31 @@ export function useChatSend({
   )
 
   const registerSendOutcomeListener = React.useCallback(
-    (listener: (event: SendOutcomeEvent) => void) => {
+    (
+      listener: (event: SendOutcomeEvent) => void,
+      options?: { channel?: string }
+    ) => {
       sendOutcomeListenersRef.current.add(listener)
+
+      if (options?.channel) {
+        const login = normalizeChannelLogin(options.channel)
+        if (login && syncedChannelsRef.current.includes(login)) {
+          const pending = pendingComposerNoticesRef.current.get(login)
+          if (
+            pending &&
+            Date.now() - pending.createdAt < COMPOSER_NOTICE_AUTO_DISMISS_MS
+          ) {
+            const { createdAt: _createdAt, ...event } = pending
+            listener(event)
+          }
+        }
+      }
+
       return () => {
         sendOutcomeListenersRef.current.delete(listener)
       }
     },
-    [sendOutcomeListenersRef]
+    [pendingComposerNoticesRef, sendOutcomeListenersRef, syncedChannelsRef]
   )
 
   const pushComposerNotice = React.useCallback(
@@ -119,15 +152,27 @@ export function useChatSend({
         }
       }
 
-      emitSendOutcome({
-        type: "notice",
+      const event = {
+        type: "notice" as const,
         channel: login,
         message: notice.message,
         id: notice.id,
         discardPending: notice.discardPending,
+      }
+      pendingComposerNoticesRef.current.set(login, {
+        ...event,
+        createdAt: Date.now(),
       })
+
+      emitSendOutcome(event)
     },
-    [emitSendOutcome, pendingSendRef, rateLimiterRef, syncedChannelsRef]
+    [
+      emitSendOutcome,
+      pendingComposerNoticesRef,
+      pendingSendRef,
+      rateLimiterRef,
+      syncedChannelsRef,
+    ]
   )
 
   const dismissComposerNotice = React.useCallback(
@@ -142,8 +187,9 @@ export function useChatSend({
         channel: login,
         id: notice.id,
       })
+      pendingComposerNoticesRef.current.delete(login)
     },
-    [emitSendOutcome, syncedChannelsRef]
+    [emitSendOutcome, pendingComposerNoticesRef, syncedChannelsRef]
   )
 
   const clearSendBlockTimer = React.useCallback(
