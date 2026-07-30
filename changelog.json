@@ -9,8 +9,12 @@
             "Added a mod panel to manage chat modes like emote only or subscribers only.",
             "Added visual support for cheermotes.",
             "Added channel updates for when a channel's stream title or category changes.",
+            "Minor redesign to the sidebar to look better, since outlines looked bad at certain scales.",
+            "Minor redesign to the navbar to be more compact with the same functionality.",
             "Chat history now follows your deleted message appearance setting instead of being hidden.",
-            "Redesigned and improved the appearance of alerts like subs, announcements, and raids."
+            "Redesigned and improved the appearance of alerts like subs, announcements, and raids.",
+            "Fixed a bug where long messages in the chat composer would overlap the latest messages in chat.",
+            "Fixed some minor issues with chatlist auto-scrolling."
         ]
     },
     {
