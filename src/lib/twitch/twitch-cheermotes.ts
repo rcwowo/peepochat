@@ -120,21 +120,34 @@ function buildCheermoteCatalogFromHelix(
   }
 }
 
+const CHEERMOTE_AMOUNT_PATTERN = /^[1-9][0-9]*$/
+
 function matchCheermoteCode(
   sets: CheermoteSet[],
   code: string
 ): CheermoteMatch | null {
+  if (!code) {
+    return null
+  }
+
   for (const set of sets) {
-    const pattern = new RegExp(
-      `^${escapeRegExp(set.prefix)}([1-9][0-9]*)$`,
-      "i"
-    )
-    const match = code.match(pattern)
-    if (!match) {
+    const prefixLength = set.prefix.length
+    if (code.length <= prefixLength) {
       continue
     }
 
-    const amount = Number(match[1])
+    if (
+      code.slice(0, prefixLength).toLowerCase() !== set.prefix.toLowerCase()
+    ) {
+      continue
+    }
+
+    const amountPart = code.slice(prefixLength)
+    if (!CHEERMOTE_AMOUNT_PATTERN.test(amountPart)) {
+      continue
+    }
+
+    const amount = Number(amountPart)
     if (!Number.isFinite(amount) || amount <= 0) {
       continue
     }
@@ -168,10 +181,6 @@ function resolveCheermoteTier(
   }
 
   return tiers.at(-1) ?? null
-}
-
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 }
 
 function buildFallbackCheerCatalog(): CheermoteCatalog {
@@ -357,11 +366,12 @@ function cheermoteToEmote(
 function createCheermoteEmote(
   match: CheermoteMatch,
   start: number,
-  end: number
+  end: number,
+  code: string
 ): TwitchEmote {
   return {
     id: match.tier.id,
-    code: match.prefix + match.amount,
+    code,
     provider: "twitch",
     imageUrl: match.animatedUrl,
     start,
@@ -382,67 +392,92 @@ function hasRangeOverlap(
   return occupied.some((range) => start <= range.end && end >= range.start)
 }
 
-export function hydrateCheermotes<
-  T extends { text: string; emotes: TwitchEmote[]; bits?: number | null },
->(message: T, catalog: CheermoteCatalog): T {
-  const activeCatalog =
-    catalog.sets.length > 0 ? catalog : DEFAULT_CHEERMOTE_CATALOG
+type CheermoteSpan = {
+  start: number
+  end: number
+  code: string
+  match: CheermoteMatch
+}
 
-  let changed = false
-  const result = message.emotes.map((emote) => ({ ...emote }))
+function findCheermoteSpans(
+  text: string,
+  catalog: CheermoteCatalog
+): CheermoteSpan[] {
+  const spans: CheermoteSpan[] = []
 
-  for (let index = 0; index < result.length; index += 1) {
-    const emote = result[index]!
-    const code = message.text.slice(emote.start, emote.end + 1)
-    const match = activeCatalog.match(code)
-
-    if (!match && !(message.bits && message.bits > 0)) {
-      continue
-    }
-
-    const resolved =
-      match ??
-      activeCatalog.match(`${emote.code}${message.bits}`) ??
-      activeCatalog.match(`Cheer${message.bits}`)
-
-    if (!resolved) {
-      continue
-    }
-
-    result[index] = cheermoteToEmote(emote, resolved)
-    changed = true
-  }
-
-  const occupied = result.map((emote) => ({
-    start: emote.start,
-    end: emote.end,
-  }))
-
-  const tokenPattern = /\S+/g
-  for (const tokenMatch of message.text.matchAll(tokenPattern)) {
+  for (const tokenMatch of text.matchAll(/\S+/g)) {
     const code = tokenMatch[0]
     const start = tokenMatch.index ?? -1
     if (start < 0) {
       continue
     }
 
-    const end = start + code.length - 1
-    if (hasRangeOverlap(occupied, start, end)) {
+    const match = catalog.match(code)
+    if (!match) {
       continue
     }
 
-    const cheerMatch = activeCatalog.match(code)
-    if (!cheerMatch) {
-      continue
-    }
-
-    result.push(createCheermoteEmote(cheerMatch, start, end))
-    occupied.push({ start, end })
-    changed = true
+    spans.push({
+      start,
+      end: start + code.length - 1,
+      code,
+      match,
+    })
   }
 
-  if (!changed) {
+  return spans
+}
+
+export function hydrateCheermotes<
+  T extends { text: string; emotes: TwitchEmote[]; bits?: number | null },
+>(message: T, catalog: CheermoteCatalog): T {
+  if (!message.bits || message.bits <= 0) {
     return message
+  }
+
+  const activeCatalog =
+    catalog.sets.length > 0 ? catalog : DEFAULT_CHEERMOTE_CATALOG
+  const cheerSpans = findCheermoteSpans(message.text, activeCatalog)
+
+  if (cheerSpans.length === 0) {
+    return message
+  }
+
+  const cheerRanges = cheerSpans.map((span) => ({
+    start: span.start,
+    end: span.end,
+  }))
+  const result: TwitchEmote[] = []
+  const coveredCheerKeys = new Set<string>()
+
+  for (const emote of message.emotes) {
+    const exactSpan = cheerSpans.find(
+      (span) => span.start === emote.start && span.end === emote.end
+    )
+
+    if (exactSpan) {
+      result.push(cheermoteToEmote(emote, exactSpan.match))
+      coveredCheerKeys.add(`${exactSpan.start}:${exactSpan.end}`)
+      continue
+    }
+
+    if (hasRangeOverlap(cheerRanges, emote.start, emote.end)) {
+      continue
+    }
+
+    result.push({ ...emote })
+  }
+
+  for (const span of cheerSpans) {
+    const key = `${span.start}:${span.end}`
+    if (coveredCheerKeys.has(key)) {
+      continue
+    }
+
+    result.push(
+      createCheermoteEmote(span.match, span.start, span.end, span.code)
+    )
+    coveredCheerKeys.add(key)
   }
 
   result.sort((left, right) => left.start - right.start)
