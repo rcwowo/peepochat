@@ -22,7 +22,7 @@ export function ChatCheermote({
         <img
           src={imageUrl}
           alt={label}
-          loading="lazy"
+          loading="eager"
           decoding="async"
           onError={(event) => {
             const img = event.currentTarget

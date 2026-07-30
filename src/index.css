@@ -312,6 +312,7 @@
   .chat-emote {
     display: inline-grid;
     vertical-align: middle;
+    min-width: var(--chat-emote-size);
   }
 
   .chat-emote img {

@@ -53,7 +53,7 @@ export function ChatEmote({
           src={getTwitchEmoteSrc(emote)}
           srcSet={srcSet}
           alt={label}
-          loading="lazy"
+          loading="eager"
           decoding="async"
           onError={(event) => {
             if (emote.provider !== "twitch") return
@@ -70,7 +70,7 @@ export function ChatEmote({
             className="chat-emote-overlay"
             src={overlay.imageUrl}
             alt=""
-            loading="lazy"
+            loading="eager"
             decoding="async"
           />
         ))}

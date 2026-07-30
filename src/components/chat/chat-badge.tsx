@@ -56,7 +56,7 @@ function ChatBadgeImage({
         src={imageUrl}
         srcSet={imageUrl2x ? `${imageUrl} 1x, ${imageUrl2x} 2x` : undefined}
         alt={description}
-        loading="lazy"
+        loading="eager"
         decoding="async"
       />
     </ChatHoverTooltipTarget>

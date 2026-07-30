@@ -57,11 +57,13 @@ type ComposerNotice = {
 type ChatComposerProps = {
   channelLogin: string
   joined?: boolean
+  onLayoutChange?: () => void
 }
 
 export function ChatComposer({
   channelLogin,
   joined = true,
+  onLayoutChange,
 }: ChatComposerProps) {
   const {
     account,
@@ -610,10 +612,16 @@ export function ChatComposer({
     ]
   )
 
+  const onLayoutChangeRef = React.useRef(onLayoutChange)
+  React.useLayoutEffect(() => {
+    onLayoutChangeRef.current = onLayoutChange
+  }, [onLayoutChange])
+
   const resizeTextarea = React.useCallback(() => {
     const el = inputRef.current
     if (!el) return
     const max = 160
+    onLayoutChangeRef.current?.()
     el.style.height = "0px"
     const next = el.scrollHeight
     if (next > max) {
@@ -623,6 +631,7 @@ export function ChatComposer({
       el.style.overflowY = "hidden"
       el.style.height = `${Math.max(next, 36)}px`
     }
+    onLayoutChangeRef.current?.()
   }, [])
 
   React.useLayoutEffect(() => {

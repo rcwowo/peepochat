@@ -204,6 +204,7 @@ function ChatPaneInner({
     isScrollPaused,
     handleChatScroll,
     resumeScroll,
+    notifyComposerResize,
   } = useChatScroll({
     timeline: visibleTimeline,
     isActive,
@@ -504,7 +505,11 @@ function ChatPaneInner({
                 ) : null}
               </div>
 
-              <ChatComposer channelLogin={channelLogin} joined={joined} />
+              <ChatComposer
+                channelLogin={channelLogin}
+                joined={joined}
+                onLayoutChange={notifyComposerResize}
+              />
             </div>
           </div>
         </ChatHoverTooltipProvider>
