@@ -6,7 +6,11 @@ import {
   hydrateCheermotes,
   type CheermoteCatalog,
 } from "@/lib/twitch/twitch-cheermotes"
-import type { TwitchEmote, TwitchEmoteProvider } from "@/lib/twitch/twitch-chat"
+import type {
+  TwitchEmote,
+  TwitchEmoteProvider,
+  TwitchSystemMessage,
+} from "@/lib/twitch/twitch-chat"
 
 export type EmoteCatalogEntry = {
   id: string
@@ -574,6 +578,29 @@ export function hydrateMessageEmotes<
   }
 
   return { ...hydrated, emotes }
+}
+
+export function hydrateSystemMessageDetails(
+  message: TwitchSystemMessage,
+  catalog: ThirdPartyEmoteCatalog | null,
+  twitchCatalog?: TwitchEmoteHydration | null
+): TwitchSystemMessage {
+  if (!message.details) {
+    return message
+  }
+
+  const detailsPayload = {
+    text: message.details,
+    emotes: message.detailsEmotes ?? [],
+  }
+
+  const hydrated = hydrateMessageEmotes(detailsPayload, catalog, twitchCatalog)
+
+  if (hydrated === detailsPayload) {
+    return message
+  }
+
+  return { ...message, detailsEmotes: hydrated.emotes }
 }
 
 function upgradeTwitchEmoteImages(

@@ -18,6 +18,7 @@ import {
   clearThirdPartyEmoteCache,
   createEmptyEmoteCatalog,
   hydrateMessageEmotes,
+  hydrateSystemMessageDetails,
   type ThirdPartyEmoteCatalog,
   type TwitchEmoteHydration,
 } from "@/lib/chat/chat-emotes"
@@ -118,6 +119,39 @@ export function useChatEmotes({
 
         let changed = false
         const timeline = room.timeline.map((entry) => {
+          if (entry.kind === "system") {
+            const messageChannel = entry.message.channel
+              ? normalizeChannelLogin(entry.message.channel)
+              : null
+            if (messageChannel !== normalizedLogin) {
+              return entry
+            }
+
+            const messageRoomId = entry.message.roomId
+            if (messageRoomId !== null && messageRoomId !== roomId) {
+              return entry
+            }
+
+            if (!entry.message.details) {
+              return entry
+            }
+
+            const message =
+              messageRoomId === null
+                ? { ...entry.message, roomId }
+                : entry.message
+            const hydrated = hydrateSystemMessageDetails(
+              message,
+              thirdPartyCatalog,
+              twitchHydration
+            )
+            if (message === entry.message && hydrated === entry.message) {
+              return entry
+            }
+            changed = true
+            return { ...entry, message: hydrated }
+          }
+
           if (
             entry.kind !== "chat" &&
             entry.kind !== "automod" &&

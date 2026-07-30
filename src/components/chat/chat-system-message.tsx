@@ -252,7 +252,10 @@ function NoticeBlock({
 
         {showDetails && message.details ? (
           <span className="chat-notice-user-message mt-1 block pl-6 leading-5">
-            {message.details}
+            <ChatMessageBody
+              text={message.details}
+              emotes={message.detailsEmotes ?? []}
+            />
           </span>
         ) : null}
       </div>
@@ -287,7 +290,7 @@ function SubscriptionNotice({
       }
       showDetails={false}
     >
-      <span className="chat-notice-body font-bold">
+      <span className="chat-notice-body font-semibold">
         <TextWithClickableName text={message.headline} actor={message.actor} />
       </span>
       {message.details ? (
