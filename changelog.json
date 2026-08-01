@@ -9,6 +9,7 @@
             "Added a mod panel to manage chat modes like emote only or subscribers only.",
             "Added visual support for cheermotes.",
             "Added channel updates for when a channel's stream title or category changes.",
+            "Chat panes are now virtualized to massively improve performance with multiple large channels.",
             "Minor redesign to the sidebar to look better, since outlines looked bad at certain scales.",
             "Minor redesign to the navbar to be more compact with the same functionality.",
             "Chat history now follows your deleted message appearance setting instead of being hidden.",

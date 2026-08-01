@@ -6,8 +6,7 @@ import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 
 /**
  * Subscribes to a single channel's room state so panes re-render only when
- * that channel changes. Message list virtualization remains a separate future
- * optimization for very large timelines.
+ * that channel changes.
  */
 export function useChannelRoom(login: string): TwitchChatRoomState | null {
   const { subscribeToRoom, getRoom } = usePeepochatChat()
