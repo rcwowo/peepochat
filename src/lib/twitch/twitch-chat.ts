@@ -610,7 +610,8 @@ export class TwitchChatClient {
   // -----------------------------------------------------------------------
 
   private handleLine(raw: string) {
-    if (isDevIrcLoggingEnabled()) {
+    const ircLogging = isDevIrcLoggingEnabled()
+    if (ircLogging) {
       devChatLogger.debug("irc:line", raw)
     }
 
@@ -619,7 +620,7 @@ export class TwitchChatClient {
 
     // PING keep-alive
     if (raw.startsWith("PING")) {
-      if (isDevIrcLoggingEnabled()) {
+      if (ircLogging) {
         devChatLogger.debug("irc:kind", "ping")
       }
       this.ws?.send(raw.replace("PING", "PONG"))
@@ -630,7 +631,7 @@ export class TwitchChatClient {
     const rest = tagged?.rest ?? raw
 
     if (isIrcPongLine(rest)) {
-      if (isDevIrcLoggingEnabled()) {
+      if (ircLogging) {
         devChatLogger.debug("irc:kind", "pong")
       }
       this.clearHeartbeatPongTimer()
@@ -639,7 +640,7 @@ export class TwitchChatClient {
 
     // Successful welcome — join all desired channels (RPL_WELCOME / 001).
     if (isIrcWelcomeLine(rest)) {
-      if (isDevIrcLoggingEnabled()) {
+      if (ircLogging) {
         devChatLogger.debug("irc:kind", "welcome")
       }
       this.welcomeReceived = true
@@ -653,7 +654,7 @@ export class TwitchChatClient {
 
     // JOIN confirmation for our nick
     if (isIrcJoinLine(rest)) {
-      if (isDevIrcLoggingEnabled()) {
+      if (ircLogging) {
         devChatLogger.debug("irc:kind", "join")
       }
       const channel = parseIrcJoinChannel(rest)
@@ -667,7 +668,7 @@ export class TwitchChatClient {
 
     // ROOMSTATE - channel metadata including room-id, sent on join and updates
     if (isIrcRoomStateLine(rest)) {
-      if (isDevIrcLoggingEnabled()) {
+      if (ircLogging) {
         devChatLogger.debug("irc:kind", "roomstate")
       }
       const state = tagged ? parseRoomState(tagged) : null
@@ -681,7 +682,7 @@ export class TwitchChatClient {
 
     // USERSTATE - local user state after join or sending a message (no PRIVMSG echo)
     if (isIrcUserStateLine(rest)) {
-      if (isDevIrcLoggingEnabled()) {
+      if (ircLogging) {
         devChatLogger.debug("irc:kind", "userstate")
       }
       const state = tagged ? parseUserState(tagged) : null
@@ -697,7 +698,7 @@ export class TwitchChatClient {
     }
 
     if (isIrcPrivmsgLine(rest)) {
-      if (isDevIrcLoggingEnabled()) {
+      if (ircLogging) {
         devChatLogger.debug("irc:kind", "privmsg")
       }
       const message = tagged ? parsePrivmsg(tagged) : null
@@ -711,7 +712,7 @@ export class TwitchChatClient {
 
     // USERNOTICE - subscriptions, gift subs, raids, announcements, etc.
     if (isIrcUsernoticeLine(rest)) {
-      if (isDevIrcLoggingEnabled()) {
+      if (ircLogging) {
         devChatLogger.debug("irc:kind", "usernotice")
       }
       const message = tagged ? parseUserNotice(tagged) : null
@@ -724,7 +725,7 @@ export class TwitchChatClient {
     }
 
     if (isIrcClearMsgLine(rest)) {
-      if (isDevIrcLoggingEnabled()) {
+      if (ircLogging) {
         devChatLogger.debug("irc:kind", "clearmsg")
       }
       const clearMsg = tagged ? parseClearMsg(tagged) : null
@@ -737,7 +738,7 @@ export class TwitchChatClient {
     }
 
     if (isIrcClearChatLine(rest)) {
-      if (isDevIrcLoggingEnabled()) {
+      if (ircLogging) {
         devChatLogger.debug("irc:kind", "clearchat")
       }
       const clearChat = tagged ? parseClearChat(tagged) : null
@@ -751,7 +752,7 @@ export class TwitchChatClient {
 
     // NOTICE - e.g. "No such channel"
     if (isIrcNoticeLine(rest)) {
-      if (isDevIrcLoggingEnabled()) {
+      if (ircLogging) {
         devChatLogger.debug("irc:kind", "notice")
       }
       const noticeMessage = tagged ? parseNotice(tagged) : null
