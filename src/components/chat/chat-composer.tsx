@@ -78,6 +78,8 @@ export function ChatComposer({
     connectionState,
     getChannelSendBlock,
     registerSendOutcomeListener,
+    replayPendingComposerNotice,
+    dismissComposerNotice,
     hideBlockedUsers,
     isUserBlocked,
     visibleChannelLogins,
@@ -110,8 +112,12 @@ export function ChatComposer({
   }, [])
 
   const dismissFrontNotice = React.useCallback(() => {
-    setNotices((current) => current.slice(1))
-  }, [])
+    const front = notices[0]
+    if (!front) {
+      return
+    }
+    dismissComposerNotice({ channel: channelLogin, id: front.id })
+  }, [channelLogin, dismissComposerNotice, notices])
 
   const dismissNoticeById = React.useCallback((id: string) => {
     setNotices((current) => current.filter((entry) => entry.id !== id))
@@ -389,6 +395,13 @@ export function ChatComposer({
     pushNotice,
     registerSendOutcomeListener,
   ])
+
+  React.useEffect(() => {
+    if (!chatVisible) {
+      return
+    }
+    replayPendingComposerNotice(channelLogin)
+  }, [channelLogin, chatVisible, replayPendingComposerNotice])
 
   React.useEffect(() => {
     clearPendingSend()

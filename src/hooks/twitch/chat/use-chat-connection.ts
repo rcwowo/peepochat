@@ -398,11 +398,7 @@ export function useChatConnection({
             joined: true,
             joining: false,
           }))
-          if (
-            event.state.isComplete &&
-            pendingChatModesNoticeRef.current.has(login)
-          ) {
-            pendingChatModesNoticeRef.current.delete(login)
+          if (pendingChatModesNoticeRef.current.has(login)) {
             if (hasAnyChatModeEnabled(nextModes)) {
               const message = formatChatModesNotice(nextModes)
               if (message) {
@@ -411,7 +407,10 @@ export function useChatConnection({
                   message,
                   id: chatModesNoticeId(login),
                 })
+                pendingChatModesNoticeRef.current.delete(login)
               }
+            } else if (event.state.isComplete) {
+              pendingChatModesNoticeRef.current.delete(login)
             }
           }
           if (

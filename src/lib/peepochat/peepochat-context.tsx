@@ -143,6 +143,8 @@ export type PeepochatChatContextValue = {
     listener: (event: SendOutcomeEvent) => void,
     options?: { channel?: string }
   ) => () => void
+  replayPendingComposerNotice: (channel: string) => void
+  dismissComposerNotice: (notice: { channel: string; id: string }) => void
   getBadgeCatalog: (login: string) => ChatBadgeCatalog
   getMemberBadge: (userId: string | null) => ResolvedMemberBadge | null
   getComposerEmoteCatalog: (login: string) => ComposerEmoteCatalog
@@ -280,6 +282,8 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     getSelfChatState,
     getChannelSendBlock,
     registerSendOutcomeListener,
+    replayPendingComposerNotice,
+    dismissComposerNotice,
     setEmoteLoadContext,
     setRecentMessagesEnabled,
     setLiveEmoteUpdatesEnabled,
@@ -850,6 +854,8 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       getSelfChatState,
       getChannelSendBlock,
       registerSendOutcomeListener,
+      replayPendingComposerNotice,
+      dismissComposerNotice,
       getBadgeCatalog: getBadgeCatalogForChannel,
       getMemberBadge,
       getComposerEmoteCatalog,
@@ -881,6 +887,8 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       getSelfChatState,
       getChannelSendBlock,
       registerSendOutcomeListener,
+      replayPendingComposerNotice,
+      dismissComposerNotice,
       getBadgeCatalogForChannel,
       getMemberBadge,
       getComposerEmoteCatalog,

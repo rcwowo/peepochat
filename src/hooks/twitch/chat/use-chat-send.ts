@@ -14,7 +14,6 @@ import {
   type TwitchChannelSendBlock,
 } from "@/lib/chat/chat-send"
 import {
-  COMPOSER_NOTICE_AUTO_DISMISS_MS,
   classifySendNotice,
   isSendRejectionNotice,
   type SendOutcomeEvent,
@@ -100,6 +99,24 @@ export function useChatSend({
     [sendOutcomeListenersRef]
   )
 
+  const replayPendingComposerNotice = React.useCallback(
+    (channel: string) => {
+      const login = normalizeChannelLogin(channel)
+      if (!login || !syncedChannelsRef.current.includes(login)) {
+        return
+      }
+
+      const pending = pendingComposerNoticesRef.current.get(login)
+      if (!pending) {
+        return
+      }
+
+      const { createdAt: _createdAt, ...event } = pending
+      emitSendOutcome(event)
+    },
+    [emitSendOutcome, pendingComposerNoticesRef, syncedChannelsRef]
+  )
+
   const registerSendOutcomeListener = React.useCallback(
     (
       listener: (event: SendOutcomeEvent) => void,
@@ -111,10 +128,7 @@ export function useChatSend({
         const login = normalizeChannelLogin(options.channel)
         if (login && syncedChannelsRef.current.includes(login)) {
           const pending = pendingComposerNoticesRef.current.get(login)
-          if (
-            pending &&
-            Date.now() - pending.createdAt < COMPOSER_NOTICE_AUTO_DISMISS_MS
-          ) {
+          if (pending) {
             const { createdAt: _createdAt, ...event } = pending
             listener(event)
           }
@@ -187,7 +201,10 @@ export function useChatSend({
         channel: login,
         id: notice.id,
       })
-      pendingComposerNoticesRef.current.delete(login)
+      const pending = pendingComposerNoticesRef.current.get(login)
+      if (pending?.id === notice.id) {
+        pendingComposerNoticesRef.current.delete(login)
+      }
     },
     [emitSendOutcome, pendingComposerNoticesRef, syncedChannelsRef]
   )
@@ -471,6 +488,7 @@ export function useChatSend({
     pendingSendRef,
     emitSendOutcome,
     registerSendOutcomeListener,
+    replayPendingComposerNotice,
     pushComposerNotice,
     dismissComposerNotice,
     clearSendBlockTimer,

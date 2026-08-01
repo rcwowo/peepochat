@@ -400,6 +400,8 @@ export function useTwitchChat(options?: {
     getSelfChatState: connection.getSelfChatState,
     getChannelSendBlock: send.getChannelSendBlock,
     registerSendOutcomeListener: send.registerSendOutcomeListener,
+    replayPendingComposerNotice: send.replayPendingComposerNotice,
+    dismissComposerNotice: send.dismissComposerNotice,
     refreshEmotes: emotes.refreshEmotes,
     rehydrateAllRoomTimelines: emotes.rehydrateAllRoomTimelines,
     sendMessage: send.sendMessage,
