@@ -2,11 +2,11 @@ import type { ReactNode } from "react"
 import { ExternalLinkIcon } from "lucide-react"
 
 import { SectionHeading } from "@/components/settings/settings-primitives"
+import { APP_BRANDING } from "@/lib/branding/app-branding"
 import { RCW_URL } from "@/lib/landing/landing-footer-links"
 import { cn } from "@/lib/utils"
 
 const version: string = __APP_VERSION__
-const iconBkgSrc = "/branding/icon-background.png"
 const owoLogoSrc = "/branding/owo-logo.png"
 const BLUESKY_URL = "https://bsky.app/profile/rcw.lol"
 const PATREON_URL = "https://www.patreon.com/rcwowo"
@@ -130,18 +130,14 @@ function DevelopedBySection() {
                 both Twitch streamers and viewers.
               </p>
             </div>
-
-            <p className="text-xs leading-relaxed text-muted-foreground">
-              Learn more at{" "}
+            <div className="flex items-center gap-2">
               <DeveloperLink href={RCW_URL} className="text-xs">
                 rcw.lol
               </DeveloperLink>
-              . Or, you can find me on{" "}
               <DeveloperLink href={BLUESKY_URL} className="text-xs">
                 Bluesky
               </DeveloperLink>
-              .
-            </p>
+            </div>
           </div>
         </div>
       </div>
@@ -213,15 +209,15 @@ export function AboutTab() {
           <div className="relative shrink-0">
             <div className="absolute inset-0 scale-110 rounded-2xl bg-primary/30 blur-md" />
             <img
-              src={iconBkgSrc}
+              src={APP_BRANDING.appIcon}
               alt=""
-              className="relative size-16 rounded-2xl object-cover shadow-lg ring-1 ring-primary/25"
+              className="relative size-16 object-cover shadow-lg"
             />
           </div>
 
-          <div className="mt-4 flex flex-col items-center gap-1.5">
-            <p className="text-sm leading-snug font-semibold tracking-tight">
-              Thanks for using Peepochat!
+          <div className="mt-4 flex flex-col items-center gap-0.5">
+            <p className="text-base leading-snug font-semibold tracking-tight">
+              {APP_BRANDING.title}
             </p>
             <p className="font-mono text-[11px] tracking-wide text-muted-foreground/90">
               v{version}
