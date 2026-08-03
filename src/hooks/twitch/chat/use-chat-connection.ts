@@ -842,5 +842,3 @@ export function useChatConnection({
     getSelfChatState,
   }
 }
-
-export type ChatConnectionApi = ReturnType<typeof useChatConnection>

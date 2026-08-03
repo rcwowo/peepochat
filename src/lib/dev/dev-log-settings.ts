@@ -94,10 +94,7 @@ export function isDevLogEnabled(category: DevLogCategory): boolean {
   return ensureDevLogCache()[category]
 }
 
-export function setDevLogEnabled(
-  category: DevLogCategory,
-  enabled: boolean
-): void {
+function setDevLogEnabled(category: DevLogCategory, enabled: boolean): void {
   if (!IS_DEV) return
 
   try {
@@ -109,7 +106,7 @@ export function setDevLogEnabled(
   }
 }
 
-export function getDevLogSettings(): Record<DevLogCategory, boolean> {
+function getDevLogSettings(): Record<DevLogCategory, boolean> {
   if (!IS_DEV) {
     return { ...DEFAULTS }
   }

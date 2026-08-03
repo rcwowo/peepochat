@@ -1,4 +1,4 @@
-export type AppBranding = {
+type AppBranding = {
   title: string
   favicon: string
   pingFavicon: string
@@ -10,7 +10,7 @@ export type BrandingVariant = "production" | "canary" | "dev"
 
 declare const __BRANDING_VARIANT__: BrandingVariant
 
-export const productionBranding: AppBranding = {
+const productionBranding: AppBranding = {
   title: "Peepochat",
   favicon: "/branding/icon.svg",
   pingFavicon: "/branding/icon-ping.svg",
@@ -18,7 +18,7 @@ export const productionBranding: AppBranding = {
   appIcon: "/branding/appicon.png",
 }
 
-export const canaryBranding: AppBranding = {
+const canaryBranding: AppBranding = {
   title: "Peepochat Canary",
   favicon: "/branding/icon.svg",
   pingFavicon: "/branding/icon-ping.svg",
@@ -26,7 +26,7 @@ export const canaryBranding: AppBranding = {
   appIcon: "/branding/appicon-canary.png",
 }
 
-export const devBranding: AppBranding = {
+const devBranding: AppBranding = {
   title: "Peepochat Dev",
   favicon: "/branding/icon.svg",
   pingFavicon: "/branding/icon-ping.svg",

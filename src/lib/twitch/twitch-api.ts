@@ -20,17 +20,6 @@ export type TwitchUser = {
   type: string
 }
 
-export type TwitchBannedUserStatus = {
-  userId: string
-  userLogin: string
-  userName: string
-  expiresAt: string | null
-  reason: string | null
-  moderatorId: string | null
-  moderatorLogin: string | null
-  moderatorName: string | null
-}
-
 export type TwitchModeratorStatus = {
   userId: string
   userLogin: string
@@ -322,59 +311,6 @@ export async function fetchChannelChatBadges(
   }
 
   return parseChatBadgeSets(payload.data)
-}
-
-export async function fetchTwitchBannedUserStatus({
-  broadcasterId,
-  userId,
-  accessToken,
-  clientId,
-}: {
-  broadcasterId: string
-  userId: string
-  accessToken: string
-  clientId: string
-}): Promise<TwitchBannedUserStatus | null> {
-  const params = new URLSearchParams({ broadcaster_id: broadcasterId })
-  params.append("user_id", userId)
-
-  const response = await devLoggedFetch(
-    `https://api.twitch.tv/helix/moderation/banned?${params.toString()}`,
-    { headers: helixHeaders(accessToken, clientId) }
-  )
-
-  if (!response.ok) {
-    throw new TwitchApiError("Could not load ban status.", response.status)
-  }
-
-  const payload = (await response.json()) as {
-    data?: Array<{
-      user_id: string
-      user_login: string
-      user_name: string
-      expires_at?: string | null
-      reason?: string | null
-      moderator_id?: string | null
-      moderator_login?: string | null
-      moderator_name?: string | null
-    }>
-  }
-
-  const entry = payload.data?.[0]
-  if (!entry) {
-    return null
-  }
-
-  return {
-    userId: entry.user_id,
-    userLogin: entry.user_login,
-    userName: entry.user_name,
-    expiresAt: entry.expires_at || null,
-    reason: entry.reason || null,
-    moderatorId: entry.moderator_id || null,
-    moderatorLogin: entry.moderator_login || null,
-    moderatorName: entry.moderator_name || null,
-  }
 }
 
 export async function fetchTwitchModeratorStatus({
@@ -816,15 +752,6 @@ export function isSubscriptionChannelEmote(emote: TwitchChatEmote): boolean {
 
 export function isFollowerChannelEmote(emote: TwitchChatEmote): boolean {
   return emote.emoteType === TWITCH_FOLLOWER_EMOTE_TYPE
-}
-
-export function filterPublicChannelEmotes(
-  emotes: TwitchChatEmote[]
-): TwitchChatEmote[] {
-  return emotes.filter(
-    (emote) =>
-      !isSubscriptionChannelEmote(emote) && !isFollowerChannelEmote(emote)
-  )
 }
 
 type HelixEmotePayload = {

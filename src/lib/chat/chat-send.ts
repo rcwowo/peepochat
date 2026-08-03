@@ -16,10 +16,7 @@ export type ChatSendFailureReason =
 export type ChatSendResult =
   { ok: true } | { ok: false; reason: ChatSendFailureReason; message?: string }
 
-export type {
-  TwitchChannelSendBlock,
-  SendOutcomeEvent,
-} from "@/lib/chat/chat-send-notice"
+export type { TwitchChannelSendBlock } from "@/lib/chat/chat-send-notice"
 
 export const CHAT_RATE_LIMIT_MESSAGES = {
   too_fast: "You're sending messages too fast.",

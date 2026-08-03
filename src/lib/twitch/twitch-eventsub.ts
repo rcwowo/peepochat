@@ -109,7 +109,7 @@ function conditionKey(condition: Record<string, string>): string {
     .join("&")
 }
 
-export function eventSubSubscriptionKey(
+function eventSubSubscriptionKey(
   type: string,
   version: string,
   condition: Record<string, string>

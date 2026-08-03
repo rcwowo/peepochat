@@ -363,5 +363,3 @@ export function useSevenTvLiveUpdates({
     syncLiveEmoteSubscriptions: syncSubscribedRooms,
   }
 }
-
-export type SevenTvLiveUpdatesApi = ReturnType<typeof useSevenTvLiveUpdates>

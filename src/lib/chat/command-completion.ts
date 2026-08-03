@@ -11,14 +11,6 @@ import {
   type EmoteReplaceRange,
 } from "@/lib/chat/emote-completion"
 
-export type { ChatCommandDefinition } from "@/lib/chat/chat-command-definitions"
-export {
-  ANNOUNCEMENT_COLORS,
-  ANNOUNCEMENT_COLOR_SET,
-  CHAT_COMMAND_DEFINITIONS,
-  KNOWN_CHAT_COMMANDS,
-} from "@/lib/chat/chat-command-definitions"
-
 export type CommandSuggestion = {
   type: "command"
   name: string

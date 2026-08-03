@@ -88,10 +88,6 @@ function hasScope(account: TwitchAccount | null, scope: string) {
   return Boolean(account?.scopes?.includes(scope))
 }
 
-export function hasUserCardScope(account: TwitchAccount | null, scope: string) {
-  return hasScope(account, scope)
-}
-
 function isFresh(cachedAt: number, ttlMs: number) {
   return Date.now() - cachedAt < ttlMs
 }

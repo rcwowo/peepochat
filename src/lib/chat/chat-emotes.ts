@@ -458,13 +458,6 @@ export function buildThirdPartyEmoteCatalog(
   return catalog
 }
 
-export async function fetchThirdPartyEmoteCatalog(
-  roomId: string
-): Promise<ThirdPartyEmoteCatalog> {
-  const sets = await getThirdPartyEmoteSets(roomId)
-  return buildThirdPartyEmoteCatalog(sets)
-}
-
 export type TwitchEmoteHydration = {
   byCode: Map<string, EmoteCatalogEntry>
   byId: Map<string, EmoteCatalogEntry>

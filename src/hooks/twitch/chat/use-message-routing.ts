@@ -345,5 +345,3 @@ export function useMessageRouting({
     markChatMessageDeleted,
   }
 }
-
-export type MessageRoutingApi = ReturnType<typeof useMessageRouting>

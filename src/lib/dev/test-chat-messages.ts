@@ -11,29 +11,26 @@ import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 import { buildTwitchEmoteCdnUrl } from "@/lib/twitch/twitch-api"
 import { formatChannelUpdateValue } from "@/lib/twitch/twitch-eventsub-channel-update"
 
-export const FAKE_MESSAGE_KINDS = [
-  "chat",
-  "action",
-  "first_message",
-  "reply",
-  "reply_thread",
-  "deleted",
-  "cheer",
-  "subscription",
-  "gift_sub",
-  "raid",
-  "announcement",
-  "mod_timeout",
-  "mod_ban",
-  "mod_unban",
-  "notice",
-  "status",
-  "channel_title_update",
-  "channel_category_update",
-  "automod",
-] as const
-
-export type FakeMessageKind = (typeof FAKE_MESSAGE_KINDS)[number]
+export type FakeMessageKind =
+  | "chat"
+  | "action"
+  | "first_message"
+  | "reply"
+  | "reply_thread"
+  | "deleted"
+  | "cheer"
+  | "subscription"
+  | "gift_sub"
+  | "raid"
+  | "announcement"
+  | "mod_timeout"
+  | "mod_ban"
+  | "mod_unban"
+  | "notice"
+  | "status"
+  | "channel_title_update"
+  | "channel_category_update"
+  | "automod"
 
 export const FAKE_MESSAGE_KIND_OPTIONS: {
   value: FakeMessageKind
@@ -86,7 +83,7 @@ export const FAKE_CHAT_ROLE_OPTIONS: { value: FakeChatRole; label: string }[] =
     { value: "subscriber", label: "Subscriber" },
   ]
 
-export type FakeMessageOptions = {
+type FakeMessageOptions = {
   channelLogin: string
   roomId?: string | null
   displayName?: string
@@ -102,7 +99,7 @@ export type FakeMessageOptions = {
   banDurationSeconds?: number
 }
 
-export type FakeTimelinePayload =
+type FakeTimelinePayload =
   | { kind: "chat"; message: TwitchChatMessage }
   | { kind: "system"; message: TwitchSystemMessage }
   | {
@@ -111,7 +108,7 @@ export type FakeTimelinePayload =
       message: TwitchAutomodHeldMessage
     }
 
-export type FakeTimelineBatch = FakeTimelinePayload[]
+type FakeTimelineBatch = FakeTimelinePayload[]
 
 const SAMPLE_TWITCH_EMOTES = [
   { id: "25", code: "Kappa" },
@@ -755,7 +752,7 @@ function buildReplyThreadMessages(
   return [root, firstReply, nestedReply, siblingReply]
 }
 
-export function buildFakeTimelineItem(
+function buildFakeTimelineItem(
   kind: FakeMessageKind,
   options: FakeMessageOptions
 ): FakeTimelinePayload {

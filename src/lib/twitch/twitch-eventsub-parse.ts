@@ -58,7 +58,7 @@ export function emotesFromV2Fragments(fragments: unknown): {
   return { text, emotes }
 }
 
-export function emotesFromV1Fragments(
+function emotesFromV1Fragments(
   messageText: string,
   fragments: unknown
 ): TwitchEmote[] {

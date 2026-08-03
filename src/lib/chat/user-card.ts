@@ -58,23 +58,6 @@ export function createUserCardTargetFromTwitchUser(
   }
 }
 
-export function createUserCardTargetFromLogin(
-  login: string,
-  channelLogin: string
-): UserCardTarget {
-  const normalized = login.replace(/^@/, "").trim()
-  return {
-    userId: null,
-    userName: normalized,
-    displayName: normalized,
-    color: null,
-    flags: {
-      ...createEmptyUserCardFlags(),
-      isBroadcaster: normalized.toLowerCase() === channelLogin.toLowerCase(),
-    },
-  }
-}
-
 export function twitchChannelUrl(login: string): string {
   return `https://www.twitch.tv/${encodeURIComponent(login)}`
 }

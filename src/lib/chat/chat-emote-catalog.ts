@@ -273,12 +273,6 @@ export async function fetchRoomEmoteBundle(
   return promise
 }
 
-export async function fetchComposerEmoteCatalog(
-  options: ComposerEmoteLoadOptions
-): Promise<ComposerEmoteCatalog> {
-  return (await fetchRoomEmoteBundle(options)).composer
-}
-
 async function buildRoomEmoteBundle(
   options: ComposerEmoteLoadOptions
 ): Promise<RoomEmoteBundle> {
@@ -715,7 +709,7 @@ function dedupeThirdPartySets(sets: ThirdPartyEmoteSets): ThirdPartyEmoteSets {
   return result
 }
 
-export function buildComposerCatalog(sources: {
+function buildComposerCatalog(sources: {
   channelLogin: string
   thirdPartySets: ThirdPartyEmoteSets
   twitchCategories: EmotePickerCategory[]

@@ -163,21 +163,3 @@ export const TWITCH_OAUTH_SCOPE_GROUPS: TwitchOAuthScopeGroup[] = [
     ],
   },
 ]
-
-const scopeInfoById = new Map<string, TwitchOAuthScopeInfo>(
-  TWITCH_OAUTH_SCOPE_GROUPS.flatMap((group) =>
-    group.scopes.map((entry) => [entry.scope, entry] as const)
-  )
-)
-
-/** Ordered list matching the scopes requested at login. */
-export function getTwitchOAuthScopeCatalog(): TwitchOAuthScopeInfo[] {
-  return TWITCH_OAUTH_SCOPES.map(
-    (scope) =>
-      scopeInfoById.get(scope) ?? {
-        scope,
-        label: scope,
-        description: "Used by Peepochat for Twitch integration.",
-      }
-  )
-}

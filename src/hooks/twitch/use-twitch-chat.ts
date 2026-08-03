@@ -30,10 +30,7 @@ import type {
   TwitchSelfChatState,
 } from "@/lib/twitch/twitch-chat-types"
 
-export {
-  SYNC_CHANNELS_SUPERSEDED_MESSAGE,
-  isSyncChannelsSupersededError,
-} from "@/hooks/twitch/chat/types"
+export { isSyncChannelsSupersededError } from "@/hooks/twitch/chat/types"
 
 export function useTwitchChat(options?: {
   account?: TwitchAccount | null

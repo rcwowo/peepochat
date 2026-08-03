@@ -1226,13 +1226,6 @@ function parseUserState(tagged: IrcTaggedLine): TwitchSelfUserState | null {
   }
 }
 
-export function parseIrcUserNotice(raw: string): TwitchSystemMessage | null {
-  if (!raw.startsWith("@")) return null
-  const tagged = splitTaggedLine(raw)
-  if (!tagged) return null
-  return parseUserNotice(tagged)
-}
-
 function parseUserNotice(tagged: IrcTaggedLine): TwitchSystemMessage | null {
   const match = tagged.rest.match(/^:\S+ USERNOTICE #(\S+)(?: :(.*))?$/)
   if (!match) return null

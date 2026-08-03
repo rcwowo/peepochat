@@ -271,15 +271,6 @@ export function clearCheermoteCache(roomId?: string) {
   cheermoteDataCache.clear()
 }
 
-export function getCachedCheermoteCatalog(
-  roomId: string | null | undefined
-): CheermoteCatalog {
-  return (
-    cheermoteDataCache.get(cheermoteCacheKey(roomId)) ??
-    DEFAULT_CHEERMOTE_CATALOG
-  )
-}
-
 export async function fetchCheermotes(
   accessToken: string,
   clientId: string,

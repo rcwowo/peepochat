@@ -7,12 +7,6 @@ import type {
 
 type TimelineEntry = TwitchTimelineItem
 
-const EMPTY_RECENT_USER_MESSAGES: TwitchChatMessage[] = []
-
-export function getEmptyRecentUserMessages(): TwitchChatMessage[] {
-  return EMPTY_RECENT_USER_MESSAGES
-}
-
 function suspiciousAsChatMessage(
   message: TwitchSuspiciousUserMessage
 ): TwitchChatMessage {
@@ -55,41 +49,6 @@ function entryAsRecentChatMessage(
       : suspiciousAsChatMessage(entry.message)
   }
   return null
-}
-
-export function getRecentUserMessages({
-  timeline,
-  userId,
-  userName,
-  limit = 6,
-}: {
-  timeline: TimelineEntry[]
-  userId: string | null
-  userName: string
-  limit?: number
-}): TwitchChatMessage[] {
-  const normalizedLogin = userName.toLowerCase()
-  const messages: TwitchChatMessage[] = []
-
-  for (let index = timeline.length - 1; index >= 0; index -= 1) {
-    const message = entryAsRecentChatMessage(timeline[index])
-    if (!message) {
-      continue
-    }
-
-    const matchesId = Boolean(userId && message.userId === userId)
-    const matchesLogin = message.userName.toLowerCase() === normalizedLogin
-    if (!matchesId && !matchesLogin) {
-      continue
-    }
-
-    messages.push(message)
-    if (messages.length >= limit) {
-      break
-    }
-  }
-
-  return messages.reverse()
 }
 
 function rememberRecentUserMessage(

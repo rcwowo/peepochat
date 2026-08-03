@@ -63,7 +63,7 @@ function ChatBadgeImage({
   )
 }
 
-export function ChatBadge({ badge }: { badge: ResolvedChatBadge }) {
+function ChatBadge({ badge }: { badge: ResolvedChatBadge }) {
   return (
     <ChatBadgeImage
       imageUrl={badge.imageUrl}
@@ -74,7 +74,7 @@ export function ChatBadge({ badge }: { badge: ResolvedChatBadge }) {
   )
 }
 
-export function MemberBadge({ badge }: { badge: ResolvedMemberBadge }) {
+function MemberBadge({ badge }: { badge: ResolvedMemberBadge }) {
   return (
     <ChatBadgeImage
       imageUrl={badge.imageUrl}

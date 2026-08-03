@@ -27,11 +27,11 @@ export type ReplyThread = {
   selectedId: string
 }
 
-export function getThreadIdFromReply(reply: TwitchChatReply): string {
+function getThreadIdFromReply(reply: TwitchChatReply): string {
   return reply.threadRootMessageId || reply.parentMessageId
 }
 
-export function getThreadIdForMessage(message: TwitchChatMessage): string {
+function getThreadIdForMessage(message: TwitchChatMessage): string {
   if (message.reply) {
     return getThreadIdFromReply(message.reply)
   }

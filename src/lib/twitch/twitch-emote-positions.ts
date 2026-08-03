@@ -41,16 +41,3 @@ export function codePointRangeToUtf16Indices(
 
   return { start, end: text.length - 1 }
 }
-
-export function sliceByCodePointRange(
-  text: string,
-  codePointStart: number,
-  codePointEnd: number
-): string | null {
-  const range = codePointRangeToUtf16Indices(text, codePointStart, codePointEnd)
-  if (!range) {
-    return null
-  }
-
-  return text.slice(range.start, range.end + 1)
-}
