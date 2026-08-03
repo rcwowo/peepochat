@@ -220,7 +220,6 @@ export function useTwitchChat(options?: {
     isUserBlockedRef,
     clearChatWhenInstructedRef,
     selfStatesRef,
-    hasEnabledModActionSubscription: eventSub.hasEnabledModActionSubscription,
     updateSelfState: connection.updateSelfState,
     onChatMessageRef,
   })

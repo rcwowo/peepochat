@@ -357,6 +357,22 @@ export function ChatComposer({
             clearPendingSend()
           }
 
+          if (isAutomodHoldNoticeText(event.message)) {
+            setNotices((current) => {
+              const withoutAutomod = current.filter(
+                (entry) => !isAutomodHoldNoticeText(entry.message)
+              )
+              if (withoutAutomod.some((entry) => entry.id === event.id)) {
+                return withoutAutomod
+              }
+              return [
+                ...withoutAutomod,
+                { id: event.id, message: event.message },
+              ]
+            })
+            return
+          }
+
           pushNotice({
             id: event.id,
             message: event.message,
@@ -376,6 +392,21 @@ export function ChatComposer({
           }
 
           if (isAutomodHoldNoticeText(event.message)) {
+            setNotices((current) => {
+              if (
+                current.some((entry) => isAutomodHoldNoticeText(entry.message))
+              ) {
+                return current
+              }
+              noticeIdRef.current += 1
+              return [
+                ...current,
+                {
+                  id: `rejected-automod:${noticeIdRef.current}`,
+                  message: event.message,
+                },
+              ]
+            })
             return
           }
 

@@ -34,7 +34,6 @@ type UseMessageRoutingOptions = {
   >
   clearChatWhenInstructedRef: React.MutableRefObject<boolean>
   selfStatesRef: React.MutableRefObject<Map<string, TwitchSelfChatState>>
-  hasEnabledModActionSubscription: (channelLogin: string) => boolean
   updateSelfState: (state: TwitchSelfChatState) => void
   onChatMessageRef?: React.RefObject<
     ((message: TwitchChatMessage) => void) | null
@@ -51,7 +50,6 @@ export function useMessageRouting({
   isUserBlockedRef,
   clearChatWhenInstructedRef,
   selfStatesRef,
-  hasEnabledModActionSubscription,
   updateSelfState,
   onChatMessageRef,
 }: UseMessageRoutingOptions) {
@@ -229,12 +227,9 @@ export function useMessageRouting({
           return false
         })
 
-        const preferEventSubNotice = hasEnabledModActionSubscription(login)
-        if (!preferEventSubNotice) {
-          const modAction = createClearChatModActionMessage(event)
-          if (modAction) {
-            appendRoomSystemMessage(login, modAction)
-          }
+        const modAction = createClearChatModActionMessage(event)
+        if (modAction) {
+          appendRoomSystemMessage(login, modAction)
         }
         return
       }
@@ -275,7 +270,6 @@ export function useMessageRouting({
       appendRoomSystemMessage,
       applyRoomMessageDeletions,
       clearChatWhenInstructedRef,
-      hasEnabledModActionSubscription,
       selfStatesRef,
       syncedChannelsRef,
       updateRoom,

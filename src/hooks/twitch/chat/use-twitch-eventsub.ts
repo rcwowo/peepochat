@@ -889,17 +889,10 @@ export function useTwitchEventSub({
     syncDesiredSubscriptions,
   ])
 
-  const hasEnabledModActionSubscription = React.useCallback(
-    (channelLogin: string) =>
-      client.hasEnabledModActionSubscription(channelLogin),
-    [client]
-  )
-
   return {
     notifySelfStateChanged,
     notifyChannelsChanged,
     notifySuspiciousSettingChanged,
     notifyChannelUpdatesSettingChanged,
-    hasEnabledModActionSubscription,
   }
 }

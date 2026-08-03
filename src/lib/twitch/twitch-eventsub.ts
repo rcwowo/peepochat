@@ -224,21 +224,6 @@ export class TwitchEventSubClient {
     }
   }
 
-  hasEnabledModActionSubscription(channelLogin: string): boolean {
-    const login = channelLogin.trim().toLowerCase()
-    if (!login) return false
-    for (const subscription of this.active.values()) {
-      if (
-        subscription.type === "channel.moderate" &&
-        subscription.status === "enabled" &&
-        subscription.channelLogin === login
-      ) {
-        return true
-      }
-    }
-    return false
-  }
-
   disconnect() {
     this.shouldReconnect = false
     this.connectGeneration += 1
@@ -285,6 +270,13 @@ export class TwitchEventSubClient {
     this.openSocket(EVENTSUB_WS_URL)
   }
 
+  private isLiveSocket(socket: WebSocket, generation: number) {
+    if (this.migratingFromSocket === socket) {
+      return true
+    }
+    return generation === this.connectGeneration && this.socket === socket
+  }
+
   private openSocket(
     url: string,
     options?: { isReconnectMigration?: boolean }
@@ -293,6 +285,8 @@ export class TwitchEventSubClient {
     this.clearKeepaliveTimer()
 
     if (!options?.isReconnectMigration) {
+      this.closeSocket(this.migratingFromSocket)
+      this.migratingFromSocket = null
       this.closeSocket(this.socket)
       this.socket = null
       this.sessionId = null
@@ -305,7 +299,7 @@ export class TwitchEventSubClient {
     this.lastMessageAt = Date.now()
 
     socket.onopen = () => {
-      if (generation !== this.connectGeneration || this.socket !== socket) {
+      if (!this.isLiveSocket(socket, generation)) {
         return
       }
       this.reconnectAttempt = 0
@@ -313,21 +307,28 @@ export class TwitchEventSubClient {
     }
 
     socket.onmessage = (event) => {
-      if (generation !== this.connectGeneration || this.socket !== socket) {
+      if (!this.isLiveSocket(socket, generation)) {
         return
       }
       this.handleMessage(event.data)
     }
 
     socket.onclose = () => {
+      if (this.migratingFromSocket === socket) {
+        this.migratingFromSocket = null
+      }
+
       if (generation !== this.connectGeneration) {
         return
       }
+
       if (this.socket === socket) {
         this.socket = null
       }
       this.clearKeepaliveTimer()
-      if (this.migratingFromSocket === socket) {
+
+      if (this.migratingFromSocket) {
+        this.closeSocket(this.migratingFromSocket)
         this.migratingFromSocket = null
       }
 
@@ -339,7 +340,7 @@ export class TwitchEventSubClient {
     }
 
     socket.onerror = () => {
-      if (generation !== this.connectGeneration || this.socket !== socket) {
+      if (!this.isLiveSocket(socket, generation)) {
         return
       }
       socket.close()

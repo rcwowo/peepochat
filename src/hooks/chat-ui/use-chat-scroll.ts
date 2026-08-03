@@ -7,7 +7,7 @@ import {
 
 const NEAR_BOTTOM_PX = 24
 const LIST_EDGE_PADDING_PX = 4
-const DEFAULT_ESTIMATE_SIZE_PX = 40
+const DEFAULT_ESTIMATE_SIZE_PX = 72
 
 type TimelineEntry = {
   kind: string
@@ -20,15 +20,15 @@ function estimateTimelineItemSize(entry: TimelineEntry | undefined) {
   }
 
   if (entry.kind === "automod" || entry.kind === "suspicious") {
-    return 72
+    return 128
   }
 
   if (entry.kind === "system") {
-    return 56
+    return 80
   }
 
   if (entry.kind === "chat" && entry.message.reply) {
-    return 56
+    return 96
   }
 
   return DEFAULT_ESTIMATE_SIZE_PX
