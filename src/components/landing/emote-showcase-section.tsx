@@ -157,24 +157,54 @@ function springMotion(linear: number) {
   return (1 - Math.exp(-SPRING_RATE * linear)) / SPRING_PLATEAU
 }
 
-const SPLASH_SPREAD_FILL = 0.94
+const SPLASH_SPREAD_FILL = 0.96
 
 const MAX_SPLASH_AXIS = Math.max(
   ...SPLASH_EMOTES.flatMap((layout) => [Math.abs(layout.x), Math.abs(layout.y)])
 )
 
-function getMaxEmoteHalfSizes(rootFontSize: number) {
+function getEmoteSizeScale(stageWidth: number) {
+  if (stageWidth < 400) return 0.58
+  if (stageWidth < 560) return 0.7
+  if (stageWidth < 768) return 0.84
+  return 1
+}
+
+function getCenterKeepout(stageWidth: number, rootFontSize: number) {
+  if (stageWidth < 400) {
+    return {
+      halfWidth: 7.25 * rootFontSize,
+      halfHeight: 6.5 * rootFontSize,
+    }
+  }
+  if (stageWidth < 640) {
+    return {
+      halfWidth: 8.5 * rootFontSize,
+      halfHeight: 7.25 * rootFontSize,
+    }
+  }
+  return {
+    halfWidth: 10.5 * rootFontSize,
+    halfHeight: 8.5 * rootFontSize,
+  }
+}
+
+function getMaxEmoteHalfSizes(rootFontSize: number, sizeScale: number) {
   let halfWidth = 0
   let halfHeight = 0
 
   for (const layout of SPLASH_EMOTES) {
     halfWidth = Math.max(
       halfWidth,
-      ((layout.widthRem ?? layout.heightRem) * rootFontSize * layout.scale) / 2
+      ((layout.widthRem ?? layout.heightRem) *
+        rootFontSize *
+        layout.scale *
+        sizeScale) /
+        2
     )
     halfHeight = Math.max(
       halfHeight,
-      (layout.heightRem * rootFontSize * layout.scale) / 2
+      (layout.heightRem * rootFontSize * layout.scale * sizeScale) / 2
     )
   }
 
@@ -182,19 +212,36 @@ function getMaxEmoteHalfSizes(rootFontSize: number) {
 }
 
 function getSplashSpread(stageRect: DOMRect, rootFontSize: number) {
-  const { halfWidth, halfHeight } = getMaxEmoteHalfSizes(rootFontSize)
-  const edgePadding = 12
-
-  const spreadX = Math.max(
-    0,
-    (stageRect.width / 2 - halfWidth - edgePadding) * SPLASH_SPREAD_FILL
+  const sizeScale = getEmoteSizeScale(stageRect.width)
+  const { halfWidth, halfHeight } = getMaxEmoteHalfSizes(
+    rootFontSize,
+    sizeScale
   )
-  const spreadY = Math.max(
+  const keepout = getCenterKeepout(stageRect.width, rootFontSize)
+  const edgePadding = stageRect.width < 560 ? 8 : 12
+
+  const maxTravelX = Math.max(0, stageRect.width / 2 - halfWidth - edgePadding)
+  const maxTravelY = Math.max(
     0,
-    (stageRect.height / 2 - halfHeight - edgePadding) * SPLASH_SPREAD_FILL
+    stageRect.height / 2 - halfHeight - edgePadding
   )
 
-  return { spreadX, spreadY }
+  const spreadX = Math.min(
+    maxTravelX,
+    Math.max(
+      keepout.halfWidth + halfWidth * 0.2,
+      maxTravelX * SPLASH_SPREAD_FILL
+    )
+  )
+  const spreadY = Math.min(
+    maxTravelY,
+    Math.max(
+      keepout.halfHeight + halfHeight * 0.2,
+      maxTravelY * SPLASH_SPREAD_FILL
+    )
+  )
+
+  return { spreadX, spreadY, sizeScale }
 }
 
 function getViewportSplashMotion(stageRect: DOMRect, viewportHeight: number) {
@@ -219,11 +266,13 @@ function applySplashMotionVars(
   stage: HTMLElement,
   motion: number,
   spreadX: number,
-  spreadY: number
+  spreadY: number,
+  sizeScale: number
 ) {
   stage.style.setProperty("--splash-motion", String(motion))
   stage.style.setProperty("--spread-x", `${spreadX}px`)
   stage.style.setProperty("--spread-y", `${spreadY}px`)
+  stage.style.setProperty("--emote-size-scale", String(sizeScale))
 }
 
 function useScrollSplashMotion(
@@ -243,11 +292,20 @@ function useScrollSplashMotion(
       frame = 0
       const rect = stage.getBoundingClientRect()
       const viewportHeight = window.innerHeight
-      const { spreadX, spreadY } = getSplashSpread(rect, rootFontSize)
+      const { spreadX, spreadY, sizeScale } = getSplashSpread(
+        rect,
+        rootFontSize
+      )
 
       if (reducedMotion) {
         const inView = rect.top < viewportHeight && rect.bottom > 0
-        applySplashMotionVars(stage, inView ? 1 : 0, spreadX, spreadY)
+        applySplashMotionVars(
+          stage,
+          inView ? 1 : 0,
+          spreadX,
+          spreadY,
+          sizeScale
+        )
         return
       }
 
@@ -255,7 +313,8 @@ function useScrollSplashMotion(
         stage,
         getViewportSplashMotion(rect, viewportHeight),
         spreadX,
-        spreadY
+        spreadY,
+        sizeScale
       )
     }
 
@@ -330,7 +389,7 @@ export function EmoteShowcaseSection() {
       className="relative overflow-hidden border-y border-[color-mix(in_oklch,var(--border)_60%,transparent)]"
     >
       <div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_55%_65%_at_50%_50%,color-mix(in_oklch,var(--primary)_16%,transparent),transparent_68%),radial-gradient(ellipse_40%_50%_at_12%_42%,color-mix(in_oklch,#e91916_10%,transparent),transparent_60%),radial-gradient(ellipse_38%_48%_at_88%_38%,color-mix(in_oklch,#00b5ad_12%,transparent),transparent_58%),radial-gradient(ellipse_36%_44%_at_52%_88%,color-mix(in_oklch,#9b59b6_9%,transparent),transparent_55%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_55%_65%_at_50%_50%,color-mix(in_oklch,var(--primary)_18%,transparent),transparent_70%),radial-gradient(ellipse_40%_50%_at_12%_42%,color-mix(in_oklch,#e91916_5%,transparent),transparent_62%),radial-gradient(ellipse_38%_48%_at_88%_38%,color-mix(in_oklch,#00b5ad_6%,transparent),transparent_60%),radial-gradient(ellipse_36%_44%_at_52%_88%,color-mix(in_oklch,#9b59b6_4%,transparent),transparent_58%)]"
         aria-hidden
       />
 
@@ -342,36 +401,50 @@ export function EmoteShowcaseSection() {
           <SplashEmote key={layout.key} layout={layout} />
         ))}
 
-        <div className="relative z-3 mx-auto max-w-120 transform-[scale(calc(0.94+var(--splash-motion)*0.06))] px-[clamp(1.75rem,5vw,2.75rem)] py-[clamp(1.75rem,4.5vw,2.5rem)] text-center motion-reduce:transform-none">
-          <h2 className="font-landing-display text-3xl font-semibold tracking-tight text-balance text-shadow-[0_2px_14px_oklch(0_0_0/92%),0_0_36px_oklch(0_0_0/72%)] sm:text-4xl">
-            Support for
-            <br />
-            <span className="text-primary">ALL of the emotes.</span>
-          </h2>
+        <div className="relative z-3 mx-auto max-w-120 px-[clamp(1.25rem,5vw,2.75rem)] py-[clamp(1.5rem,4.5vw,2.5rem)] text-center">
+          <div
+            className="pointer-events-none absolute top-[46%] left-1/2 aspect-square w-[min(52rem,220%)] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle_at_center,oklch(0.12_0.02_320/88%)_0%,oklch(0.12_0.02_320/55%)_28%,oklch(0.12_0.02_320/22%)_48%,transparent_68%)]"
+            aria-hidden
+          />
 
-          <ul className="mt-[1.35rem] flex items-end justify-center gap-[clamp(1.25rem,4vw,2rem)] max-[480px]:gap-4">
-            {LANDING_EMOTE_PROVIDERS.map((provider) => (
-              <li
-                key={provider.id}
-                className="flex min-w-0 flex-1 flex-col items-center gap-2.5 p-0"
-              >
-                <span className="flex items-center justify-center">
-                  <img
-                    src={provider.iconSrc}
-                    alt=""
-                    className="h-10 w-auto opacity-94 filter-[brightness(0)_invert(1)_drop-shadow(0_2px_10px_oklch(0_0_0/90%))_drop-shadow(0_0_22px_oklch(0_0_0/65%))] max-[480px]:h-8"
+          <div className="relative">
+            <h2 className="font-landing-display text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
+              Support for
+              <br />
+              <span className="text-primary">ALL of the emotes.</span>
+            </h2>
+
+            <ul className="mt-[1.35rem] flex items-end justify-center gap-[clamp(1rem,4vw,2rem)] max-[480px]:gap-3">
+              {LANDING_EMOTE_PROVIDERS.map((provider) => (
+                <li
+                  key={provider.id}
+                  className="flex min-w-0 flex-1 flex-col items-center gap-2.5 p-0"
+                >
+                  <span
+                    className="block size-10 bg-white max-[480px]:size-8"
+                    style={{
+                      maskImage: `url(${provider.iconSrc})`,
+                      maskSize: "contain",
+                      maskRepeat: "no-repeat",
+                      maskPosition: "center",
+                      WebkitMaskImage: `url(${provider.iconSrc})`,
+                      WebkitMaskSize: "contain",
+                      WebkitMaskRepeat: "no-repeat",
+                      WebkitMaskPosition: "center",
+                    }}
+                    aria-hidden
                   />
-                </span>
-                <span className="text-[0.65rem] font-semibold tracking-widest text-[color-mix(in_oklch,white_62%,transparent)] uppercase text-shadow-[0_1px_10px_oklch(0_0_0/88%),0_0_20px_oklch(0_0_0/60%)]">
-                  {provider.shortName}
-                </span>
-              </li>
-            ))}
-          </ul>
+                  <span className="text-[0.65rem] font-semibold tracking-widest text-white/80 uppercase">
+                    {provider.shortName}
+                  </span>
+                </li>
+              ))}
+            </ul>
 
-          <p className="mt-6 text-[0.7rem] leading-relaxed text-[color-mix(in_oklch,white_45%,transparent)] text-shadow-[0_1px_8px_oklch(0_0_0/80%)]">
-            Peepochat has no association with any of the services shown above.
-          </p>
+            <p className="mt-6 text-[0.7rem] leading-relaxed text-white/70">
+              Peepochat has no association with any of the services shown above.
+            </p>
+          </div>
         </div>
       </div>
     </section>

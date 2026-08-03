@@ -185,9 +185,9 @@ export function LandingPage() {
 
           <LayoutShowcaseSection />
 
-          <NotificationsShowcaseSection />
-
           <EmoteShowcaseSection />
+
+          <NotificationsShowcaseSection />
 
           <section className="mx-auto w-full max-w-6xl px-6 py-20 lg:py-24">
             <div className="relative overflow-hidden rounded-3xl border border-primary/25 bg-[color-mix(in_oklch,var(--card)_80%,transparent)] px-8 py-12 text-center sm:px-12">
