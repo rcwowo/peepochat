@@ -166,6 +166,8 @@ export function useChatScroll<T extends TimelineEntry>({
     [displayedTimeline]
   )
 
+  /* React will skip memoizing this hook because of the useVirtualizer hook */
+  /* eslint-disable-next-line react-hooks/incompatible-library */
   const virtualizer = useVirtualizer({
     count: displayedTimeline.length,
     getScrollElement: () => chatContainerRef.current,
