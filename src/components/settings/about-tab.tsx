@@ -2,7 +2,7 @@ import type { ReactNode } from "react"
 import { ExternalLinkIcon } from "lucide-react"
 
 import { SectionHeading } from "@/components/settings/settings-primitives"
-import { APP_BRANDING } from "@/lib/branding/app-branding"
+import { APP_BRANDING } from "@/lib/branding"
 import { RCW_URL } from "@/lib/landing/landing-footer-links"
 import { cn } from "@/lib/utils"
 

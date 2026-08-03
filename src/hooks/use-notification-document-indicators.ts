@@ -1,6 +1,6 @@
 import * as React from "react"
 
-import { APP_BRANDING } from "@/lib/branding/app-branding"
+import { APP_BRANDING } from "@/lib/branding"
 import { useNotificationCenter } from "@/lib/highlights/notification-center"
 
 function getFaviconLink() {
