@@ -133,7 +133,7 @@ export function ComposerNoticeBanner({
 
   return (
     <div
-      className="flex items-center gap-2 border-b border-border/50 px-2.5 py-1.5"
+      className="flex items-center gap-2 border-b border-border/50 bg-[var(--chat-notice-background)] px-2.5 py-1.5"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
