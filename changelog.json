@@ -13,6 +13,7 @@
             "Redesigned reply threads to actually appear as threads instead replying to one message.",
             "Minor redesign to the sidebar to look better, since outlines looked bad at certain scales.",
             "Minor redesign to the navbar to be more compact with the same functionality.",
+            "Minor redesign to the landing page to be more informative and readable.",
             "Chat history now follows your deleted message appearance setting instead of being hidden.",
             "Redesigned and improved the appearance of alerts like subs, announcements, and raids.",
             "Fixed a bug where long messages in the chat composer would overlap the latest messages in chat.",

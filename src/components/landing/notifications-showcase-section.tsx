@@ -816,10 +816,7 @@ const HIGHLIGHTS = [
 
 export function NotificationsShowcaseSection() {
   return (
-    <section
-      id="notifications"
-      className="relative overflow-hidden border-t border-white/8 bg-card/20"
-    >
+    <section id="notifications" className="relative overflow-hidden bg-card/20">
       <div
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_50%_55%_at_22%_42%,color-mix(in_oklch,var(--primary)_14%,transparent),transparent_68%),radial-gradient(ellipse_42%_48%_at_88%_72%,color-mix(in_oklch,var(--primary)_8%,transparent),transparent_62%)]"
         aria-hidden

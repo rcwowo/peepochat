@@ -11,6 +11,7 @@ import {
 
 import { EmoteShowcaseSection } from "@/components/landing/emote-showcase-section"
 import { LayoutShowcaseSection } from "@/components/landing/layout-showcase-section"
+import { LearnMoreSection } from "@/components/landing/learn-more-section"
 import { NotificationsShowcaseSection } from "@/components/landing/notifications-showcase-section"
 import { HeroChatMockup } from "@/components/landing/hero-chat-mockup"
 import { LandingFooter } from "@/components/landing/landing-footer"
@@ -189,7 +190,9 @@ export function LandingPage() {
 
           <NotificationsShowcaseSection />
 
-          <section className="mx-auto w-full max-w-6xl px-6 py-20 lg:py-24">
+          <LearnMoreSection />
+
+          <section className="mx-auto w-full max-w-3xl px-6 pt-0 pb-20 lg:pb-24">
             <div className="relative overflow-hidden rounded-3xl border border-primary/25 bg-[color-mix(in_oklch,var(--card)_80%,transparent)] px-8 py-12 text-center sm:px-12">
               <div
                 className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_0%,color-mix(in_oklch,var(--primary)_35%,transparent),transparent_70%),linear-gradient(to_bottom,color-mix(in_oklch,var(--primary)_12%,transparent),transparent)]"
