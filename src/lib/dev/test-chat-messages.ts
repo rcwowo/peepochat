@@ -16,6 +16,7 @@ export const FAKE_MESSAGE_KINDS = [
   "action",
   "first_message",
   "reply",
+  "reply_thread",
   "deleted",
   "cheer",
   "subscription",
@@ -42,6 +43,7 @@ export const FAKE_MESSAGE_KIND_OPTIONS: {
   { value: "action", label: "Action (/me)" },
   { value: "first_message", label: "First-time chatter" },
   { value: "reply", label: "Reply" },
+  { value: "reply_thread", label: "Reply thread" },
   { value: "deleted", label: "Deleted message" },
   { value: "cheer", label: "Bits cheer" },
   { value: "subscription", label: "Subscription" },
@@ -108,6 +110,8 @@ export type FakeTimelinePayload =
       channelLogin: string
       message: TwitchAutomodHeldMessage
     }
+
+export type FakeTimelineBatch = FakeTimelinePayload[]
 
 const SAMPLE_TWITCH_EMOTES = [
   { id: "25", code: "Kappa" },
@@ -202,6 +206,8 @@ function defaultTextForKind(kind: FakeMessageKind): string {
       return "Hi everyone, this is my first message!"
     case "reply":
       return "Yeah, I totally agree with that"
+    case "reply_thread":
+      return "What do you all think about this?"
     case "deleted":
       return "This message should appear deleted"
     case "cheer":
@@ -312,13 +318,17 @@ function buildChatMessage(
     emotes: withEmotes.emotes,
     reply:
       kind === "reply"
-        ? {
-            parentMessageId: nextFakeId("parent"),
-            parentDisplayName: "OtherUser",
-            parentUserName: "otheruser",
-            parentBody: "What do you all think about this?",
-            parentColor: "#9146ff",
-          }
+        ? (() => {
+            const parentMessageId = nextFakeId("parent")
+            return {
+              parentMessageId,
+              threadRootMessageId: parentMessageId,
+              parentDisplayName: "OtherUser",
+              parentUserName: "otheruser",
+              parentBody: "What do you all think about this?",
+              parentColor: "#9146ff",
+            }
+          })()
         : null,
     bits: null,
     deletedAt: kind === "deleted" ? new Date().toISOString() : null,
@@ -606,6 +616,145 @@ function buildAutomodMessage(
   }
 }
 
+function buildReplyThreadMessages(
+  options: FakeMessageOptions
+): TwitchChatMessage[] {
+  const channel = normalizeChannelLogin(options.channelLogin)
+  const role = options.role ?? "none"
+  const { badges, flags } = badgesForRole(role)
+  const rootText = options.text?.trim() || defaultTextForKind("reply_thread")
+  const rootWithEmotes = options.includeEmotes
+    ? appendSampleEmotes(rootText)
+    : { text: rootText, emotes: [] as TwitchEmote[] }
+  const now = Date.now()
+  const rootId = nextFakeId("thread-root")
+
+  const root: TwitchChatMessage = {
+    id: rootId,
+    channel,
+    roomId: options.roomId ?? null,
+    userId: "dev-otheruser",
+    userName: "otheruser",
+    displayName: "OtherUser",
+    text: rootWithEmotes.text,
+    color: "#9146ff",
+    receivedAt: new Date(now - 4000).toISOString(),
+    badges: [{ set: "subscriber", version: "0" }],
+    badgeInfo: [],
+    emotes: rootWithEmotes.emotes,
+    reply: null,
+    bits: null,
+    deletedAt: null,
+    flags: {
+      isBroadcaster: false,
+      isModerator: false,
+      isSubscriber: true,
+      isVip: false,
+      isAction: false,
+      isFirst: false,
+    },
+  }
+
+  const { displayName, userName } = normalizeActorName(
+    options.displayName ?? "FakeUser",
+    options.userName ?? ""
+  )
+
+  const firstReply: TwitchChatMessage = {
+    id: nextFakeId("thread-reply"),
+    channel,
+    roomId: options.roomId ?? null,
+    userId: `dev-${userName}`,
+    userName,
+    displayName,
+    text: "Yeah, I totally agree with that",
+    color: options.color ?? "#ff7f50",
+    receivedAt: new Date(now - 3000).toISOString(),
+    badges,
+    badgeInfo: [],
+    emotes: [],
+    reply: {
+      parentMessageId: rootId,
+      threadRootMessageId: rootId,
+      parentDisplayName: root.displayName,
+      parentUserName: root.userName,
+      parentBody: root.text,
+      parentColor: root.color,
+    },
+    bits: null,
+    deletedAt: null,
+    flags,
+  }
+
+  const nestedReply: TwitchChatMessage = {
+    id: nextFakeId("thread-reply"),
+    channel,
+    roomId: options.roomId ?? null,
+    userId: "dev-chattertwo",
+    userName: "chattertwo",
+    displayName: "ChatterTwo",
+    text: "Same here, count me in",
+    color: "#00d6d6",
+    receivedAt: new Date(now - 1500).toISOString(),
+    badges: [],
+    badgeInfo: [],
+    emotes: [],
+    reply: {
+      parentMessageId: firstReply.id,
+      threadRootMessageId: rootId,
+      parentDisplayName: firstReply.displayName,
+      parentUserName: firstReply.userName,
+      parentBody: firstReply.text,
+      parentColor: firstReply.color,
+    },
+    bits: null,
+    deletedAt: null,
+    flags: {
+      isBroadcaster: false,
+      isModerator: false,
+      isSubscriber: false,
+      isVip: false,
+      isAction: false,
+      isFirst: false,
+    },
+  }
+
+  const siblingReply: TwitchChatMessage = {
+    id: nextFakeId("thread-reply"),
+    channel,
+    roomId: options.roomId ?? null,
+    userId: "dev-modfriend",
+    userName: "modfriend",
+    displayName: "ModFriend",
+    text: "Different branch under the root",
+    color: "#00ad03",
+    receivedAt: new Date(now - 500).toISOString(),
+    badges: [{ set: "moderator", version: "1" }],
+    badgeInfo: [],
+    emotes: [],
+    reply: {
+      parentMessageId: rootId,
+      threadRootMessageId: rootId,
+      parentDisplayName: root.displayName,
+      parentUserName: root.userName,
+      parentBody: root.text,
+      parentColor: root.color,
+    },
+    bits: null,
+    deletedAt: null,
+    flags: {
+      isBroadcaster: false,
+      isModerator: true,
+      isSubscriber: false,
+      isVip: false,
+      isAction: false,
+      isFirst: false,
+    },
+  }
+
+  return [root, firstReply, nestedReply, siblingReply]
+}
+
 export function buildFakeTimelineItem(
   kind: FakeMessageKind,
   options: FakeMessageOptions
@@ -617,6 +766,11 @@ export function buildFakeTimelineItem(
     case "reply":
     case "deleted":
       return { kind: "chat", message: buildChatMessage(kind, options) }
+    case "reply_thread":
+      return {
+        kind: "chat",
+        message: buildReplyThreadMessages(options)[0]!,
+      }
     case "cheer":
       return { kind: "chat", message: buildCheerMessage(options) }
     case "automod":
@@ -628,6 +782,20 @@ export function buildFakeTimelineItem(
     default:
       return { kind: "system", message: buildSystemMessage(kind, options) }
   }
+}
+
+export function buildFakeTimelineItems(
+  kind: FakeMessageKind,
+  options: FakeMessageOptions
+): FakeTimelineBatch {
+  if (kind === "reply_thread") {
+    return buildReplyThreadMessages(options).map((message) => ({
+      kind: "chat" as const,
+      message,
+    }))
+  }
+
+  return [buildFakeTimelineItem(kind, options)]
 }
 
 export function defaultFakeMessageText(kind: FakeMessageKind) {
@@ -661,6 +829,7 @@ export function supportsFakeChatRole(kind: FakeMessageKind) {
     kind === "action" ||
     kind === "first_message" ||
     kind === "reply" ||
+    kind === "reply_thread" ||
     kind === "deleted" ||
     kind === "cheer"
   )
@@ -680,6 +849,7 @@ export function supportsFakeEmotes(kind: FakeMessageKind) {
     kind === "action" ||
     kind === "first_message" ||
     kind === "reply" ||
+    kind === "reply_thread" ||
     kind === "deleted" ||
     kind === "subscription" ||
     kind === "announcement" ||

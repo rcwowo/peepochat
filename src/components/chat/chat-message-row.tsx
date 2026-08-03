@@ -24,6 +24,7 @@ import {
   resolveMessageBadges,
   type ChatBadgeCatalog,
 } from "@/lib/chat/chat-badges"
+import { createComposerReplyFromMessage } from "@/lib/chat/reply-threads"
 import { getReadableUsernameColor } from "@/lib/chat/chat-username"
 import {
   canDeleteMessageInChannel,
@@ -228,11 +229,25 @@ function ChatMessageRowInner({
     ]
   )
 
+  const startReply = () => {
+    window.dispatchEvent(
+      new CustomEvent("peepochat:composer-reply", {
+        detail: {
+          channelLogin: message.channel,
+          reply: createComposerReplyFromMessage(message),
+        },
+      })
+    )
+  }
+
   const messageContent = (
     <>
       {message.reply ? (
-        <div className="chat-reply mb-0.5">
-          <ChatReplyPreview reply={message.reply} />
+        <div className="mb-0.5">
+          <ChatReplyPreview
+            reply={message.reply}
+            onClick={showReplyButton ? startReply : undefined}
+          />
         </div>
       ) : null}
 
@@ -340,22 +355,7 @@ function ChatMessageRowInner({
                 size="icon-xs"
                 aria-label="Reply"
                 className={QUICK_ACTION_BUTTON_CLASS}
-                onClick={() => {
-                  window.dispatchEvent(
-                    new CustomEvent("peepochat:composer-reply", {
-                      detail: {
-                        channelLogin: message.channel,
-                        reply: {
-                          parentMessageId: message.id,
-                          parentDisplayName: message.displayName,
-                          parentUserName: message.userName,
-                          parentBody: message.text,
-                          parentColor: message.color,
-                        },
-                      },
-                    })
-                  )
-                }}
+                onClick={startReply}
               >
                 <CornerUpLeftIcon className="size-3.5" />
               </Button>

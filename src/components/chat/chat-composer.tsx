@@ -1,15 +1,17 @@
 import * as React from "react"
-import { SendHorizontalIcon, XIcon } from "lucide-react"
+import { SendHorizontalIcon } from "lucide-react"
 
 import { ChatSuggestions } from "@/components/chat/chat-suggestions"
 import { CommandSuggestions } from "@/components/chat/command-suggestions"
 import { ComposerNoticeBanner } from "@/components/chat/composer-notice-banner"
 import { EmotePicker } from "@/components/chat/emote-picker"
-import { ChatReplyPreview } from "@/components/chat/chat-reply-preview"
+import { ChatReplyThreadTray } from "@/components/chat/chat-reply-thread-tray"
+import { useChannelRoom } from "@/hooks/chat-ui/use-channel-room"
 import { useUserCardContext } from "@/hooks/twitch/use-user-card-context"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { usePeepochat } from "@/lib/peepochat/peepochat-context"
+import { buildReplyThread } from "@/lib/chat/reply-threads"
 import { CHAT_RATE_LIMIT_MESSAGES } from "@/lib/chat/chat-send"
 import {
   isAutomodHoldNoticeText,
@@ -17,7 +19,10 @@ import {
 } from "@/lib/chat/chat-send-notice"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 import type { TwitchChatReply } from "@/lib/twitch/twitch-chat"
-import { maskReplyForBlockedUser } from "@/lib/twitch/blocked-users"
+import {
+  BLOCKED_USER_DISPLAY_NAME,
+  maskReplyForBlockedUser,
+} from "@/lib/twitch/blocked-users"
 import {
   applyEmoteSuggestion,
   createEmoteCompleterState,
@@ -83,7 +88,14 @@ export function ChatComposer({
     hideBlockedUsers,
     isUserBlocked,
     visibleChannelLogins,
+    getBadgeCatalog,
+    getMemberBadge,
+    hasBadgeSupport,
+    config,
   } = usePeepochat()
+  const showTwitchBadges = config.chat.badges.twitchEnabled
+  const showMemberBadges = config.chat.badges.owoMemberEnabled
+  const badgeCatalog = getBadgeCatalog(channelLogin)
 
   const userCardContext = useUserCardContext()
   const chatVisible = visibleChannelLogins.some(
@@ -124,17 +136,32 @@ export function ChatComposer({
   }, [])
 
   const [reply, setReply] = React.useState<TwitchChatReply | null>(null)
-  const displayReply = React.useMemo(() => {
+  const room = useChannelRoom(channelLogin)
+  const replyThread = React.useMemo(() => {
     if (!reply) {
       return null
     }
-
-    if (hideBlockedUsers && isUserBlocked(null, reply.parentUserName)) {
-      return maskReplyForBlockedUser(reply)
+    const displayReply =
+      hideBlockedUsers && isUserBlocked(null, reply.parentUserName)
+        ? maskReplyForBlockedUser(reply)
+        : reply
+    const thread = buildReplyThread(room?.timeline ?? [], displayReply)
+    if (
+      !hideBlockedUsers ||
+      thread.root.kind !== "snapshot" ||
+      !isUserBlocked(null, thread.root.userName)
+    ) {
+      return thread
     }
-
-    return reply
-  }, [hideBlockedUsers, isUserBlocked, reply])
+    return {
+      ...thread,
+      root: {
+        ...thread.root,
+        displayName: BLOCKED_USER_DISPLAY_NAME,
+        color: null,
+      },
+    }
+  }, [hideBlockedUsers, isUserBlocked, reply, room?.timeline])
   const [completer, setCompleter] = React.useState<EmoteCompleterState>(() =>
     createEmoteCompleterState()
   )
@@ -652,6 +679,10 @@ export function ChatComposer({
   }, [resizeTextarea, value])
 
   React.useLayoutEffect(() => {
+    onLayoutChangeRef.current?.()
+  }, [replyThread])
+
+  React.useLayoutEffect(() => {
     const el = inputRef.current
     if (!el || typeof ResizeObserver === "undefined") return
 
@@ -927,27 +958,20 @@ export function ChatComposer({
 
   return (
     <div className="shrink-0">
-      {displayReply ? (
-        <div className="px-2 pt-2">
-          <div className="flex items-start justify-between gap-2 rounded-md border border-border/60 bg-muted/20 px-2 py-1.5">
-            <div className="min-w-0">
-              <div className="text-[11px] font-medium text-muted-foreground">
-                Replying to
-              </div>
-              <ChatReplyPreview reply={displayReply} />
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              aria-label="Cancel reply"
-              className="mt-0.5 text-muted-foreground hover:text-foreground"
-              onClick={() => setReply(null)}
-            >
-              <XIcon className="size-3.5" />
-            </Button>
-          </div>
-        </div>
+      {replyThread ? (
+        <ChatReplyThreadTray
+          thread={replyThread}
+          badgeCatalog={badgeCatalog}
+          getMemberBadge={getMemberBadge}
+          showTwitchBadges={showTwitchBadges}
+          showMemberBadges={showMemberBadges}
+          showBadgeFallback={!hasBadgeSupport}
+          onClose={() => setReply(null)}
+          onSelectReply={(nextReply) => {
+            setReply(nextReply)
+            requestAnimationFrame(() => inputRef.current?.focus())
+          }}
+        />
       ) : null}
 
       <div className="relative flex items-end gap-1 px-2 py-2">

@@ -28,7 +28,7 @@ function estimateTimelineItemSize(entry: TimelineEntry | undefined) {
   }
 
   if (entry.kind === "chat" && entry.message.reply) {
-    return 64
+    return 56
   }
 
   return DEFAULT_ESTIMATE_SIZE_PX

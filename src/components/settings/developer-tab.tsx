@@ -29,7 +29,7 @@ import {
 } from "@/lib/dev/dev-log-settings"
 import { IS_DEV } from "@/lib/dev/is-dev"
 import {
-  buildFakeTimelineItem,
+  buildFakeTimelineItems,
   defaultFakeMessageText,
   FAKE_ANNOUNCEMENT_THEME_OPTIONS,
   FAKE_CHAT_ROLE_OPTIONS,
@@ -162,7 +162,7 @@ export function DeveloperTab() {
     }
 
     const parsedViewerCount = Number.parseInt(viewerCount, 10)
-    const payload = buildFakeTimelineItem(messageKind, {
+    const payloads = buildFakeTimelineItems(messageKind, {
       channelLogin,
       roomId: getRoomId(channelLogin),
       displayName,
@@ -179,15 +179,25 @@ export function DeveloperTab() {
           : undefined,
     })
 
-    const injected =
-      payload.kind === "chat"
-        ? injectChatMessage(payload.message)
-        : payload.kind === "system"
-          ? injectSystemMessage(payload.message)
-          : injectAutomodHeldMessage(payload.channelLogin, payload.message)
+    let injectedCount = 0
+    for (const payload of payloads) {
+      const injected =
+        payload.kind === "chat"
+          ? injectChatMessage(payload.message)
+          : payload.kind === "system"
+            ? injectSystemMessage(payload.message)
+            : injectAutomodHeldMessage(payload.channelLogin, payload.message)
+      if (injected) {
+        injectedCount += 1
+      }
+    }
 
-    if (injected) {
-      toast.success("Fake message injected into chat.")
+    if (injectedCount > 0) {
+      toast.success(
+        injectedCount === 1
+          ? "Fake message injected into chat."
+          : `${injectedCount} fake messages injected into chat.`
+      )
       return
     }
 

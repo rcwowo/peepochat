@@ -71,6 +71,7 @@ export function getEmoteConsumedEnd(emote: TwitchEmote): number {
 
 export type TwitchChatReply = {
   parentMessageId: string
+  threadRootMessageId: string
   parentDisplayName: string
   parentUserName: string
   parentBody: string
@@ -1430,9 +1431,12 @@ function parseReplyTag(tags: Map<string, string>): TwitchChatReply | null {
 
   const parentUserName =
     tags.get("reply-parent-user-login") ?? tags.get("reply-parent-login") ?? ""
+  const threadRootMessageId =
+    tags.get("reply-thread-parent-msg-id") || parentMessageId
 
   return {
     parentMessageId,
+    threadRootMessageId,
     parentDisplayName:
       tags.get("reply-parent-display-name") || parentUserName || "User",
     parentUserName,
