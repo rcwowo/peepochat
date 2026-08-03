@@ -669,21 +669,24 @@ function LoginStep({
   )
 }
 
+const OAUTH_SCOPE_GROUP_ACCENT =
+  "bg-[color-mix(in_oklch,var(--primary)_6%,transparent)]"
+
 const OAUTH_SCOPE_GROUP_META: Record<
   TwitchOAuthScopeGroup["id"],
   { icon: LucideIcon; accent: string }
 > = {
   chat: {
     icon: MessageSquareIcon,
-    accent: "bg-[color-mix(in_oklch,var(--primary)_6%,transparent)]",
+    accent: OAUTH_SCOPE_GROUP_ACCENT,
   },
   moderation: {
     icon: ShieldIcon,
-    accent: "bg-[color-mix(in_oklch,var(--chart-2)_6%,transparent)]",
+    accent: OAUTH_SCOPE_GROUP_ACCENT,
   },
   broadcast: {
     icon: RadioIcon,
-    accent: "bg-[color-mix(in_oklch,var(--chart-4)_6%,transparent)]",
+    accent: OAUTH_SCOPE_GROUP_ACCENT,
   },
 }
 

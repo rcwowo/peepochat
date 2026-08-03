@@ -424,11 +424,11 @@ function NotificationsShowcaseChat() {
             <Button
               type="button"
               size="icon"
-              className="size-9 shrink-0"
+              className="size-9 shrink-0 shine border-2 bg-transparent"
               tabIndex={-1}
               aria-hidden
             >
-              <PlusIcon className="size-4 shrink-0" />
+              <PlusIcon className="size-4 shrink-0" strokeWidth={2.5} />
             </Button>
           </div>
         </aside>
