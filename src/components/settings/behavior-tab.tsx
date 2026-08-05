@@ -8,6 +8,9 @@ import {
   HistoryIcon,
   LayersIcon,
   Layers2Icon,
+  RadioIcon,
+  RefreshCwIcon,
+  ShieldAlertIcon,
   Trash2Icon,
   UserXIcon,
 } from "lucide-react"
@@ -130,6 +133,30 @@ export function BehaviorTab() {
               updateConfig((current) => ({
                 ...current,
                 chat: { ...current.chat, hideBlockedUsers },
+              }))
+            }
+          />
+          <SettingsSwitchRow
+            icon={ShieldAlertIcon}
+            title="Show suspicious activity"
+            description="Show monitored or restricted messages in applicable channels."
+            checked={config.chat.showSuspiciousActivity}
+            onCheckedChange={(showSuspiciousActivity) =>
+              updateConfig((current) => ({
+                ...current,
+                chat: { ...current.chat, showSuspiciousActivity },
+              }))
+            }
+          />
+          <SettingsSwitchRow
+            icon={RefreshCwIcon}
+            title="Show channel updates"
+            description="Show updates for when a channel's stream title or category changes."
+            checked={config.chat.showChannelUpdates}
+            onCheckedChange={(showChannelUpdates) =>
+              updateConfig((current) => ({
+                ...current,
+                chat: { ...current.chat, showChannelUpdates },
               }))
             }
           />
@@ -289,6 +316,21 @@ export function BehaviorTab() {
                   chat: {
                     ...current.chat,
                     emotes: { ...current.chat.emotes, zeroWidthEmotesEnabled },
+                  },
+                }))
+              }
+            />
+            <SettingsSwitchRow
+              icon={RadioIcon}
+              title="Real-time emote updates"
+              description="Apply 7TV channel emote changes as they happen, without refreshing."
+              checked={config.chat.emotes.liveEmoteUpdatesEnabled}
+              onCheckedChange={(liveEmoteUpdatesEnabled) =>
+                updateConfig((current) => ({
+                  ...current,
+                  chat: {
+                    ...current.chat,
+                    emotes: { ...current.chat.emotes, liveEmoteUpdatesEnabled },
                   },
                 }))
               }

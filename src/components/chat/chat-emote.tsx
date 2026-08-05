@@ -2,6 +2,7 @@ import * as React from "react"
 
 import { EmoteCardPopover } from "@/components/chat/emote-card-popover"
 import { getTwitchEmoteBaseUrl, toEmoteCardTarget } from "@/lib/chat/emote-card"
+import { buildTwitchEmoteCdnUrl } from "@/lib/twitch/twitch-api"
 import type { TwitchEmote } from "@/lib/twitch/twitch-chat"
 
 function getEmoteSrcSet(emote: TwitchEmote) {
@@ -9,8 +10,16 @@ function getEmoteSrcSet(emote: TwitchEmote) {
     return undefined
   }
 
-  const base = getTwitchEmoteBaseUrl(emote.imageUrl)
+  const base = getTwitchEmoteBaseUrl(emote.id)
   return `${base}/1.0 1x, ${base}/2.0 2x, ${base}/3.0 3x`
+}
+
+function getTwitchEmoteSrc(emote: TwitchEmote) {
+  if (emote.provider !== "twitch") {
+    return emote.imageUrl
+  }
+
+  return buildTwitchEmoteCdnUrl(emote.id)
 }
 
 function twitchStaticFallbackUrl(url: string) {
@@ -41,10 +50,10 @@ export function ChatEmote({
     <EmoteCardPopover target={target} overlayNames={overlayNames}>
       <span className="chat-emote">
         <img
-          src={emote.imageUrl}
+          src={getTwitchEmoteSrc(emote)}
           srcSet={srcSet}
           alt={label}
-          loading="lazy"
+          loading="eager"
           decoding="async"
           onError={(event) => {
             if (emote.provider !== "twitch") return
@@ -61,7 +70,7 @@ export function ChatEmote({
             className="chat-emote-overlay"
             src={overlay.imageUrl}
             alt=""
-            loading="lazy"
+            loading="eager"
             decoding="async"
           />
         ))}

@@ -31,12 +31,6 @@ export function splitTaggedLine(raw: string): IrcTaggedLine | null {
   return { tags, rest }
 }
 
-/** IRC payload after the `@tags ` prefix, or the full line when untagged. */
-export function getIrcLineBody(raw: string): string {
-  if (!raw.startsWith("@")) return raw
-  return splitTaggedLine(raw)?.rest ?? raw
-}
-
 /** RPL_WELCOME — `:server 001 nick :message` */
 export function isIrcWelcomeLine(rest: string): boolean {
   return /^:\S+ 001 \S+ /.test(rest)

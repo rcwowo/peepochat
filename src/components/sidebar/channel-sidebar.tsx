@@ -143,7 +143,7 @@ function SplitTooltipContent({
 
 function sidebarIconButtonClass() {
   return cn(
-    "group/icon flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-transparent p-0 transition-shadow outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+    "group/icon flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-[1.375rem] border-0 bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
   )
 }
 
@@ -387,6 +387,7 @@ function SplitContextMenu({
         isActive={isActive}
         showPing={showPing}
         showLive={showLive}
+        variant="split"
       >
         <SidebarSplitAvatarCluster channels={channels} />
       </SidebarIconTile>
@@ -616,12 +617,11 @@ export function ChannelSidebar() {
 
   const addButton = (
     <Button
-      variant="outline"
       size="icon"
-      className="size-11 shrink-0"
+      className="size-12 shrink-0 shine border-2 bg-transparent hover:bg-transparent hover:brightness-110"
       onClick={() => setAddDialogOpen(true)}
     >
-      <PlusIcon className="size-4 shrink-0" />
+      <PlusIcon className="size-6 shrink-0" strokeWidth={2.5} />
       <span className="sr-only">Add channel</span>
     </Button>
   )
@@ -630,7 +630,7 @@ export function ChannelSidebar() {
     <>
       <Sidebar
         collapsible="icon"
-        className="top-12 h-[calc(100svh-3rem)] overflow-visible border-r border-sidebar-border"
+        className="overflow-visible border-r border-sidebar-border"
       >
         <SidebarContent className="min-h-0 flex-1 overflow-x-visible overflow-y-auto group-data-[collapsible=icon]:overflow-x-visible group-data-[collapsible=icon]:overflow-y-auto">
           <SidebarGroup className="px-0 py-3">
@@ -638,7 +638,7 @@ export function ChannelSidebar() {
               <SortableSidebarList
                 itemIds={sidebarEntries.map((entry) => entry.key)}
                 onReorder={reorderSidebar}
-                className="w-full gap-2"
+                className="w-full gap-3"
               >
                 {(itemId) => {
                   const entry = sidebarEntries.find((e) => e.key === itemId)

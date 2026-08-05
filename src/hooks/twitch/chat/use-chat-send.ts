@@ -65,6 +65,20 @@ export function useChatSend({
   const sendOutcomeListenersRef = useLazyRef(
     () => new Set<(event: SendOutcomeEvent) => void>()
   )
+  const pendingComposerNoticesRef = useLazyRef(
+    () =>
+      new Map<
+        string,
+        {
+          type: "notice"
+          channel: string
+          message: string
+          id: string
+          discardPending?: boolean
+          createdAt: number
+        }
+      >()
+  )
   const chatCommandActionsRef = React.useRef<
     Pick<ChatCommandContext, "blockUser" | "unblockUser">
   >({})
@@ -85,14 +99,114 @@ export function useChatSend({
     [sendOutcomeListenersRef]
   )
 
+  const replayPendingComposerNotice = React.useCallback(
+    (channel: string) => {
+      const login = normalizeChannelLogin(channel)
+      if (!login || !syncedChannelsRef.current.includes(login)) {
+        return
+      }
+
+      const pending = pendingComposerNoticesRef.current.get(login)
+      if (!pending) {
+        return
+      }
+
+      const { createdAt: _createdAt, ...event } = pending
+      emitSendOutcome(event)
+    },
+    [emitSendOutcome, pendingComposerNoticesRef, syncedChannelsRef]
+  )
+
   const registerSendOutcomeListener = React.useCallback(
-    (listener: (event: SendOutcomeEvent) => void) => {
+    (
+      listener: (event: SendOutcomeEvent) => void,
+      options?: { channel?: string }
+    ) => {
       sendOutcomeListenersRef.current.add(listener)
+
+      if (options?.channel) {
+        const login = normalizeChannelLogin(options.channel)
+        if (login && syncedChannelsRef.current.includes(login)) {
+          const pending = pendingComposerNoticesRef.current.get(login)
+          if (pending) {
+            const { createdAt: _createdAt, ...event } = pending
+            listener(event)
+          }
+        }
+      }
+
       return () => {
         sendOutcomeListenersRef.current.delete(listener)
       }
     },
-    [sendOutcomeListenersRef]
+    [pendingComposerNoticesRef, sendOutcomeListenersRef, syncedChannelsRef]
+  )
+
+  const pushComposerNotice = React.useCallback(
+    (notice: {
+      channel: string
+      message: string
+      id: string
+      discardPending?: boolean
+    }) => {
+      const login = normalizeChannelLogin(notice.channel)
+      if (!login || !syncedChannelsRef.current.includes(login)) {
+        return
+      }
+
+      if (notice.discardPending) {
+        const pending = pendingSendRef.current
+        if (
+          pending &&
+          pending.channel === login &&
+          Date.now() - pending.recordedAt < 5_000
+        ) {
+          rateLimiterRef.current.unrecordLast(login)
+          pendingSendRef.current = null
+        }
+      }
+
+      const event = {
+        type: "notice" as const,
+        channel: login,
+        message: notice.message,
+        id: notice.id,
+        discardPending: notice.discardPending,
+      }
+      pendingComposerNoticesRef.current.set(login, {
+        ...event,
+        createdAt: Date.now(),
+      })
+
+      emitSendOutcome(event)
+    },
+    [
+      emitSendOutcome,
+      pendingComposerNoticesRef,
+      pendingSendRef,
+      rateLimiterRef,
+      syncedChannelsRef,
+    ]
+  )
+
+  const dismissComposerNotice = React.useCallback(
+    (notice: { channel: string; id: string }) => {
+      const login = normalizeChannelLogin(notice.channel)
+      if (!login || !syncedChannelsRef.current.includes(login)) {
+        return
+      }
+
+      emitSendOutcome({
+        type: "dismiss-notice",
+        channel: login,
+        id: notice.id,
+      })
+      const pending = pendingComposerNoticesRef.current.get(login)
+      if (pending?.id === notice.id) {
+        pendingComposerNoticesRef.current.delete(login)
+      }
+    },
+    [emitSendOutcome, pendingComposerNoticesRef, syncedChannelsRef]
   )
 
   const clearSendBlockTimer = React.useCallback(
@@ -374,6 +488,9 @@ export function useChatSend({
     pendingSendRef,
     emitSendOutcome,
     registerSendOutcomeListener,
+    replayPendingComposerNotice,
+    pushComposerNotice,
+    dismissComposerNotice,
     clearSendBlockTimer,
     clearChannelSendBlock,
     clearAllSendBlocks,

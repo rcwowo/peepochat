@@ -1,5 +1,29 @@
 [
     {
+        "version": "1.1.0",
+        "date": "2026-08-05",
+        "items": [
+            "Added support for Automod actions and held messages.",
+            "Added support for real-time 7TV updates, like new emotes or emote set swaps.",
+            "Added detailed moderation actions when the user is a moderator.",
+            "Added a mod panel to manage chat modes like emote only or subscribers only.",
+            "Added an ephemeral notice above the chat composer to indicate current chat modes on connection.",
+            "Added visual support for cheermotes.",
+            "Added visual support for first-time chat messages.",
+            "Added channel updates for when a channel's stream title or category changes.",
+            "Chat panes are now virtualized to massively improve performance with multiple large channels.",
+            "Chat history now follows your deleted message appearance setting instead of being hidden.",
+            "Minor redesign to reply threads to actually appear as threads instead replying to one message.",
+            "Minor redesign to the sidebar to look better, since outlines looked bad at certain scales.",
+            "Minor redesign to the navbar to be more compact with the same functionality.",
+            "Minor redesign to the appearance of alerts like subs, announcements, and raids.",
+            "Minor redesign to the landing page to be more informative and readable.",
+            "Fixed a bug where long messages in the chat composer would overlap the latest messages in chat.",
+            "Fixed a bug where the chat composer placeholder wouldn't resize properly on window resize.",
+            "Fixed some minor issues with chatlist auto-scrolling."
+        ]
+    },
+    {
         "version": "1.0.3",
         "date": "2026-07-20",
         "items": [

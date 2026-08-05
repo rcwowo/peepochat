@@ -1,13 +1,7 @@
 import * as React from "react"
-import {
-  ChevronDownIcon,
-  LogOutIcon,
-  SettingsIcon,
-  UserIcon,
-} from "lucide-react"
+import { LogOutIcon, UserIcon } from "lucide-react"
 
 import { usePeepochatSettings } from "@/lib/peepochat/peepochat-context"
-import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
   Popover,
@@ -16,20 +10,11 @@ import {
 } from "@/components/ui/popover"
 import { Separator } from "@/components/ui/separator"
 
-export function AccountMenu({
-  onSettingsClick,
-}: {
-  onSettingsClick: () => void
-}) {
+export function AccountMenu() {
   const { account, oauthBusy, isOAuthConfigured, loginWithTwitch, logout } =
     usePeepochatSettings()
 
   const [open, setOpen] = React.useState(false)
-
-  const handleSettingsClick = () => {
-    onSettingsClick()
-    setOpen(false)
-  }
 
   const handleLogout = () => {
     logout()
@@ -56,18 +41,18 @@ export function AccountMenu({
         <Button
           type="button"
           variant="outline"
+          size="sm"
           disabled={oauthBusy}
-          className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-2 py-1 text-sm transition-colors hover:bg-muted/40"
+          className="flex h-7 cursor-pointer items-center gap-1.5 border border-border px-1.5 text-sm"
         >
           <img
             src={account.profileImageUrl}
             alt=""
-            className="size-6 shrink-0 rounded-full object-cover"
+            className="size-5 shrink-0 rounded-full object-cover"
           />
           <span className="hidden max-w-32 truncate font-medium sm:inline">
             {account.displayName}
           </span>
-          <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
         </Button>
       </PopoverTrigger>
 
@@ -117,27 +102,15 @@ export function AccountMenu({
         <div className="px-4 py-3">
           <Separator className="mb-3" />
 
-          <div className="flex flex-col gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className={cn("w-full justify-start")}
-              onClick={handleSettingsClick}
-            >
-              <SettingsIcon className="size-3.5" />
-              Settings
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              className={cn("w-full justify-start")}
-              onClick={handleLogout}
-            >
-              <LogOutIcon className="size-3.5" />
-              Log out
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full justify-start"
+            onClick={handleLogout}
+          >
+            <LogOutIcon className="size-3.5" />
+            Log out
+          </Button>
         </div>
       </PopoverContent>
     </Popover>

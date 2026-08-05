@@ -1,20 +1,28 @@
 import * as React from "react"
-import { AlertCircleIcon, SendHorizontalIcon, XIcon } from "lucide-react"
-import { toast } from "sonner"
+import { SendHorizontalIcon } from "lucide-react"
 
 import { ChatSuggestions } from "@/components/chat/chat-suggestions"
 import { CommandSuggestions } from "@/components/chat/command-suggestions"
+import { ComposerNoticeBanner } from "@/components/chat/composer-notice-banner"
 import { EmotePicker } from "@/components/chat/emote-picker"
-import { ChatReplyPreview } from "@/components/chat/chat-reply-preview"
+import { ChatReplyThreadTray } from "@/components/chat/chat-reply-thread-tray"
+import { useChannelRoom } from "@/hooks/chat-ui/use-channel-room"
 import { useUserCardContext } from "@/hooks/twitch/use-user-card-context"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { usePeepochat } from "@/lib/peepochat/peepochat-context"
+import { buildReplyThread } from "@/lib/chat/reply-threads"
 import { CHAT_RATE_LIMIT_MESSAGES } from "@/lib/chat/chat-send"
-import { isPersistentSendBlockText } from "@/lib/chat/chat-send-notice"
+import {
+  isAutomodHoldNoticeText,
+  isPersistentSendBlockText,
+} from "@/lib/chat/chat-send-notice"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 import type { TwitchChatReply } from "@/lib/twitch/twitch-chat"
-import { maskReplyForBlockedUser } from "@/lib/twitch/blocked-users"
+import {
+  BLOCKED_USER_DISPLAY_NAME,
+  maskReplyForBlockedUser,
+} from "@/lib/twitch/blocked-users"
 import {
   applyEmoteSuggestion,
   createEmoteCompleterState,
@@ -46,14 +54,21 @@ import {
 
 const MESSAGE_LIMIT = 500
 
+type ComposerNotice = {
+  id: string
+  message: string
+}
+
 type ChatComposerProps = {
   channelLogin: string
   joined?: boolean
+  onLayoutChange?: () => void
 }
 
 export function ChatComposer({
   channelLogin,
   joined = true,
+  onLayoutChange,
 }: ChatComposerProps) {
   const {
     account,
@@ -68,27 +83,85 @@ export function ChatComposer({
     connectionState,
     getChannelSendBlock,
     registerSendOutcomeListener,
+    replayPendingComposerNotice,
+    dismissComposerNotice,
     hideBlockedUsers,
     isUserBlocked,
+    visibleChannelLogins,
+    getBadgeCatalog,
+    getMemberBadge,
+    hasBadgeSupport,
+    config,
   } = usePeepochat()
+  const showTwitchBadges = config.chat.badges.twitchEnabled
+  const showMemberBadges = config.chat.badges.owoMemberEnabled
+  const badgeCatalog = getBadgeCatalog(channelLogin)
 
   const userCardContext = useUserCardContext()
+  const chatVisible = visibleChannelLogins.some(
+    (login) =>
+      normalizeChannelLogin(login) === normalizeChannelLogin(channelLogin)
+  )
 
   const [value, setValue] = React.useState("")
-  const [error, setError] = React.useState("")
+  const [notices, setNotices] = React.useState<ComposerNotice[]>([])
+  const [noticesChannel, setNoticesChannel] = React.useState(channelLogin)
   const [rateLimitHint, setRateLimitHint] = React.useState<string | null>(null)
+  const noticeIdRef = React.useRef(0)
+
+  if (noticesChannel !== channelLogin) {
+    setNoticesChannel(channelLogin)
+    setNotices([])
+  }
+
+  const pushNotice = React.useCallback((notice: ComposerNotice) => {
+    setNotices((current) => {
+      if (current.some((entry) => entry.id === notice.id)) {
+        return current
+      }
+      return [...current, notice]
+    })
+  }, [])
+
+  const dismissFrontNotice = React.useCallback(() => {
+    const front = notices[0]
+    if (!front) {
+      return
+    }
+    dismissComposerNotice({ channel: channelLogin, id: front.id })
+  }, [channelLogin, dismissComposerNotice, notices])
+
+  const dismissNoticeById = React.useCallback((id: string) => {
+    setNotices((current) => current.filter((entry) => entry.id !== id))
+  }, [])
+
   const [reply, setReply] = React.useState<TwitchChatReply | null>(null)
-  const displayReply = React.useMemo(() => {
+  const room = useChannelRoom(channelLogin)
+  const replyThread = React.useMemo(() => {
     if (!reply) {
       return null
     }
-
-    if (hideBlockedUsers && isUserBlocked(null, reply.parentUserName)) {
-      return maskReplyForBlockedUser(reply)
+    const displayReply =
+      hideBlockedUsers && isUserBlocked(null, reply.parentUserName)
+        ? maskReplyForBlockedUser(reply)
+        : reply
+    const thread = buildReplyThread(room?.timeline ?? [], displayReply)
+    if (
+      !hideBlockedUsers ||
+      thread.root.kind !== "snapshot" ||
+      !isUserBlocked(null, thread.root.userName)
+    ) {
+      return thread
     }
-
-    return reply
-  }, [hideBlockedUsers, isUserBlocked, reply])
+    return {
+      ...thread,
+      root: {
+        ...thread.root,
+        displayName: BLOCKED_USER_DISPLAY_NAME,
+        color: null,
+      },
+    }
+  }, [hideBlockedUsers, isUserBlocked, reply, room?.timeline])
   const [completer, setCompleter] = React.useState<EmoteCompleterState>(() =>
     createEmoteCompleterState()
   )
@@ -175,13 +248,6 @@ export function ChatComposer({
           : `Message #${channelLogin}`
 
   React.useEffect(() => {
-    if (!error) return
-
-    const timeout = window.setTimeout(() => setError(""), 5000)
-    return () => window.clearTimeout(timeout)
-  }, [error])
-
-  React.useEffect(() => {
     if (!rateLimitHint) return
 
     const timeout = window.setTimeout(() => setRateLimitHint(null), 3000)
@@ -199,7 +265,6 @@ export function ChatComposer({
   const clearComposerUI = React.useCallback(() => {
     setValue("")
     setReply(null)
-    setError("")
     setRateLimitHint(null)
     setCompleter(createEmoteCompleterState())
     setCommandCompleter(createCommandCompleterState())
@@ -259,60 +324,142 @@ export function ChatComposer({
         return
       }
 
-      setError(
-        result.message ??
-          "Message could not be sent. Check your connection and login."
-      )
-      toast.error(result.message ?? "Failed to send message")
+      noticeIdRef.current += 1
+      pushNotice({
+        id: `send-error:${noticeIdRef.current}`,
+        message:
+          result.message ??
+          "Message could not be sent. Check your connection and login.",
+      })
     },
-    [clearComposerUI, clearPendingSend]
+    [clearComposerUI, clearPendingSend, pushNotice]
   )
 
   React.useEffect(() => {
-    return registerSendOutcomeListener((event) => {
-      const normalizedChannel = normalizeChannelLogin(channelLogin)
+    return registerSendOutcomeListener(
+      (event) => {
+        const normalizedChannel = normalizeChannelLogin(channelLogin)
 
-      if (event.type === "rejected") {
-        if (normalizeChannelLogin(event.channel) !== normalizedChannel) {
+        if (event.type === "dismiss-notice") {
+          if (normalizeChannelLogin(event.channel) !== normalizedChannel) {
+            return
+          }
+          dismissNoticeById(event.id)
+          return
+        }
+
+        if (event.type === "notice") {
+          if (normalizeChannelLogin(event.channel) !== normalizedChannel) {
+            return
+          }
+
+          if (event.discardPending) {
+            clearPendingSend()
+          }
+
+          if (isAutomodHoldNoticeText(event.message)) {
+            setNotices((current) => {
+              const withoutAutomod = current.filter(
+                (entry) => !isAutomodHoldNoticeText(entry.message)
+              )
+              if (withoutAutomod.some((entry) => entry.id === event.id)) {
+                return withoutAutomod
+              }
+              return [
+                ...withoutAutomod,
+                { id: event.id, message: event.message },
+              ]
+            })
+            return
+          }
+
+          pushNotice({
+            id: event.id,
+            message: event.message,
+          })
+          return
+        }
+
+        if (event.type === "rejected") {
+          if (normalizeChannelLogin(event.channel) !== normalizedChannel) {
+            return
+          }
+
+          const pending = pendingSendRef.current
+          clearPendingSend()
+          if (isPersistentSendBlockText(event.message)) {
+            return
+          }
+
+          if (isAutomodHoldNoticeText(event.message)) {
+            setNotices((current) => {
+              if (
+                current.some((entry) => isAutomodHoldNoticeText(entry.message))
+              ) {
+                return current
+              }
+              noticeIdRef.current += 1
+              return [
+                ...current,
+                {
+                  id: `rejected-automod:${noticeIdRef.current}`,
+                  message: event.message,
+                },
+              ]
+            })
+            return
+          }
+
+          if (pending) {
+            setValue(pending.composerMessage)
+            setReply(pending.reply)
+          }
+
+          noticeIdRef.current += 1
+          pushNotice({
+            id: `rejected:${noticeIdRef.current}`,
+            message: event.message,
+          })
           return
         }
 
         const pending = pendingSendRef.current
-        clearPendingSend()
-        if (isPersistentSendBlockText(event.message)) {
+        if (!pending) {
           return
         }
 
-        if (pending) {
-          setValue(pending.composerMessage)
-          setReply(pending.reply)
+        if (
+          normalizeChannelLogin(event.message.channel) !== normalizedChannel
+        ) {
+          return
         }
 
-        setError(event.message)
-        toast.error(event.message)
-        return
-      }
+        if (event.message.text !== pending.sentText) {
+          return
+        }
 
-      const pending = pendingSendRef.current
-      if (!pending) {
-        return
-      }
+        if (event.message.flags.isAction !== pending.isAction) {
+          return
+        }
 
-      if (normalizeChannelLogin(event.message.channel) !== normalizedChannel) {
-        return
-      }
+        clearPendingSend()
+      },
+      { channel: channelLogin }
+    )
+  }, [
+    channelLogin,
+    clearPendingSend,
+    dismissNoticeById,
+    pushNotice,
+    registerSendOutcomeListener,
+  ])
 
-      if (event.message.text !== pending.sentText) {
-        return
-      }
-
-      if (event.message.flags.isAction !== pending.isAction) {
-        return
-      }
-
-      clearPendingSend()
-    })
-  }, [channelLogin, clearPendingSend, registerSendOutcomeListener])
+  React.useEffect(() => {
+    if (!chatVisible) {
+      return
+    }
+    replayPendingComposerNotice(channelLogin)
+  }, [channelLogin, chatVisible, replayPendingComposerNotice])
 
   React.useEffect(() => {
     clearPendingSend()
@@ -536,10 +683,16 @@ export function ChatComposer({
     ]
   )
 
+  const onLayoutChangeRef = React.useRef(onLayoutChange)
+  React.useLayoutEffect(() => {
+    onLayoutChangeRef.current = onLayoutChange
+  }, [onLayoutChange])
+
   const resizeTextarea = React.useCallback(() => {
     const el = inputRef.current
     if (!el) return
     const max = 160
+    onLayoutChangeRef.current?.()
     el.style.height = "0px"
     const next = el.scrollHeight
     if (next > max) {
@@ -549,11 +702,16 @@ export function ChatComposer({
       el.style.overflowY = "hidden"
       el.style.height = `${Math.max(next, 36)}px`
     }
+    onLayoutChangeRef.current?.()
   }, [])
 
   React.useLayoutEffect(() => {
     resizeTextarea()
-  }, [resizeTextarea, value])
+  }, [resizeTextarea, value, placeholder])
+
+  React.useLayoutEffect(() => {
+    onLayoutChangeRef.current?.()
+  }, [replyThread])
 
   React.useLayoutEffect(() => {
     const el = inputRef.current
@@ -827,36 +985,24 @@ export function ChatComposer({
     }
   }
 
+  const activeNotice = !sendBlock ? (notices[0] ?? null) : null
+
   return (
     <div className="shrink-0">
-      {error && !sendBlock ? (
-        <div className="flex items-start gap-2 px-3 py-2 text-sm text-muted-foreground">
-          <AlertCircleIcon className="mt-0.5 size-4 shrink-0 text-amber-500" />
-          <p>{error}</p>
-        </div>
-      ) : null}
-
-      {displayReply ? (
-        <div className="px-2 pt-2">
-          <div className="flex items-start justify-between gap-2 rounded-md border border-border/60 bg-muted/20 px-2 py-1.5">
-            <div className="min-w-0">
-              <div className="text-[11px] font-medium text-muted-foreground">
-                Replying to
-              </div>
-              <ChatReplyPreview reply={displayReply} />
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              aria-label="Cancel reply"
-              className="mt-0.5 text-muted-foreground hover:text-foreground"
-              onClick={() => setReply(null)}
-            >
-              <XIcon className="size-3.5" />
-            </Button>
-          </div>
-        </div>
+      {replyThread ? (
+        <ChatReplyThreadTray
+          thread={replyThread}
+          badgeCatalog={badgeCatalog}
+          getMemberBadge={getMemberBadge}
+          showTwitchBadges={showTwitchBadges}
+          showMemberBadges={showMemberBadges}
+          showBadgeFallback={!hasBadgeSupport}
+          onClose={() => setReply(null)}
+          onSelectReply={(nextReply) => {
+            setReply(nextReply)
+            requestAnimationFrame(() => inputRef.current?.focus())
+          }}
+        />
       ) : null}
 
       <div className="relative flex items-end gap-1 px-2 py-2">
@@ -884,46 +1030,61 @@ export function ChatComposer({
               completeSuggestion(suggestion, { reset: true })
             }
           />
-          <Textarea
-            ref={inputRef}
-            value={value}
-            disabled={disabled}
-            maxLength={MESSAGE_LIMIT}
-            placeholder={placeholder}
-            autoCapitalize="off"
-            autoCorrect="off"
-            spellCheck={false}
-            rows={1}
-            className="field-sizing-fixed max-h-40 min-h-9 resize-none overflow-y-hidden border-border/50 bg-background/40 py-2 pr-10 text-sm leading-5 shadow-none backdrop-blur-sm focus-visible:ring-1 focus-visible:ring-border/40 dark:bg-input/30"
-            onChange={(event) => {
-              const nextValue = event.target.value
-              setValue(nextValue)
+          <div className="overflow-hidden rounded-lg border border-border/50 bg-background/40 shadow-none backdrop-blur-sm focus-within:border-border/40 focus-within:ring-1 focus-within:ring-border/40 dark:bg-input/30">
+            {activeNotice ? (
+              <ComposerNoticeBanner
+                noticeId={activeNotice.id}
+                message={activeNotice.message}
+                queueCount={notices.length}
+                chatVisible={chatVisible}
+                onDismiss={dismissFrontNotice}
+              />
+            ) : null}
+            <div className="relative">
+              <Textarea
+                ref={inputRef}
+                value={value}
+                disabled={disabled}
+                maxLength={MESSAGE_LIMIT}
+                placeholder={placeholder}
+                autoCapitalize="off"
+                autoCorrect="off"
+                spellCheck={false}
+                rows={1}
+                className="field-sizing-fixed max-h-40 min-h-9 resize-none overflow-y-hidden rounded-none border-0 bg-transparent py-2 pr-10 text-sm leading-5 shadow-none focus-visible:border-transparent focus-visible:ring-0 dark:bg-transparent"
+                onChange={(event) => {
+                  const nextValue = event.target.value
+                  setValue(nextValue)
 
-              const cursor = event.target.selectionStart ?? nextValue.length
-              updateCompleters(nextValue, cursor)
-            }}
-            onKeyDown={handleKeyDown}
-            onSelect={(event) => {
-              const cursor = event.currentTarget.selectionStart ?? value.length
-              updateCompleters(event.currentTarget.value, cursor)
-            }}
-            onClick={(event) => {
-              const cursor = event.currentTarget.selectionStart ?? value.length
-              updateCompleters(event.currentTarget.value, cursor)
-            }}
-          />
+                  const cursor = event.target.selectionStart ?? nextValue.length
+                  updateCompleters(nextValue, cursor)
+                }}
+                onKeyDown={handleKeyDown}
+                onSelect={(event) => {
+                  const cursor =
+                    event.currentTarget.selectionStart ?? value.length
+                  updateCompleters(event.currentTarget.value, cursor)
+                }}
+                onClick={(event) => {
+                  const cursor =
+                    event.currentTarget.selectionStart ?? value.length
+                  updateCompleters(event.currentTarget.value, cursor)
+                }}
+              />
 
-          <EmotePicker
-            catalog={catalog}
-            loading={emotesLoading}
-            disabled={disabled}
-            onSelect={(code) => {
-              setValue((current) => insertEmoteAtEnd(current, code))
-              setCompleter(createEmoteCompleterState())
-              setCommandCompleter(createCommandCompleterState())
-              inputRef.current?.focus()
-            }}
-          />
+              <EmotePicker
+                catalog={catalog}
+                loading={emotesLoading}
+                disabled={disabled}
+                onSelect={(code) => {
+                  setValue((current) => insertEmoteAtEnd(current, code))
+                  setCompleter(createEmoteCompleterState())
+                  setCommandCompleter(createCommandCompleterState())
+                  inputRef.current?.focus()
+                }}
+              />
+            </div>
+          </div>
         </div>
 
         <Button
@@ -932,7 +1093,7 @@ export function ChatComposer({
           disabled={disabled || !value.trim()}
           aria-label="Send chat message"
           onClick={sendCurrentMessage}
-          className="shrink-0"
+          className="size-[calc(--spacing(9)+2px)] shrink-0 border-2 border-[var(--shine)]"
         >
           <SendHorizontalIcon className="size-4" />
         </Button>

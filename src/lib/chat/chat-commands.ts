@@ -981,11 +981,6 @@ async function runCommand(
   }
 }
 
-export function isChatCommand(input: string): boolean {
-  const parsed = parseSlashCommand(input)
-  return parsed !== null
-}
-
 export async function executeChatCommand(
   input: string,
   context: ChatCommandContext

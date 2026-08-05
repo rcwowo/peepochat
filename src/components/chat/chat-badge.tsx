@@ -56,14 +56,14 @@ function ChatBadgeImage({
         src={imageUrl}
         srcSet={imageUrl2x ? `${imageUrl} 1x, ${imageUrl2x} 2x` : undefined}
         alt={description}
-        loading="lazy"
+        loading="eager"
         decoding="async"
       />
     </ChatHoverTooltipTarget>
   )
 }
 
-export function ChatBadge({ badge }: { badge: ResolvedChatBadge }) {
+function ChatBadge({ badge }: { badge: ResolvedChatBadge }) {
   return (
     <ChatBadgeImage
       imageUrl={badge.imageUrl}
@@ -74,7 +74,7 @@ export function ChatBadge({ badge }: { badge: ResolvedChatBadge }) {
   )
 }
 
-export function MemberBadge({ badge }: { badge: ResolvedMemberBadge }) {
+function MemberBadge({ badge }: { badge: ResolvedMemberBadge }) {
   return (
     <ChatBadgeImage
       imageUrl={badge.imageUrl}

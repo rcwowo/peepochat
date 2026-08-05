@@ -13,6 +13,12 @@ import type { RecentMessagesApi } from "@/hooks/twitch/chat/use-recent-messages"
 import type { RoomStore } from "@/hooks/twitch/chat/use-room-store"
 import type { TimelineApi } from "@/hooks/twitch/chat/use-timeline"
 import { useLazyRef } from "@/hooks/use-lazy-ref"
+import {
+  chatModesNoticeId,
+  formatChatModesNotice,
+  hasAnyChatModeEnabled,
+  mergeChatModes,
+} from "@/lib/chat/chat-modes"
 import { devChatLogger } from "@/lib/dev-logger"
 import {
   buildSyncChannelsKey,
@@ -56,13 +62,19 @@ type UseChatConnectionOptions = {
     RecentMessagesApi,
     "clearHistoryForLogins" | "clearAllHistoryState"
   >
-  send: Pick<ChatSendApi, "clearAllSendBlocks" | "resetRateLimiter">
+  send: Pick<
+    ChatSendApi,
+    "clearAllSendBlocks" | "resetRateLimiter" | "pushComposerNotice"
+  >
   readHandlersRef: React.MutableRefObject<ReadClientHandlers>
   sendHandlersRef: React.MutableRefObject<SendClientHandlers>
   syncedChannelsRef: React.MutableRefObject<string[]>
   sendClientRef: React.MutableRefObject<TwitchChatClient | null>
   selfStatesRef: React.MutableRefObject<Map<string, TwitchSelfChatState>>
   appendLog: (text: string) => void
+  onSelfStateChangedRef?: React.RefObject<
+    ((state: TwitchSelfChatState) => void) | null
+  >
 }
 
 export function useChatConnection({
@@ -77,13 +89,20 @@ export function useChatConnection({
   sendClientRef,
   selfStatesRef,
   appendLog,
+  onSelfStateChangedRef,
 }: UseChatConnectionOptions) {
-  const { commitRooms, updateRoom, ensureRooms, removeRooms, clearAllRooms, roomsRef } =
-    roomStore
+  const {
+    commitRooms,
+    updateRoom,
+    ensureRooms,
+    removeRooms,
+    clearAllRooms,
+    roomsRef,
+  } = roomStore
   const { flushPendingForLogins, flushAllPending } = timeline
   const { clearEmotesForRoomIds, clearAllEmoteState } = emotes
   const { clearHistoryForLogins, clearAllHistoryState } = recentMessages
-  const { clearAllSendBlocks, resetRateLimiter } = send
+  const { clearAllSendBlocks, resetRateLimiter, pushComposerNotice } = send
 
   const readClientRef = React.useRef<TwitchChatClient | null>(null)
   const pendingConnectRef = React.useRef<PendingReadConnect | null>(null)
@@ -100,6 +119,7 @@ export function useChatConnection({
     promise: Promise<void>
   } | null>(null)
   const hasAnnouncedConnectedRef = React.useRef(false)
+  const pendingChatModesNoticeRef = useLazyRef(() => new Set<string>())
 
   const senderStateRef = React.useRef<SenderState>(createEmptySenderState())
   const [selfStates, setSelfStates] = React.useState<
@@ -135,8 +155,9 @@ export function useChatConnection({
         isSubscriber: state.isSubscriber,
         isVip: state.isVip,
       }
+      onSelfStateChangedRef?.current?.(state)
     },
-    [selfStatesRef, senderStateRef]
+    [onSelfStateChangedRef, selfStatesRef, senderStateRef]
   )
 
   const getSelfChatState = React.useCallback(
@@ -313,6 +334,9 @@ export function useChatConnection({
           break
         case "disconnected":
           readJoinedChannelsRef.current.clear()
+          for (const login of syncedChannelsRef.current) {
+            pendingChatModesNoticeRef.current.add(login)
+          }
           senderStateRef.current = createEmptySenderState()
           selfStatesRef.current.clear()
           setSelfStates({})
@@ -352,6 +376,7 @@ export function useChatConnection({
           break
         case "channel-parted":
           readJoinedChannelsRef.current.delete(event.channel)
+          pendingChatModesNoticeRef.current.add(event.channel)
           updateRoom(event.channel, (room) => ({
             ...room,
             joined: false,
@@ -360,13 +385,34 @@ export function useChatConnection({
           break
         case "room-state": {
           const login = normalizeChannelLogin(event.state.channel)
+          const previousRoom = roomsRef.current[login]
+          const nextModes = mergeChatModes(
+            previousRoom?.chatModes,
+            event.state.modes
+          )
           readJoinedChannelsRef.current.add(login)
           updateRoom(login, (room) => ({
             ...room,
-            roomId: event.state.roomId,
+            roomId: event.state.roomId ?? room.roomId,
+            chatModes: mergeChatModes(room.chatModes, event.state.modes),
             joined: true,
             joining: false,
           }))
+          if (pendingChatModesNoticeRef.current.has(login)) {
+            if (hasAnyChatModeEnabled(nextModes)) {
+              const message = formatChatModesNotice(nextModes)
+              if (message) {
+                pushComposerNotice({
+                  channel: login,
+                  message,
+                  id: chatModesNoticeId(login),
+                })
+                pendingChatModesNoticeRef.current.delete(login)
+              }
+            } else if (event.state.isComplete) {
+              pendingChatModesNoticeRef.current.delete(login)
+            }
+          }
           if (
             event.state.roomId &&
             !handlers.isRoomEmotesSettled(event.state.roomId)
@@ -419,9 +465,12 @@ export function useChatConnection({
     hasAnnouncedConnectedRef,
     markConnectionSyncedIfReady,
     pendingConnectRef,
+    pendingChatModesNoticeRef,
+    pushComposerNotice,
     readClientRef,
     readHandlersRef,
     readJoinedChannelsRef,
+    roomsRef,
     selfStatesRef,
     senderStateRef,
     syncedChannelsRef,
@@ -526,6 +575,7 @@ export function useChatConnection({
       const roomIds: string[] = []
       for (const login of removedLogins) {
         readJoinedChannelsRef.current.delete(login)
+        pendingChatModesNoticeRef.current.delete(login)
         selfStatesRef.current.delete(login)
 
         const roomId = roomsRef.current[login]?.roomId
@@ -555,6 +605,7 @@ export function useChatConnection({
       clearEmotesForRoomIds,
       clearHistoryForLogins,
       flushPendingForLogins,
+      pendingChatModesNoticeRef,
       readJoinedChannelsRef,
       removeRooms,
       roomsRef,
@@ -639,6 +690,12 @@ export function useChatConnection({
         previous.length === normalized.length &&
         previous.every((login, index) => login === normalized[index])
 
+      for (const login of normalized) {
+        if (!previous.includes(login)) {
+          pendingChatModesNoticeRef.current.add(login)
+        }
+      }
+
       syncedChannelsRef.current = normalized
 
       if (unchanged && normalized.length > 0 && isReadConnectionSynced()) {
@@ -687,6 +744,7 @@ export function useChatConnection({
           lastError: null,
         })
         clearAllRooms()
+        pendingChatModesNoticeRef.current.clear()
         return Promise.resolve()
       }
 
@@ -755,6 +813,7 @@ export function useChatConnection({
       pendingConnectRef,
       pendingSendConnectRef,
       pendingSyncPromiseRef,
+      pendingChatModesNoticeRef,
       pruneRemovedChannelState,
       readClientRef,
       readHandlersRef,
@@ -783,5 +842,3 @@ export function useChatConnection({
     getSelfChatState,
   }
 }
-
-export type ChatConnectionApi = ReturnType<typeof useChatConnection>

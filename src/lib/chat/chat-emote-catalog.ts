@@ -29,6 +29,11 @@ export {
 export { clearBroadcasterProfileCache } from "@/lib/twitch/twitch-broadcaster-profiles"
 import { sortPickerEmotes } from "@/lib/chat/emote-picker-layout"
 import { EMOTE_PLATFORM_META } from "@/lib/chat/emote-platform-meta"
+import {
+  DEFAULT_CHEERMOTE_CATALOG,
+  fetchCheermotes,
+  type CheermoteCatalog,
+} from "@/lib/twitch/twitch-cheermotes"
 import type { TwitchEmoteProvider } from "@/lib/twitch/twitch-chat"
 
 /**
@@ -112,6 +117,7 @@ export function createEmptyComposerCatalog(): ComposerEmoteCatalog {
 export type RoomEmoteBundle = {
   composer: ComposerEmoteCatalog
   thirdParty: ThirdPartyEmoteCatalog
+  cheermotes: CheermoteCatalog
 }
 
 const roomEmoteBundleCache = new Map<string, RoomEmoteBundle>()
@@ -134,6 +140,59 @@ export function clearRoomEmoteBundleCache(roomId?: string) {
 
   roomEmoteBundleCache.clear()
   roomEmoteBundleInflight.clear()
+}
+
+export async function rebuildRoomThirdPartyEmoteBundle(
+  roomId: string,
+  channelLogin: string,
+  existingComposer: ComposerEmoteCatalog
+): Promise<RoomEmoteBundle> {
+  const sets = await getThirdPartyEmoteSets(roomId)
+  const thirdParty = buildThirdPartyEmoteCatalog(sets)
+  const twitchPlatform = existingComposer.platforms.find(
+    (platform) => platform.id === "twitch"
+  )
+  const channelCategory = existingComposer.platforms
+    .flatMap((platform) => platform.categories)
+    .find((category) =>
+      category.id.endsWith(`-channel-${normalizeChannelLogin(channelLogin)}`)
+    )
+
+  const composer = buildComposerCatalog({
+    channelLogin,
+    thirdPartySets: dedupeThirdPartySets(sets),
+    twitchCategories: twitchPlatform?.categories ?? [],
+    currentChannelProfile: channelCategory
+      ? {
+          id: roomId,
+          login: normalizeChannelLogin(channelLogin),
+          displayName: channelCategory.iconAlt,
+          profileImageUrl: channelCategory.iconSrc,
+          bannerImageUrl: "",
+          description: "",
+          createdAt: "",
+          broadcasterType: "",
+          type: "",
+        }
+      : undefined,
+  })
+
+  let cachedCheermotes = DEFAULT_CHEERMOTE_CATALOG
+  for (const [key, entry] of roomEmoteBundleCache.entries()) {
+    if (key.startsWith(`${roomId}:`)) {
+      cachedCheermotes = entry.cheermotes
+      break
+    }
+  }
+
+  const bundle = { composer, thirdParty, cheermotes: cachedCheermotes }
+  for (const key of roomEmoteBundleCache.keys()) {
+    if (key.startsWith(`${roomId}:`)) {
+      roomEmoteBundleCache.set(key, bundle)
+    }
+  }
+
+  return bundle
 }
 
 function normalizeChannelLogin(login: string) {
@@ -214,19 +273,13 @@ export async function fetchRoomEmoteBundle(
   return promise
 }
 
-export async function fetchComposerEmoteCatalog(
-  options: ComposerEmoteLoadOptions
-): Promise<ComposerEmoteCatalog> {
-  return (await fetchRoomEmoteBundle(options)).composer
-}
-
 async function buildRoomEmoteBundle(
   options: ComposerEmoteLoadOptions
 ): Promise<RoomEmoteBundle> {
   const { roomId, channelLogin, accessToken, clientId, userId } = options
   const canLoadTwitch = Boolean(accessToken?.trim() && clientId?.trim())
 
-  const [thirdPartySets, twitchEmotes] = await Promise.all([
+  const [thirdPartySets, twitchEmotes, cheermotes] = await Promise.all([
     getThirdPartyEmoteSets(roomId),
     canLoadTwitch
       ? loadTwitchEmotesForComposer({
@@ -241,6 +294,11 @@ async function buildRoomEmoteBundle(
           channel: [],
           userChannel: [],
         }),
+    canLoadTwitch
+      ? fetchCheermotes(accessToken!, clientId!, roomId).catch(
+          () => DEFAULT_CHEERMOTE_CATALOG
+        )
+      : Promise.resolve(DEFAULT_CHEERMOTE_CATALOG),
   ])
 
   const thirdParty = buildThirdPartyEmoteCatalog(thirdPartySets)
@@ -282,7 +340,7 @@ async function buildRoomEmoteBundle(
     currentChannelProfile: profiles.get(roomId),
   })
 
-  return { composer, thirdParty }
+  return { composer, thirdParty, cheermotes }
 }
 
 function collectBroadcasterOwnerIds(drafts: CategoryDraft[]): string[] {
@@ -601,7 +659,10 @@ function resolveCategoryIcon(
     if (preview?.imageUrl) {
       return { src: preview.imageUrl, alt: preview.code }
     }
-    return { src: PLATFORM_META.twitch.iconSrc, alt: PLATFORM_META.twitch.label }
+    return {
+      src: PLATFORM_META.twitch.iconSrc,
+      alt: PLATFORM_META.twitch.label,
+    }
   }
 
   if (icon.kind === "platform") {
@@ -648,7 +709,7 @@ function dedupeThirdPartySets(sets: ThirdPartyEmoteSets): ThirdPartyEmoteSets {
   return result
 }
 
-export function buildComposerCatalog(sources: {
+function buildComposerCatalog(sources: {
   channelLogin: string
   thirdPartySets: ThirdPartyEmoteSets
   twitchCategories: EmotePickerCategory[]
@@ -811,14 +872,16 @@ export function findPickerCategory(
 }
 
 export function getTwitchEmoteHydration(
-  catalog: ComposerEmoteCatalog
+  catalog: ComposerEmoteCatalog,
+  cheermotes?: CheermoteCatalog
 ): TwitchEmoteHydration | null {
-  if (catalog.twitchById.size === 0) {
+  if (catalog.twitchById.size === 0 && !cheermotes) {
     return null
   }
 
   return {
     byCode: catalog.byCode,
     byId: catalog.twitchById,
+    cheermotes: cheermotes ?? DEFAULT_CHEERMOTE_CATALOG,
   }
 }

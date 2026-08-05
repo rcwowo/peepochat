@@ -1,54 +1,54 @@
 import { isTimelineAppend } from "@/lib/chat/timeline-prefix"
 import type { TwitchChatMessage } from "@/lib/twitch/twitch-chat"
+import type {
+  TwitchSuspiciousUserMessage,
+  TwitchTimelineItem,
+} from "@/lib/twitch/twitch-chat-types"
 
-type TimelineEntry =
-  | { kind: "chat"; message: TwitchChatMessage }
-  | { kind: "system"; message: { id: string } }
+type TimelineEntry = TwitchTimelineItem
 
-const EMPTY_RECENT_USER_MESSAGES: TwitchChatMessage[] = []
-
-export function getEmptyRecentUserMessages(): TwitchChatMessage[] {
-  return EMPTY_RECENT_USER_MESSAGES
+function suspiciousAsChatMessage(
+  message: TwitchSuspiciousUserMessage
+): TwitchChatMessage {
+  return {
+    id: message.id,
+    channel: message.channel,
+    roomId: message.roomId,
+    userId: message.userId,
+    userName: message.userName,
+    displayName: message.displayName,
+    text: message.text,
+    color: message.color,
+    receivedAt: message.receivedAt,
+    badges: [],
+    badgeInfo: [],
+    emotes: message.emotes,
+    reply: null,
+    bits: null,
+    deletedAt: message.deletedAt,
+    flags: {
+      isBroadcaster: false,
+      isModerator: false,
+      isSubscriber: false,
+      isVip: false,
+      isFirst: false,
+      isAction: false,
+    },
+  }
 }
 
-export function getRecentUserMessages({
-  timeline,
-  userId,
-  userName,
-  limit = 6,
-}: {
-  timeline: TimelineEntry[]
-  userId: string | null
-  userName: string
-  limit?: number
-}): TwitchChatMessage[] {
-  const normalizedLogin = userName.toLowerCase()
-  const messages: TwitchChatMessage[] = []
-
-  for (let index = timeline.length - 1; index >= 0; index -= 1) {
-    const entry = timeline[index]
-    if (entry.kind !== "chat") {
-      continue
-    }
-
-    const message = entry.message
-    if (message.deletedAt) {
-      continue
-    }
-
-    const matchesId = Boolean(userId && message.userId === userId)
-    const matchesLogin = message.userName.toLowerCase() === normalizedLogin
-    if (!matchesId && !matchesLogin) {
-      continue
-    }
-
-    messages.push(message)
-    if (messages.length >= limit) {
-      break
-    }
+function entryAsRecentChatMessage(
+  entry: TimelineEntry
+): TwitchChatMessage | null {
+  if (entry.kind === "chat") {
+    return entry.message.deletedAt ? null : entry.message
   }
-
-  return messages.reverse()
+  if (entry.kind === "suspicious") {
+    return entry.message.deletedAt
+      ? null
+      : suspiciousAsChatMessage(entry.message)
+  }
+  return null
 }
 
 function rememberRecentUserMessage(
@@ -75,20 +75,21 @@ function rememberTimelineEntry(
   entry: TimelineEntry,
   limit: number
 ) {
-  if (entry.kind !== "chat" || entry.message.deletedAt) {
+  const message = entryAsRecentChatMessage(entry)
+  if (!message) {
     return
   }
 
   rememberRecentUserMessage(
     buckets,
-    `login:${entry.message.userName.toLowerCase()}`,
-    entry.message,
+    `login:${message.userName.toLowerCase()}`,
+    message,
     limit
   )
   rememberRecentUserMessage(
     buckets,
-    entry.message.userId ? `id:${entry.message.userId}` : null,
-    entry.message,
+    message.userId ? `id:${message.userId}` : null,
+    message,
     limit
   )
 }

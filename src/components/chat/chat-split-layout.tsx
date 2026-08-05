@@ -14,7 +14,7 @@ import {
 
 import { useLazyRef } from "@/hooks/use-lazy-ref"
 import {
-  clampSplitChildSizes,
+  clampAdjacentSplitSizes,
   normalizeSplitLayout,
   type ChatSplitLayoutNode,
   type SplitLayoutEdge,
@@ -558,7 +558,7 @@ export function ChatSplitLayout({
         const nextSizes = [...startSizes]
         nextSizes[index] += deltaPercent
         nextSizes[index + 1] -= deltaPercent
-        const clamped = clampSplitChildSizes(nextSizes)
+        const clamped = clampAdjacentSplitSizes(nextSizes, index)
         resizeRef.current = { key, path, sizes: clamped }
 
         if (frameRef.current !== null) {
@@ -622,7 +622,7 @@ export function ChatSplitLayout({
         onResizeStart={handleResizeStart}
         onResizeReset={handleResizeReset}
       />
-      <DragOverlay>
+      <DragOverlay dropAnimation={null}>
         {activeChannel && activePreview ? (
           <DragOverlayPreview
             login={activeChannel}

@@ -20,17 +20,6 @@ export type TwitchUser = {
   type: string
 }
 
-export type TwitchBannedUserStatus = {
-  userId: string
-  userLogin: string
-  userName: string
-  expiresAt: string | null
-  reason: string | null
-  moderatorId: string | null
-  moderatorLogin: string | null
-  moderatorName: string | null
-}
-
 export type TwitchModeratorStatus = {
   userId: string
   userLogin: string
@@ -322,59 +311,6 @@ export async function fetchChannelChatBadges(
   }
 
   return parseChatBadgeSets(payload.data)
-}
-
-export async function fetchTwitchBannedUserStatus({
-  broadcasterId,
-  userId,
-  accessToken,
-  clientId,
-}: {
-  broadcasterId: string
-  userId: string
-  accessToken: string
-  clientId: string
-}): Promise<TwitchBannedUserStatus | null> {
-  const params = new URLSearchParams({ broadcaster_id: broadcasterId })
-  params.append("user_id", userId)
-
-  const response = await devLoggedFetch(
-    `https://api.twitch.tv/helix/moderation/banned?${params.toString()}`,
-    { headers: helixHeaders(accessToken, clientId) }
-  )
-
-  if (!response.ok) {
-    throw new TwitchApiError("Could not load ban status.", response.status)
-  }
-
-  const payload = (await response.json()) as {
-    data?: Array<{
-      user_id: string
-      user_login: string
-      user_name: string
-      expires_at?: string | null
-      reason?: string | null
-      moderator_id?: string | null
-      moderator_login?: string | null
-      moderator_name?: string | null
-    }>
-  }
-
-  const entry = payload.data?.[0]
-  if (!entry) {
-    return null
-  }
-
-  return {
-    userId: entry.user_id,
-    userLogin: entry.user_login,
-    userName: entry.user_name,
-    expiresAt: entry.expires_at || null,
-    reason: entry.reason || null,
-    moderatorId: entry.moderator_id || null,
-    moderatorLogin: entry.moderator_login || null,
-    moderatorName: entry.moderator_name || null,
-  }
 }
 
 export async function fetchTwitchModeratorStatus({
@@ -724,6 +660,7 @@ function parseChatBadgeSets(
 }
 
 export type TwitchEmoteFormat = "static" | "animated"
+export type TwitchEmoteAnimationSetting = "default" | TwitchEmoteFormat
 
 export type TwitchChatEmote = {
   id: string
@@ -817,15 +754,6 @@ export function isFollowerChannelEmote(emote: TwitchChatEmote): boolean {
   return emote.emoteType === TWITCH_FOLLOWER_EMOTE_TYPE
 }
 
-export function filterPublicChannelEmotes(
-  emotes: TwitchChatEmote[]
-): TwitchChatEmote[] {
-  return emotes.filter(
-    (emote) =>
-      !isSubscriptionChannelEmote(emote) && !isFollowerChannelEmote(emote)
-  )
-}
-
 type HelixEmotePayload = {
   id: string
   name: string
@@ -908,7 +836,7 @@ function normalizeEmoteFormats(
 
 export function buildTwitchEmoteCdnUrl(
   emoteId: string,
-  format: TwitchEmoteFormat = "static",
+  format: TwitchEmoteAnimationSetting = "default",
   themeMode: "light" | "dark" = "dark",
   scale = "1.0"
 ): string {
@@ -1028,6 +956,79 @@ export async function fetchLiveStreamsByLogin(
   return chunkResults.flat()
 }
 
+export type TwitchChannelInformation = {
+  broadcasterId: string
+  broadcasterLogin: string
+  title: string
+  gameName: string
+  gameId: string
+}
+
+export async function fetchChannelsByBroadcasterId(
+  broadcasterIds: string[],
+  accessToken: string,
+  clientId: string
+): Promise<TwitchChannelInformation[]> {
+  const normalized = [
+    ...new Set(
+      broadcasterIds.flatMap((id) => {
+        const value = id.trim()
+        return value ? [value] : []
+      })
+    ),
+  ]
+
+  if (normalized.length === 0) {
+    return []
+  }
+
+  const chunks: string[][] = []
+  for (let index = 0; index < normalized.length; index += 100) {
+    chunks.push(normalized.slice(index, index + 100))
+  }
+
+  const chunkResults = await Promise.all(
+    chunks.map(async (chunk) => {
+      const params = new URLSearchParams()
+      for (const broadcasterId of chunk) {
+        params.append("broadcaster_id", broadcasterId)
+      }
+
+      const response = await devLoggedFetch(
+        `https://api.twitch.tv/helix/channels?${params.toString()}`,
+        { headers: helixHeaders(accessToken, clientId) }
+      )
+
+      if (!response.ok) {
+        throw new TwitchApiError(
+          "Could not load channel information.",
+          response.status
+        )
+      }
+
+      const payload = (await response.json()) as {
+        data?: Array<{
+          broadcaster_id: string
+          broadcaster_login: string
+          title: string
+          game_name: string
+          game_id: string
+        }>
+      }
+
+      return (payload.data ?? []).map((channel) => ({
+        broadcasterId: channel.broadcaster_id,
+        broadcasterLogin: channel.broadcaster_login.toLowerCase(),
+        title: channel.title ?? "",
+        gameName: channel.game_name ?? "",
+        gameId: channel.game_id ?? "",
+      }))
+    })
+  )
+
+  return chunkResults.flat()
+}
+
 export type TwitchChatSettings = {
   slowMode: boolean
   slowModeWaitTime: number | null
@@ -1096,6 +1097,42 @@ export async function deleteTwitchChatMessage({
 
   if (!response.ok) {
     await throwTwitchApiError(response, "Could not delete message.")
+  }
+}
+
+export async function manageHeldAutomodMessage({
+  moderatorUserId,
+  msgId,
+  action,
+  accessToken,
+  clientId,
+}: {
+  moderatorUserId: string
+  msgId: string
+  action: "ALLOW" | "DENY"
+  accessToken: string
+  clientId: string
+}): Promise<void> {
+  const response = await devLoggedFetch(
+    "https://api.twitch.tv/helix/moderation/automod/message",
+    {
+      method: "POST",
+      headers: helixJsonHeaders(accessToken, clientId),
+      body: JSON.stringify({
+        user_id: moderatorUserId,
+        msg_id: msgId,
+        action,
+      }),
+    }
+  )
+
+  if (!response.ok) {
+    await throwTwitchApiError(
+      response,
+      action === "ALLOW"
+        ? "Could not approve AutoMod message."
+        : "Could not deny AutoMod message."
+    )
   }
 }
 
@@ -1466,6 +1503,107 @@ export async function sendTwitchWhisper({
 
   if (!response.ok) {
     await throwTwitchApiError(response, "Could not send whisper.")
+  }
+}
+
+export type TwitchEventSubTransport = {
+  method: "websocket"
+  session_id: string
+}
+
+export type TwitchEventSubSubscriptionRequest = {
+  type: string
+  version: string
+  condition: Record<string, string>
+  transport: TwitchEventSubTransport
+}
+
+export type TwitchEventSubSubscription = {
+  id: string
+  status: string
+  type: string
+  version: string
+  condition: Record<string, string>
+  createdAt: string
+}
+
+export async function createTwitchEventSubSubscription({
+  accessToken,
+  clientId,
+  subscription,
+}: {
+  accessToken: string
+  clientId: string
+  subscription: TwitchEventSubSubscriptionRequest
+}): Promise<TwitchEventSubSubscription> {
+  const response = await devLoggedFetch(
+    "https://api.twitch.tv/helix/eventsub/subscriptions",
+    {
+      method: "POST",
+      headers: helixJsonHeaders(accessToken, clientId),
+      body: JSON.stringify(subscription),
+    }
+  )
+
+  if (!response.ok) {
+    await throwTwitchApiError(
+      response,
+      `Could not create EventSub subscription (${subscription.type}).`
+    )
+  }
+
+  const payload = (await response.json()) as {
+    data?: Array<{
+      id: string
+      status: string
+      type: string
+      version: string
+      condition?: Record<string, string>
+      created_at: string
+    }>
+  }
+
+  const created = payload.data?.[0]
+  if (!created) {
+    throw new TwitchApiError(
+      `EventSub subscription response was empty (${subscription.type}).`,
+      500
+    )
+  }
+
+  return {
+    id: created.id,
+    status: created.status,
+    type: created.type,
+    version: created.version,
+    condition: created.condition ?? subscription.condition,
+    createdAt: created.created_at,
+  }
+}
+
+export async function deleteTwitchEventSubSubscription({
+  accessToken,
+  clientId,
+  subscriptionId,
+}: {
+  accessToken: string
+  clientId: string
+  subscriptionId: string
+}): Promise<void> {
+  const params = new URLSearchParams({ id: subscriptionId })
+  const response = await devLoggedFetch(
+    `https://api.twitch.tv/helix/eventsub/subscriptions?${params.toString()}`,
+    {
+      method: "DELETE",
+      headers: helixHeaders(accessToken, clientId),
+    }
+  )
+
+  if (!response.ok && response.status !== 404) {
+    await throwTwitchApiError(
+      response,
+      "Could not delete EventSub subscription."
+    )
   }
 }
 

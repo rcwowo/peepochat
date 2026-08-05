@@ -39,9 +39,10 @@ export const DEV_LOG_META: Record<
   },
 }
 
-export function isDevLogEnabled(category: DevLogCategory): boolean {
-  if (!IS_DEV) return false
+let cachedSettings: Record<DevLogCategory, boolean> | null = null
+let cacheListenersRegistered = false
 
+function readCategoryFromStorage(category: DevLogCategory): boolean {
   try {
     const stored = localStorage.getItem(STORAGE_KEYS[category])
     if (stored === null) return DEFAULTS[category]
@@ -51,26 +52,65 @@ export function isDevLogEnabled(category: DevLogCategory): boolean {
   }
 }
 
-export function setDevLogEnabled(
-  category: DevLogCategory,
-  enabled: boolean
-): void {
+function refreshCacheFromStorage(): Record<DevLogCategory, boolean> {
+  const next = { ...DEFAULTS }
+  for (const category of DEV_LOG_CATEGORIES) {
+    next[category] = readCategoryFromStorage(category)
+  }
+  cachedSettings = next
+  return next
+}
+
+function ensureDevLogCache(): Record<DevLogCategory, boolean> {
+  if (cachedSettings !== null) {
+    return cachedSettings
+  }
+
+  if (typeof window === "undefined") {
+    cachedSettings = { ...DEFAULTS }
+    return cachedSettings
+  }
+
+  const settings = refreshCacheFromStorage()
+
+  if (!cacheListenersRegistered) {
+    cacheListenersRegistered = true
+    window.addEventListener(CHANGE_EVENT, refreshCacheFromStorage)
+    window.addEventListener("storage", (event) => {
+      if (
+        event.key === null ||
+        (Object.values(STORAGE_KEYS) as string[]).includes(event.key)
+      ) {
+        refreshCacheFromStorage()
+      }
+    })
+  }
+
+  return settings
+}
+
+export function isDevLogEnabled(category: DevLogCategory): boolean {
+  if (!IS_DEV) return false
+  return ensureDevLogCache()[category]
+}
+
+function setDevLogEnabled(category: DevLogCategory, enabled: boolean): void {
   if (!IS_DEV) return
 
   try {
     localStorage.setItem(STORAGE_KEYS[category], enabled ? "1" : "0")
+    ensureDevLogCache()[category] = enabled
     window.dispatchEvent(new CustomEvent(CHANGE_EVENT))
   } catch {
     // Ignore storage failures in dev tooling.
   }
 }
 
-export function getDevLogSettings(): Record<DevLogCategory, boolean> {
-  return {
-    chat: isDevLogEnabled("chat"),
-    fetch: isDevLogEnabled("fetch"),
-    irc: isDevLogEnabled("irc"),
+function getDevLogSettings(): Record<DevLogCategory, boolean> {
+  if (!IS_DEV) {
+    return { ...DEFAULTS }
   }
+  return { ...ensureDevLogCache() }
 }
 
 export function useDevLogSettings() {

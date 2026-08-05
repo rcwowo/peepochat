@@ -1,3 +1,4 @@
+import { DEFAULT_CHAT_MODES } from "@/lib/chat/chat-modes"
 import type { DeletedMessagesBehavior } from "@/lib/peepochat/peepochat-config"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 import type {
@@ -26,6 +27,12 @@ export function notifyChatMessageDeleted(
   )
 }
 
+export type TimelineMatchableMessage = {
+  id: string
+  userId: string | null
+  userName: string
+}
+
 export function applyDeletedBehaviorToChatEntry(
   entry: Extract<TwitchTimelineItem, { kind: "chat" }>,
   deletedAt: string,
@@ -45,9 +52,28 @@ export function applyDeletedBehaviorToChatEntry(
   }
 }
 
+function applyDeletedBehaviorToSuspiciousEntry(
+  entry: Extract<TwitchTimelineItem, { kind: "suspicious" }>,
+  deletedAt: string,
+  behavior: DeletedMessagesBehavior
+): TwitchTimelineItem | null {
+  if (entry.message.deletedAt) {
+    return entry
+  }
+
+  if (behavior === "remove") {
+    return null
+  }
+
+  return {
+    ...entry,
+    message: { ...entry.message, deletedAt },
+  }
+}
+
 export function applyDeletedBehaviorToTimeline(
   timeline: TwitchTimelineItem[],
-  matches: (message: TwitchChatMessage) => boolean,
+  matches: (message: TimelineMatchableMessage) => boolean,
   deletedAt: string,
   behavior: DeletedMessagesBehavior
 ): { timeline: TwitchTimelineItem[]; deletedMessageIds: string[] } {
@@ -55,16 +81,33 @@ export function applyDeletedBehaviorToTimeline(
   const deletedMessageIds: string[] = []
 
   for (const entry of timeline) {
-    if (entry.kind !== "chat" || !matches(entry.message)) {
-      next.push(entry)
+    if (entry.kind === "chat" && matches(entry.message)) {
+      const updated = applyDeletedBehaviorToChatEntry(
+        entry,
+        deletedAt,
+        behavior
+      )
+      if (updated) {
+        next.push(updated)
+      }
+      deletedMessageIds.push(entry.message.id)
       continue
     }
 
-    const updated = applyDeletedBehaviorToChatEntry(entry, deletedAt, behavior)
-    if (updated) {
-      next.push(updated)
+    if (entry.kind === "suspicious" && matches(entry.message)) {
+      const updated = applyDeletedBehaviorToSuspiciousEntry(
+        entry,
+        deletedAt,
+        behavior
+      )
+      if (updated) {
+        next.push(updated)
+      }
+      deletedMessageIds.push(entry.message.id)
+      continue
     }
-    deletedMessageIds.push(entry.message.id)
+
+    next.push(entry)
   }
 
   return { timeline: next, deletedMessageIds }
@@ -73,25 +116,33 @@ export function applyDeletedBehaviorToTimeline(
 export function purgeDeletedChatEntries(
   timeline: TwitchTimelineItem[]
 ): TwitchTimelineItem[] {
-  return timeline.filter(
-    (entry) => entry.kind !== "chat" || entry.message.deletedAt === null
-  )
+  return timeline.filter((entry) => {
+    if (entry.kind === "chat" || entry.kind === "suspicious") {
+      return entry.message.deletedAt === null
+    }
+    return true
+  })
 }
 
 export function purgeMessagesFromUsers(
   timeline: TwitchTimelineItem[],
-  matches: (message: TwitchChatMessage) => boolean
+  matches: (message: TimelineMatchableMessage) => boolean
 ): TwitchTimelineItem[] {
-  return timeline.filter(
-    (entry) => entry.kind !== "chat" || !matches(entry.message)
-  )
+  return timeline.filter((entry) => {
+    if (entry.kind === "chat" || entry.kind === "suspicious") {
+      return !matches(entry.message)
+    }
+    return true
+  })
 }
 
 export function buildSyncChannelsKey(channelLogins: string[]): string {
   return channelLogins.join("\0")
 }
 
-export function toSelfChatState(state: TwitchSelfUserState): TwitchSelfChatState {
+export function toSelfChatState(
+  state: TwitchSelfUserState
+): TwitchSelfChatState {
   return state
 }
 
@@ -117,6 +168,7 @@ export function createEmptyRoom(login: string): TwitchChatRoomState {
     roomId: null,
     joined: false,
     joining: true,
+    chatModes: { ...DEFAULT_CHAT_MODES },
     timeline: [],
   }
 }

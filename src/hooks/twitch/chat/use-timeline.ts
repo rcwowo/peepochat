@@ -15,12 +15,10 @@ import {
   purgeDeletedChatEntries,
   purgeMessagesFromUsers,
   trimTimeline,
+  type TimelineMatchableMessage,
 } from "@/lib/twitch/chat-timeline"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
-import type {
-  TwitchChatMessage,
-  TwitchSystemMessage,
-} from "@/lib/twitch/twitch-chat"
+import type { TwitchSystemMessage } from "@/lib/twitch/twitch-chat"
 import type {
   TwitchChatRoomState,
   TwitchTimelineItem,
@@ -369,7 +367,7 @@ export function useTimeline({
   )
 
   const purgeMessagesFromBlockedUsers = React.useCallback(
-    (matches: (message: TwitchChatMessage) => boolean) => {
+    (matches: (message: TimelineMatchableMessage) => boolean) => {
       commitRooms((current) => {
         let changed = false
         const next: Record<string, TwitchChatRoomState> = { ...current }

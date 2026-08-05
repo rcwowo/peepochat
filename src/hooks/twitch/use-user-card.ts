@@ -53,17 +53,10 @@ export type UserCardChannelStatus = {
 }
 
 export type UserCardAction =
-  | "ban"
-  | "pardon"
-  | "timeout"
-  | "mod"
-  | "unmod"
-  | "vip"
-  | "unvip"
+  "ban" | "pardon" | "timeout" | "mod" | "unmod" | "vip" | "unvip"
 
 type StatusResult<T> =
-  | { state: "available"; value: T }
-  | { state: "unavailable"; reason: string }
+  { state: "available"; value: T } | { state: "unavailable"; reason: string }
 
 type UserCardState =
   | { status: "idle"; profile: null; channelStatus: null; error: null }
@@ -93,10 +86,6 @@ const statusInflight = new Map<string, Promise<UserCardChannelStatus>>()
 
 function hasScope(account: TwitchAccount | null, scope: string) {
   return Boolean(account?.scopes?.includes(scope))
-}
-
-export function hasUserCardScope(account: TwitchAccount | null, scope: string) {
-  return hasScope(account, scope)
 }
 
 function isFresh(cachedAt: number, ttlMs: number) {

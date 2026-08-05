@@ -1,4 +1,7 @@
-import type { TwitchChatMessage } from "@/lib/twitch/twitch-chat"
+import type {
+  TwitchChatMessage,
+  TwitchNoticeActor,
+} from "@/lib/twitch/twitch-chat"
 import type { TwitchUser } from "@/lib/twitch/twitch-api"
 
 export type UserCardTarget = {
@@ -27,6 +30,18 @@ export function createEmptyUserCardFlags(): TwitchChatMessage["flags"] {
   }
 }
 
+export function createUserCardTargetFromNoticeActor(
+  actor: TwitchNoticeActor
+): UserCardTarget {
+  return {
+    userId: actor.userId,
+    userName: actor.userName,
+    displayName: actor.displayName,
+    color: actor.color,
+    flags: createEmptyUserCardFlags(),
+  }
+}
+
 export function createUserCardTargetFromTwitchUser(
   user: TwitchUser,
   channelLogin: string
@@ -39,23 +54,6 @@ export function createUserCardTargetFromTwitchUser(
     flags: {
       ...createEmptyUserCardFlags(),
       isBroadcaster: user.login.toLowerCase() === channelLogin.toLowerCase(),
-    },
-  }
-}
-
-export function createUserCardTargetFromLogin(
-  login: string,
-  channelLogin: string
-): UserCardTarget {
-  const normalized = login.replace(/^@/, "").trim()
-  return {
-    userId: null,
-    userName: normalized,
-    displayName: normalized,
-    color: null,
-    flags: {
-      ...createEmptyUserCardFlags(),
-      isBroadcaster: normalized.toLowerCase() === channelLogin.toLowerCase(),
     },
   }
 }

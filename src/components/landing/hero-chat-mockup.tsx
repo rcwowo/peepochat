@@ -1,5 +1,15 @@
 import * as React from "react"
-import { BellIcon, PlusIcon } from "lucide-react"
+import {
+  BellIcon,
+  EllipsisIcon,
+  PanelLeftIcon,
+  PlusIcon,
+  SendHorizontalIcon,
+  SettingsIcon,
+  SmileIcon,
+  UserIcon,
+  XIcon,
+} from "lucide-react"
 
 import {
   SidebarChannelAvatar,
@@ -9,7 +19,6 @@ import {
 } from "@/components/sidebar/sidebar-channel-icon"
 import { Button } from "@/components/ui/button"
 import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion"
-import logoSrc from "/branding/full-logo.svg"
 import { LANDING_CHANNELS } from "@/lib/landing/landing-channels"
 import { LANDING_EMOTES } from "@/lib/landing/landing-emotes"
 import { cn } from "@/lib/utils"
@@ -29,8 +38,7 @@ type MockEmote = {
 const EMOTES = LANDING_EMOTES
 
 type MockMessagePart =
-  | { type: "text"; value: string }
-  | { type: "emote"; emote: MockEmote }
+  { type: "text"; value: string } | { type: "emote"; emote: MockEmote }
 
 type MockMessageTemplate = {
   user: string
@@ -369,11 +377,26 @@ const MockChatPane = React.memo(function MockChatPane({
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-border/60 bg-(--chat-background)">
-      <div className="flex h-9 shrink-0 items-center gap-2 border-b border-border px-3">
-        <MockChannelAvatar channel={channel} />
-        <span className="truncate text-sm font-medium">
-          {channel.displayName}
-        </span>
+      <div className="flex h-9 shrink-0 items-center justify-between gap-2 border-b border-border bg-sidebar px-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <MockChannelAvatar channel={channel} />
+          <span className="truncate text-sm font-medium">
+            {channel.displayName}
+          </span>
+          {channel.live ? (
+            <span className="inline-flex shrink-0 items-center gap-0.5 rounded-sm bg-red-600 px-1 py-px text-[8px] leading-none font-bold tracking-wide text-white">
+              LIVE
+            </span>
+          ) : null}
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="flex size-6 items-center justify-center rounded-[min(var(--radius-md),10px)] text-muted-foreground">
+            <EllipsisIcon className="size-3.5" />
+          </span>
+          <span className="flex size-6 items-center justify-center rounded-[min(var(--radius-md),10px)] text-muted-foreground">
+            <XIcon className="size-3.5" />
+          </span>
+        </div>
       </div>
       <div
         ref={scrollRef}
@@ -389,8 +412,18 @@ const MockChatPane = React.memo(function MockChatPane({
           ))}
         </div>
       </div>
-      <div className="h-8 shrink-0 border-t border-border/60 px-2.5 py-1.5">
-        <div className="h-full rounded-md border border-border/50 bg-background/40" />
+      <div className="relative flex items-end gap-1 px-2 py-2">
+        <div className="relative min-w-0 flex-1 overflow-hidden rounded-lg border border-border/50 bg-background/40 shadow-none backdrop-blur-sm dark:bg-input/30">
+          <div className="min-h-9 px-3 py-2 pr-10 text-sm leading-5 text-muted-foreground">
+            Message #{channel.displayName.toLowerCase()}
+          </div>
+          <span className="absolute right-1 bottom-1 flex size-7 items-center justify-center text-muted-foreground">
+            <SmileIcon className="size-4" />
+          </span>
+        </div>
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border-2 border-[var(--shine)] bg-primary text-primary-foreground">
+          <SendHorizontalIcon className="size-4" />
+        </span>
       </div>
     </div>
   )
@@ -426,7 +459,12 @@ function MockSidebarSplit({ channels }: { channels: MockChannel[] }) {
 
   return (
     <SidebarChannelRow isActive showUnread={false}>
-      <SidebarIconTile isActive showPing={false} showLive={showLive}>
+      <SidebarIconTile
+        isActive
+        showPing={false}
+        showLive={showLive}
+        variant="split"
+      >
         <SidebarSplitAvatarCluster
           channels={channels.map((channel) => ({
             login: channel.displayName,
@@ -441,10 +479,10 @@ function MockSidebarSplit({ channels }: { channels: MockChannel[] }) {
 const MockSidebar = React.memo(function MockSidebar() {
   return (
     <aside
-      className="flex w-18 shrink-0 flex-col border-r border-sidebar-border bg-sidebar"
-      style={{ "--sidebar-width-icon": "4.5rem" } as React.CSSProperties}
+      className="flex w-[4.375rem] shrink-0 flex-col border-r border-sidebar-border bg-sidebar"
+      style={{ "--sidebar-width-icon": "4.375rem" } as React.CSSProperties}
     >
-      <div className="flex flex-col items-stretch gap-2 px-0 py-3">
+      <div className="flex flex-col items-stretch gap-3 px-0 py-3">
         {STANDALONE_CHANNELS.map((channel) => (
           <MockSidebarChannelIcon
             key={channel.displayName}
@@ -455,16 +493,15 @@ const MockSidebar = React.memo(function MockSidebar() {
         ))}
         <MockSidebarSplit channels={SPLIT_CHANNELS} />
       </div>
-      <div className="mt-auto flex items-center justify-center p-1.5">
+      <div className="mt-auto flex items-center justify-center p-2">
         <Button
           type="button"
-          variant="outline"
           size="icon"
-          className="size-9 shrink-0"
+          className="size-12 shrink-0 shine border-2 bg-transparent"
           tabIndex={-1}
           aria-hidden
         >
-          <PlusIcon className="size-3.5 shrink-0" />
+          <PlusIcon className="size-6 shrink-0" strokeWidth={2.5} />
         </Button>
       </div>
     </aside>
@@ -640,27 +677,41 @@ export function HeroChatMockup() {
             transform: `rotateY(${rotateY}deg) rotateX(${rotateX}deg) translateZ(20px)`,
           }}
         >
-          <div className="relative overflow-hidden rounded-lg border border-border bg-background shadow-[0_2px_4px_oklch(0_0_0/25%),0_16px_32px_-8px_oklch(0_0_0/45%),0_32px_64px_-16px_oklch(0_0_0/35%)] transform-3d">
-            <header className="relative flex h-12 items-center justify-between border-b border-border bg-sidebar px-4">
-              <img src={logoSrc} alt="" className="h-6 w-auto brand-mark" />
-              <div className="flex items-center gap-2">
-                <span className="size-7 rounded-full bg-primary/20" />
-                <span className="flex size-8 items-center justify-center rounded-lg border border-border text-muted-foreground">
-                  <BellIcon className="size-3.5" />
-                </span>
-              </div>
-            </header>
-            <div className="relative flex h-[min(22rem,46vw)] min-h-60">
-              <MockSidebar />
-              <div className="flex min-w-0 flex-1 divide-x divide-border/60">
-                <MockChatPane
-                  channel={SPLIT_CHANNELS[0] as MockChannel}
-                  messages={leftSplitMessages}
-                />
-                <MockChatPane
-                  channel={SPLIT_CHANNELS[1] as MockChannel}
-                  messages={rightSplitMessages}
-                />
+          <div className="relative flex overflow-hidden rounded-lg border border-border bg-background shadow-[0_2px_4px_oklch(0_0_0/25%),0_16px_32px_-8px_oklch(0_0_0/45%),0_32px_64px_-16px_oklch(0_0_0/35%)] transform-3d">
+            <MockSidebar />
+            <div className="flex min-w-0 flex-1 flex-col">
+              <header className="relative flex h-11 items-center justify-between gap-2 border-b border-border bg-sidebar p-2">
+                <div className="flex items-center gap-2">
+                  <span className="flex size-7 items-center justify-center rounded-[min(var(--radius-md),12px)] border border-border bg-background text-muted-foreground dark:border-input dark:bg-input/30">
+                    <PanelLeftIcon className="size-4" />
+                  </span>
+                  <span className="flex h-7 items-center gap-1.5 rounded-[min(var(--radius-md),12px)] border border-border bg-background px-1.5 text-sm dark:border-input dark:bg-input/30">
+                    <UserIcon className="size-3.5 shrink-0" />
+                    <span className="hidden max-w-32 truncate font-medium sm:inline">
+                      JaneDoe21
+                    </span>
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="flex size-7 items-center justify-center rounded-[min(var(--radius-md),12px)] border border-border bg-background text-muted-foreground dark:border-input dark:bg-input/30">
+                    <BellIcon className="size-4" />
+                  </span>
+                  <span className="flex size-7 items-center justify-center rounded-[min(var(--radius-md),12px)] border border-border bg-background text-muted-foreground dark:border-input dark:bg-input/30">
+                    <SettingsIcon className="size-4" />
+                  </span>
+                </div>
+              </header>
+              <div className="relative flex h-[min(22rem,46vw)] min-h-60">
+                <div className="flex min-w-0 flex-1 divide-x divide-border/60">
+                  <MockChatPane
+                    channel={SPLIT_CHANNELS[0] as MockChannel}
+                    messages={leftSplitMessages}
+                  />
+                  <MockChatPane
+                    channel={SPLIT_CHANNELS[1] as MockChannel}
+                    messages={rightSplitMessages}
+                  />
+                </div>
               </div>
             </div>
           </div>

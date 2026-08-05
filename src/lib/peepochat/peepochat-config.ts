@@ -36,6 +36,7 @@ const chatEmotesSchema = z.object({
   seventvEnabled: z.boolean().default(true),
   showUnlistedEmotes: z.boolean().default(true),
   zeroWidthEmotesEnabled: z.boolean().default(true),
+  liveEmoteUpdatesEnabled: z.boolean().default(true),
 })
 
 const chatBadgesSchema = z.object({
@@ -85,6 +86,8 @@ const chatSchema = z.object({
   deletedMessagesBehavior: deletedMessagesBehaviorSchema,
   clearChatWhenInstructed: z.boolean().default(true),
   hideBlockedUsers: z.boolean().default(true),
+  showSuspiciousActivity: z.boolean().default(true),
+  showChannelUpdates: z.boolean().default(true),
   emotes: chatEmotesSchema,
   badges: chatBadgesSchema,
 })
@@ -263,12 +266,15 @@ export function createDefaultConfig(): AppConfig {
       deletedMessagesBehavior: "strikethrough",
       clearChatWhenInstructed: true,
       hideBlockedUsers: true,
+      showSuspiciousActivity: true,
+      showChannelUpdates: true,
       emotes: {
         bttvEnabled: true,
         ffzEnabled: true,
         seventvEnabled: true,
         showUnlistedEmotes: true,
         zeroWidthEmotesEnabled: true,
+        liveEmoteUpdatesEnabled: true,
       },
       badges: {
         twitchEnabled: true,

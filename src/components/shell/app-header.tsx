@@ -1,5 +1,5 @@
-import iconSrc from "/branding/icon.svg"
-import logoSrc from "/branding/full-logo.svg"
+import { PanelLeftIcon, SettingsIcon } from "lucide-react"
+
 import { AccountMenu } from "@/components/shell/account-menu"
 import { NotificationCenter } from "@/components/shell/notification-center"
 import { useNotificationDocumentIndicators } from "@/hooks/use-notification-document-indicators"
@@ -9,7 +9,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { PanelLeftIcon } from "lucide-react"
 
 export function AppHeader({
   onSettingsClick,
@@ -23,13 +22,13 @@ export function AppHeader({
   useNotificationDocumentIndicators()
 
   return (
-    <header className="flex h-12 shrink-0 items-center justify-between border-b border-border bg-sidebar px-4">
-      <div className="flex items-center gap-3">
+    <header className="flex h-11 shrink-0 items-center justify-between gap-2 border-b border-border bg-sidebar p-2">
+      <div className="flex items-center gap-2">
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
               variant="outline"
-              size="icon"
+              size="icon-sm"
               onClick={onChannelSidebarToggle}
               aria-pressed={channelSidebarVisible}
             >
@@ -47,21 +46,23 @@ export function AppHeader({
               : "Show channel sidebar"}
           </TooltipContent>
         </Tooltip>
-        <img
-          src={iconSrc}
-          alt="Peepochat"
-          className="size-6 brand-mark sm:hidden"
-        />
-        <img
-          src={logoSrc}
-          alt="Peepochat"
-          className="hidden h-6 w-auto brand-mark sm:block"
-        />
+        <AccountMenu />
       </div>
-      <div className="flex items-center gap-3">
-        <AccountMenu onSettingsClick={onSettingsClick} />
-
+      <div className="flex items-center gap-2">
         <NotificationCenter />
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon-sm"
+              onClick={onSettingsClick}
+              aria-label="Settings"
+            >
+              <SettingsIcon className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Settings</TooltipContent>
+        </Tooltip>
       </div>
     </header>
   )

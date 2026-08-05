@@ -11,9 +11,3 @@ export function isSevenTvZeroWidthEmote(
     ((emote.seventvFlags ?? 0) & SEVENTV_EMOTE_FLAG_ZERO_WIDTH) !== 0
   )
 }
-
-export function isSevenTvUnlistedEmote(
-  emote: Pick<EmoteCatalogEntry, "provider" | "listed">
-): boolean {
-  return emote.provider === "7tv" && emote.listed === false
-}

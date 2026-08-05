@@ -12,6 +12,7 @@ import {
   RECENT_MESSAGES_ERROR_TEXT,
   RECENT_MESSAGES_UNAVAILABLE_TEXT,
 } from "@/lib/chat/recent-messages"
+import type { DeletedMessagesBehavior } from "@/lib/peepochat/peepochat-config"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 
 type UseRecentMessagesOptions = {
@@ -30,6 +31,7 @@ export function useRecentMessages({
   const { roomsRef, updateRoom } = roomStore
   const {
     liveMessageLimitRef,
+    deletedMessagesBehaviorRef,
     prependHistoricalTimeline,
     appendRoomSystemMessage,
     clearHistoricalTimeline,
@@ -66,7 +68,11 @@ export function useRecentMessages({
     recentMessagesQueueRef.current = []
     recentMessagesQueuedRef.current.clear()
     recentMessagesGenerationRef.current += 1
-  }, [recentMessagesGenerationRef, recentMessagesQueueRef, recentMessagesQueuedRef])
+  }, [
+    recentMessagesGenerationRef,
+    recentMessagesQueueRef,
+    recentMessagesQueuedRef,
+  ])
 
   const drainRecentMessagesQueue = React.useCallback(() => {
     const runNext = () => {
@@ -144,20 +150,28 @@ export function useRecentMessages({
                     ? (emoteCatalogsRef.current.get(roomId) ?? null)
                     : null
 
+                  const hideDeletedMessages =
+                    deletedMessagesBehaviorRef.current === "remove"
+
                   prependHistoricalTimeline(
                     normalized,
-                    outcome.messages.map((message) => {
-                      const resolvedMessage =
-                        roomId && !message.roomId
-                          ? { ...message, roomId }
-                          : message
+                    outcome.messages
+                      .filter(
+                        (message) =>
+                          !hideDeletedMessages || message.deletedAt === null
+                      )
+                      .map((message) => {
+                        const resolvedMessage =
+                          roomId && !message.roomId
+                            ? { ...message, roomId }
+                            : message
 
-                      return {
-                        kind: "chat" as const,
-                        message: hydrateRoomMessage(resolvedMessage, catalog),
-                        isHistorical: true,
-                      }
-                    })
+                        return {
+                          kind: "chat" as const,
+                          message: hydrateRoomMessage(resolvedMessage, catalog),
+                          isHistorical: true,
+                        }
+                      })
                   )
                   break
                 }
@@ -206,6 +220,7 @@ export function useRecentMessages({
     runNext()
   }, [
     appendRoomSystemMessage,
+    deletedMessagesBehaviorRef,
     emoteCatalogsRef,
     ensureRoomEmotes,
     historyErrorNotifiedRef,
@@ -318,6 +333,37 @@ export function useRecentMessages({
     ]
   )
 
+  const handleDeletedMessagesBehaviorChange = React.useCallback(
+    (previous: DeletedMessagesBehavior, behavior: DeletedMessagesBehavior) => {
+      if (
+        previous !== "remove" ||
+        behavior === "remove" ||
+        !recentMessagesEnabledRef.current
+      ) {
+        return
+      }
+
+      for (const login of syncedChannelsRef.current) {
+        historyLoadedRef.current.delete(login)
+        historyErrorNotifiedRef.current.delete(login)
+      }
+
+      clearHistoricalTimeline()
+
+      for (const login of syncedChannelsRef.current) {
+        loadRecentMessages(login)
+      }
+    },
+    [
+      clearHistoricalTimeline,
+      historyErrorNotifiedRef,
+      historyLoadedRef,
+      loadRecentMessages,
+      recentMessagesEnabledRef,
+      syncedChannelsRef,
+    ]
+  )
+
   const clearAllHistoryState = React.useCallback(() => {
     historyLoadedRef.current.clear()
     historyLoadingRef.current.clear()
@@ -333,6 +379,7 @@ export function useRecentMessages({
   return {
     loadRecentMessages,
     setRecentMessagesEnabled,
+    handleDeletedMessagesBehaviorChange,
     clearRecentMessagesQueue,
     clearHistoryForLogins,
     clearAllHistoryState,

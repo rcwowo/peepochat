@@ -5,17 +5,20 @@ import type { ChatSendApi } from "@/hooks/twitch/chat/use-chat-send"
 import type { RoomStore } from "@/hooks/twitch/chat/use-room-store"
 import type { TimelineApi } from "@/hooks/twitch/chat/use-timeline"
 import { devChatLogger } from "@/lib/dev-logger"
+import { hydrateSystemMessageDetails } from "@/lib/chat/chat-emotes"
 import {
   applyDeletedBehaviorToTimeline,
   notifyChatMessageDeleted,
   selfStateFromMessage,
+  type TimelineMatchableMessage,
 } from "@/lib/twitch/chat-timeline"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
-import type {
-  TwitchChatMessage,
-  TwitchClearChatEvent,
-  TwitchClearMsgEvent,
-  TwitchSystemMessage,
+import {
+  createClearChatModActionMessage,
+  type TwitchChatMessage,
+  type TwitchClearChatEvent,
+  type TwitchClearMsgEvent,
+  type TwitchSystemMessage,
 } from "@/lib/twitch/twitch-chat"
 import type { TwitchSelfChatState } from "@/lib/twitch/twitch-chat-types"
 
@@ -62,6 +65,7 @@ export function useMessageRouting({
     emoteLoadContextRef,
     ensureRoomEmotes,
     hydrateRoomMessage,
+    getTwitchHydration,
   } = emotes
   const { emitSendOutcome, pendingSendRef } = send
 
@@ -144,7 +148,7 @@ export function useMessageRouting({
   const applyRoomMessageDeletions = React.useCallback(
     (
       login: string,
-      matches: (message: TwitchChatMessage) => boolean,
+      matches: (message: TimelineMatchableMessage) => boolean,
       deletedAt = new Date().toISOString()
     ) => {
       const behavior = deletedMessagesBehaviorRef.current
@@ -222,6 +226,11 @@ export function useMessageRouting({
           }
           return false
         })
+
+        const modAction = createClearChatModActionMessage(event)
+        if (modAction) {
+          appendRoomSystemMessage(login, modAction)
+        }
         return
       }
 
@@ -236,7 +245,9 @@ export function useMessageRouting({
 
       updateRoom(login, (room) => {
         const deletedMessageIds = room.timeline.flatMap((entry) =>
-          entry.kind === "chat" ? [entry.message.id] : []
+          entry.kind === "chat" || entry.kind === "suspicious"
+            ? [entry.message.id]
+            : []
         )
 
         if (deletedMessageIds.length === 0) {
@@ -249,11 +260,14 @@ export function useMessageRouting({
 
         return {
           ...room,
-          timeline: room.timeline.filter((entry) => entry.kind !== "chat"),
+          timeline: room.timeline.filter(
+            (entry) => entry.kind !== "chat" && entry.kind !== "suspicious"
+          ),
         }
       })
     },
     [
+      appendRoomSystemMessage,
       applyRoomMessageDeletions,
       clearChatWhenInstructedRef,
       selfStatesRef,
@@ -281,45 +295,20 @@ export function useMessageRouting({
         }
 
         if (
-          message.event === "subscription" &&
-          message.details &&
-          message.detailsEmotes &&
-          message.detailsEmotes.length > 0
+          (message.event === "subscription" ||
+            message.event === "announcement") &&
+          message.details
         ) {
           const roomId = message.roomId
           const thirdPartyCatalog = roomId
             ? (emoteCatalogsRef.current.get(roomId) ?? null)
             : null
 
-          const hydrated = hydrateRoomMessage(
-            {
-              id: message.id,
-              channel: login,
-              roomId: message.roomId,
-              userId: null,
-              userName: message.actor?.userName ?? "system",
-              displayName: message.actor?.displayName ?? "System",
-              text: message.details,
-              color: message.actor?.color ?? null,
-              receivedAt: message.receivedAt,
-              badges: [],
-              badgeInfo: [],
-              emotes: message.detailsEmotes,
-              reply: null,
-              deletedAt: null,
-              flags: {
-                isBroadcaster: false,
-                isModerator: false,
-                isSubscriber: false,
-                isVip: false,
-                isFirst: false,
-                isAction: false,
-              },
-            },
-            thirdPartyCatalog
+          message = hydrateSystemMessageDetails(
+            message,
+            thirdPartyCatalog,
+            roomId ? getTwitchHydration(roomId) : null
           )
-
-          message = { ...message, detailsEmotes: hydrated.emotes }
         }
 
         appendRoomSystemMessage(login, message)
@@ -342,7 +331,7 @@ export function useMessageRouting({
       appendRoomSystemMessage,
       appendSystemMessageToAllRooms,
       emoteCatalogsRef,
-      hydrateRoomMessage,
+      getTwitchHydration,
       syncedChannelsRef,
       updateRoom,
     ]
@@ -356,5 +345,3 @@ export function useMessageRouting({
     markChatMessageDeleted,
   }
 }
-
-export type MessageRoutingApi = ReturnType<typeof useMessageRouting>

@@ -19,10 +19,15 @@ import {
 } from "@/hooks/twitch/use-twitch-chat"
 import type { TwitchChannelSendBlock } from "@/lib/chat/chat-send-notice"
 import type {
+  TwitchAutomodHeldMessage,
   TwitchChatRoomState,
   TwitchSelfChatState,
   TwitchTimelineItem,
 } from "@/lib/twitch/twitch-chat-types"
+import type {
+  TwitchChatMessage,
+  TwitchSystemMessage,
+} from "@/lib/twitch/twitch-chat"
 import {
   canShowDesktopNotifications,
   shouldShowDesktopNotification,
@@ -135,8 +140,11 @@ export type PeepochatChatContextValue = {
   getSelfChatState: (login: string) => TwitchSelfChatState | null
   getChannelSendBlock: (login: string) => TwitchChannelSendBlock | null
   registerSendOutcomeListener: (
-    listener: (event: SendOutcomeEvent) => void
+    listener: (event: SendOutcomeEvent) => void,
+    options?: { channel?: string }
   ) => () => void
+  replayPendingComposerNotice: (channel: string) => void
+  dismissComposerNotice: (notice: { channel: string; id: string }) => void
   getBadgeCatalog: (login: string) => ChatBadgeCatalog
   getMemberBadge: (userId: string | null) => ResolvedMemberBadge | null
   getComposerEmoteCatalog: (login: string) => ComposerEmoteCatalog
@@ -158,6 +166,12 @@ export type PeepochatChatContextValue = {
     input: string
   ) => Promise<import("@/lib/chat/chat-commands").ChatCommandResult>
   markChatMessageDeleted: (login: string, messageId: string) => void
+  injectChatMessage: (message: TwitchChatMessage) => boolean
+  injectSystemMessage: (message: TwitchSystemMessage) => boolean
+  injectAutomodHeldMessage: (
+    login: string,
+    message: TwitchAutomodHeldMessage
+  ) => boolean
   canSendChat: boolean
   hasBadgeSupport: boolean
   hideBlockedUsers: boolean
@@ -239,11 +253,17 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     updateConfig,
     restoreBackup,
   } = usePeepochatConfig()
-  const { account, oauthBusy, login, logout, isOAuthConfigured } =
-    useTwitchAuth({
-      config,
-      updateConfig,
-    })
+  const {
+    account,
+    oauthBusy,
+    login,
+    logout,
+    invalidateSession,
+    isOAuthConfigured,
+  } = useTwitchAuth({
+    config,
+    updateConfig,
+  })
   const hasAccountValue = account !== null
   const onChatMessageRef = React.useRef<
     | ((message: import("@/lib/twitch/twitch-chat").TwitchChatMessage) => void)
@@ -262,17 +282,25 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     getSelfChatState,
     getChannelSendBlock,
     registerSendOutcomeListener,
+    replayPendingComposerNotice,
+    dismissComposerNotice,
     setEmoteLoadContext,
     setRecentMessagesEnabled,
+    setLiveEmoteUpdatesEnabled,
     setLiveMessageLimit,
     setDeletedMessagesBehavior,
     setClearChatWhenInstructed,
     setHideBlockedUsers,
+    setShowSuspiciousActivity,
+    setShowChannelUpdates,
     setIsUserBlocked,
     setChatCommandActions,
     purgeMessagesFromBlockedUsers,
     purgeMessagesFromUser,
     markChatMessageDeleted,
+    injectChatMessage,
+    injectSystemMessage,
+    injectAutomodHeldMessage,
     getComposerEmoteCatalog,
     ensureComposerEmotes,
     isComposerEmotesLoading,
@@ -281,7 +309,11 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     sendMessage,
     sendActionMessage,
     runChatCommand,
-  } = useTwitchChat({ onChatMessageRef })
+  } = useTwitchChat({
+    account,
+    onAuthFailure: invalidateSession,
+    onChatMessageRef,
+  })
   const {
     isBlocked,
     blockUser: blockUserBase,
@@ -458,6 +490,17 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
   }, [config.chat.recentMessagesEnabled, setRecentMessagesEnabled])
 
   React.useEffect(() => {
+    setLiveEmoteUpdatesEnabled(
+      config.chat.emotes.seventvEnabled &&
+        config.chat.emotes.liveEmoteUpdatesEnabled
+    )
+  }, [
+    config.chat.emotes.liveEmoteUpdatesEnabled,
+    config.chat.emotes.seventvEnabled,
+    setLiveEmoteUpdatesEnabled,
+  ])
+
+  React.useEffect(() => {
     setLiveMessageLimit(config.chat.maxLiveMessagesPerChannel)
   }, [config.chat.maxLiveMessagesPerChannel, setLiveMessageLimit])
 
@@ -472,6 +515,14 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     setHideBlockedUsers(config.chat.hideBlockedUsers)
   }, [config.chat.hideBlockedUsers, setHideBlockedUsers])
+
+  React.useEffect(() => {
+    setShowSuspiciousActivity(config.chat.showSuspiciousActivity)
+  }, [config.chat.showSuspiciousActivity, setShowSuspiciousActivity])
+
+  React.useEffect(() => {
+    setShowChannelUpdates(config.chat.showChannelUpdates)
+  }, [config.chat.showChannelUpdates, setShowChannelUpdates])
 
   React.useEffect(() => {
     setIsUserBlocked(isBlocked)
@@ -803,6 +854,8 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       getSelfChatState,
       getChannelSendBlock,
       registerSendOutcomeListener,
+      replayPendingComposerNotice,
+      dismissComposerNotice,
       getBadgeCatalog: getBadgeCatalogForChannel,
       getMemberBadge,
       getComposerEmoteCatalog,
@@ -813,6 +866,9 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       sendActionMessage,
       executeChatCommand,
       markChatMessageDeleted,
+      injectChatMessage,
+      injectSystemMessage,
+      injectAutomodHeldMessage,
       canSendChat,
       hasBadgeSupport,
       hideBlockedUsers: config.chat.hideBlockedUsers,
@@ -831,6 +887,8 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       getSelfChatState,
       getChannelSendBlock,
       registerSendOutcomeListener,
+      replayPendingComposerNotice,
+      dismissComposerNotice,
       getBadgeCatalogForChannel,
       getMemberBadge,
       getComposerEmoteCatalog,
@@ -841,6 +899,9 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       sendActionMessage,
       executeChatCommand,
       markChatMessageDeleted,
+      injectChatMessage,
+      injectSystemMessage,
+      injectAutomodHeldMessage,
       canSendChat,
       hasBadgeSupport,
       config.chat.hideBlockedUsers,

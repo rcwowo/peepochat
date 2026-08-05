@@ -81,7 +81,7 @@ export async function fetchRecentMessages(
 
   const url = new URL(`${RECENT_MESSAGES_BASE}/${encodeURIComponent(login)}`)
   url.searchParams.set("limit", String(limit))
-  url.searchParams.set("hide_moderated_messages", "true")
+  url.searchParams.set("hide_moderated_messages", "false")
 
   try {
     const response = await devLoggedFetch(
@@ -123,14 +123,24 @@ export function parseRecentChatMessages(lines: string[]): TwitchChatMessage[] {
   const messages: TwitchChatMessage[] = []
 
   for (const line of lines) {
-    if (!isPrivmsgLine(line) || isDeletedHistoricalLine(line)) {
+    if (!isPrivmsgLine(line)) {
       continue
     }
 
     const message = parseIrcPrivmsg(line)
-    if (message) {
-      messages.push(message)
+    if (!message) {
+      continue
     }
+
+    if (isDeletedHistoricalLine(line)) {
+      messages.push({
+        ...message,
+        deletedAt: message.receivedAt,
+      })
+      continue
+    }
+
+    messages.push(message)
   }
 
   return messages

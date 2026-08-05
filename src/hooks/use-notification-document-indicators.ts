@@ -1,10 +1,7 @@
 import * as React from "react"
 
+import { APP_BRANDING } from "@/lib/branding"
 import { useNotificationCenter } from "@/lib/highlights/notification-center"
-
-const APP_TITLE = "Peepochat"
-const DEFAULT_FAVICON = "/branding/icon.svg"
-const PING_FAVICON = "/branding/icon-ping.svg"
 
 function getFaviconLink() {
   return document.querySelector<HTMLLinkElement>('link[rel="icon"]')
@@ -14,20 +11,24 @@ export function useNotificationDocumentIndicators() {
   const { totalCount } = useNotificationCenter()
 
   React.useEffect(() => {
-    document.title = totalCount > 0 ? `${APP_TITLE} (${totalCount})` : APP_TITLE
+    document.title =
+      totalCount > 0
+        ? `${APP_BRANDING.title} (${totalCount})`
+        : APP_BRANDING.title
 
     const faviconLink = getFaviconLink()
     if (faviconLink) {
-      faviconLink.href = totalCount > 0 ? PING_FAVICON : DEFAULT_FAVICON
+      faviconLink.href =
+        totalCount > 0 ? APP_BRANDING.pingFavicon : APP_BRANDING.favicon
     }
   }, [totalCount])
 
   React.useEffect(() => {
     return () => {
-      document.title = APP_TITLE
+      document.title = APP_BRANDING.title
       const link = getFaviconLink()
       if (link) {
-        link.href = DEFAULT_FAVICON
+        link.href = APP_BRANDING.favicon
       }
     }
   }, [])

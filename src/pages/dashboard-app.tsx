@@ -74,19 +74,19 @@ function DashboardLayout() {
     <SidebarProvider
       open={false}
       onOpenChange={() => {}}
-      className="relative flex h-svh w-full flex-col"
-      style={{ "--sidebar-width-icon": "4.5rem" } as React.CSSProperties}
+      className="relative flex h-svh w-full flex-row"
+      style={{ "--sidebar-width-icon": "4.375rem" } as React.CSSProperties}
     >
-      <AppHeader
-        onSettingsClick={() => {
-          setSettingsInitialCategory(undefined)
-          setSettingsOpen(true)
-        }}
-        channelSidebarVisible={channelSidebarVisible}
-        onChannelSidebarToggle={toggleChannelSidebar}
-      />
-      <div className="flex min-h-0 w-full flex-1">
-        {channelSidebarVisible ? <ChannelSidebar /> : null}
+      {channelSidebarVisible ? <ChannelSidebar /> : null}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <AppHeader
+          onSettingsClick={() => {
+            setSettingsInitialCategory(undefined)
+            setSettingsOpen(true)
+          }}
+          channelSidebarVisible={channelSidebarVisible}
+          onChannelSidebarToggle={toggleChannelSidebar}
+        />
         <SidebarInset className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
           <ChatPage />
         </SidebarInset>

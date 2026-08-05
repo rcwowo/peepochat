@@ -116,7 +116,7 @@ export async function loadSharedTwitchEmotes(
   return promise
 }
 
-export async function loadChannelTwitchEmotes(
+async function loadChannelTwitchEmotes(
   auth: TwitchEmoteSessionAuth,
   roomId: string
 ): Promise<SessionChannelEmotes> {

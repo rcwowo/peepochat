@@ -1,4 +1,5 @@
 import { devChatLogger, isDevIrcLoggingEnabled } from "@/lib/dev-logger"
+import type { TwitchChatModesPatch } from "@/lib/chat/chat-modes"
 import {
   type IrcTaggedLine,
   isIrcJoinLine,
@@ -15,6 +16,7 @@ import {
   splitTaggedLine,
 } from "@/lib/twitch/irc-line"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
+import { buildTwitchEmoteCdnUrl } from "@/lib/twitch/twitch-api"
 import { codePointRangeToUtf16Indices } from "@/lib/twitch/twitch-emote-positions"
 
 /**
@@ -40,6 +42,12 @@ export type TwitchBadge = {
 
 export type TwitchEmoteProvider = "twitch" | "bttv" | "ffz" | "7tv"
 
+export type TwitchCheermoteMeta = {
+  prefix: string
+  amount: number
+  color: string
+}
+
 export type TwitchEmote = {
   id: string
   code: string
@@ -47,6 +55,7 @@ export type TwitchEmote = {
   imageUrl: string
   start: number
   end: number
+  cheermote?: TwitchCheermoteMeta
   /** 7TV zero-width emotes rendered on top of this emote. */
   overlays?: TwitchEmote[]
 }
@@ -62,6 +71,7 @@ export function getEmoteConsumedEnd(emote: TwitchEmote): number {
 
 export type TwitchChatReply = {
   parentMessageId: string
+  threadRootMessageId: string
   parentDisplayName: string
   parentUserName: string
   parentBody: string
@@ -69,10 +79,22 @@ export type TwitchChatReply = {
 }
 
 export type TwitchNoticeActor = {
+  userId: string | null
   userName: string
   displayName: string
   color: string | null
 }
+
+export type TwitchSystemModActionKind =
+  | "timeout"
+  | "ban"
+  | "untimeout"
+  | "unban"
+  | "anonymous_timeout"
+  | "anonymous_ban"
+  | "suspicious_monitored"
+  | "suspicious_restricted"
+  | "suspicious_removed"
 
 export type TwitchChatMessage = {
   id: string
@@ -88,6 +110,7 @@ export type TwitchChatMessage = {
   badgeInfo: TwitchBadge[]
   emotes: TwitchEmote[]
   reply: TwitchChatReply | null
+  bits: number | null
   /** ISO timestamp when the message was deleted; null while still visible. */
   deletedAt: string | null
   flags: {
@@ -113,6 +136,7 @@ export type TwitchSystemMessage = {
     | "subscription"
     | "raid"
     | "announcement"
+    | "mod_action"
     | "connection"
     | "notice"
     | "status"
@@ -121,6 +145,9 @@ export type TwitchSystemMessage = {
   msgId: string | null
   banDurationSeconds: number | null
   actor: TwitchNoticeActor | null
+  target: TwitchNoticeActor | null
+  badges: TwitchBadge[]
+  modActionKind: TwitchSystemModActionKind | null
   viewerCount: number | null
   cumulativeMonths: number | null
   streakMonths: number | null
@@ -133,6 +160,9 @@ export const EMPTY_SYSTEM_MESSAGE_META = {
   msgId: null,
   banDurationSeconds: null,
   actor: null,
+  target: null,
+  badges: [],
+  modActionKind: null,
   viewerCount: null,
   cumulativeMonths: null,
   streakMonths: null,
@@ -144,6 +174,9 @@ export const EMPTY_SYSTEM_MESSAGE_META = {
   | "msgId"
   | "banDurationSeconds"
   | "actor"
+  | "target"
+  | "badges"
+  | "modActionKind"
   | "viewerCount"
   | "cumulativeMonths"
   | "streakMonths"
@@ -166,6 +199,8 @@ export type TwitchChannelJoinState = {
 export type TwitchRoomState = {
   channel: string
   roomId: string | null
+  modes: TwitchChatModesPatch
+  isComplete: boolean
 }
 
 /** Tags from USERSTATE after the local user sends a message or joins a channel. */
@@ -576,7 +611,8 @@ export class TwitchChatClient {
   // -----------------------------------------------------------------------
 
   private handleLine(raw: string) {
-    if (isDevIrcLoggingEnabled()) {
+    const ircLogging = isDevIrcLoggingEnabled()
+    if (ircLogging) {
       devChatLogger.debug("irc:line", raw)
     }
 
@@ -585,7 +621,7 @@ export class TwitchChatClient {
 
     // PING keep-alive
     if (raw.startsWith("PING")) {
-      if (isDevIrcLoggingEnabled()) {
+      if (ircLogging) {
         devChatLogger.debug("irc:kind", "ping")
       }
       this.ws?.send(raw.replace("PING", "PONG"))
@@ -596,7 +632,7 @@ export class TwitchChatClient {
     const rest = tagged?.rest ?? raw
 
     if (isIrcPongLine(rest)) {
-      if (isDevIrcLoggingEnabled()) {
+      if (ircLogging) {
         devChatLogger.debug("irc:kind", "pong")
       }
       this.clearHeartbeatPongTimer()
@@ -605,7 +641,7 @@ export class TwitchChatClient {
 
     // Successful welcome — join all desired channels (RPL_WELCOME / 001).
     if (isIrcWelcomeLine(rest)) {
-      if (isDevIrcLoggingEnabled()) {
+      if (ircLogging) {
         devChatLogger.debug("irc:kind", "welcome")
       }
       this.welcomeReceived = true
@@ -619,7 +655,7 @@ export class TwitchChatClient {
 
     // JOIN confirmation for our nick
     if (isIrcJoinLine(rest)) {
-      if (isDevIrcLoggingEnabled()) {
+      if (ircLogging) {
         devChatLogger.debug("irc:kind", "join")
       }
       const channel = parseIrcJoinChannel(rest)
@@ -633,7 +669,7 @@ export class TwitchChatClient {
 
     // ROOMSTATE - channel metadata including room-id, sent on join and updates
     if (isIrcRoomStateLine(rest)) {
-      if (isDevIrcLoggingEnabled()) {
+      if (ircLogging) {
         devChatLogger.debug("irc:kind", "roomstate")
       }
       const state = tagged ? parseRoomState(tagged) : null
@@ -647,7 +683,7 @@ export class TwitchChatClient {
 
     // USERSTATE - local user state after join or sending a message (no PRIVMSG echo)
     if (isIrcUserStateLine(rest)) {
-      if (isDevIrcLoggingEnabled()) {
+      if (ircLogging) {
         devChatLogger.debug("irc:kind", "userstate")
       }
       const state = tagged ? parseUserState(tagged) : null
@@ -663,7 +699,7 @@ export class TwitchChatClient {
     }
 
     if (isIrcPrivmsgLine(rest)) {
-      if (isDevIrcLoggingEnabled()) {
+      if (ircLogging) {
         devChatLogger.debug("irc:kind", "privmsg")
       }
       const message = tagged ? parsePrivmsg(tagged) : null
@@ -677,7 +713,7 @@ export class TwitchChatClient {
 
     // USERNOTICE - subscriptions, gift subs, raids, announcements, etc.
     if (isIrcUsernoticeLine(rest)) {
-      if (isDevIrcLoggingEnabled()) {
+      if (ircLogging) {
         devChatLogger.debug("irc:kind", "usernotice")
       }
       const message = tagged ? parseUserNotice(tagged) : null
@@ -690,7 +726,7 @@ export class TwitchChatClient {
     }
 
     if (isIrcClearMsgLine(rest)) {
-      if (isDevIrcLoggingEnabled()) {
+      if (ircLogging) {
         devChatLogger.debug("irc:kind", "clearmsg")
       }
       const clearMsg = tagged ? parseClearMsg(tagged) : null
@@ -703,7 +739,7 @@ export class TwitchChatClient {
     }
 
     if (isIrcClearChatLine(rest)) {
-      if (isDevIrcLoggingEnabled()) {
+      if (ircLogging) {
         devChatLogger.debug("irc:kind", "clearchat")
       }
       const clearChat = tagged ? parseClearChat(tagged) : null
@@ -717,7 +753,7 @@ export class TwitchChatClient {
 
     // NOTICE - e.g. "No such channel"
     if (isIrcNoticeLine(rest)) {
-      if (isDevIrcLoggingEnabled()) {
+      if (ircLogging) {
         devChatLogger.debug("irc:kind", "notice")
       }
       const noticeMessage = tagged ? parseNotice(tagged) : null
@@ -896,6 +932,7 @@ function parsePrivmsg(tagged: IrcTaggedLine): TwitchChatMessage | null {
     badgeInfo: parsedBadgeInfo,
     emotes: parsedEmotes,
     reply,
+    bits: parseOptionalInt(tags.get("bits")),
     deletedAt: null,
     flags: {
       isBroadcaster: badges.includes("broadcaster/"),
@@ -949,13 +986,224 @@ function parseClearChat(tagged: IrcTaggedLine): TwitchClearChatEvent | null {
   }
 }
 
+export function createClearChatModActionMessage(
+  event: TwitchClearChatEvent,
+  receivedAt = new Date().toISOString()
+): TwitchSystemMessage | null {
+  const targetUserName = event.targetUserName?.trim()
+  if (!targetUserName) {
+    return null
+  }
+
+  const channel = normalizeChannelLogin(event.channel)
+  const durationSeconds = event.banDurationSeconds
+  const isTimeout =
+    durationSeconds != null &&
+    Number.isFinite(durationSeconds) &&
+    durationSeconds > 0
+
+  const text = isTimeout
+    ? `${targetUserName} was timed out for ${durationSeconds}s.`
+    : `${targetUserName} was banned.`
+
+  const targetDisplayName = targetUserName
+  const targetLogin = targetUserName.toLowerCase()
+
+  return {
+    id: stableSystemMessageId(channel, "mod_action", text),
+    channel,
+    roomId: null,
+    text,
+    headline: text,
+    details: null,
+    receivedAt,
+    event: "mod_action",
+    level: "info",
+    accentColor: null,
+    ...EMPTY_SYSTEM_MESSAGE_META,
+    banDurationSeconds: isTimeout ? durationSeconds : null,
+    modActionKind: isTimeout ? "anonymous_timeout" : "anonymous_ban",
+    target: {
+      userId: event.targetUserId?.trim() || null,
+      userName: targetLogin,
+      displayName: targetDisplayName,
+      color: null,
+    },
+  }
+}
+
+export type TwitchModerateActionKind = "timeout" | "ban" | "untimeout" | "unban"
+
+export type TwitchModerateActionMessageInput = {
+  channelLogin: string
+  roomId?: string | null
+  action: TwitchModerateActionKind
+  moderatorUserId?: string | null
+  moderatorUserName: string
+  moderatorDisplayName: string
+  targetUserId?: string | null
+  targetUserName: string
+  targetDisplayName: string
+  banDurationSeconds?: number | null
+  messageId?: string | null
+  receivedAt?: string
+}
+
+function moderateActionDisplayName(
+  displayName: string,
+  userName: string
+): string {
+  const display = displayName.trim()
+  if (display) return display
+  return userName.trim()
+}
+
+export function isAnonymousBanTimeoutSystemMessage(
+  message: TwitchSystemMessage,
+  targetUserName: string
+): boolean {
+  if (message.event !== "mod_action" || message.actor) {
+    return false
+  }
+
+  const target = targetUserName.trim().toLowerCase()
+  if (!target) {
+    return false
+  }
+
+  const text = message.text.trim().toLowerCase()
+  if (text === `${target} was banned.`) {
+    return true
+  }
+
+  const timeoutPrefix = `${target} was timed out for `
+  return text.startsWith(timeoutPrefix) && / for \d+s\.$/.test(text)
+}
+
+export function createModerateActionMessage(
+  input: TwitchModerateActionMessageInput
+): TwitchSystemMessage | null {
+  const channel = normalizeChannelLogin(input.channelLogin)
+  const moderator = moderateActionDisplayName(
+    input.moderatorDisplayName,
+    input.moderatorUserName
+  )
+  const target = moderateActionDisplayName(
+    input.targetDisplayName,
+    input.targetUserName
+  )
+  if (!channel || !moderator || !target) {
+    return null
+  }
+
+  let text: string
+  let banDurationSeconds: number | null = null
+
+  switch (input.action) {
+    case "timeout": {
+      const durationSeconds = input.banDurationSeconds
+      if (
+        durationSeconds != null &&
+        Number.isFinite(durationSeconds) &&
+        durationSeconds > 0
+      ) {
+        banDurationSeconds = Math.floor(durationSeconds)
+        text = `${moderator} timed out ${target} for ${banDurationSeconds}s.`
+      } else {
+        text = `${moderator} timed out ${target}.`
+      }
+      break
+    }
+    case "ban":
+      text = `${moderator} banned ${target}.`
+      break
+    case "untimeout":
+      text = `${moderator} removed ${target}'s timeout.`
+      break
+    case "unban":
+      text = `${moderator} unbanned ${target}.`
+      break
+    default:
+      return null
+  }
+
+  const receivedAt = input.receivedAt ?? new Date().toISOString()
+  const id = input.messageId?.trim()
+    ? `${channel}:eventsub:mod_action:${input.messageId.trim()}`
+    : stableSystemMessageId(channel, "mod_action", text)
+
+  return {
+    id,
+    channel,
+    roomId: input.roomId ?? null,
+    text,
+    headline: text,
+    details: null,
+    receivedAt,
+    event: "mod_action",
+    level: "info",
+    accentColor: null,
+    ...EMPTY_SYSTEM_MESSAGE_META,
+    banDurationSeconds,
+    modActionKind: input.action,
+    actor: {
+      userId: input.moderatorUserId?.trim() || null,
+      userName: input.moderatorUserName.trim().toLowerCase(),
+      displayName: moderator,
+      color: null,
+    },
+    target: {
+      userId: input.targetUserId?.trim() || null,
+      userName: input.targetUserName.trim().toLowerCase(),
+      displayName: target,
+      color: null,
+    },
+  }
+}
+
 function parseRoomState(tagged: IrcTaggedLine): TwitchRoomState | null {
   const match = tagged.rest.match(/^:tmi\.twitch\.tv ROOMSTATE #(\S+)$/)
   if (!match) return null
 
+  const tags = tagged.tags
+  const hasEmoteOnly = tags.has("emote-only")
+  const hasSubsOnly = tags.has("subs-only")
+  const hasFollowersOnly = tags.has("followers-only")
+  const hasR9k = tags.has("r9k")
+  const hasSlow = tags.has("slow")
+
+  const modes: TwitchChatModesPatch = {}
+
+  if (hasEmoteOnly) {
+    modes.emoteOnly = tags.get("emote-only") === "1"
+  }
+  if (hasSubsOnly) {
+    modes.subscribersOnly = tags.get("subs-only") === "1"
+  }
+  if (hasFollowersOnly) {
+    const value = Number(tags.get("followers-only"))
+    if (Number.isFinite(value)) {
+      modes.followersOnly = value >= 0
+      modes.followersOnlyMinutes = value > 0 ? value : 0
+    }
+  }
+  if (hasR9k) {
+    modes.uniqueMode = tags.get("r9k") === "1"
+  }
+  if (hasSlow) {
+    const value = Number(tags.get("slow"))
+    if (Number.isFinite(value)) {
+      modes.slowMode = value > 0
+      modes.slowModeSeconds = value > 0 ? value : 0
+    }
+  }
+
   return {
     channel: match[1],
-    roomId: tagged.tags.get("room-id") || null,
+    roomId: tags.get("room-id") || null,
+    modes,
+    isComplete:
+      hasEmoteOnly && hasSubsOnly && hasFollowersOnly && hasR9k && hasSlow,
   }
 }
 
@@ -976,13 +1224,6 @@ function parseUserState(tagged: IrcTaggedLine): TwitchSelfUserState | null {
     isSubscriber: tagged.tags.get("subscriber") === "1",
     isVip: badges.some((badge) => badge.set === "vip"),
   }
-}
-
-export function parseIrcUserNotice(raw: string): TwitchSystemMessage | null {
-  if (!raw.startsWith("@")) return null
-  const tagged = splitTaggedLine(raw)
-  if (!tagged) return null
-  return parseUserNotice(tagged)
 }
 
 function parseUserNotice(tagged: IrcTaggedLine): TwitchSystemMessage | null {
@@ -1026,6 +1267,9 @@ function parseUserNotice(tagged: IrcTaggedLine): TwitchSystemMessage | null {
     msgId: msgId || null,
     banDurationSeconds: null,
     actor: parseNoticeActor(tagged.tags),
+    target: null,
+    badges: parseBadgesTag(tagged.tags.get("badges") ?? ""),
+    modActionKind: null,
     viewerCount: parseOptionalInt(tagged.tags.get("msg-param-viewerCount")),
     cumulativeMonths: parseOptionalInt(
       tagged.tags.get("msg-param-cumulative-months") ??
@@ -1063,6 +1307,9 @@ function parseNotice(tagged: IrcTaggedLine): TwitchSystemMessage | null {
     msgId: tagged.tags.get("msg-id") || null,
     banDurationSeconds: parseOptionalInt(tagged.tags.get("ban-duration")),
     actor: null,
+    target: null,
+    badges: [],
+    modActionKind: null,
     viewerCount: null,
     cumulativeMonths: null,
     streakMonths: null,
@@ -1107,8 +1354,7 @@ function parseEmotesTag(raw: string, text: string): TwitchEmote[] {
         id,
         code,
         provider: "twitch",
-        // Prefer animated (per Twitch docs); the renderer falls back to static if needed.
-        imageUrl: `https://static-cdn.jtvnw.net/emoticons/v2/${encodeURIComponent(id)}/animated/dark/1.0`,
+        imageUrl: buildTwitchEmoteCdnUrl(id),
         start: range.start,
         end: range.end,
       })
@@ -1178,9 +1424,12 @@ function parseReplyTag(tags: Map<string, string>): TwitchChatReply | null {
 
   const parentUserName =
     tags.get("reply-parent-user-login") ?? tags.get("reply-parent-login") ?? ""
+  const threadRootMessageId =
+    tags.get("reply-thread-parent-msg-id") || parentMessageId
 
   return {
     parentMessageId,
+    threadRootMessageId,
     parentDisplayName:
       tags.get("reply-parent-display-name") || parentUserName || "User",
     parentUserName,
@@ -1198,6 +1447,7 @@ function parseNoticeActor(tags: Map<string, string>): TwitchNoticeActor | null {
   }
 
   return {
+    userId: tags.get("user-id") || null,
     userName,
     displayName,
     color: tags.get("color") || null,
@@ -1276,6 +1526,8 @@ function summarizeChatEvent(event: TwitchChatEvent): Record<string, unknown> {
         type: event.type,
         channel: event.state.channel,
         roomId: event.state.roomId,
+        isComplete: event.state.isComplete,
+        modes: event.state.modes,
       }
     case "self-state":
       return {

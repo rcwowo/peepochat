@@ -3,7 +3,11 @@ import { toast } from "sonner"
 
 import type { AppConfig, TwitchAccount } from "@/lib/peepochat/peepochat-config"
 import { getAccount } from "@/lib/peepochat/peepochat-config"
-import { fetchTwitchUser, validateTwitchToken } from "@/lib/twitch/twitch-api"
+import {
+  TwitchApiError,
+  fetchTwitchUser,
+  validateTwitchToken,
+} from "@/lib/twitch/twitch-api"
 import {
   clearTwitchOAuthCallbackUrl,
   consumeTwitchOAuthReturnPath,
@@ -12,11 +16,14 @@ import {
   getTwitchOAuthCallbackInput,
   getTwitchOAuthCallbackParams,
   getTwitchClientId,
+  hasRequiredTwitchOAuthScopes,
   hasTwitchOAuthCallback,
   isTwitchOAuthConfigured,
   parseTwitchOAuthCallback,
   startTwitchOAuthLogin,
 } from "@/lib/twitch/twitch-oauth"
+
+const SESSION_CHECK_INTERVAL_MS = 5 * 60 * 1000
 
 export function useTwitchAuth({
   config,
@@ -29,6 +36,7 @@ export function useTwitchAuth({
 }) {
   const [oauthBusy, setOauthBusy] = React.useState(false)
   const oauthHandledRef = React.useRef(false)
+  const sessionCheckInFlightRef = React.useRef(false)
 
   const account = React.useMemo(() => {
     const stored = getAccount(config)
@@ -37,6 +45,38 @@ export function useTwitchAuth({
     }
     return stored
   }, [config])
+
+  const clearAccount = React.useCallback(() => {
+    updateConfig((current) => {
+      if (!current.twitch.account) {
+        return current
+      }
+      return {
+        ...current,
+        twitch: {
+          ...current.twitch,
+          account: null,
+        },
+      }
+    })
+  }, [updateConfig])
+
+  const invalidateSession = React.useCallback(
+    (reason: "expired" | "scopes") => {
+      clearAccount()
+      if (reason === "scopes") {
+        toast.error(
+          "Required Twitch permissions were updated. Please sign in again to continue.",
+          { id: "twitch-session-relogin" }
+        )
+        return
+      }
+      toast.error("Your Twitch session expired. You need to sign in again.", {
+        id: "twitch-session-relogin",
+      })
+    },
+    [clearAccount]
+  )
 
   const setAccountFromToken = React.useCallback(
     async (accessToken: string) => {
@@ -51,6 +91,12 @@ export function useTwitchAuth({
       if (validated.clientId !== clientId) {
         throw new Error(
           "This token was issued for a different Twitch application."
+        )
+      }
+
+      if (!hasRequiredTwitchOAuthScopes(validated.scopes)) {
+        throw new Error(
+          "Something went wrong during the login process. Please try signing in again."
         )
       }
 
@@ -77,6 +123,69 @@ export function useTwitchAuth({
       return nextAccount
     },
     [updateConfig]
+  )
+
+  const verifyStoredSession = React.useCallback(
+    async (current: TwitchAccount) => {
+      if (sessionCheckInFlightRef.current) {
+        return
+      }
+      sessionCheckInFlightRef.current = true
+      try {
+        if (!hasRequiredTwitchOAuthScopes(current.scopes)) {
+          invalidateSession("scopes")
+          return
+        }
+
+        const validated = await validateTwitchToken(current.accessToken)
+        if (validated.clientId !== current.clientId) {
+          invalidateSession("expired")
+          return
+        }
+
+        if (!hasRequiredTwitchOAuthScopes(validated.scopes)) {
+          invalidateSession("scopes")
+          return
+        }
+
+        const scopesChanged =
+          validated.scopes.length !== current.scopes.length ||
+          validated.scopes.some((scope) => !current.scopes.includes(scope))
+
+        if (scopesChanged) {
+          updateConfig((configValue) => {
+            const existing = configValue.twitch.account
+            if (!existing || existing.accessToken !== current.accessToken) {
+              return configValue
+            }
+            return {
+              ...configValue,
+              twitch: {
+                ...configValue.twitch,
+                account: {
+                  ...existing,
+                  scopes: validated.scopes,
+                },
+              },
+            }
+          })
+        }
+      } catch (error) {
+        if (error instanceof TwitchApiError && error.status === 401) {
+          invalidateSession("expired")
+          return
+        }
+        if (
+          error instanceof Error &&
+          /invalid or expired/i.test(error.message)
+        ) {
+          invalidateSession("expired")
+        }
+      } finally {
+        sessionCheckInFlightRef.current = false
+      }
+    },
+    [invalidateSession, updateConfig]
   )
 
   React.useEffect(() => {
@@ -131,6 +240,30 @@ export function useTwitchAuth({
     })()
   }, [setAccountFromToken])
 
+  React.useEffect(() => {
+    if (!account || hasTwitchOAuthCallback()) {
+      return
+    }
+
+    void verifyStoredSession(account)
+
+    const intervalId = window.setInterval(() => {
+      void verifyStoredSession(account)
+    }, SESSION_CHECK_INTERVAL_MS)
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void verifyStoredSession(account)
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibility)
+
+    return () => {
+      window.clearInterval(intervalId)
+      document.removeEventListener("visibilitychange", onVisibility)
+    }
+  }, [account, verifyStoredSession])
+
   const login = React.useCallback(() => {
     if (!isTwitchOAuthConfigured()) {
       toast.error("Set VITE_TWITCH_CLIENT_ID to enable Twitch login.")
@@ -141,20 +274,15 @@ export function useTwitchAuth({
   }, [])
 
   const logout = React.useCallback(() => {
-    updateConfig((current) => ({
-      ...current,
-      twitch: {
-        ...current.twitch,
-        account: null,
-      },
-    }))
-  }, [updateConfig])
+    clearAccount()
+  }, [clearAccount])
 
   return {
     account,
     oauthBusy,
     login,
     logout,
+    invalidateSession,
     isOAuthConfigured: isTwitchOAuthConfigured(),
   }
 }

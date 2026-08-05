@@ -363,6 +363,7 @@ export function ChatPage() {
   return (
     <div className={chatPresentation.className} style={chatPresentation.style}>
       <SingleChannelPane
+        key={activeChannelLogin}
         login={activeChannelLogin}
         isActive
         bindings={bindings}

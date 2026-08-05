@@ -11,20 +11,12 @@ export type ChatSenderPrivileges = {
 }
 
 export type ChatSendFailureReason =
-  | "empty"
-  | "not_connected"
-  | "too_fast"
-  | "too_many"
-  | "blocked"
+  "empty" | "not_connected" | "too_fast" | "too_many" | "blocked"
 
 export type ChatSendResult =
-  | { ok: true }
-  | { ok: false; reason: ChatSendFailureReason; message?: string }
+  { ok: true } | { ok: false; reason: ChatSendFailureReason; message?: string }
 
-export type {
-  TwitchChannelSendBlock,
-  SendOutcomeEvent,
-} from "@/lib/chat/chat-send-notice"
+export type { TwitchChannelSendBlock } from "@/lib/chat/chat-send-notice"
 
 export const CHAT_RATE_LIMIT_MESSAGES = {
   too_fast: "You're sending messages too fast.",

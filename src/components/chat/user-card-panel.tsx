@@ -32,9 +32,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
-import {
-  type UserCardAction,
-} from "@/hooks/twitch/use-user-card"
+import { type UserCardAction } from "@/hooks/twitch/use-user-card"
 import type { useUserCard } from "@/hooks/twitch/use-user-card"
 import type { UserCardTarget } from "@/lib/chat/user-card"
 import type { TwitchSelfChatState } from "@/lib/twitch/twitch-chat-types"

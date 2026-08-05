@@ -50,11 +50,7 @@ import {
 } from "@/lib/highlights/desktop-notifications"
 
 type OnboardingStep =
-  | "landing"
-  | "import-review"
-  | "login"
-  | "channel"
-  | "bookmark"
+  "landing" | "import-review" | "login" | "channel" | "bookmark"
 
 type StepDefinition = {
   id: OnboardingStep
@@ -596,7 +592,7 @@ function LoginStep({
     flow === "import"
       ? "To finish importing this backup, you'll need to login again."
       : isReturningUser
-        ? "Your channels and settings are ready — just reconnect Twitch to jump back into chat."
+        ? "Your channels and settings are still here! Just reconnect Twitch to jump back into chat."
         : "Peepochat needs Twitch access to read and send chat. Everything else stays on this device."
 
   return (
@@ -673,21 +669,24 @@ function LoginStep({
   )
 }
 
+const OAUTH_SCOPE_GROUP_ACCENT =
+  "bg-[color-mix(in_oklch,var(--primary)_6%,transparent)]"
+
 const OAUTH_SCOPE_GROUP_META: Record<
   TwitchOAuthScopeGroup["id"],
   { icon: LucideIcon; accent: string }
 > = {
   chat: {
     icon: MessageSquareIcon,
-    accent: "bg-[color-mix(in_oklch,var(--primary)_6%,transparent)]",
+    accent: OAUTH_SCOPE_GROUP_ACCENT,
   },
   moderation: {
     icon: ShieldIcon,
-    accent: "bg-[color-mix(in_oklch,var(--chart-2)_6%,transparent)]",
+    accent: OAUTH_SCOPE_GROUP_ACCENT,
   },
   broadcast: {
     icon: RadioIcon,
-    accent: "bg-[color-mix(in_oklch,var(--chart-4)_6%,transparent)]",
+    accent: OAUTH_SCOPE_GROUP_ACCENT,
   },
 }
 

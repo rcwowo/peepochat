@@ -458,7 +458,7 @@ export function NotificationCenter() {
             <TooltipTrigger asChild>
               <Button
                 variant="outline"
-                size="icon"
+                size="icon-sm"
                 className="relative"
                 aria-label="Notifications — Do not disturb is on"
               >
@@ -474,21 +474,26 @@ export function NotificationCenter() {
           <TooltipContent>Do not disturb is on</TooltipContent>
         </Tooltip>
       ) : (
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            size="icon"
-            className="relative"
-            aria-label="Notifications"
-          >
-            <BellIcon className="size-4" />
-            {totalCount > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
-                {totalCount > 99 ? "99+" : totalCount}
-              </span>
-            )}
-          </Button>
-        </PopoverTrigger>
+        <Tooltip>
+          <PopoverTrigger asChild>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon-sm"
+                className="relative"
+                aria-label="Notification Center"
+              >
+                <BellIcon className="size-4" />
+                {totalCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+                    {totalCount > 99 ? "99+" : totalCount}
+                  </span>
+                )}
+              </Button>
+            </TooltipTrigger>
+          </PopoverTrigger>
+          <TooltipContent>Notification Center</TooltipContent>
+        </Tooltip>
       )}
 
       <PopoverContent

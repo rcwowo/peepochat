@@ -62,12 +62,6 @@ const KNOWN_CATEGORY_IDS = new Set(
   TWITCH_USER_EMOTE_CATEGORIES.map((category) => category.id)
 )
 
-const CHANNEL_OWNED_EMOTE_TYPES = new Set([
-  "subscriptions",
-  "follower",
-  "channelpoints",
-])
-
 /** Emote types already represented elsewhere in the picker. */
 const SKIPPED_USER_EMOTE_TYPES = new Set(["smilies"])
 
@@ -85,17 +79,13 @@ export function getTwitchUserEmoteCategoryId(
     return null
   }
 
-  return EMOTE_TYPE_TO_CATEGORY_ID.get(normalized) ?? `twitch-type-${normalized}`
+  return (
+    EMOTE_TYPE_TO_CATEGORY_ID.get(normalized) ?? `twitch-type-${normalized}`
+  )
 }
 
 export function isKnownTwitchUserEmoteCategoryId(categoryId: string): boolean {
   return KNOWN_CATEGORY_IDS.has(categoryId)
-}
-
-export function isChannelOwnedTwitchEmoteType(
-  emoteType: string | undefined
-): boolean {
-  return CHANNEL_OWNED_EMOTE_TYPES.has(normalizeTwitchEmoteType(emoteType))
 }
 
 export function formatTwitchEmoteTypeLabel(emoteType: string): string {

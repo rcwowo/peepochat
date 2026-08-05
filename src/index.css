@@ -18,11 +18,6 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -69,12 +64,22 @@
   --border: oklch(0.922 0.005 325.62);
   --input: oklch(0.922 0.005 325.62);
   --ring: oklch(0.711 0.019 323.02);
-  --chart-1: oklch(0.827 0.119 306.383);
-  --chart-2: oklch(0.627 0.265 303.9);
-  --chart-3: oklch(0.558 0.288 302.321);
-  --chart-4: oklch(0.496 0.265 301.924);
-  --chart-5: oklch(0.438 0.218 303.724);
   --radius: 0.625rem;
+  --shine-base: oklch(0.438 0.218 303.915);
+  --shine: oklch(0.54 0.194 307.972);
+  --shine-foreground: oklch(1 0 0);
+  --shine-gradient: linear-gradient(
+    to bottom,
+    var(--shine-base),
+    var(--shine),
+    var(--shine-base)
+  );
+  --shine-border-gradient: linear-gradient(
+    to bottom,
+    var(--shine),
+    var(--shine-base),
+    var(--shine)
+  );
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0.008 326);
   --sidebar-primary: oklch(0.558 0.288 302.321);
@@ -100,6 +105,8 @@
   --chat-announcement-background: oklch(0.96 0.003 325.6 / 55%);
   --chat-notice-sub-border: #9146ff;
   --chat-notice-raid-border: #eb0400;
+  --chat-automod-border: #eb0400;
+  --chat-first-message-border: #00a865;
 }
 
 .dark {
@@ -121,11 +128,6 @@
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.542 0.034 322.5);
-  --chart-1: oklch(0.827 0.119 306.383);
-  --chart-2: oklch(0.627 0.265 303.9);
-  --chart-3: oklch(0.558 0.288 302.321);
-  --chart-4: oklch(0.496 0.265 301.924);
-  --chart-5: oklch(0.438 0.218 303.724);
   --sidebar: oklch(0.212 0.019 322.12);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.627 0.265 303.9);
@@ -148,6 +150,8 @@
   --chat-announcement-background: oklch(0.22 0.018 322.12 / 55%);
   --chat-notice-sub-border: #bf94ff;
   --chat-notice-raid-border: #ff6b6b;
+  --chat-automod-border: #ff6b6b;
+  --chat-first-message-border: #00db84;
 }
 
 @layer base {
@@ -308,6 +312,7 @@
   .chat-emote {
     display: inline-grid;
     vertical-align: middle;
+    min-width: var(--chat-emote-size);
   }
 
   .chat-emote img {
@@ -322,6 +327,17 @@
 
   .chat-emote img.chat-emote-overlay {
     pointer-events: none;
+  }
+
+  .chat-cheermote {
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+    gap: 0.0625rem;
+  }
+
+  .chat-cheermote-amount {
+    font-weight: 600;
   }
 
   .chat-system-text {
@@ -345,6 +361,17 @@
   .chat-announcement-body {
     background: var(--chat-announcement-background);
   }
+}
+
+@utility shine {
+  border-width: 2px;
+  border-style: solid;
+  border-color: transparent;
+  background-color: transparent;
+  background-image: var(--shine-gradient), var(--shine-border-gradient);
+  background-origin: border-box !important;
+  background-clip: padding-box, border-box !important;
+  color: var(--shine-foreground);
 }
 
 @utility brand-mark {

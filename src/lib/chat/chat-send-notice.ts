@@ -1,5 +1,7 @@
 import type { TwitchSystemMessage } from "@/lib/twitch/twitch-chat"
 
+export const COMPOSER_NOTICE_AUTO_DISMISS_MS = 5000
+
 export type TwitchChannelSendBlock = {
   kind: "ban" | "timeout"
   message: string
@@ -16,6 +18,23 @@ export type SendOutcomeEvent =
       message: import("@/lib/twitch/twitch-chat").TwitchChatMessage
     }
   | { type: "rejected"; channel: string; message: string }
+  | {
+      type: "notice"
+      channel: string
+      message: string
+      id: string
+      discardPending?: boolean
+    }
+  | {
+      type: "dismiss-notice"
+      channel: string
+      id: string
+    }
+
+export function isAutomodHoldNoticeText(text: string): boolean {
+  const lower = text.toLowerCase()
+  return lower.includes("automod") || lower.includes("auto mod")
+}
 
 export function classifySendNotice(
   message: TwitchSystemMessage

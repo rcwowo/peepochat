@@ -96,6 +96,7 @@
   --splash-motion: 0;
   --spread-x: 0px;
   --spread-y: 0px;
+  --emote-size-scale: 1;
 }
 
 .landing-emote-splash-item {
@@ -103,9 +104,9 @@
   left: 50%;
   top: 50%;
   z-index: 1;
-  width: var(--emote-width);
-  height: var(--emote-height);
-  opacity: calc(0.35 + var(--splash-motion) * 0.65);
+  width: calc(var(--emote-width) * var(--emote-size-scale));
+  height: calc(var(--emote-height) * var(--emote-size-scale));
+  opacity: calc(0.28 + var(--splash-motion) * 0.62);
   transform: translate(
       calc(-50% + var(--burst-nx) * var(--spread-x) * var(--splash-motion)),
       calc(-50% + var(--burst-ny) * var(--spread-y) * var(--splash-motion))

@@ -1,9 +1,9 @@
 import * as React from "react"
 import {
-  BellIcon,
   BellRingIcon,
   GlobeIcon,
   MessageSquareIcon,
+  MessageSquarePlusIcon,
   RadioIcon,
   TerminalIcon,
   Trash2Icon,
@@ -15,10 +15,12 @@ import {
   SettingsActions,
   SettingsCallout,
   SettingsGroup,
+  SettingsInputRow,
   SettingsSection,
   SettingsSelectRow,
   SettingsSwitchRow,
   SettingsTab,
+  SettingsTextareaRow,
 } from "@/components/settings/settings-primitives"
 import {
   DEV_LOG_CATEGORIES,
@@ -27,19 +29,53 @@ import {
 } from "@/lib/dev/dev-log-settings"
 import { IS_DEV } from "@/lib/dev/is-dev"
 import {
+  buildFakeTimelineItems,
+  defaultFakeMessageText,
+  FAKE_ANNOUNCEMENT_THEME_OPTIONS,
+  FAKE_CHAT_ROLE_OPTIONS,
+  FAKE_MESSAGE_KIND_OPTIONS,
+  fakeMessageTextLabel,
+  supportsFakeAnnouncementTheme,
+  supportsFakeChatRole,
+  supportsFakeEmotes,
+  supportsFakeViewerCount,
+  type FakeAnnouncementTheme,
+  type FakeChatRole,
+  type FakeMessageKind,
+} from "@/lib/dev/test-chat-messages"
+import {
   clearAllTestNotifications,
   sendTestLiveNotification,
   sendTestPingNotification,
 } from "@/lib/dev/test-notifications"
-import { usePeepochatSettings } from "@/lib/peepochat/peepochat-context"
+import {
+  usePeepochatChat,
+  usePeepochatSettings,
+} from "@/lib/peepochat/peepochat-context"
 
 export function DeveloperTab() {
   const { channels, account, config } = usePeepochatSettings()
+  const {
+    getRoomId,
+    injectChatMessage,
+    injectSystemMessage,
+    injectAutomodHeldMessage,
+  } = usePeepochatChat()
   const { settings: logSettings, setEnabled: setLogEnabled } =
     useDevLogSettings()
   const [channelLoginDraft, setChannelLoginDraft] = React.useState(
     () => channels[0]?.login ?? ""
   )
+  const [messageKind, setMessageKind] = React.useState<FakeMessageKind>("chat")
+  const [displayName, setDisplayName] = React.useState("FakeUser")
+  const [messageText, setMessageText] = React.useState(() =>
+    defaultFakeMessageText("chat")
+  )
+  const [includeEmotes, setIncludeEmotes] = React.useState(true)
+  const [chatRole, setChatRole] = React.useState<FakeChatRole>("none")
+  const [announcementTheme, setAnnouncementTheme] =
+    React.useState<FakeAnnouncementTheme>("primary")
+  const [viewerCount, setViewerCount] = React.useState("42")
 
   const channelLogin = React.useMemo(() => {
     if (channels.length === 0) {
@@ -73,6 +109,11 @@ export function DeveloperTab() {
   const liveNotificationsEnabled =
     config.highlights.liveIndicatorsEnabled &&
     config.highlights.livePushNotificationsEnabled
+
+  const handleMessageKindChange = (kind: FakeMessageKind) => {
+    setMessageKind(kind)
+    setMessageText(defaultFakeMessageText(kind))
+  }
 
   const handleSendPing = () => {
     if (!channelLogin) {
@@ -112,6 +153,57 @@ export function DeveloperTab() {
   const handleClearAll = () => {
     clearAllTestNotifications()
     toast.success("Notification center cleared.")
+  }
+
+  const handleInjectMessage = () => {
+    if (!channelLogin) {
+      toast.error("Add a channel first.")
+      return
+    }
+
+    const parsedViewerCount = Number.parseInt(viewerCount, 10)
+    const payloads = buildFakeTimelineItems(messageKind, {
+      channelLogin,
+      roomId: getRoomId(channelLogin),
+      displayName,
+      text: messageText,
+      includeEmotes: supportsFakeEmotes(messageKind) ? includeEmotes : false,
+      role: supportsFakeChatRole(messageKind) ? chatRole : "none",
+      announcementTheme: supportsFakeAnnouncementTheme(messageKind)
+        ? announcementTheme
+        : undefined,
+      viewerCount:
+        supportsFakeViewerCount(messageKind) &&
+        Number.isFinite(parsedViewerCount)
+          ? parsedViewerCount
+          : undefined,
+    })
+
+    let injectedCount = 0
+    for (const payload of payloads) {
+      const injected =
+        payload.kind === "chat"
+          ? injectChatMessage(payload.message)
+          : payload.kind === "system"
+            ? injectSystemMessage(payload.message)
+            : injectAutomodHeldMessage(payload.channelLogin, payload.message)
+      if (injected) {
+        injectedCount += 1
+      }
+    }
+
+    if (injectedCount > 0) {
+      toast.success(
+        injectedCount === 1
+          ? "Fake message injected into chat."
+          : `${injectedCount} fake messages injected into chat.`
+      )
+      return
+    }
+
+    toast.error(
+      "Channel is not synced yet. Open the channel chat and wait for it to connect."
+    )
   }
 
   const logIcons = {
@@ -187,6 +279,96 @@ export function DeveloperTab() {
       </SettingsSection>
 
       <SettingsSection
+        title="Fake messages"
+        description="Inject sample timeline items into a channel chat to preview message UI."
+      >
+        {!hasChannels ? (
+          <SettingsCallout title="No channels">
+            Add at least one channel in the sidebar before injecting fake
+            messages.
+          </SettingsCallout>
+        ) : (
+          <SettingsGroup>
+            <SettingsSelectRow
+              title="Channel"
+              description="Message is appended to this channel's live timeline."
+              value={channelLogin}
+              onChange={setChannelLoginDraft}
+              options={channelOptions}
+              placeholder="Select channel"
+            />
+            <SettingsSelectRow
+              title="Message type"
+              value={messageKind}
+              onChange={handleMessageKindChange}
+              options={FAKE_MESSAGE_KIND_OPTIONS}
+              placeholder="Select type"
+            />
+            <SettingsInputRow
+              label="Display name"
+              value={displayName}
+              onChange={setDisplayName}
+              placeholder="FakeUser"
+            />
+            <SettingsTextareaRow
+              label={fakeMessageTextLabel(messageKind)}
+              value={messageText}
+              onChange={setMessageText}
+              placeholder={defaultFakeMessageText(messageKind)}
+              rows={2}
+            />
+            {supportsFakeChatRole(messageKind) ? (
+              <SettingsSelectRow
+                title="Role badges"
+                value={chatRole}
+                onChange={setChatRole}
+                options={FAKE_CHAT_ROLE_OPTIONS}
+                placeholder="Select role"
+              />
+            ) : null}
+            {supportsFakeAnnouncementTheme(messageKind) ? (
+              <SettingsSelectRow
+                title="Announcement theme"
+                value={announcementTheme}
+                onChange={setAnnouncementTheme}
+                options={FAKE_ANNOUNCEMENT_THEME_OPTIONS}
+                placeholder="Select theme"
+              />
+            ) : null}
+            {supportsFakeViewerCount(messageKind) ? (
+              <SettingsInputRow
+                label="Viewer count"
+                type="number"
+                value={viewerCount}
+                onChange={setViewerCount}
+                placeholder="42"
+              />
+            ) : null}
+            {supportsFakeEmotes(messageKind) ? (
+              <SettingsSwitchRow
+                title="Include sample emotes"
+                description="Appends Kappa and LUL with Twitch CDN image URLs."
+                checked={includeEmotes}
+                onCheckedChange={setIncludeEmotes}
+              />
+            ) : null}
+          </SettingsGroup>
+        )}
+
+        <SettingsActions>
+          <SettingsActionButton
+            type="button"
+            variant="outline"
+            disabled={!hasChannels}
+            onClick={handleInjectMessage}
+          >
+            <MessageSquarePlusIcon className="size-3.5" />
+            Inject message
+          </SettingsActionButton>
+        </SettingsActions>
+      </SettingsSection>
+
+      <SettingsSection
         title="Console logging"
         description="Toggle verbose dev logs. Settings persist in localStorage and apply immediately."
       >
@@ -202,17 +384,6 @@ export function DeveloperTab() {
             />
           ))}
         </SettingsGroup>
-      </SettingsSection>
-
-      <SettingsSection
-        title="More tools"
-        description="Additional developer utilities will live here."
-      >
-        <SettingsCallout>
-          <BellIcon className="mb-1 inline size-3.5 align-text-bottom" />
-          Have something else you want to test locally? This tab is the home for
-          dev-only helpers as the app grows.
-        </SettingsCallout>
       </SettingsSection>
     </SettingsTab>
   )
