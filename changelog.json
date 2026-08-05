@@ -19,6 +19,7 @@
             "Minor redesign to the appearance of alerts like subs, announcements, and raids.",
             "Minor redesign to the landing page to be more informative and readable.",
             "Fixed a bug where long messages in the chat composer would overlap the latest messages in chat.",
+            "Fixed a bug where the chat composer placeholder wouldn't resize properly on window resize.",
             "Fixed some minor issues with chatlist auto-scrolling."
         ]
     },

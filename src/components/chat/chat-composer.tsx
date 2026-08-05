@@ -707,7 +707,7 @@ export function ChatComposer({
 
   React.useLayoutEffect(() => {
     resizeTextarea()
-  }, [resizeTextarea, value])
+  }, [resizeTextarea, value, placeholder])
 
   React.useLayoutEffect(() => {
     onLayoutChangeRef.current?.()
