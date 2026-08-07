@@ -151,6 +151,7 @@ export function useTwitchChat(options?: {
     onAuthFailure,
     pushComposerNotice: send.pushComposerNotice,
     dismissComposerNotice: send.dismissComposerNotice,
+    applySelfModerationRestriction: send.applySelfModerationRestriction,
     trimRoomTimeline: timeline.trimWithLimit,
     showSuspiciousActivityRef,
     showChannelUpdatesRef,

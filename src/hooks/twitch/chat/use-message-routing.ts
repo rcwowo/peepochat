@@ -26,7 +26,10 @@ type UseMessageRoutingOptions = {
   roomStore: RoomStore
   timeline: TimelineApi
   emotes: ChatEmotesApi
-  send: Pick<ChatSendApi, "emitSendOutcome" | "pendingSendRef">
+  send: Pick<
+    ChatSendApi,
+    "emitSendOutcome" | "pendingSendRef" | "applySelfModerationRestriction"
+  >
   syncedChannelsRef: React.MutableRefObject<string[]>
   hideBlockedUsersRef: React.MutableRefObject<boolean>
   isUserBlockedRef: React.MutableRefObject<
@@ -67,7 +70,8 @@ export function useMessageRouting({
     hydrateRoomMessage,
     getTwitchHydration,
   } = emotes
-  const { emitSendOutcome, pendingSendRef } = send
+  const { emitSendOutcome, pendingSendRef, applySelfModerationRestriction } =
+    send
 
   const routeMessageToRoom = React.useCallback(
     (message: TwitchChatMessage) => {
@@ -231,6 +235,28 @@ export function useMessageRouting({
         if (modAction) {
           appendRoomSystemMessage(login, modAction)
         }
+
+        const { userId, userLogin } = emoteLoadContextRef.current
+        const isSelfTarget =
+          (event.targetUserId && userId && event.targetUserId === userId) ||
+          (normalizedTargetLogin &&
+            userLogin &&
+            normalizedTargetLogin === normalizeChannelLogin(userLogin))
+        if (isSelfTarget) {
+          const durationSeconds = event.banDurationSeconds
+          if (
+            durationSeconds != null &&
+            Number.isFinite(durationSeconds) &&
+            durationSeconds > 0
+          ) {
+            applySelfModerationRestriction(login, {
+              kind: "timeout",
+              durationSeconds,
+            })
+          } else {
+            applySelfModerationRestriction(login, { kind: "ban" })
+          }
+        }
         return
       }
 
@@ -269,7 +295,9 @@ export function useMessageRouting({
     [
       appendRoomSystemMessage,
       applyRoomMessageDeletions,
+      applySelfModerationRestriction,
       clearChatWhenInstructedRef,
+      emoteLoadContextRef,
       selfStatesRef,
       syncedChannelsRef,
       updateRoom,

@@ -85,19 +85,27 @@ function actionObjectKey(action: string): string {
   }
 }
 
-export function createSystemMessageFromChannelModerate({
+export type ParsedChannelModerateAction = {
+  kind: TwitchModerateActionKind
+  channelLogin: string
+  targetUserId: string | null
+  targetUserName: string
+  targetDisplayName: string
+  banDurationSeconds: number | null
+  moderatorUserId: string | null
+  moderatorUserName: string
+  moderatorDisplayName: string
+}
+
+export function parseChannelModerateAction({
   event,
   channelLogin,
-  roomId,
-  messageId,
   messageTimestamp,
 }: {
   event: Record<string, unknown>
   channelLogin: string | null
-  roomId?: string | null
-  messageId?: string | null
   messageTimestamp?: string | null
-}): TwitchSystemMessage | null {
+}): ParsedChannelModerateAction | null {
   const actionRaw = asString(event.action).trim()
   const kind = normalizeModerateAction(actionRaw)
   if (!kind) return null
@@ -122,17 +130,50 @@ export function createSystemMessageFromChannelModerate({
       ? durationSecondsFromExpiresAt(target.expiresAt, messageTimestamp ?? null)
       : null
 
-  return createModerateActionMessage({
+  return {
+    kind,
     channelLogin: channel,
-    roomId: roomId ?? (asString(event.broadcaster_user_id) || null),
-    action: kind,
-    moderatorUserId,
-    moderatorUserName: moderatorUserName || moderatorDisplayName.toLowerCase(),
-    moderatorDisplayName,
     targetUserId: target.userId,
     targetUserName: target.userName,
     targetDisplayName: target.displayName,
     banDurationSeconds,
+    moderatorUserId,
+    moderatorUserName: moderatorUserName || moderatorDisplayName.toLowerCase(),
+    moderatorDisplayName,
+  }
+}
+
+export function createSystemMessageFromChannelModerate({
+  event,
+  channelLogin,
+  roomId,
+  messageId,
+  messageTimestamp,
+}: {
+  event: Record<string, unknown>
+  channelLogin: string | null
+  roomId?: string | null
+  messageId?: string | null
+  messageTimestamp?: string | null
+}): TwitchSystemMessage | null {
+  const parsed = parseChannelModerateAction({
+    event,
+    channelLogin,
+    messageTimestamp,
+  })
+  if (!parsed) return null
+
+  return createModerateActionMessage({
+    channelLogin: parsed.channelLogin,
+    roomId: roomId ?? (asString(event.broadcaster_user_id) || null),
+    action: parsed.kind,
+    moderatorUserId: parsed.moderatorUserId,
+    moderatorUserName: parsed.moderatorUserName,
+    moderatorDisplayName: parsed.moderatorDisplayName,
+    targetUserId: parsed.targetUserId,
+    targetUserName: parsed.targetUserName,
+    targetDisplayName: parsed.targetDisplayName,
+    banDurationSeconds: parsed.banDurationSeconds,
     messageId: messageId ?? null,
     receivedAt: messageTimestamp || undefined,
   })

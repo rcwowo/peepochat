@@ -16,6 +16,7 @@ import { CHAT_RATE_LIMIT_MESSAGES } from "@/lib/chat/chat-send"
 import {
   isAutomodHoldNoticeText,
   isPersistentSendBlockText,
+  isTimeoutComposerNoticeText,
 } from "@/lib/chat/chat-send-notice"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 import type { TwitchChatReply } from "@/lib/twitch/twitch-chat"
@@ -236,10 +237,11 @@ export function ChatComposer({
   )
 
   const disabled =
-    !canSendChat || !joined || commandPending || Boolean(sendBlock)
+    !canSendChat || !joined || commandPending || sendBlock?.kind === "ban"
+  const activeNotice = sendBlock?.kind === "ban" ? null : (notices[0] ?? null)
   const placeholder = !account
     ? "Sign in with Twitch to send messages"
-    : sendBlock
+    : sendBlock?.kind === "ban"
       ? sendBlock.message
       : !connectionState.connected
         ? "Connect to Twitch chat to send messages"
@@ -321,6 +323,12 @@ export function ChatComposer({
       }
 
       if (result.reason === "blocked") {
+        noticeIdRef.current += 1
+        pushNotice({
+          id: `blocked:${noticeIdRef.current}`,
+          message:
+            result.message ?? "You cannot send messages in this channel.",
+        })
         return
       }
 
@@ -373,6 +381,22 @@ export function ChatComposer({
             return
           }
 
+          if (isTimeoutComposerNoticeText(event.message)) {
+            setNotices((current) => {
+              const withoutTimeout = current.filter(
+                (entry) => !isTimeoutComposerNoticeText(entry.message)
+              )
+              if (withoutTimeout.some((entry) => entry.id === event.id)) {
+                return withoutTimeout
+              }
+              return [
+                ...withoutTimeout,
+                { id: event.id, message: event.message },
+              ]
+            })
+            return
+          }
+
           pushNotice({
             id: event.id,
             message: event.message,
@@ -387,6 +411,30 @@ export function ChatComposer({
 
           const pending = pendingSendRef.current
           clearPendingSend()
+
+          if (pending) {
+            setValue(pending.composerMessage)
+            setReply(pending.reply)
+          }
+
+          if (isTimeoutComposerNoticeText(event.message)) {
+            if (!pending) {
+              return
+            }
+            noticeIdRef.current += 1
+            const noticeId = `rejected-timeout:${noticeIdRef.current}`
+            setNotices((current) => {
+              const withoutTimeout = current.filter(
+                (entry) => !isTimeoutComposerNoticeText(entry.message)
+              )
+              return [
+                ...withoutTimeout,
+                { id: noticeId, message: event.message },
+              ]
+            })
+            return
+          }
+
           if (isPersistentSendBlockText(event.message)) {
             return
           }
@@ -408,11 +456,6 @@ export function ChatComposer({
               ]
             })
             return
-          }
-
-          if (pending) {
-            setValue(pending.composerMessage)
-            setReply(pending.reply)
           }
 
           noticeIdRef.current += 1
@@ -985,8 +1028,6 @@ export function ChatComposer({
     }
   }
 
-  const activeNotice = !sendBlock ? (notices[0] ?? null) : null
-
   return (
     <div className="shrink-0">
       {replyThread ? (
@@ -1033,6 +1074,7 @@ export function ChatComposer({
           <div className="overflow-hidden rounded-lg border border-border/50 bg-background/40 shadow-none backdrop-blur-sm focus-within:border-border/40 focus-within:ring-1 focus-within:ring-border/40 dark:bg-input/30">
             {activeNotice ? (
               <ComposerNoticeBanner
+                key={`${activeNotice.id}:${activeNotice.message}`}
                 noticeId={activeNotice.id}
                 message={activeNotice.message}
                 queueCount={notices.length}

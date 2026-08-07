@@ -15,7 +15,11 @@ import {
 } from "@/lib/chat/chat-send"
 import {
   classifySendNotice,
+  formatSelfBanNoticeMessage,
+  formatSelfTimeoutNoticeMessage,
   isSendRejectionNotice,
+  timeoutComposerNoticeId,
+  type SelfModerationRestriction,
   type SendOutcomeEvent,
 } from "@/lib/chat/chat-send-notice"
 import { createRecentMessagesStatusMessage } from "@/lib/chat/recent-messages"
@@ -220,6 +224,17 @@ export function useChatSend({
     [sendBlockTimersRef]
   )
 
+  const dismissTimeoutComposerNotice = React.useCallback(
+    (login: string) => {
+      const noticeId = timeoutComposerNoticeId(login)
+      if (!noticeId) {
+        return
+      }
+      dismissComposerNotice({ channel: login, id: noticeId })
+    },
+    [dismissComposerNotice]
+  )
+
   const scheduleSendBlockClear = React.useCallback(
     (login: string, expiresAt: number) => {
       clearSendBlockTimer(login)
@@ -235,15 +250,20 @@ export function useChatSend({
           delete next[login]
           return next
         })
+        dismissTimeoutComposerNotice(login)
       }, delay)
       sendBlockTimersRef.current.set(login, timer)
     },
-    [clearSendBlockTimer, sendBlockTimersRef]
+    [clearSendBlockTimer, dismissTimeoutComposerNotice, sendBlockTimersRef]
   )
 
   const clearAllSendBlocks = React.useCallback(() => {
+    const blockedLogins = Object.keys(channelSendBlocksRef.current)
     for (const login of sendBlockTimersRef.current.keys()) {
       clearSendBlockTimer(login)
+    }
+    for (const login of blockedLogins) {
+      dismissTimeoutComposerNotice(login)
     }
     channelSendBlocksRef.current = {}
     setChannelSendBlocks({})
@@ -251,6 +271,7 @@ export function useChatSend({
   }, [
     clearSendBlockTimer,
     channelSendBlocksRef,
+    dismissTimeoutComposerNotice,
     pendingSendRef,
     sendBlockTimersRef,
   ])
@@ -274,6 +295,22 @@ export function useChatSend({
           scheduleSendBlockClear(login, sendBlock.expiresAt)
         } else {
           clearSendBlockTimer(login)
+        }
+
+        if (sendBlock.kind === "timeout") {
+          const pending = pendingSendRef.current
+          const hasRecentPending =
+            pending &&
+            pending.channel === login &&
+            Date.now() - pending.recordedAt < 5_000
+          const noticeId = timeoutComposerNoticeId(login)
+          if (noticeId && !hasRecentPending) {
+            pushComposerNotice({
+              channel: login,
+              message: sendBlock.message,
+              id: noticeId,
+            })
+          }
         }
       }
 
@@ -301,6 +338,7 @@ export function useChatSend({
       clearSendBlockTimer,
       emitSendOutcome,
       pendingSendRef,
+      pushComposerNotice,
       rateLimiterRef,
       scheduleSendBlockClear,
       syncedChannelsRef,
@@ -310,6 +348,7 @@ export function useChatSend({
   const clearChannelSendBlock = React.useCallback(
     (login: string) => {
       clearSendBlockTimer(login)
+      dismissTimeoutComposerNotice(login)
       setChannelSendBlocks((current) => {
         if (!current[login]) {
           return current
@@ -319,7 +358,69 @@ export function useChatSend({
         return next
       })
     },
-    [clearSendBlockTimer]
+    [clearSendBlockTimer, dismissTimeoutComposerNotice]
+  )
+
+  const applySelfModerationRestriction = React.useCallback(
+    (channel: string, restriction: SelfModerationRestriction) => {
+      const login = normalizeChannelLogin(channel)
+      if (!login || !syncedChannelsRef.current.includes(login)) {
+        return
+      }
+
+      if (restriction.kind === "clear") {
+        clearChannelSendBlock(login)
+        return
+      }
+
+      if (restriction.kind === "ban") {
+        clearSendBlockTimer(login)
+        dismissTimeoutComposerNotice(login)
+        setChannelSendBlocks((current) => ({
+          ...current,
+          [login]: {
+            kind: "ban",
+            message: formatSelfBanNoticeMessage(),
+            expiresAt: null,
+          },
+        }))
+        return
+      }
+
+      const durationSeconds = Math.floor(restriction.durationSeconds)
+      if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+        return
+      }
+
+      const message = formatSelfTimeoutNoticeMessage(durationSeconds)
+      const expiresAt = Date.now() + durationSeconds * 1000
+      setChannelSendBlocks((current) => ({
+        ...current,
+        [login]: {
+          kind: "timeout",
+          message,
+          expiresAt,
+        },
+      }))
+      scheduleSendBlockClear(login, expiresAt)
+
+      const noticeId = timeoutComposerNoticeId(login)
+      if (noticeId) {
+        pushComposerNotice({
+          channel: login,
+          message,
+          id: noticeId,
+        })
+      }
+    },
+    [
+      clearChannelSendBlock,
+      clearSendBlockTimer,
+      dismissTimeoutComposerNotice,
+      pushComposerNotice,
+      scheduleSendBlockClear,
+      syncedChannelsRef,
+    ]
   )
 
   const probeSendRestrictions = React.useCallback(() => {
@@ -348,17 +449,11 @@ export function useChatSend({
       }
 
       const sendBlock = channelSendBlocksRef.current[normalized]
-      if (sendBlock) {
-        if (
-          sendBlock.kind === "ban" ||
-          !sendBlock.expiresAt ||
-          sendBlock.expiresAt > Date.now()
-        ) {
-          return {
-            ok: false,
-            reason: "blocked",
-            message: sendBlock.message,
-          }
+      if (sendBlock?.kind === "ban") {
+        return {
+          ok: false,
+          reason: "blocked",
+          message: sendBlock.message,
         }
       }
 
@@ -494,6 +589,7 @@ export function useChatSend({
     clearSendBlockTimer,
     clearChannelSendBlock,
     clearAllSendBlocks,
+    applySelfModerationRestriction,
     handleSendSystemNotice,
     probeSendRestrictions,
     getChannelSendBlock,
