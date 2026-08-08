@@ -141,6 +141,53 @@
   filter: blur(6px);
 }
 
+@keyframes onboarding-dot-drift {
+  from {
+    transform: rotate(45deg) translate3d(0, 0, 0);
+  }
+
+  to {
+    transform: rotate(45deg) translate3d(var(--onboarding-dot-gap), 0, 0);
+  }
+}
+
+.onboarding-dot-grid-mask {
+  position: absolute;
+  inset: 0;
+  -webkit-mask-image: radial-gradient(
+    ellipse 58% 52% at 50% 48%,
+    transparent 0%,
+    transparent 28%,
+    rgb(0 0 0 / 35%) 58%,
+    black 82%
+  );
+  mask-image: radial-gradient(
+    ellipse 58% 52% at 50% 48%,
+    transparent 0%,
+    transparent 28%,
+    rgb(0 0 0 / 35%) 58%,
+    black 82%
+  );
+}
+
+.onboarding-dot-grid {
+  --onboarding-dot-gap: 32px;
+  position: absolute;
+  inset: -50%;
+  width: 200%;
+  height: 200%;
+  background-image: radial-gradient(
+    circle at center,
+    color-mix(in oklch, var(--foreground) 70%, transparent) 0 2.5px,
+    transparent 2.75px
+  );
+  background-size: var(--onboarding-dot-gap) var(--onboarding-dot-gap);
+  opacity: 0.1;
+  transform: rotate(45deg);
+  animation: onboarding-dot-drift 12s linear infinite;
+  will-change: transform;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .landing-emote-splash-item {
     opacity: 1;
@@ -162,5 +209,10 @@
 
   .landing-notification-float {
     animation: none;
+  }
+
+  .onboarding-dot-grid {
+    animation: none;
+    will-change: auto;
   }
 }
