@@ -4,6 +4,7 @@
         "date": "2026-09-01",
         "items": [
             "Major redesign to the onboarding flow to be smoother.",
+            "Minor touchups to the settings panel and the about tab.",
             "Fixed an issue where the chat composer wouldn't reset after a timeout expired."
         ]
     },

@@ -141,17 +141,17 @@
   filter: blur(6px);
 }
 
-@keyframes onboarding-dot-drift {
+@keyframes brand-dot-drift {
   from {
     transform: rotate(45deg) translate3d(0, 0, 0);
   }
 
   to {
-    transform: rotate(45deg) translate3d(var(--onboarding-dot-gap), 0, 0);
+    transform: rotate(45deg) translate3d(var(--brand-dot-gap), 0, 0);
   }
 }
 
-.onboarding-dot-grid-mask {
+.brand-dot-grid-mask {
   position: absolute;
   inset: 0;
   -webkit-mask-image: radial-gradient(
@@ -170,8 +170,29 @@
   );
 }
 
-.onboarding-dot-grid {
-  --onboarding-dot-gap: 32px;
+.brand-dot-grid-mask--about {
+  -webkit-mask-image: radial-gradient(
+    ellipse 72% 90% at 50% 42%,
+    transparent 0%,
+    transparent 22%,
+    rgb(0 0 0 / 40%) 52%,
+    black 78%
+  );
+  mask-image: radial-gradient(
+    ellipse 72% 90% at 50% 42%,
+    transparent 0%,
+    transparent 22%,
+    rgb(0 0 0 / 40%) 52%,
+    black 78%
+  );
+}
+
+.brand-dot-grid-mask--about .brand-dot-grid {
+  opacity: 0.16;
+}
+
+.brand-dot-grid {
+  --brand-dot-gap: 32px;
   position: absolute;
   inset: -50%;
   width: 200%;
@@ -181,10 +202,10 @@
     color-mix(in oklch, var(--foreground) 70%, transparent) 0 2.5px,
     transparent 2.75px
   );
-  background-size: var(--onboarding-dot-gap) var(--onboarding-dot-gap);
+  background-size: var(--brand-dot-gap) var(--brand-dot-gap);
   opacity: 0.1;
   transform: rotate(45deg);
-  animation: onboarding-dot-drift 12s linear infinite;
+  animation: brand-dot-drift 12s linear infinite;
   will-change: transform;
 }
 
@@ -211,7 +232,7 @@
     animation: none;
   }
 
-  .onboarding-dot-grid {
+  .brand-dot-grid {
     animation: none;
     will-change: auto;
   }

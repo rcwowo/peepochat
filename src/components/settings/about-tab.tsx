@@ -118,7 +118,7 @@ function DevelopedBySection() {
               alt=""
               width={32}
               height={20}
-              className="relative h-5 w-auto opacity-90"
+              className="relative h-5 w-auto opacity-90 brand-mark"
             />
           </div>
 
@@ -191,27 +191,34 @@ function DevelopedBySection() {
 export function AboutTab() {
   return (
     <div className="space-y-6 pb-2">
-      <div className="relative -mx-4 -mt-4 overflow-hidden">
+      <div className="relative -mx-4 -mt-4">
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background: [
-              "radial-gradient(ellipse 90% 70% at 50% -8%, color-mix(in oklch, var(--primary) 42%, transparent), transparent 72%)",
-              "linear-gradient(to bottom, color-mix(in oklch, var(--primary) 20%, var(--popover)) 0%, color-mix(in oklch, var(--primary) 9%, var(--popover)) 38%, var(--popover) 82%)",
-            ].join(", "),
-          }}
-        />
-        <div className="pointer-events-none absolute -top-12 right-0 size-44 rounded-full bg-primary/25 blur-3xl" />
-        <div className="pointer-events-none absolute top-8 -left-16 size-36 rounded-full bg-primary/15 blur-3xl" />
+          className="pointer-events-none absolute inset-x-0 top-0 bottom-0 overflow-hidden [mask-image:linear-gradient(to_bottom,black_0%,black_42%,transparent_100%)] [-webkit-mask-image:linear-gradient(to_bottom,black_0%,black_42%,transparent_100%)]"
+        >
+          <div
+            className="absolute inset-0"
+            style={{
+              background: [
+                "radial-gradient(ellipse 90% 70% at 50% -8%, color-mix(in oklch, var(--primary) 42%, transparent), transparent 72%)",
+                "linear-gradient(to bottom, color-mix(in oklch, var(--primary) 20%, transparent) 0%, color-mix(in oklch, var(--primary) 10%, transparent) 40%, transparent 100%)",
+              ].join(", "),
+            }}
+          />
+          <div className="absolute -top-12 right-0 size-44 rounded-full bg-primary/25 blur-3xl" />
+          <div className="absolute top-8 -left-16 size-36 rounded-full bg-primary/15 blur-3xl" />
+          <div className="brand-dot-grid-mask brand-dot-grid-mask--about">
+            <div className="brand-dot-grid" />
+          </div>
+        </div>
 
-        <div className="relative flex flex-col items-center px-4 pt-6 pb-8 text-center">
+        <div className="relative flex flex-col items-center px-4 pt-6 pb-12 text-center">
           <div className="relative shrink-0">
             <div className="absolute inset-0 scale-110 rounded-2xl bg-primary/30 blur-md" />
             <img
               src={APP_BRANDING.appIcon}
               alt=""
-              className="relative size-16 object-cover shadow-lg"
+              className="relative size-16 object-cover drop-shadow-lg"
             />
           </div>
 

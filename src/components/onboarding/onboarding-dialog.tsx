@@ -478,8 +478,8 @@ export function OnboardingDialog({
         aria-hidden
       >
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_15%_-10%,color-mix(in_oklch,var(--primary)_22%,transparent),transparent_65%),radial-gradient(ellipse_55%_40%_at_90%_15%,color-mix(in_oklch,var(--primary)_12%,transparent),transparent_60%),radial-gradient(ellipse_50%_45%_at_50%_110%,color-mix(in_oklch,var(--primary)_10%,transparent),transparent_55%)]" />
-        <div className="onboarding-dot-grid-mask">
-          <div className="onboarding-dot-grid" />
+        <div className="brand-dot-grid-mask">
+          <div className="brand-dot-grid" />
         </div>
       </div>
 

@@ -209,7 +209,7 @@ export function SettingsDialog({
           }
         }}
       >
-        <SheetHeader className="h-12 shrink-0 flex-row items-center justify-between border-b border-border bg-sidebar px-4 py-0">
+        <SheetHeader className="h-11 shrink-0 flex-row items-center justify-between border-b border-border bg-sidebar px-4 py-0">
           <SheetTitle>Settings</SheetTitle>
           <SheetClose asChild>
             <Button variant="ghost" size="icon-sm">
