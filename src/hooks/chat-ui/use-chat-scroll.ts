@@ -55,6 +55,7 @@ export function useChatScroll<T extends TimelineEntry>({
   const isScrollPausedRef = React.useRef(false)
   const programmaticScrollClearRef = React.useRef<number | null>(null)
   const ignoreScrollClearRef = React.useRef<number | null>(null)
+  const pinnedScrollSettleRafRef = React.useRef<number | null>(null)
   const timelineRef = React.useRef(timeline)
   const pendingScrollBehaviorRef = React.useRef<ScrollBehavior | null>(null)
   const listPaddingStartRef = React.useRef(LIST_EDGE_PADDING_PX)
@@ -107,6 +108,13 @@ export function useChatScroll<T extends TimelineEntry>({
     if (ignoreScrollClearRef.current !== null) {
       window.cancelAnimationFrame(ignoreScrollClearRef.current)
       ignoreScrollClearRef.current = null
+    }
+  }, [])
+
+  const clearPinnedScrollSettle = React.useCallback(() => {
+    if (pinnedScrollSettleRafRef.current !== null) {
+      window.cancelAnimationFrame(pinnedScrollSettleRafRef.current)
+      pinnedScrollSettleRafRef.current = null
     }
   }, [])
 
@@ -192,6 +200,23 @@ export function useChatScroll<T extends TimelineEntry>({
     [markProgrammaticScroll, virtualizer]
   )
 
+  const schedulePinnedScrollSettle = React.useCallback(() => {
+    clearPinnedScrollSettle()
+    pinnedScrollSettleRafRef.current = window.requestAnimationFrame(() => {
+      pinnedScrollSettleRafRef.current = window.requestAnimationFrame(() => {
+        pinnedScrollSettleRafRef.current = null
+        if (
+          !isPinnedRef.current ||
+          isResumeScrollRef.current ||
+          isScrollPausedRef.current
+        ) {
+          return
+        }
+        scrollToEnd("auto")
+      })
+    })
+  }, [clearPinnedScrollSettle, scrollToEnd])
+
   const syncListPadding = React.useCallback(() => {
     const chatContainer = chatContainerRef.current
     if (!chatContainer || displayedTimeline.length === 0) {
@@ -235,12 +260,13 @@ export function useChatScroll<T extends TimelineEntry>({
     }
 
     scrollToEnd("auto")
+    schedulePinnedScrollSettle()
 
     if (isScrollPausedRef.current) {
       setIsScrollPaused(false)
       setPausedTimeline(null)
     }
-  }, [scrollToEnd])
+  }, [schedulePinnedScrollSettle, scrollToEnd])
 
   const notifyComposerResize = React.useCallback(() => {
     stickToBottomIfPinned()
@@ -250,8 +276,9 @@ export function useChatScroll<T extends TimelineEntry>({
     return () => {
       clearProgrammaticScroll()
       clearIgnoreScroll()
+      clearPinnedScrollSettle()
     }
-  }, [clearIgnoreScroll, clearProgrammaticScroll])
+  }, [clearIgnoreScroll, clearPinnedScrollSettle, clearProgrammaticScroll])
 
   const resumeScroll = React.useCallback(
     (behavior: ScrollBehavior = "smooth") => {
@@ -383,10 +410,14 @@ export function useChatScroll<T extends TimelineEntry>({
     const behavior = pendingScrollBehaviorRef.current ?? "auto"
     pendingScrollBehaviorRef.current = null
     scrollToEnd(behavior)
+    if (behavior === "auto") {
+      schedulePinnedScrollSettle()
+    }
   }, [
     displayedTimeline.length,
     isActive,
     isScrollPaused,
+    schedulePinnedScrollSettle,
     scrollToEnd,
     syncListPadding,
     timelineScrollKey,
@@ -399,15 +430,14 @@ export function useChatScroll<T extends TimelineEntry>({
       return
     }
 
-    if (syncListPadding()) {
-      scrollToEnd("auto")
-    }
+    syncListPadding()
+    stickToBottomIfPinned()
   }, [
     displayedTimeline.length,
     isActive,
     isScrollPaused,
     listPaddingStart,
-    scrollToEnd,
+    stickToBottomIfPinned,
     syncListPadding,
     totalSize,
   ])
