@@ -70,6 +70,8 @@ function ChatMessageRowInner({
   selfChatState,
   pingHighlighted = false,
   pingMatchRange = null,
+  searchHighlightRanges = null,
+  channelLabel = null,
 }: {
   message: TwitchChatMessage
   timestampFormat: MessageTimestampFormat
@@ -87,6 +89,8 @@ function ChatMessageRowInner({
   selfChatState: TwitchSelfChatState | null
   pingHighlighted?: boolean
   pingMatchRange?: PingMatchRange | null
+  searchHighlightRanges?: PingMatchRange[] | null
+  channelLabel?: string | null
 }) {
   const [pendingAction, setPendingAction] = React.useState<
     "delete" | "timeout" | "ban" | null
@@ -149,8 +153,10 @@ function ChatMessageRowInner({
       displayName: message.displayName,
       color: message.color,
       flags: message.flags,
+      channelLogin: message.channel,
     }),
     [
+      message.channel,
       message.color,
       message.displayName,
       message.flags,
@@ -252,6 +258,11 @@ function ChatMessageRowInner({
       ) : null}
 
       <div className="chat-message-size min-w-0">
+        {channelLabel ? (
+          <span className="mr-1.5 text-xs text-muted-foreground">
+            #{channelLabel}
+          </span>
+        ) : null}
         {timestamp ? (
           <time
             className="chat-timestamp mr-1.5 inline text-xs whitespace-nowrap tabular-nums select-none"
@@ -290,6 +301,7 @@ function ChatMessageRowInner({
                 text={message.text}
                 emotes={message.emotes}
                 pingMatchRange={pingHighlighted ? pingMatchRange : null}
+                highlightRanges={searchHighlightRanges}
               />
             </span>
           </>
@@ -306,6 +318,7 @@ function ChatMessageRowInner({
               text={message.text}
               emotes={message.emotes}
               pingMatchRange={pingHighlighted ? pingMatchRange : null}
+              highlightRanges={searchHighlightRanges}
             />
           </span>
         )}

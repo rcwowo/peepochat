@@ -551,8 +551,9 @@ export function UserCardPanel({
     <div
       ref={panelRef}
       role="dialog"
+      data-slot="user-card-panel"
       aria-label={`${target.displayName} user card`}
-      className="fixed z-50 w-88 overflow-hidden rounded-lg border bg-popover p-0 text-popover-foreground shadow-md outline-hidden"
+      className="pointer-events-auto fixed z-50 w-88 overflow-hidden rounded-lg border bg-popover p-0 text-popover-foreground shadow-md outline-hidden"
       style={{
         left: anchorPosition.left,
         top: anchorPosition.top,

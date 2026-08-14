@@ -1,6 +1,7 @@
 import { PanelLeftIcon, SettingsIcon } from "lucide-react"
 
 import { AccountMenu } from "@/components/shell/account-menu"
+import { ChannelSearch } from "@/components/shell/channel-search"
 import { NotificationCenter } from "@/components/shell/notification-center"
 import { useNotificationDocumentIndicators } from "@/hooks/use-notification-document-indicators"
 import { Button } from "@/components/ui/button"
@@ -49,6 +50,7 @@ export function AppHeader({
         <AccountMenu />
       </div>
       <div className="flex items-center gap-2">
+        <ChannelSearch />
         <NotificationCenter />
         <Tooltip>
           <TooltipTrigger asChild>

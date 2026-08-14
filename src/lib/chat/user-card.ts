@@ -10,6 +10,7 @@ export type UserCardTarget = {
   displayName: string
   color: string | null
   flags: TwitchChatMessage["flags"]
+  channelLogin?: string
 }
 
 export function userCardTargetKey(target: UserCardTarget): string {
