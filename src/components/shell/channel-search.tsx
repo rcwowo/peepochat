@@ -708,7 +708,7 @@ export function ChannelSearch() {
 
       <DialogContent
         showCloseButton={false}
-        className="flex h-[calc(100dvh-1rem)] w-[calc(100%-1rem)] max-w-none flex-col gap-0 overflow-hidden p-0 min-[850px]:h-[min(36rem,70vh)] min-[850px]:w-[min(42rem,80vw)] sm:max-w-none"
+        className="flex h-[calc(100dvh-1rem)] w-[calc(100%-1rem)] max-w-none flex-col gap-0 overflow-hidden p-0 sm:h-[min(36rem,70vh)] sm:w-[min(42rem,80vw)] sm:max-w-none"
         onOpenAutoFocus={(event) => {
           event.preventDefault()
           inputRef.current?.focus()
