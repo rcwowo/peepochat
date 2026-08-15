@@ -8,6 +8,7 @@
             "Added the ability to autocomplete chatters using an '@' symbol.",
             "Major redesign to the onboarding flow to be smoother.",
             "Minor touchups to the settings panel and the about tab.",
+            "Minor change to the add channel and send message button styling.",
             "Fixed an issue where the chat composer wouldn't reset after a timeout expired."
         ]
     },
