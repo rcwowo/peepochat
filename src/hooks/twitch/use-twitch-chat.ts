@@ -68,8 +68,12 @@ export function useTwitchChat(options?: {
   const roomStore = useRoomStore()
   const chatterStore = useChatterStore()
   const observeTimelineItems = React.useCallback(
-    (login: string, items: TwitchTimelineItem[]) => {
-      chatterStore.observeTimelineItems(login, items)
+    (
+      login: string,
+      items: TwitchTimelineItem[],
+      options?: { flush?: boolean }
+    ) => {
+      chatterStore.observeTimelineItems(login, items, options)
     },
     [chatterStore]
   )

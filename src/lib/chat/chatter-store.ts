@@ -40,6 +40,10 @@ export type ChatterSearchOptions = {
   isBlocked?: (userId?: string | null, login?: string | null) => boolean
 }
 
+export type ObserveTimelineItemsOptions = {
+  flush?: boolean
+}
+
 type ChannelChatterIndex = {
   byLogin: Map<string, ChannelChatter>
   byUserId: Map<string, string>
@@ -339,7 +343,10 @@ export function createChatterStore() {
   let notifyTimer: ReturnType<typeof setTimeout> | null = null
 
   const flushNotify = () => {
-    notifyTimer = null
+    if (notifyTimer !== null) {
+      clearTimeout(notifyTimer)
+      notifyTimer = null
+    }
     if (pendingNotify.size === 0) {
       return
     }
@@ -476,7 +483,11 @@ export function createChatterStore() {
     return true
   }
 
-  const observeTimelineItems = (login: string, items: TwitchTimelineItem[]) => {
+  const observeTimelineItems = (
+    login: string,
+    items: TwitchTimelineItem[],
+    options?: ObserveTimelineItemsOptions
+  ) => {
     if (items.length === 0) {
       return
     }
@@ -492,9 +503,23 @@ export function createChatterStore() {
       }
     }
 
-    if (changed) {
-      scheduleNotify(normalized)
+    if (!changed) {
+      return
     }
+
+    if (options?.flush) {
+      pendingNotify.delete(normalized)
+      const listeners = subscribers.get(normalized)
+      if (!listeners) {
+        return
+      }
+      for (const listener of listeners) {
+        listener()
+      }
+      return
+    }
+
+    scheduleNotify(normalized)
   }
 
   const removeChannels = (logins: string[]) => {

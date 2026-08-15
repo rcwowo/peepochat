@@ -81,16 +81,26 @@ export function useRecentMessages({
         return false
       }
 
-      return (
+      if (
         historyLoadingRef.current.has(normalized) ||
         recentMessagesQueuedRef.current.has(normalized)
-      )
+      ) {
+        return true
+      }
+
+      if (historyErrorNotifiedRef.current.has(normalized)) {
+        return false
+      }
+
+      return syncedChannelsRef.current.includes(normalized)
     },
     [
+      historyErrorNotifiedRef,
       historyLoadedRef,
       historyLoadingRef,
       recentMessagesEnabledRef,
       recentMessagesQueuedRef,
+      syncedChannelsRef,
     ]
   )
 
@@ -181,13 +191,13 @@ export function useRecentMessages({
 
               switch (outcome.status) {
                 case "success": {
-                  historyLoadedRef.current.add(normalized)
                   historyFetchLimitRef.current = Math.max(
                     historyFetchLimitRef.current,
                     fetchLimit
                   )
 
                   if (outcome.messages.length === 0) {
+                    historyLoadedRef.current.add(normalized)
                     break
                   }
 
@@ -234,6 +244,7 @@ export function useRecentMessages({
                         }
                       })
                   )
+                  historyLoadedRef.current.add(normalized)
                   break
                 }
                 case "unavailable": {

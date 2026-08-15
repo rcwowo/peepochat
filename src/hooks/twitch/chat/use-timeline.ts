@@ -30,7 +30,11 @@ type UseTimelineOptions = {
   isUserBlockedRef: React.MutableRefObject<
     (userId?: string | null, login?: string | null) => boolean
   >
-  onTimelineItems?: (login: string, items: TwitchTimelineItem[]) => void
+  onTimelineItems?: (
+    login: string,
+    items: TwitchTimelineItem[],
+    options?: { flush?: boolean }
+  ) => void
 }
 
 export function useTimeline({
@@ -236,7 +240,7 @@ export function useTimeline({
     (login: string, items: TwitchTimelineItem[]) => {
       if (items.length === 0) return
 
-      onTimelineItemsRef.current?.(login, items)
+      onTimelineItemsRef.current?.(login, items, { flush: true })
 
       updateRoom(login, (room) => {
         const { historical, live, knownIds } = partitionTimelineWithKnownIds(

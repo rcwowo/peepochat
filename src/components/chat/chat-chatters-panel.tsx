@@ -205,7 +205,8 @@ export function ChatChattersPanel({
   const userCard = useUserCardContext()
   const [query, setQuery] = React.useState("")
   const [sort, setSort] = React.useState<ChatterListSort>("alpha")
-  const parentRef = React.useRef<HTMLDivElement>(null)
+  const [scrollElement, setScrollElement] =
+    React.useState<HTMLDivElement | null>(null)
 
   const visibleChatters = React.useMemo(() => {
     const needle = query.trim().replace(/^@/, "").toLowerCase()
@@ -227,7 +228,7 @@ export function ChatChattersPanel({
   /* eslint-disable-next-line react-hooks/incompatible-library */
   const virtualizer = useVirtualizer({
     count: rows.length,
-    getScrollElement: () => parentRef.current,
+    getScrollElement: () => scrollElement,
     estimateSize: (index) => (rows[index]?.kind === "header" ? 32 : 36),
     overscan: 12,
     getItemKey: (index) => {
@@ -243,12 +244,21 @@ export function ChatChattersPanel({
     ? "No chatters match that name."
     : "Chatters appear here as they talk."
 
-  const showLoading =
-    chattersLoading && liveChatters.length === 0 && !query.trim()
+  const showLoading = chattersLoading && visibleChatters.length === 0
+  const showEmpty = !showLoading && rows.length === 0
+  const showLoadingHint = chattersLoading && visibleChatters.length > 0
 
   React.useEffect(() => {
     ensureChattersSheetDismissPointerGuard()
   }, [])
+
+  React.useLayoutEffect(() => {
+    if (!open || !scrollElement) {
+      return
+    }
+
+    virtualizer.measure()
+  }, [open, rows.length, scrollElement, virtualizer])
 
   return (
     <>
@@ -277,6 +287,7 @@ export function ChatChattersPanel({
           showCloseButton={false}
           showOverlay={false}
           className="h-svh gap-0 p-0 data-[side=right]:w-full max-sm:data-[side=right]:border-l-0 data-[side=right]:sm:max-w-72 sm:data-[side=right]:border-l"
+          onAnimationEnd={() => virtualizer.measure()}
           onInteractOutside={(event) => {
             if (shouldPreventChattersSheetDismiss(event.target, channelLogin)) {
               event.preventDefault()
@@ -334,24 +345,20 @@ export function ChatChattersPanel({
             </Button>
           </div>
 
-          {showLoading ? (
-            <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-4 text-center">
-              <Spinner className="size-5 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">
-                Loading chatters...
-              </p>
-            </div>
-          ) : rows.length === 0 ? (
-            <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-4 text-center">
-              <UsersIcon className="size-5 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">
-                {emptyDescription}
-              </p>
-            </div>
-          ) : (
+          {showLoadingHint ? (
             <div
-              ref={parentRef}
-              className="chat-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain"
+              role="status"
+              className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-2 text-xs text-muted-foreground"
+            >
+              <Spinner className="size-3.5" />
+              Loading chatters...
+            </div>
+          ) : null}
+
+          <div className="relative min-h-0 flex-1" aria-busy={chattersLoading}>
+            <div
+              ref={setScrollElement}
+              className="chat-scroll absolute inset-0 overflow-y-auto overscroll-contain"
             >
               <div
                 className="relative w-full"
@@ -384,7 +391,7 @@ export function ChatChattersPanel({
                       ) : (
                         <button
                           type="button"
-                          className="flex w-full items-center px-4 py-1.5 text-left text-sm hover:bg-muted"
+                          className="flex w-full cursor-pointer items-center px-4 py-1.5 text-left text-sm hover:bg-muted"
                           onClick={(event) => {
                             userCard?.openUserCard(
                               createUserCardTargetFromChatter(
@@ -395,14 +402,7 @@ export function ChatChattersPanel({
                             )
                           }}
                         >
-                          <span
-                            className="min-w-0 truncate font-medium"
-                            style={
-                              row.chatter.color
-                                ? { color: row.chatter.color }
-                                : undefined
-                            }
-                          >
+                          <span className="min-w-0 truncate font-medium">
                             {row.chatter.displayName}
                           </span>
                         </button>
@@ -412,7 +412,25 @@ export function ChatChattersPanel({
                 })}
               </div>
             </div>
-          )}
+            {showLoading ? (
+              <div
+                role="status"
+                className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-popover px-4 text-center"
+              >
+                <Spinner className="size-5 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">
+                  Loading chatters...
+                </p>
+              </div>
+            ) : showEmpty ? (
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-popover px-4 text-center">
+                <UsersIcon className="size-5 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">
+                  {emptyDescription}
+                </p>
+              </div>
+            ) : null}
+          </div>
         </SheetContent>
       </Sheet>
     </>
