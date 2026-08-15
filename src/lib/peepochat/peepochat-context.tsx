@@ -58,6 +58,10 @@ import {
 import type { ChatSendResult } from "@/lib/chat/chat-send"
 import type { SendOutcomeEvent } from "@/lib/chat/chat-send-notice"
 import type { ComposerEmoteCatalog } from "@/lib/chat/chat-emote-catalog"
+import type {
+  ChannelChatter,
+  ChatterSearchOptions,
+} from "@/lib/chat/chatter-store"
 import type { TwitchConnectionState } from "@/lib/twitch/twitch-chat"
 
 export type { TwitchTimelineItem } from "@/lib/twitch/twitch-chat-types"
@@ -137,6 +141,18 @@ export type PeepochatChatContextValue = {
   getTimeline: (login: string) => TwitchTimelineItem[]
   getRoom: (login: string) => TwitchChatRoomState | null
   getRoomId: (login: string) => string | null
+  subscribeToChatters: (login: string, listener: () => void) => () => void
+  getChatters: (login: string) => ChannelChatter[]
+  searchChatters: (
+    login: string,
+    query: string,
+    options?: ChatterSearchOptions
+  ) => ChannelChatter[]
+  isRecentMessagesLoading: (login: string) => boolean
+  subscribeToRecentMessagesLoading: (
+    login: string,
+    listener: () => void
+  ) => () => void
   getSelfChatState: (login: string) => TwitchSelfChatState | null
   getChannelSendBlock: (login: string) => TwitchChannelSendBlock | null
   registerSendOutcomeListener: (
@@ -279,6 +295,11 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     getTimeline,
     getRoom,
     getRoomId,
+    subscribeToChatters,
+    getChatters,
+    searchChatters,
+    isRecentMessagesLoading,
+    subscribeToRecentMessagesLoading,
     getSelfChatState,
     getChannelSendBlock,
     registerSendOutcomeListener,
@@ -851,6 +872,11 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       getTimeline,
       getRoom,
       getRoomId,
+      subscribeToChatters,
+      getChatters,
+      searchChatters,
+      isRecentMessagesLoading,
+      subscribeToRecentMessagesLoading,
       getSelfChatState,
       getChannelSendBlock,
       registerSendOutcomeListener,
@@ -884,6 +910,11 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       getTimeline,
       getRoom,
       getRoomId,
+      subscribeToChatters,
+      getChatters,
+      searchChatters,
+      isRecentMessagesLoading,
+      subscribeToRecentMessagesLoading,
       getSelfChatState,
       getChannelSendBlock,
       registerSendOutcomeListener,

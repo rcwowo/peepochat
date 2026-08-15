@@ -75,6 +75,8 @@ type UseChatConnectionOptions = {
   onSelfStateChangedRef?: React.RefObject<
     ((state: TwitchSelfChatState) => void) | null
   >
+  onRoomsRemoved?: (logins: string[]) => void
+  onAllRoomsCleared?: () => void
 }
 
 export function useChatConnection({
@@ -90,6 +92,8 @@ export function useChatConnection({
   selfStatesRef,
   appendLog,
   onSelfStateChangedRef,
+  onRoomsRemoved,
+  onAllRoomsCleared,
 }: UseChatConnectionOptions) {
   const {
     commitRooms,
@@ -120,6 +124,12 @@ export function useChatConnection({
   } | null>(null)
   const hasAnnouncedConnectedRef = React.useRef(false)
   const pendingChatModesNoticeRef = useLazyRef(() => new Set<string>())
+  const onRoomsRemovedRef = React.useRef(onRoomsRemoved)
+  const onAllRoomsClearedRef = React.useRef(onAllRoomsCleared)
+  React.useLayoutEffect(() => {
+    onRoomsRemovedRef.current = onRoomsRemoved
+    onAllRoomsClearedRef.current = onAllRoomsCleared
+  }, [onAllRoomsCleared, onRoomsRemoved])
 
   const senderStateRef = React.useRef<SenderState>(createEmptySenderState())
   const [selfStates, setSelfStates] = React.useState<
@@ -600,6 +610,7 @@ export function useChatConnection({
       })
 
       removeRooms(removedLogins)
+      onRoomsRemovedRef.current?.(removedLogins)
     },
     [
       clearEmotesForRoomIds,
@@ -744,6 +755,7 @@ export function useChatConnection({
           lastError: null,
         })
         clearAllRooms()
+        onAllRoomsClearedRef.current?.()
         pendingChatModesNoticeRef.current.clear()
         return Promise.resolve()
       }

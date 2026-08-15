@@ -20,7 +20,10 @@ import {
   type TwitchClearMsgEvent,
   type TwitchSystemMessage,
 } from "@/lib/twitch/twitch-chat"
-import type { TwitchSelfChatState } from "@/lib/twitch/twitch-chat-types"
+import type {
+  TwitchSelfChatState,
+  TwitchTimelineItem,
+} from "@/lib/twitch/twitch-chat-types"
 
 type UseMessageRoutingOptions = {
   roomStore: RoomStore
@@ -41,6 +44,7 @@ type UseMessageRoutingOptions = {
   onChatMessageRef?: React.RefObject<
     ((message: TwitchChatMessage) => void) | null
   >
+  onTimelineItems?: (login: string, items: TwitchTimelineItem[]) => void
 }
 
 export function useMessageRouting({
@@ -55,6 +59,7 @@ export function useMessageRouting({
   selfStatesRef,
   updateSelfState,
   onChatMessageRef,
+  onTimelineItems,
 }: UseMessageRoutingOptions) {
   const { updateRoom } = roomStore
   const {
@@ -72,6 +77,10 @@ export function useMessageRouting({
   } = emotes
   const { emitSendOutcome, pendingSendRef, applySelfModerationRestriction } =
     send
+  const onTimelineItemsRef = React.useRef(onTimelineItems)
+  React.useLayoutEffect(() => {
+    onTimelineItemsRef.current = onTimelineItems
+  }, [onTimelineItems])
 
   const routeMessageToRoom = React.useCallback(
     (message: TwitchChatMessage) => {
@@ -98,6 +107,7 @@ export function useMessageRouting({
         : null
 
       const hydrated = hydrateRoomMessage(message, catalog)
+      onTimelineItemsRef.current?.(login, [{ kind: "chat", message: hydrated }])
       devChatLogger.debugLazy(() => [
         "route:message",
         {

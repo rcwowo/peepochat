@@ -50,6 +50,7 @@ type UseTwitchEventSubOptions = {
   roomStore: RoomStore
   syncedChannelsRef: React.RefObject<string[]>
   selfStatesRef: React.RefObject<Map<string, TwitchSelfChatState>>
+  onTimelineItems?: (login: string, items: TwitchTimelineItem[]) => void
   onAuthFailure?: (reason: "expired" | "scopes") => void
   pushComposerNotice?: (notice: {
     channel: string
@@ -122,6 +123,7 @@ export function useTwitchEventSub({
   roomStore,
   syncedChannelsRef,
   selfStatesRef,
+  onTimelineItems,
   onAuthFailure,
   pushComposerNotice,
   dismissComposerNotice,
@@ -142,6 +144,10 @@ export function useTwitchEventSub({
     applySelfModerationRestriction
   )
   const trimRoomTimelineRef = React.useRef(trimRoomTimeline)
+  const onTimelineItemsRef = React.useRef(onTimelineItems)
+  React.useLayoutEffect(() => {
+    onTimelineItemsRef.current = onTimelineItems
+  }, [onTimelineItems])
   const lastSyncKeyRef = React.useRef("")
   const channelUpdateStateRef = React.useRef(
     new Map<string, ChannelUpdateSnapshot>()
@@ -295,6 +301,7 @@ export function useTwitchEventSub({
           ]),
         }
       })
+      onTimelineItemsRef.current?.(channelLogin, [{ kind: "system", message }])
     },
     [updateRoom]
   )
@@ -459,6 +466,9 @@ export function useTwitchEventSub({
           ]),
         }
       })
+      onTimelineItemsRef.current?.(channelLogin, [
+        { kind: "automod", message: held },
+      ])
     },
     [updateRoom]
   )
@@ -572,6 +582,9 @@ export function useTwitchEventSub({
           ]),
         }
       })
+      onTimelineItemsRef.current?.(channelLogin, [
+        { kind: "suspicious", message },
+      ])
     },
     [updateRoom]
   )

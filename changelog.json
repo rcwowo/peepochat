@@ -4,6 +4,8 @@
         "date": "2026-09-01",
         "items": [
             "Added a search feature with a better filtering system.",
+            "Added a viewable list of chatters in a channel.",
+            "Added the ability to autocomplete chatters using an '@' symbol.",
             "Major redesign to the onboarding flow to be smoother.",
             "Minor touchups to the settings panel and the about tab.",
             "Fixed an issue where the chat composer wouldn't reset after a timeout expired."
