@@ -28,7 +28,7 @@ function isUserCardOverlayTarget(target: Node): boolean {
 
   return Boolean(
     target.closest(
-      '[data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"]'
+      '[data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-radix-popper-content-wrapper]'
     )
   )
 }

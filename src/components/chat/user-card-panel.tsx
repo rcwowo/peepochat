@@ -579,7 +579,7 @@ export function UserCardPanel({
                 <EllipsisIcon className="size-3.5" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuContent align="end" className="z-80 w-56">
               <DropdownMenuLabel>Tools</DropdownMenuLabel>
               <DropdownMenuGroup>
                 <DropdownMenuItem

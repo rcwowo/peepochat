@@ -98,6 +98,7 @@ const CHATTERS_SHEET_DISMISS_LAYER_SELECTOR = [
   '[data-slot="dropdown-menu-content"]',
   '[data-slot="dropdown-menu-sub-content"]',
   '[data-slot="dropdown-menu-trigger"]',
+  "[data-radix-popper-content-wrapper]",
 ].join(", ")
 
 const OPEN_CHATTERS_SHEET_DISMISS_LAYER_SELECTOR = [

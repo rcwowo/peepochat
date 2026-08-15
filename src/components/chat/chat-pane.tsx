@@ -543,14 +543,12 @@ function ChatPaneInner({
                 onLayoutChange={notifyComposerResize}
               />
             </div>
-            {chattersOpen ? (
-              <ChatChattersPanel
-                channelLogin={channelLogin}
-                channelDisplayName={label}
-                open
-                onOpenChange={setChattersOpen}
-              />
-            ) : null}
+            <ChatChattersPanel
+              channelLogin={channelLogin}
+              channelDisplayName={label}
+              open={chattersOpen}
+              onOpenChange={setChattersOpen}
+            />
           </div>
         </ChatHoverTooltipProvider>
       </EmoteCardProvider>
