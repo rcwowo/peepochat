@@ -421,7 +421,7 @@ const MockChatPane = React.memo(function MockChatPane({
             <SmileIcon className="size-4" />
           </span>
         </div>
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border-2 border-[var(--shine)] bg-primary text-primary-foreground">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg shine border-2 bg-transparent">
           <SendHorizontalIcon className="size-4" />
         </span>
       </div>
@@ -496,12 +496,13 @@ const MockSidebar = React.memo(function MockSidebar() {
       <div className="mt-auto flex items-center justify-center p-2">
         <Button
           type="button"
+          variant="outline"
           size="icon"
-          className="size-12 shrink-0 shine border-2 bg-transparent"
+          className="size-11 shrink-0 rounded-full"
           tabIndex={-1}
           aria-hidden
         >
-          <PlusIcon className="size-6 shrink-0" strokeWidth={2.5} />
+          <PlusIcon className="size-5 shrink-0" strokeWidth={2.5} />
         </Button>
       </div>
     </aside>

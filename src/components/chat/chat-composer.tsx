@@ -1387,7 +1387,7 @@ export function ChatComposer({
           disabled={disabled || !value.trim()}
           aria-label="Send chat message"
           onClick={sendCurrentMessage}
-          className="size-[calc(--spacing(9)+2px)] shrink-0 border-2 border-[var(--shine)]"
+          className="size-[calc(--spacing(9)+2px)] shrink-0 shine border-2 bg-transparent hover:bg-transparent hover:brightness-110 disabled:hover:brightness-100"
         >
           <SendHorizontalIcon className="size-4" />
         </Button>
