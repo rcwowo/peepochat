@@ -6,8 +6,10 @@ import {
 } from "@tanstack/react-virtual"
 
 const NEAR_BOTTOM_PX = 24
+const STICK_TO_END_PX = 1
 const LIST_EDGE_PADDING_PX = 4
 const DEFAULT_ESTIMATE_SIZE_PX = 72
+const USER_SCROLL_INTENT_PX = 2
 
 type TimelineEntry = {
   kind: string
@@ -38,6 +40,10 @@ function getDistanceFromBottom(el: HTMLElement) {
   return el.scrollHeight - el.scrollTop - el.clientHeight
 }
 
+function isVerticalScrollbarInteraction(event: PointerEvent, el: HTMLElement) {
+  return event.clientX - el.getBoundingClientRect().left >= el.clientWidth
+}
+
 export function useChatScroll<T extends TimelineEntry>({
   timeline,
   isActive,
@@ -59,6 +65,9 @@ export function useChatScroll<T extends TimelineEntry>({
   const timelineRef = React.useRef(timeline)
   const pendingScrollBehaviorRef = React.useRef<ScrollBehavior | null>(null)
   const listPaddingStartRef = React.useRef(LIST_EDGE_PADDING_PX)
+  const lastScrollTopRef = React.useRef(0)
+  const touchStartYRef = React.useRef<number | null>(null)
+  const userPauseIntentRef = React.useRef(false)
   const [isScrollPaused, setIsScrollPaused] = React.useState(false)
   const [isResuming, setIsResuming] = React.useState(false)
   const [pausedTimeline, setPausedTimeline] = React.useState<T[] | null>(null)
@@ -73,6 +82,8 @@ export function useChatScroll<T extends TimelineEntry>({
     setPausedTimeline(null)
     isPinnedRef.current = true
     isResumeScrollRef.current = false
+    isScrollPausedRef.current = false
+    userPauseIntentRef.current = false
     pendingScrollBehaviorRef.current = "auto"
     listPaddingStartRef.current = LIST_EDGE_PADDING_PX
     setListPaddingStart(LIST_EDGE_PADDING_PX)
@@ -152,13 +163,38 @@ export function useChatScroll<T extends TimelineEntry>({
     [beginIgnoreScroll, clearProgrammaticScroll]
   )
 
+  const pauseForUserScroll = React.useCallback(() => {
+    clearPinnedScrollSettle()
+
+    if (isResumeScrollRef.current) {
+      isResumeScrollRef.current = false
+      isProgrammaticScrollRef.current = false
+      clearProgrammaticScroll()
+      setIsResuming(false)
+    }
+
+    isPinnedRef.current = false
+
+    if (isScrollPausedRef.current) {
+      return
+    }
+
+    isScrollPausedRef.current = true
+    setIsScrollPaused(true)
+    setPausedTimeline((current) => current ?? timelineRef.current)
+  }, [clearPinnedScrollSettle, clearProgrammaticScroll])
+
   const scrollToFn = React.useCallback(
     (
       offset: number,
       options: { adjustments?: number; behavior?: ScrollBehavior },
       instance: Virtualizer<HTMLDivElement, Element>
     ) => {
-      markProgrammaticScroll(options.behavior === "smooth" ? "smooth" : "auto")
+      if (options.adjustments == null || options.adjustments === 0) {
+        markProgrammaticScroll(
+          options.behavior === "smooth" ? "smooth" : "auto"
+        )
+      }
       elementScroll(offset, options, instance)
     },
     [markProgrammaticScroll]
@@ -182,9 +218,9 @@ export function useChatScroll<T extends TimelineEntry>({
     estimateSize,
     getItemKey,
     scrollToFn,
-    anchorTo: "end",
-    followOnAppend: true,
-    scrollEndThreshold: NEAR_BOTTOM_PX,
+    anchorTo: isScrollPaused ? "start" : "end",
+    followOnAppend: !isScrollPaused,
+    scrollEndThreshold: STICK_TO_END_PX,
     overscan: 8,
     paddingStart: listPaddingStart,
     paddingEnd: LIST_EDGE_PADDING_PX,
@@ -248,6 +284,8 @@ export function useChatScroll<T extends TimelineEntry>({
 
     isResumeScrollRef.current = true
     isPinnedRef.current = true
+    userPauseIntentRef.current = false
+    isScrollPausedRef.current = false
     pendingScrollBehaviorRef.current = "auto"
     setIsResuming(false)
     setIsScrollPaused(false)
@@ -263,6 +301,8 @@ export function useChatScroll<T extends TimelineEntry>({
     schedulePinnedScrollSettle()
 
     if (isScrollPausedRef.current) {
+      userPauseIntentRef.current = false
+      isScrollPausedRef.current = false
       setIsScrollPaused(false)
       setPausedTimeline(null)
     }
@@ -306,7 +346,12 @@ export function useChatScroll<T extends TimelineEntry>({
 
   const handleChatScroll = React.useCallback(
     (event: React.UIEvent<HTMLDivElement>) => {
-      const distanceFromBottom = getDistanceFromBottom(event.currentTarget)
+      const chatContainer = event.currentTarget
+      const scrollTop = chatContainer.scrollTop
+      const scrollingUp = scrollTop < lastScrollTopRef.current
+      lastScrollTopRef.current = scrollTop
+
+      const distanceFromBottom = getDistanceFromBottom(chatContainer)
       const isNearBottom = distanceFromBottom <= NEAR_BOTTOM_PX
 
       if (isResumeScrollRef.current) {
@@ -326,18 +371,30 @@ export function useChatScroll<T extends TimelineEntry>({
         return
       }
 
-      isPinnedRef.current = isNearBottom
-
       if (isNearBottom) {
-        setIsScrollPaused(false)
-        setPausedTimeline(null)
+        if (isScrollPausedRef.current) {
+          if (!scrollingUp) {
+            userPauseIntentRef.current = false
+            isPinnedRef.current = true
+            isScrollPausedRef.current = false
+            setIsScrollPaused(false)
+            setPausedTimeline(null)
+          }
+          return
+        }
+
+        if (scrollingUp && userPauseIntentRef.current) {
+          pauseForUserScroll()
+          return
+        }
+
+        isPinnedRef.current = true
         return
       }
 
-      setIsScrollPaused(true)
-      setPausedTimeline((current) => current ?? timelineRef.current)
+      pauseForUserScroll()
     },
-    [finishResumeScroll]
+    [finishResumeScroll, pauseForUserScroll]
   )
 
   React.useEffect(() => {
@@ -358,6 +415,45 @@ export function useChatScroll<T extends TimelineEntry>({
       setIsResuming(false)
     }
 
+    const onWheel = (event: WheelEvent) => {
+      if (event.deltaY < 0) {
+        userPauseIntentRef.current = true
+        pauseForUserScroll()
+        return
+      }
+
+      cancelResumeScroll()
+    }
+
+    const onTouchStart = (event: TouchEvent) => {
+      touchStartYRef.current = event.touches[0]?.clientY ?? null
+    }
+
+    const onTouchMove = (event: TouchEvent) => {
+      const startY = touchStartYRef.current
+      const currentY = event.touches[0]?.clientY
+      if (
+        startY != null &&
+        currentY != null &&
+        currentY - startY > USER_SCROLL_INTENT_PX
+      ) {
+        userPauseIntentRef.current = true
+        pauseForUserScroll()
+        return
+      }
+
+      cancelResumeScroll()
+    }
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (!isVerticalScrollbarInteraction(event, chatContainer)) {
+        return
+      }
+
+      userPauseIntentRef.current = true
+      pauseForUserScroll()
+    }
+
     const onScrollEnd = () => {
       if (!isResumeScrollRef.current) {
         return
@@ -376,20 +472,29 @@ export function useChatScroll<T extends TimelineEntry>({
       isPinnedRef.current = true
     }
 
-    chatContainer.addEventListener("wheel", cancelResumeScroll, {
+    chatContainer.addEventListener("wheel", onWheel, { passive: true })
+    chatContainer.addEventListener("touchstart", onTouchStart, {
       passive: true,
     })
-    chatContainer.addEventListener("touchmove", cancelResumeScroll, {
+    chatContainer.addEventListener("touchmove", onTouchMove, {
       passive: true,
     })
+    chatContainer.addEventListener("pointerdown", onPointerDown)
     chatContainer.addEventListener("scrollend", onScrollEnd)
 
     return () => {
-      chatContainer.removeEventListener("wheel", cancelResumeScroll)
-      chatContainer.removeEventListener("touchmove", cancelResumeScroll)
+      chatContainer.removeEventListener("wheel", onWheel)
+      chatContainer.removeEventListener("touchstart", onTouchStart)
+      chatContainer.removeEventListener("touchmove", onTouchMove)
+      chatContainer.removeEventListener("pointerdown", onPointerDown)
       chatContainer.removeEventListener("scrollend", onScrollEnd)
     }
-  }, [clearProgrammaticScroll, finishResumeScroll, isActive])
+  }, [
+    clearProgrammaticScroll,
+    finishResumeScroll,
+    isActive,
+    pauseForUserScroll,
+  ])
 
   const timelineScrollKey = React.useMemo(() => {
     if (timeline.length === 0) {
@@ -401,7 +506,12 @@ export function useChatScroll<T extends TimelineEntry>({
   }, [timeline])
 
   React.useLayoutEffect(() => {
-    if (!isActive || isScrollPaused || displayedTimeline.length === 0) {
+    if (
+      !isActive ||
+      isScrollPaused ||
+      !isPinnedRef.current ||
+      displayedTimeline.length === 0
+    ) {
       return
     }
 
