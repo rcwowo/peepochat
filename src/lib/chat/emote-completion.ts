@@ -235,7 +235,7 @@ export function findTabEmoteMatches(
 
 /** New tab sequence when the word anchor moves (SevenTV path/offset guard). */
 export function shouldResetTabState(
-  tab: EmoteTabCompleterState | null,
+  tab: { replaceRange: EmoteReplaceRange } | null,
   replaceRange: EmoteReplaceRange | null
 ): boolean {
   if (!tab || !replaceRange) return true
@@ -243,7 +243,7 @@ export function shouldResetTabState(
 }
 
 export function isTabStateCurrent(
-  tab: EmoteTabCompleterState | null,
+  tab: { replaceRange: EmoteReplaceRange; expectedWord: string } | null,
   text: string,
   cursor: number
 ): boolean {

@@ -10,6 +10,7 @@ import { useUserCard } from "@/hooks/twitch/use-user-card"
 import type { UserCardTarget } from "@/lib/chat/user-card"
 import type { TwitchSelfChatState } from "@/lib/twitch/twitch-chat-types"
 import { userCardTargetKey } from "@/lib/chat/user-card"
+import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 import type {
   MessageTimestampFormat,
   TwitchAccount,
@@ -27,7 +28,7 @@ function isUserCardOverlayTarget(target: Node): boolean {
 
   return Boolean(
     target.closest(
-      '[data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"]'
+      '[data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-radix-popper-content-wrapper]'
     )
   )
 }
@@ -91,6 +92,8 @@ export function UserCardProvider({
   isUserBlocked,
   blockUser,
   unblockUser,
+  getChannelRoomId,
+  getChannelSelfChatState,
   children,
 }: {
   account: TwitchAccount | null
@@ -103,6 +106,8 @@ export function UserCardProvider({
   isUserBlocked: (userId?: string | null, login?: string | null) => boolean
   blockUser: (userId: string, login: string) => Promise<void>
   unblockUser: (userId: string, login?: string) => Promise<void>
+  getChannelRoomId?: (login: string) => string | null
+  getChannelSelfChatState?: (login: string) => TwitchSelfChatState | null
   children: React.ReactNode
 }) {
   const [activeTarget, setActiveTarget] = React.useState<UserCardTarget | null>(
@@ -117,6 +122,16 @@ export function UserCardProvider({
   const activeTriggerRef = React.useRef<HTMLElement | null>(null)
   const panelRef = React.useRef<HTMLDivElement>(null)
   const actionsMenuOpenRef = React.useRef(false)
+
+  const resolvedChannelLogin = activeTarget?.channelLogin
+    ? normalizeChannelLogin(activeTarget.channelLogin)
+    : channelLogin
+  const resolvedChannelRoomId = getChannelRoomId
+    ? getChannelRoomId(resolvedChannelLogin)
+    : channelRoomId
+  const resolvedSelfChatState = getChannelSelfChatState
+    ? getChannelSelfChatState(resolvedChannelLogin)
+    : selfChatState
 
   const card = useUserCard({
     open,
@@ -135,9 +150,9 @@ export function UserCardProvider({
         isAction: false,
       },
     },
-    channelRoomId,
-    channelLogin,
-    selfChatState,
+    channelRoomId: resolvedChannelRoomId,
+    channelLogin: resolvedChannelLogin,
+    selfChatState: resolvedSelfChatState,
   })
 
   const resetUserCardState = React.useCallback(() => {
@@ -169,7 +184,9 @@ export function UserCardProvider({
       return (
         open &&
         activeTarget !== null &&
-        userCardTargetKey(activeTarget) === userCardTargetKey(target)
+        userCardTargetKey(activeTarget) === userCardTargetKey(target) &&
+        normalizeChannelLogin(activeTarget.channelLogin ?? "") ===
+          normalizeChannelLogin(target.channelLogin ?? "")
       )
     },
     [activeTarget, open]
@@ -241,6 +258,8 @@ export function UserCardProvider({
         if (actionsMenuOpenRef.current) {
           return
         }
+        event.preventDefault()
+        event.stopPropagation()
         onCloseUserCard()
       }
     }
@@ -272,9 +291,9 @@ export function UserCardProvider({
               target={activeTarget}
               card={card}
               account={account}
-              channelLogin={channelLogin}
-              channelRoomId={channelRoomId}
-              selfChatState={selfChatState}
+              channelLogin={resolvedChannelLogin}
+              channelRoomId={resolvedChannelRoomId}
+              selfChatState={resolvedSelfChatState}
               recentMessages={
                 activeTarget ? getRecentMessages(activeTarget) : []
               }

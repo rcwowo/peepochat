@@ -183,9 +183,10 @@ export function EmoteCardPanel({
     <div
       ref={panelRef}
       role="dialog"
+      data-slot="emote-card-panel"
       aria-label={`${displayName} emote card`}
       className={cn(
-        "fixed z-50 w-max max-w-[min(20rem,90vw)] overflow-hidden rounded-lg border bg-popover p-0 text-popover-foreground shadow-md outline-hidden",
+        "pointer-events-auto fixed z-50 w-max max-w-[min(20rem,90vw)] overflow-hidden rounded-lg border bg-popover p-0 text-popover-foreground shadow-md outline-hidden",
         emoteCardMinWidthClass(ratioBucket)
       )}
       style={{

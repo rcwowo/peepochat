@@ -2,7 +2,12 @@ import * as React from "react"
 
 import { createEmptyRoom } from "@/lib/twitch/chat-timeline"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
-import type { TwitchChatRoomState } from "@/lib/twitch/twitch-chat-types"
+import type {
+  TwitchChatRoomState,
+  TwitchTimelineItem,
+} from "@/lib/twitch/twitch-chat-types"
+
+const EMPTY_TIMELINE: TwitchTimelineItem[] = []
 
 export function useRoomStore() {
   const [rooms, setRooms] = React.useState<Record<string, TwitchChatRoomState>>(
@@ -153,7 +158,7 @@ export function useRoomStore() {
 
   const getTimeline = React.useCallback(
     (login: string) => {
-      return getRoom(login)?.timeline ?? []
+      return getRoom(login)?.timeline ?? EMPTY_TIMELINE
     },
     [getRoom]
   )

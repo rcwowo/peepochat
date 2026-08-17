@@ -4,10 +4,12 @@ import {
   ExternalLinkIcon,
   MessagesSquareIcon,
   RefreshCcwIcon,
+  UsersIcon,
   XIcon,
 } from "lucide-react"
 
 import { ChatComposer } from "@/components/chat/chat-composer"
+import { ChatChattersPanel } from "@/components/chat/chat-chatters-panel"
 import { ChatModesMenu } from "@/components/chat/chat-modes-panel"
 import { ChatHoverTooltipProvider } from "@/components/chat/chat-hover-tooltip"
 import { EmoteCardProvider } from "@/components/chat/emote-card-context"
@@ -163,6 +165,7 @@ function ChatPaneInner({
     createRecentUserMessageBucketCache
   )
   const [liveInfoExpanded, setLiveInfoExpanded] = React.useState(false)
+  const [chattersOpen, setChattersOpen] = React.useState(false)
 
   const label = displayName ?? channelLogin
   const isLive = isChannelLive(channelLogin)
@@ -294,6 +297,7 @@ function ChatPaneInner({
                       type="button"
                       variant="ghost"
                       size="icon-xs"
+                      data-chatters-trigger={channelLogin}
                       className="text-muted-foreground hover:text-foreground"
                       aria-label={`${label} channel options`}
                     >
@@ -304,15 +308,22 @@ function ChatPaneInner({
                     <DropdownMenuLabel>Channel</DropdownMenuLabel>
                     <DropdownMenuGroup>
                       <DropdownMenuItem
+                        data-chatters-trigger={channelLogin}
+                        onSelect={() => {
+                          window.requestAnimationFrame(() => {
+                            setChattersOpen(true)
+                          })
+                        }}
+                      >
+                        View Chatters
+                        <UsersIcon className="ml-auto size-3.5 text-muted-foreground" />
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
                         onSelect={() => void refreshEmotes(channelLogin)}
                       >
                         Refresh Emotes
                         <RefreshCcwIcon className="ml-auto size-3.5 text-muted-foreground" />
                       </DropdownMenuItem>
-                    </DropdownMenuGroup>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuLabel>Tools</DropdownMenuLabel>
-                    <DropdownMenuGroup>
                       <DropdownMenuItem
                         onSelect={() =>
                           openExternalTool(
@@ -323,6 +334,10 @@ function ChatPaneInner({
                         View Channel
                         <ExternalLinkIcon className="ml-auto size-3.5 text-muted-foreground" />
                       </DropdownMenuItem>
+                    </DropdownMenuGroup>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel>Tools</DropdownMenuLabel>
+                    <DropdownMenuGroup>
                       <DropdownMenuItem
                         onSelect={() =>
                           openExternalTool(
@@ -528,6 +543,12 @@ function ChatPaneInner({
                 onLayoutChange={notifyComposerResize}
               />
             </div>
+            <ChatChattersPanel
+              channelLogin={channelLogin}
+              channelDisplayName={label}
+              open={chattersOpen}
+              onOpenChange={setChattersOpen}
+            />
           </div>
         </ChatHoverTooltipProvider>
       </EmoteCardProvider>

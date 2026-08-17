@@ -7,6 +7,7 @@ import {
 } from "@/hooks/twitch/chat/use-chat-connection"
 import { useChatEmotes } from "@/hooks/twitch/chat/use-chat-emotes"
 import { useChatSend } from "@/hooks/twitch/chat/use-chat-send"
+import { useChatterStore } from "@/hooks/twitch/chat/use-chatter-store"
 import { useMessageRouting } from "@/hooks/twitch/chat/use-message-routing"
 import { useRecentMessages } from "@/hooks/twitch/chat/use-recent-messages"
 import { useRoomStore } from "@/hooks/twitch/chat/use-room-store"
@@ -28,6 +29,7 @@ import type {
 import type {
   TwitchAutomodHeldMessage,
   TwitchSelfChatState,
+  TwitchTimelineItem,
 } from "@/lib/twitch/twitch-chat-types"
 
 export { isSyncChannelsSupersededError } from "@/hooks/twitch/chat/types"
@@ -64,10 +66,22 @@ export function useTwitchChat(options?: {
   }, [])
 
   const roomStore = useRoomStore()
+  const chatterStore = useChatterStore()
+  const observeTimelineItems = React.useCallback(
+    (
+      login: string,
+      items: TwitchTimelineItem[],
+      options?: { flush?: boolean }
+    ) => {
+      chatterStore.observeTimelineItems(login, items, options)
+    },
+    [chatterStore]
+  )
   const timeline = useTimeline({
     roomStore,
     hideBlockedUsersRef,
     isUserBlockedRef,
+    onTimelineItems: observeTimelineItems,
   })
   const onRoomEmotesSettledRef = React.useRef<
     ((roomId: string) => void) | null
@@ -141,6 +155,8 @@ export function useTwitchChat(options?: {
     selfStatesRef,
     appendLog,
     onSelfStateChangedRef,
+    onRoomsRemoved: chatterStore.removeChannels,
+    onAllRoomsCleared: chatterStore.clearAll,
   })
 
   const eventSub = useTwitchEventSub({
@@ -148,9 +164,11 @@ export function useTwitchChat(options?: {
     roomStore,
     syncedChannelsRef,
     selfStatesRef,
+    onTimelineItems: observeTimelineItems,
     onAuthFailure,
     pushComposerNotice: send.pushComposerNotice,
     dismissComposerNotice: send.dismissComposerNotice,
+    applySelfModerationRestriction: send.applySelfModerationRestriction,
     trimRoomTimeline: timeline.trimWithLimit,
     showSuspiciousActivityRef,
     showChannelUpdatesRef,
@@ -219,6 +237,7 @@ export function useTwitchChat(options?: {
     selfStatesRef,
     updateSelfState: connection.updateSelfState,
     onChatMessageRef,
+    onTimelineItems: observeTimelineItems,
   })
 
   React.useLayoutEffect(() => {
@@ -373,6 +392,12 @@ export function useTwitchChat(options?: {
     getRoom: roomStore.getRoom,
     getTimeline: roomStore.getTimeline,
     getRoomId: roomStore.getRoomId,
+    subscribeToChatters: chatterStore.subscribe,
+    getChatters: chatterStore.getChatters,
+    searchChatters: chatterStore.searchChatters,
+    isRecentMessagesLoading: recentMessages.isRecentMessagesLoading,
+    subscribeToRecentMessagesLoading:
+      recentMessages.subscribeToRecentMessagesLoading,
     setEmoteLoadContext: emotes.setEmoteLoadContext,
     setRecentMessagesEnabled: recentMessages.setRecentMessagesEnabled,
     setLiveEmoteUpdatesEnabled: sevenTvLiveUpdates.setLiveEmoteUpdatesEnabled,

@@ -7,7 +7,11 @@ import {
   type ChatSplitLayoutChild,
   type ChatSplitLayoutNode,
 } from "@/lib/chat/chat-split-layout"
-import { normalizeSidebarOrder } from "@/lib/sidebar/sidebar-order"
+import {
+  CHANNEL_ORDER_PREFIX,
+  normalizeSidebarOrder,
+  SPLIT_ORDER_PREFIX,
+} from "@/lib/sidebar/sidebar-order"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 
 export const PEEPOCHAT_STORAGE_KEY = "peepochat::config"
@@ -525,15 +529,54 @@ export function importConfigBackup(payload: string): AppConfig {
   return parseConfig(parsed)
 }
 
+export type BackupPreviewSidebarItem =
+  { type: "channel"; name: string } | { type: "split"; names: string[] }
+
 export type BackupPreview = {
   exportedAt: string | null
   appVersion: string | null
   accountDisplayName: string | null
   accountLogin: string | null
   channelCount: number
-  channelNames: string[]
-  splitCount: number
+  sidebarItems: BackupPreviewSidebarItem[]
   pingRuleCount: number
+}
+
+function buildBackupPreviewSidebarItems(
+  config: AppConfig
+): BackupPreviewSidebarItem[] {
+  const channelNames = new Map(
+    config.twitch.channels.map((channel) => [
+      channel.login,
+      channel.displayName?.trim() || channel.login,
+    ])
+  )
+  const splits = new Map(config.layout.splits.map((split) => [split.id, split]))
+  const items: BackupPreviewSidebarItem[] = []
+
+  for (const key of normalizeSidebarOrder(config)) {
+    if (key.startsWith(SPLIT_ORDER_PREFIX)) {
+      const split = splits.get(key.slice(SPLIT_ORDER_PREFIX.length))
+      if (!split) continue
+      const names = normalizeSplitChannels(split.channels).map(
+        (login) => channelNames.get(login) || login
+      )
+      if (names.length >= 2) {
+        items.push({ type: "split", names })
+      }
+      continue
+    }
+
+    if (key.startsWith(CHANNEL_ORDER_PREFIX)) {
+      const login = key.slice(CHANNEL_ORDER_PREFIX.length)
+      const name = channelNames.get(login)
+      if (name) {
+        items.push({ type: "channel", name })
+      }
+    }
+  }
+
+  return items
 }
 
 export function parseBackupPreview(payload: string): BackupPreview {
@@ -557,10 +600,7 @@ export function parseBackupPreview(payload: string): BackupPreview {
     accountDisplayName: config.twitch.account?.displayName ?? null,
     accountLogin: config.twitch.account?.login ?? null,
     channelCount: config.twitch.channels.length,
-    channelNames: config.twitch.channels.map(
-      (channel) => channel.displayName?.trim() || channel.login
-    ),
-    splitCount: config.layout.splits.length,
+    sidebarItems: buildBackupPreviewSidebarItems(config),
     pingRuleCount: config.highlights.pings.length,
   }
 }

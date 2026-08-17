@@ -52,6 +52,76 @@ export function useRecentMessages({
   const recentMessagesQueueRef = React.useRef<string[]>([])
   const recentMessagesQueuedRef = useLazyRef(() => new Set<string>())
   const recentMessagesActiveRef = React.useRef(0)
+  const loadingListenersRef = useLazyRef(
+    () => new Map<string, Set<() => void>>()
+  )
+
+  const notifyRecentMessagesLoading = React.useCallback(
+    (login: string) => {
+      const listeners = loadingListenersRef.current.get(login)
+      if (!listeners) {
+        return
+      }
+
+      for (const listener of listeners) {
+        listener()
+      }
+    },
+    [loadingListenersRef]
+  )
+
+  const isRecentMessagesLoading = React.useCallback(
+    (login: string): boolean => {
+      if (!recentMessagesEnabledRef.current) {
+        return false
+      }
+
+      const normalized = normalizeChannelLogin(login)
+      if (historyLoadedRef.current.has(normalized)) {
+        return false
+      }
+
+      if (
+        historyLoadingRef.current.has(normalized) ||
+        recentMessagesQueuedRef.current.has(normalized)
+      ) {
+        return true
+      }
+
+      if (historyErrorNotifiedRef.current.has(normalized)) {
+        return false
+      }
+
+      return syncedChannelsRef.current.includes(normalized)
+    },
+    [
+      historyErrorNotifiedRef,
+      historyLoadedRef,
+      historyLoadingRef,
+      recentMessagesEnabledRef,
+      recentMessagesQueuedRef,
+      syncedChannelsRef,
+    ]
+  )
+
+  const subscribeToRecentMessagesLoading = React.useCallback(
+    (login: string, listener: () => void) => {
+      const normalized = normalizeChannelLogin(login)
+      let set = loadingListenersRef.current.get(normalized)
+      if (!set) {
+        set = new Set()
+        loadingListenersRef.current.set(normalized, set)
+      }
+      set.add(listener)
+      return () => {
+        set.delete(listener)
+        if (set.size === 0) {
+          loadingListenersRef.current.delete(normalized)
+        }
+      }
+    },
+    [loadingListenersRef]
+  )
 
   const shouldApplyRecentMessagesFetch = React.useCallback(
     (normalized: string, generation: number) => {
@@ -94,6 +164,7 @@ export function useRecentMessages({
           }
 
           historyLoadingRef.current.add(normalized)
+          notifyRecentMessagesLoading(normalized)
 
           devFetchLogger.debugLazy(() => [
             "recent-messages:start",
@@ -120,13 +191,13 @@ export function useRecentMessages({
 
               switch (outcome.status) {
                 case "success": {
-                  historyLoadedRef.current.add(normalized)
                   historyFetchLimitRef.current = Math.max(
                     historyFetchLimitRef.current,
                     fetchLimit
                   )
 
                   if (outcome.messages.length === 0) {
+                    historyLoadedRef.current.add(normalized)
                     break
                   }
 
@@ -173,6 +244,7 @@ export function useRecentMessages({
                         }
                       })
                   )
+                  historyLoadedRef.current.add(normalized)
                   break
                 }
                 case "unavailable": {
@@ -210,6 +282,7 @@ export function useRecentMessages({
           } finally {
             historyLoadingRef.current.delete(normalized)
             recentMessagesQueuedRef.current.delete(normalized)
+            notifyRecentMessagesLoading(normalized)
             recentMessagesActiveRef.current -= 1
             runNext()
           }
@@ -229,6 +302,7 @@ export function useRecentMessages({
     historyLoadingRef,
     hydrateRoomMessage,
     liveMessageLimitRef,
+    notifyRecentMessagesLoading,
     prependHistoricalTimeline,
     recentMessagesActiveRef,
     recentMessagesGenerationRef,
@@ -256,6 +330,7 @@ export function useRecentMessages({
       }
 
       recentMessagesQueuedRef.current.add(normalized)
+      notifyRecentMessagesLoading(normalized)
       recentMessagesQueueRef.current.push(normalized)
       drainRecentMessagesQueue()
     },
@@ -263,6 +338,7 @@ export function useRecentMessages({
       drainRecentMessagesQueue,
       historyLoadedRef,
       historyLoadingRef,
+      notifyRecentMessagesLoading,
       recentMessagesEnabledRef,
       recentMessagesQueuedRef,
       recentMessagesQueueRef,
@@ -275,11 +351,18 @@ export function useRecentMessages({
       recentMessagesEnabledRef.current = enabled
 
       if (!enabled) {
+        const loadingChannels = new Set([
+          ...historyLoadingRef.current,
+          ...recentMessagesQueuedRef.current,
+        ])
         historyLoadedRef.current.clear()
         historyLoadingRef.current.clear()
         historyErrorNotifiedRef.current.clear()
         historyFetchLimitRef.current = 0
         clearRecentMessagesQueue()
+        for (const login of loadingChannels) {
+          notifyRecentMessagesLoading(login)
+        }
         if (wasEnabled) {
           clearHistoricalTimeline()
         }
@@ -303,7 +386,9 @@ export function useRecentMessages({
       historyLoadedRef,
       historyLoadingRef,
       loadRecentMessages,
+      notifyRecentMessagesLoading,
       recentMessagesEnabledRef,
+      recentMessagesQueuedRef,
       syncedChannelsRef,
     ]
   )
@@ -316,6 +401,7 @@ export function useRecentMessages({
         historyLoadingRef.current.delete(login)
         historyErrorNotifiedRef.current.delete(login)
         recentMessagesQueuedRef.current.delete(login)
+        notifyRecentMessagesLoading(login)
       }
 
       if (recentMessagesQueueRef.current.length > 0) {
@@ -328,6 +414,7 @@ export function useRecentMessages({
       historyErrorNotifiedRef,
       historyLoadedRef,
       historyLoadingRef,
+      notifyRecentMessagesLoading,
       recentMessagesQueueRef,
       recentMessagesQueuedRef,
     ]
@@ -365,15 +452,24 @@ export function useRecentMessages({
   )
 
   const clearAllHistoryState = React.useCallback(() => {
+    const loadingChannels = new Set([
+      ...historyLoadingRef.current,
+      ...recentMessagesQueuedRef.current,
+    ])
     historyLoadedRef.current.clear()
     historyLoadingRef.current.clear()
     historyErrorNotifiedRef.current.clear()
     clearRecentMessagesQueue()
+    for (const login of loadingChannels) {
+      notifyRecentMessagesLoading(login)
+    }
   }, [
     clearRecentMessagesQueue,
     historyErrorNotifiedRef,
     historyLoadedRef,
     historyLoadingRef,
+    notifyRecentMessagesLoading,
+    recentMessagesQueuedRef,
   ])
 
   return {
@@ -383,6 +479,8 @@ export function useRecentMessages({
     clearRecentMessagesQueue,
     clearHistoryForLogins,
     clearAllHistoryState,
+    isRecentMessagesLoading,
+    subscribeToRecentMessagesLoading,
   }
 }
 

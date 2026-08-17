@@ -114,6 +114,40 @@ export function createEmptyComposerCatalog(): ComposerEmoteCatalog {
   }
 }
 
+export function mergeComposerEmoteCatalogs(
+  catalogs: ComposerEmoteCatalog[]
+): ComposerEmoteCatalog {
+  if (catalogs.length === 0) {
+    return createEmptyComposerCatalog()
+  }
+  if (catalogs.length === 1) {
+    return catalogs[0]!
+  }
+
+  const byCode = new Map<string, ComposerEmote>()
+  const twitchById = new Map<string, ComposerEmote>()
+  const thirdPartyById = new Map<string, ComposerEmote>()
+
+  for (const catalog of catalogs) {
+    for (const [key, value] of catalog.byCode) {
+      byCode.set(key, value)
+    }
+    for (const [key, value] of catalog.twitchById) {
+      twitchById.set(key, value)
+    }
+    for (const [key, value] of catalog.thirdPartyById) {
+      thirdPartyById.set(key, value)
+    }
+  }
+
+  return {
+    platforms: [],
+    byCode,
+    twitchById,
+    thirdPartyById,
+  }
+}
+
 export type RoomEmoteBundle = {
   composer: ComposerEmoteCatalog
   thirdParty: ThirdPartyEmoteCatalog

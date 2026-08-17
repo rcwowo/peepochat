@@ -172,3 +172,30 @@ export function updateRecentUserMessageBuckets(
   cache.buckets = buckets
   return buckets
 }
+
+export function updateMergedRecentUserMessageBuckets(
+  caches: Map<string, RecentUserMessageBucketCache>,
+  entries: Array<{ login: string; timeline: TimelineEntry[] }>,
+  limit = 6
+): Map<string, TwitchChatMessage[]> {
+  const merged = new Map<string, TwitchChatMessage[]>()
+  const nextCaches = new Map<string, RecentUserMessageBucketCache>()
+
+  for (const { login, timeline } of entries) {
+    const cache = caches.get(login) ?? createRecentUserMessageBucketCache()
+    const buckets = updateRecentUserMessageBuckets(cache, timeline, limit)
+    nextCaches.set(login, cache)
+
+    for (const [key, messages] of buckets) {
+      const existing = merged.get(key)
+      merged.set(key, existing ? [...existing, ...messages] : messages)
+    }
+  }
+
+  caches.clear()
+  for (const [login, cache] of nextCaches) {
+    caches.set(login, cache)
+  }
+
+  return merged
+}

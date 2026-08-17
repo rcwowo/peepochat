@@ -617,11 +617,12 @@ export function ChannelSidebar() {
 
   const addButton = (
     <Button
+      variant="outline"
       size="icon"
-      className="size-12 shrink-0 shine border-2 bg-transparent hover:bg-transparent hover:brightness-110"
+      className="size-11 shrink-0 rounded-full"
       onClick={() => setAddDialogOpen(true)}
     >
-      <PlusIcon className="size-6 shrink-0" strokeWidth={2.5} />
+      <PlusIcon className="size-5 shrink-0" strokeWidth={2.5} />
       <span className="sr-only">Add channel</span>
     </Button>
   )

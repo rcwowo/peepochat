@@ -1,3 +1,4 @@
+import { getDesktopNotificationPermission } from "@/lib/highlights/desktop-notifications"
 import {
   hasAccount,
   isLoggedOutWithSavedSetup,
@@ -8,7 +9,7 @@ export type OnboardingFlow = "fresh" | "import"
 
 const FLOW_KEY = "peepochat::onboarding_flow"
 const IMPORT_APPLIED_KEY = "peepochat::onboarding_import_applied"
-const BOOKMARK_DISMISSED_KEY = "peepochat::bookmark_prompt_dismissed"
+const FINAL_STEP_DISMISSED_KEY = "peepochat::bookmark_prompt_dismissed"
 
 function readSession(key: string): string | null {
   if (typeof window === "undefined") return null
@@ -41,23 +42,30 @@ export function markImportOnboardingApplied() {
   writeSession(IMPORT_APPLIED_KEY, "1")
 }
 
-export function hasDismissedBookmarkPrompt(): boolean {
+export function hasDismissedOnboardingFinalStep(): boolean {
   if (typeof window === "undefined") return true
-  return window.localStorage.getItem(BOOKMARK_DISMISSED_KEY) === "1"
+  return window.localStorage.getItem(FINAL_STEP_DISMISSED_KEY) === "1"
 }
 
-export function dismissBookmarkPrompt() {
+export function dismissOnboardingFinalStep() {
   if (typeof window === "undefined") return
-  window.localStorage.setItem(BOOKMARK_DISMISSED_KEY, "1")
+  window.localStorage.setItem(FINAL_STEP_DISMISSED_KEY, "1")
 }
 
-/** Fresh setup with a channel added but bookmark not dismissed yet. */
-export function isAwaitingFreshSetupBookmark(config: AppConfig): boolean {
+export function isAwaitingOnboardingFinalStep(config: AppConfig): boolean {
   if (typeof window === "undefined") return false
-  if (hasDismissedBookmarkPrompt()) return false
+  if (hasDismissedOnboardingFinalStep()) return false
   if (isLoggedOutWithSavedSetup(config)) return false
-  if (getOnboardingFlow() !== "fresh") return false
-  return hasAccount(config) && config.twitch.channels.length > 0
+
+  const flow = getOnboardingFlow()
+  if (flow !== "fresh" && flow !== "import") return false
+  if (!hasAccount(config) || config.twitch.channels.length === 0) return false
+
+  if (flow === "import" && getDesktopNotificationPermission() === "granted") {
+    return false
+  }
+
+  return true
 }
 
 export function clearOnboardingSession() {
@@ -65,9 +73,8 @@ export function clearOnboardingSession() {
   writeSession(IMPORT_APPLIED_KEY, null)
 }
 
-/** Clears all persisted onboarding progress (session flow + bookmark prompt). */
 export function clearAllOnboardingState() {
   clearOnboardingSession()
   if (typeof window === "undefined") return
-  window.localStorage.removeItem(BOOKMARK_DISMISSED_KEY)
+  window.localStorage.removeItem(FINAL_STEP_DISMISSED_KEY)
 }

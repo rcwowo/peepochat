@@ -1,5 +1,19 @@
 [
     {
+        "version": "1.1.1",
+        "date": "2026-08-17",
+        "items": [
+            "Added a search feature with a better filtering system.",
+            "Added a viewable list of chatters in a channel.",
+            "Added the ability to autocomplete chatters using an '@' symbol.",
+            "Major redesign to the onboarding flow to be smoother.",
+            "Minor touchups to the settings panel and the about tab.",
+            "Minor change to the add channel and send message button styling.",
+            "Fixed an issue where the chat composer wouldn't reset after a timeout expired.",
+            "Fixed a few bugs regarding paused scrolling."
+        ]
+    },
+    {
         "version": "1.1.0",
         "date": "2026-08-05",
         "items": [

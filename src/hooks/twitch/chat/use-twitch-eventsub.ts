@@ -28,7 +28,11 @@ import {
   parseChannelUpdateEvent,
   type ChannelUpdateSnapshot,
 } from "@/lib/twitch/twitch-eventsub-channel-update"
-import { createSystemMessageFromChannelModerate } from "@/lib/twitch/twitch-eventsub-moderate"
+import {
+  createSystemMessageFromChannelModerate,
+  parseChannelModerateAction,
+} from "@/lib/twitch/twitch-eventsub-moderate"
+import type { SelfModerationRestriction } from "@/lib/chat/chat-send-notice"
 import { extractModerateTargetNames } from "@/lib/twitch/twitch-eventsub-parse"
 import {
   createSystemMessageFromSuspiciousUserUpdate,
@@ -46,6 +50,7 @@ type UseTwitchEventSubOptions = {
   roomStore: RoomStore
   syncedChannelsRef: React.RefObject<string[]>
   selfStatesRef: React.RefObject<Map<string, TwitchSelfChatState>>
+  onTimelineItems?: (login: string, items: TwitchTimelineItem[]) => void
   onAuthFailure?: (reason: "expired" | "scopes") => void
   pushComposerNotice?: (notice: {
     channel: string
@@ -54,6 +59,10 @@ type UseTwitchEventSubOptions = {
     discardPending?: boolean
   }) => void
   dismissComposerNotice?: (notice: { channel: string; id: string }) => void
+  applySelfModerationRestriction?: (
+    channel: string,
+    restriction: SelfModerationRestriction
+  ) => void
   trimRoomTimeline: (timeline: TwitchTimelineItem[]) => TwitchTimelineItem[]
   showSuspiciousActivityRef: React.RefObject<boolean>
   showChannelUpdatesRef: React.RefObject<boolean>
@@ -114,9 +123,11 @@ export function useTwitchEventSub({
   roomStore,
   syncedChannelsRef,
   selfStatesRef,
+  onTimelineItems,
   onAuthFailure,
   pushComposerNotice,
   dismissComposerNotice,
+  applySelfModerationRestriction,
   trimRoomTimeline,
   showSuspiciousActivityRef,
   showChannelUpdatesRef,
@@ -129,7 +140,14 @@ export function useTwitchEventSub({
   const onAuthFailureRef = React.useRef(onAuthFailure)
   const pushComposerNoticeRef = React.useRef(pushComposerNotice)
   const dismissComposerNoticeRef = React.useRef(dismissComposerNotice)
+  const applySelfModerationRestrictionRef = React.useRef(
+    applySelfModerationRestriction
+  )
   const trimRoomTimelineRef = React.useRef(trimRoomTimeline)
+  const onTimelineItemsRef = React.useRef(onTimelineItems)
+  React.useLayoutEffect(() => {
+    onTimelineItemsRef.current = onTimelineItems
+  }, [onTimelineItems])
   const lastSyncKeyRef = React.useRef("")
   const channelUpdateStateRef = React.useRef(
     new Map<string, ChannelUpdateSnapshot>()
@@ -166,6 +184,10 @@ export function useTwitchEventSub({
   React.useLayoutEffect(() => {
     dismissComposerNoticeRef.current = dismissComposerNotice
   }, [dismissComposerNotice])
+
+  React.useLayoutEffect(() => {
+    applySelfModerationRestrictionRef.current = applySelfModerationRestriction
+  }, [applySelfModerationRestriction])
 
   React.useLayoutEffect(() => {
     trimRoomTimelineRef.current = trimRoomTimeline
@@ -279,6 +301,7 @@ export function useTwitchEventSub({
           ]),
         }
       })
+      onTimelineItemsRef.current?.(channelLogin, [{ kind: "system", message }])
     },
     [updateRoom]
   )
@@ -443,6 +466,9 @@ export function useTwitchEventSub({
           ]),
         }
       })
+      onTimelineItemsRef.current?.(channelLogin, [
+        { kind: "automod", message: held },
+      ])
     },
     [updateRoom]
   )
@@ -556,6 +582,9 @@ export function useTwitchEventSub({
           ]),
         }
       })
+      onTimelineItemsRef.current?.(channelLogin, [
+        { kind: "suspicious", message },
+      ])
     },
     [updateRoom]
   )
@@ -582,6 +611,11 @@ export function useTwitchEventSub({
           }
 
           const roomId = roomsRef.current[channelLogin]?.roomId ?? null
+          const parsed = parseChannelModerateAction({
+            event: notification.event,
+            channelLogin,
+            messageTimestamp: notification.messageTimestamp,
+          })
           const message = createSystemMessageFromChannelModerate({
             event: notification.event,
             channelLogin,
@@ -596,6 +630,41 @@ export function useTwitchEventSub({
               notification.event
             ),
           })
+
+          const accountId = accountRef.current?.id
+          const accountLogin = accountRef.current?.login
+          if (parsed && (accountId || accountLogin)) {
+            const isSelfTarget =
+              (parsed.targetUserId &&
+                accountId &&
+                parsed.targetUserId === accountId) ||
+              (accountLogin &&
+                normalizeChannelLogin(parsed.targetUserName) ===
+                  normalizeChannelLogin(accountLogin))
+            if (isSelfTarget) {
+              if (
+                parsed.kind === "timeout" &&
+                parsed.banDurationSeconds &&
+                parsed.banDurationSeconds > 0
+              ) {
+                applySelfModerationRestrictionRef.current?.(channelLogin, {
+                  kind: "timeout",
+                  durationSeconds: parsed.banDurationSeconds,
+                })
+              } else if (parsed.kind === "ban") {
+                applySelfModerationRestrictionRef.current?.(channelLogin, {
+                  kind: "ban",
+                })
+              } else if (
+                parsed.kind === "untimeout" ||
+                parsed.kind === "unban"
+              ) {
+                applySelfModerationRestrictionRef.current?.(channelLogin, {
+                  kind: "clear",
+                })
+              }
+            }
+          }
           return
         }
 

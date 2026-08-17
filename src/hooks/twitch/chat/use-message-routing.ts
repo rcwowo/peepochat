@@ -20,13 +20,19 @@ import {
   type TwitchClearMsgEvent,
   type TwitchSystemMessage,
 } from "@/lib/twitch/twitch-chat"
-import type { TwitchSelfChatState } from "@/lib/twitch/twitch-chat-types"
+import type {
+  TwitchSelfChatState,
+  TwitchTimelineItem,
+} from "@/lib/twitch/twitch-chat-types"
 
 type UseMessageRoutingOptions = {
   roomStore: RoomStore
   timeline: TimelineApi
   emotes: ChatEmotesApi
-  send: Pick<ChatSendApi, "emitSendOutcome" | "pendingSendRef">
+  send: Pick<
+    ChatSendApi,
+    "emitSendOutcome" | "pendingSendRef" | "applySelfModerationRestriction"
+  >
   syncedChannelsRef: React.MutableRefObject<string[]>
   hideBlockedUsersRef: React.MutableRefObject<boolean>
   isUserBlockedRef: React.MutableRefObject<
@@ -38,6 +44,7 @@ type UseMessageRoutingOptions = {
   onChatMessageRef?: React.RefObject<
     ((message: TwitchChatMessage) => void) | null
   >
+  onTimelineItems?: (login: string, items: TwitchTimelineItem[]) => void
 }
 
 export function useMessageRouting({
@@ -52,6 +59,7 @@ export function useMessageRouting({
   selfStatesRef,
   updateSelfState,
   onChatMessageRef,
+  onTimelineItems,
 }: UseMessageRoutingOptions) {
   const { updateRoom } = roomStore
   const {
@@ -67,7 +75,12 @@ export function useMessageRouting({
     hydrateRoomMessage,
     getTwitchHydration,
   } = emotes
-  const { emitSendOutcome, pendingSendRef } = send
+  const { emitSendOutcome, pendingSendRef, applySelfModerationRestriction } =
+    send
+  const onTimelineItemsRef = React.useRef(onTimelineItems)
+  React.useLayoutEffect(() => {
+    onTimelineItemsRef.current = onTimelineItems
+  }, [onTimelineItems])
 
   const routeMessageToRoom = React.useCallback(
     (message: TwitchChatMessage) => {
@@ -94,6 +107,7 @@ export function useMessageRouting({
         : null
 
       const hydrated = hydrateRoomMessage(message, catalog)
+      onTimelineItemsRef.current?.(login, [{ kind: "chat", message: hydrated }])
       devChatLogger.debugLazy(() => [
         "route:message",
         {
@@ -231,6 +245,28 @@ export function useMessageRouting({
         if (modAction) {
           appendRoomSystemMessage(login, modAction)
         }
+
+        const { userId, userLogin } = emoteLoadContextRef.current
+        const isSelfTarget =
+          (event.targetUserId && userId && event.targetUserId === userId) ||
+          (normalizedTargetLogin &&
+            userLogin &&
+            normalizedTargetLogin === normalizeChannelLogin(userLogin))
+        if (isSelfTarget) {
+          const durationSeconds = event.banDurationSeconds
+          if (
+            durationSeconds != null &&
+            Number.isFinite(durationSeconds) &&
+            durationSeconds > 0
+          ) {
+            applySelfModerationRestriction(login, {
+              kind: "timeout",
+              durationSeconds,
+            })
+          } else {
+            applySelfModerationRestriction(login, { kind: "ban" })
+          }
+        }
         return
       }
 
@@ -269,7 +305,9 @@ export function useMessageRouting({
     [
       appendRoomSystemMessage,
       applyRoomMessageDeletions,
+      applySelfModerationRestriction,
       clearChatWhenInstructedRef,
+      emoteLoadContextRef,
       selfStatesRef,
       syncedChannelsRef,
       updateRoom,

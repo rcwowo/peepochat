@@ -30,12 +30,18 @@ type UseTimelineOptions = {
   isUserBlockedRef: React.MutableRefObject<
     (userId?: string | null, login?: string | null) => boolean
   >
+  onTimelineItems?: (
+    login: string,
+    items: TwitchTimelineItem[],
+    options?: { flush?: boolean }
+  ) => void
 }
 
 export function useTimeline({
   roomStore,
   hideBlockedUsersRef,
   isUserBlockedRef,
+  onTimelineItems,
 }: UseTimelineOptions) {
   const { commitRooms, updateRoom } = roomStore
   const liveMessageLimitRef = React.useRef(LIVE_MESSAGES_PER_CHANNEL_DEFAULT)
@@ -44,6 +50,10 @@ export function useTimeline({
   const pendingLiveTimelineRef = React.useRef<
     Map<string, PendingLiveTimelineBatch>
   >(new Map())
+  const onTimelineItemsRef = React.useRef(onTimelineItems)
+  React.useLayoutEffect(() => {
+    onTimelineItemsRef.current = onTimelineItems
+  }, [onTimelineItems])
 
   const trimWithLimit = React.useCallback((timeline: TwitchTimelineItem[]) => {
     return trimTimeline(timeline, liveMessageLimitRef.current)
@@ -182,6 +192,7 @@ export function useTimeline({
       }
 
       const normalized = normalizeChannelLogin(login)
+      onTimelineItemsRef.current?.(normalized, items)
       let batch = pendingLiveTimelineRef.current.get(normalized)
       if (!batch) {
         batch = { items: [], roomId: undefined, frameId: null }
@@ -228,6 +239,8 @@ export function useTimeline({
   const prependHistoricalTimeline = React.useCallback(
     (login: string, items: TwitchTimelineItem[]) => {
       if (items.length === 0) return
+
+      onTimelineItemsRef.current?.(login, items, { flush: true })
 
       updateRoom(login, (room) => {
         const { historical, live, knownIds } = partitionTimelineWithKnownIds(

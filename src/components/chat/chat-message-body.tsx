@@ -8,66 +8,112 @@ import { findMessageUrls } from "@/lib/peepochat/peepochat-config"
 import { getEmoteConsumedEnd, type TwitchEmote } from "@/lib/twitch/twitch-chat"
 
 const MENTION_PATTERN = /(@[A-Za-z0-9_]+)/g
+const EMPTY_HIGHLIGHT_RANGES: PingMatchRange[] = []
 
-function renderPlainText(
+function overlappingHighlightRanges(
+  absoluteStart: number,
+  absoluteEnd: number,
+  ranges: PingMatchRange[]
+) {
+  if (ranges.length === 0 || absoluteStart >= absoluteEnd) {
+    return EMPTY_HIGHLIGHT_RANGES
+  }
+
+  const overlaps: PingMatchRange[] = []
+  for (const range of ranges) {
+    const start = Math.max(absoluteStart, range.start)
+    const end = Math.min(absoluteEnd, range.end)
+    if (start < end) {
+      overlaps.push({ start, end })
+    }
+  }
+
+  if (overlaps.length <= 1) {
+    return overlaps
+  }
+
+  overlaps.sort((left, right) => left.start - right.start)
+  const merged: PingMatchRange[] = [{ ...overlaps[0]! }]
+  for (let index = 1; index < overlaps.length; index += 1) {
+    const range = overlaps[index]!
+    const last = merged[merged.length - 1]!
+    if (range.start <= last.end) {
+      last.end = Math.max(last.end, range.end)
+    } else {
+      merged.push({ ...range })
+    }
+  }
+
+  return merged
+}
+
+function pushHighlightedText(
+  parts: React.ReactNode[],
   text: string,
   keyPrefix: string,
-  segmentStart = 0,
-  pingMatchRange: PingMatchRange | null = null
+  segmentStart: number,
+  highlightRanges: PingMatchRange[],
+  className?: string
 ) {
-  const parts: React.ReactNode[] = []
-  let lastIndex = 0
-  let mentionIndex = 0
+  if (!text) {
+    return
+  }
 
-  const pushTextSlice = (sliceStart: number, sliceEnd: number, key: string) => {
-    if (sliceStart >= sliceEnd) {
-      return
-    }
+  const absoluteStart = segmentStart
+  const absoluteEnd = segmentStart + text.length
+  const overlaps = overlappingHighlightRanges(
+    absoluteStart,
+    absoluteEnd,
+    highlightRanges
+  )
 
-    const absoluteStart = segmentStart + sliceStart
-    const absoluteEnd = segmentStart + sliceEnd
-
-    if (
-      !pingMatchRange ||
-      absoluteEnd <= pingMatchRange.start ||
-      absoluteStart >= pingMatchRange.end
-    ) {
-      parts.push(
-        <span key={key} className="chat-message-text">
-          {text.slice(sliceStart, sliceEnd)}
-        </span>
-      )
-      return
-    }
-
-    const overlapStart = Math.max(0, pingMatchRange.start - absoluteStart)
-    const overlapEnd = Math.min(
-      sliceEnd - sliceStart,
-      pingMatchRange.end - absoluteStart
+  if (overlaps.length === 0) {
+    parts.push(
+      <span key={keyPrefix} className={className}>
+        {text}
+      </span>
     )
+    return
+  }
 
-    if (overlapStart > 0) {
+  let cursor = absoluteStart
+  let sliceIndex = 0
+  for (const range of overlaps) {
+    if (range.start > cursor) {
       parts.push(
-        <span key={`${key}-pre`} className="chat-message-text">
-          {text.slice(sliceStart, sliceStart + overlapStart)}
+        <span key={`${keyPrefix}-pre-${sliceIndex}`} className={className}>
+          {text.slice(cursor - absoluteStart, range.start - absoluteStart)}
         </span>
       )
     }
 
     parts.push(
-      <PingMatchMark key={`${key}-match`}>
-        {text.slice(sliceStart + overlapStart, sliceStart + overlapEnd)}
+      <PingMatchMark key={`${keyPrefix}-match-${sliceIndex}`}>
+        {text.slice(range.start - absoluteStart, range.end - absoluteStart)}
       </PingMatchMark>
     )
-
-    if (overlapEnd < sliceEnd - sliceStart) {
-      parts.push(
-        <span key={`${key}-post`} className="chat-message-text">
-          {text.slice(sliceStart + overlapEnd, sliceEnd)}
-        </span>
-      )
-    }
+    cursor = range.end
+    sliceIndex += 1
   }
+
+  if (cursor < absoluteEnd) {
+    parts.push(
+      <span key={`${keyPrefix}-post`} className={className}>
+        {text.slice(cursor - absoluteStart)}
+      </span>
+    )
+  }
+}
+
+function renderPlainText(
+  text: string,
+  keyPrefix: string,
+  segmentStart = 0,
+  highlightRanges: PingMatchRange[] = EMPTY_HIGHLIGHT_RANGES
+) {
+  const parts: React.ReactNode[] = []
+  let lastIndex = 0
+  let mentionIndex = 0
 
   for (const match of text.matchAll(MENTION_PATTERN)) {
     const index = match.index ?? -1
@@ -76,15 +122,30 @@ function renderPlainText(
     }
 
     if (index > lastIndex) {
-      pushTextSlice(lastIndex, index, `${keyPrefix}-text-${lastIndex}`)
+      pushHighlightedText(
+        parts,
+        text.slice(lastIndex, index),
+        `${keyPrefix}-text-${lastIndex}`,
+        segmentStart + lastIndex,
+        highlightRanges,
+        "chat-message-text"
+      )
     }
 
+    const mentionParts: React.ReactNode[] = []
+    pushHighlightedText(
+      mentionParts,
+      match[0],
+      `${keyPrefix}-mention-inner-${mentionIndex}`,
+      segmentStart + index,
+      highlightRanges
+    )
     parts.push(
       <span
         key={`${keyPrefix}-mention-${mentionIndex}`}
         className="chat-mention font-semibold"
       >
-        {match[0]}
+        {mentionParts}
       </span>
     )
 
@@ -93,11 +154,25 @@ function renderPlainText(
   }
 
   if (lastIndex < text.length) {
-    pushTextSlice(lastIndex, text.length, `${keyPrefix}-text-${lastIndex}`)
+    pushHighlightedText(
+      parts,
+      text.slice(lastIndex),
+      `${keyPrefix}-text-${lastIndex}`,
+      segmentStart + lastIndex,
+      highlightRanges,
+      "chat-message-text"
+    )
   }
 
   if (parts.length === 0) {
-    pushTextSlice(0, text.length, keyPrefix)
+    pushHighlightedText(
+      parts,
+      text,
+      keyPrefix,
+      segmentStart,
+      highlightRanges,
+      "chat-message-text"
+    )
   }
 
   return parts
@@ -107,12 +182,12 @@ function renderTextWithLinks(
   text: string,
   keyPrefix: string,
   segmentStart = 0,
-  pingMatchRange: PingMatchRange | null = null
+  highlightRanges: PingMatchRange[] = EMPTY_HIGHLIGHT_RANGES
 ) {
   const urls = findMessageUrls(text)
 
   if (urls.length === 0) {
-    return renderPlainText(text, keyPrefix, segmentStart, pingMatchRange)
+    return renderPlainText(text, keyPrefix, segmentStart, highlightRanges)
   }
 
   const parts: React.ReactNode[] = []
@@ -125,10 +200,19 @@ function renderTextWithLinks(
           text.slice(lastIdx, match.start),
           `${keyPrefix}-t-${lastIdx}`,
           segmentStart + lastIdx,
-          pingMatchRange
+          highlightRanges
         )
       )
     }
+
+    const linkParts: React.ReactNode[] = []
+    pushHighlightedText(
+      linkParts,
+      match.url,
+      `${keyPrefix}-l-inner-${match.start}`,
+      segmentStart + match.start,
+      highlightRanges
+    )
 
     parts.push(
       <a
@@ -138,7 +222,7 @@ function renderTextWithLinks(
         rel="noreferrer noopener"
         className="chat-link break-all"
       >
-        {match.url}
+        {linkParts.length > 0 ? linkParts : match.url}
       </a>
     )
 
@@ -151,7 +235,7 @@ function renderTextWithLinks(
         text.slice(lastIdx),
         `${keyPrefix}-t-${lastIdx}`,
         segmentStart + lastIdx,
-        pingMatchRange
+        highlightRanges
       )
     )
   }
@@ -163,13 +247,22 @@ export function ChatMessageBody({
   text,
   emotes,
   pingMatchRange = null,
+  highlightRanges,
 }: {
   text: string
   emotes: TwitchEmote[]
   pingMatchRange?: PingMatchRange | null
+  highlightRanges?: PingMatchRange[] | null
 }) {
+  const ranges =
+    highlightRanges != null
+      ? highlightRanges
+      : pingMatchRange
+        ? [pingMatchRange]
+        : EMPTY_HIGHLIGHT_RANGES
+
   if (emotes.length === 0) {
-    return <>{renderTextWithLinks(text, "message", 0, pingMatchRange)}</>
+    return <>{renderTextWithLinks(text, "message", 0, ranges)}</>
   }
 
   const parts: React.ReactNode[] = []
@@ -182,7 +275,7 @@ export function ChatMessageBody({
           text.slice(lastIdx, emote.start),
           `t-${lastIdx}`,
           lastIdx,
-          pingMatchRange
+          ranges
         )
       )
     }
@@ -216,7 +309,7 @@ export function ChatMessageBody({
         text.slice(lastIdx),
         `t-${lastIdx}`,
         lastIdx,
-        pingMatchRange
+        ranges
       )
     )
   }

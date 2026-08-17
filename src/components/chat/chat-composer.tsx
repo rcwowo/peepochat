@@ -2,6 +2,7 @@ import * as React from "react"
 import { SendHorizontalIcon } from "lucide-react"
 
 import { ChatSuggestions } from "@/components/chat/chat-suggestions"
+import { ChatterSuggestions } from "@/components/chat/chatter-suggestions"
 import { CommandSuggestions } from "@/components/chat/command-suggestions"
 import { ComposerNoticeBanner } from "@/components/chat/composer-notice-banner"
 import { EmotePicker } from "@/components/chat/emote-picker"
@@ -16,6 +17,7 @@ import { CHAT_RATE_LIMIT_MESSAGES } from "@/lib/chat/chat-send"
 import {
   isAutomodHoldNoticeText,
   isPersistentSendBlockText,
+  isTimeoutComposerNoticeText,
 } from "@/lib/chat/chat-send-notice"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 import type { TwitchChatReply } from "@/lib/twitch/twitch-chat"
@@ -41,6 +43,18 @@ import {
   type EmoteSuggestion,
   type EmoteTabCompleterState,
 } from "@/lib/chat/emote-completion"
+import {
+  applyChatterSuggestion,
+  chatterMentionValue,
+  createChatterCompleterState,
+  findAtChatterSuggestions,
+  getChatterSuggestionIndices,
+  resetChatterCompleter,
+  toChatterSuggestion,
+  type ChatterCompleterState,
+  type ChatterSuggestion,
+  type ChatterTabCompleterState,
+} from "@/lib/chat/chatter-completion"
 import {
   applyCommandSuggestion,
   createCommandCompleterState,
@@ -87,6 +101,7 @@ export function ChatComposer({
     dismissComposerNotice,
     hideBlockedUsers,
     isUserBlocked,
+    searchChatters,
     visibleChannelLogins,
     getBadgeCatalog,
     getMemberBadge,
@@ -167,8 +182,11 @@ export function ChatComposer({
   )
   const [commandCompleter, setCommandCompleter] =
     React.useState<CommandCompleterState>(() => createCommandCompleterState())
+  const [chatterCompleter, setChatterCompleter] =
+    React.useState<ChatterCompleterState>(() => createChatterCompleterState())
   const completerRef = React.useRef(completer)
   const commandCompleterRef = React.useRef(commandCompleter)
+  const chatterCompleterRef = React.useRef(chatterCompleter)
 
   React.useLayoutEffect(() => {
     completerRef.current = completer
@@ -176,6 +194,10 @@ export function ChatComposer({
 
   React.useLayoutEffect(() => {
     commandCompleterRef.current = commandCompleter
+  })
+
+  React.useLayoutEffect(() => {
+    chatterCompleterRef.current = chatterCompleter
   })
 
   const inputRef = React.useRef<HTMLTextAreaElement>(null)
@@ -224,6 +246,9 @@ export function ChatComposer({
     completer.prefixed &&
     completer.suggestions.length > 0
 
+  const showChatterSuggestions =
+    chatterCompleter.active && chatterCompleter.suggestions.length > 0
+
   const showCommandSuggestions =
     commandCompleter.active &&
     (commandCompleter.suggestions.length > 0 ||
@@ -236,10 +261,11 @@ export function ChatComposer({
   )
 
   const disabled =
-    !canSendChat || !joined || commandPending || Boolean(sendBlock)
+    !canSendChat || !joined || commandPending || sendBlock?.kind === "ban"
+  const activeNotice = sendBlock?.kind === "ban" ? null : (notices[0] ?? null)
   const placeholder = !account
     ? "Sign in with Twitch to send messages"
-    : sendBlock
+    : sendBlock?.kind === "ban"
       ? sendBlock.message
       : !connectionState.connected
         ? "Connect to Twitch chat to send messages"
@@ -268,6 +294,7 @@ export function ChatComposer({
     setRateLimitHint(null)
     setCompleter(createEmoteCompleterState())
     setCommandCompleter(createCommandCompleterState())
+    setChatterCompleter(createChatterCompleterState())
   }, [])
 
   const clearComposerAfterSend = React.useCallback(
@@ -321,6 +348,12 @@ export function ChatComposer({
       }
 
       if (result.reason === "blocked") {
+        noticeIdRef.current += 1
+        pushNotice({
+          id: `blocked:${noticeIdRef.current}`,
+          message:
+            result.message ?? "You cannot send messages in this channel.",
+        })
         return
       }
 
@@ -373,6 +406,22 @@ export function ChatComposer({
             return
           }
 
+          if (isTimeoutComposerNoticeText(event.message)) {
+            setNotices((current) => {
+              const withoutTimeout = current.filter(
+                (entry) => !isTimeoutComposerNoticeText(entry.message)
+              )
+              if (withoutTimeout.some((entry) => entry.id === event.id)) {
+                return withoutTimeout
+              }
+              return [
+                ...withoutTimeout,
+                { id: event.id, message: event.message },
+              ]
+            })
+            return
+          }
+
           pushNotice({
             id: event.id,
             message: event.message,
@@ -387,6 +436,30 @@ export function ChatComposer({
 
           const pending = pendingSendRef.current
           clearPendingSend()
+
+          if (pending) {
+            setValue(pending.composerMessage)
+            setReply(pending.reply)
+          }
+
+          if (isTimeoutComposerNoticeText(event.message)) {
+            if (!pending) {
+              return
+            }
+            noticeIdRef.current += 1
+            const noticeId = `rejected-timeout:${noticeIdRef.current}`
+            setNotices((current) => {
+              const withoutTimeout = current.filter(
+                (entry) => !isTimeoutComposerNoticeText(entry.message)
+              )
+              return [
+                ...withoutTimeout,
+                { id: noticeId, message: event.message },
+              ]
+            })
+            return
+          }
+
           if (isPersistentSendBlockText(event.message)) {
             return
           }
@@ -408,11 +481,6 @@ export function ChatComposer({
               ]
             })
             return
-          }
-
-          if (pending) {
-            setValue(pending.composerMessage)
-            setReply(pending.reply)
           }
 
           noticeIdRef.current += 1
@@ -502,12 +570,142 @@ export function ChatComposer({
     []
   )
 
+  const updateChatterCompleter = React.useCallback(
+    (text: string, cursor: number) => {
+      const wordAtCursor = getWordAtCursor(text, cursor)
+      if (!wordAtCursor?.word.startsWith("@")) {
+        setChatterCompleter((current) => ({
+          ...resetChatterCompleter(),
+          tab: isTabStateCurrent(current.tab, text, cursor)
+            ? current.tab
+            : null,
+        }))
+        return
+      }
+
+      const query = wordAtCursor.word.endsWith(" ")
+        ? wordAtCursor.word.slice(1, -1)
+        : wordAtCursor.word.slice(1)
+      const chatters = searchChatters(channelLogin, query, {
+        isBlocked: hideBlockedUsers ? isUserBlocked : undefined,
+      })
+      const result = findAtChatterSuggestions(text, cursor, chatters)
+
+      setChatterCompleter((current) => {
+        const tab = isTabStateCurrent(current.tab, text, cursor)
+          ? current.tab
+          : null
+        if (tab) {
+          return {
+            ...current,
+            query: wordAtCursor.word,
+            replaceRange: { start: wordAtCursor.start, end: wordAtCursor.end },
+            active: true,
+            suggestions: tab.matches,
+            current: tab.index,
+            tab,
+          }
+        }
+
+        return {
+          ...current,
+          ...result,
+          tab: null,
+        }
+      })
+    },
+    [channelLogin, hideBlockedUsers, isUserBlocked, searchChatters]
+  )
+
   const updateCompleters = React.useCallback(
     (text: string, cursor: number) => {
       updateCommandCompleter(text, cursor)
+      updateChatterCompleter(text, cursor)
       updateColonCompleter(text, cursor)
     },
-    [updateColonCompleter, updateCommandCompleter]
+    [updateChatterCompleter, updateColonCompleter, updateCommandCompleter]
+  )
+
+  const completeChatterSuggestion = React.useCallback(
+    (
+      suggestion: ChatterSuggestion,
+      options: {
+        reset?: boolean
+        replaceRange?: EmoteReplaceRange | null
+      } = {}
+    ) => {
+      const input = inputRef.current
+      const cursor = input?.selectionStart ?? value.length
+      const range =
+        options.replaceRange ??
+        chatterCompleterRef.current.replaceRange ??
+        getWordAtCursor(value, cursor)
+
+      const applied = applyChatterSuggestion(value, range, suggestion)
+      setValue(applied.value)
+      setChatterCompleter(
+        options.reset
+          ? () => resetChatterCompleter()
+          : (current) => ({
+              ...current,
+              query: chatterMentionValue(suggestion),
+              replaceRange: range,
+              tab: null,
+            })
+      )
+      setCompleter((current) => ({ ...current, tab: null }))
+
+      requestAnimationFrame(() => {
+        const el = inputRef.current
+        if (!el) return
+        el.focus()
+        el.setSelectionRange(applied.caret, applied.caret)
+      })
+    },
+    [value]
+  )
+
+  const applyChatterTabMatch = React.useCallback(
+    (
+      match: ChatterSuggestion,
+      replaceRange: EmoteReplaceRange,
+      tabState: ChatterTabCompleterState
+    ) => {
+      const applied = applyChatterSuggestion(value, replaceRange, match)
+      setValue(applied.value)
+
+      const mention = chatterMentionValue(match)
+      const nextReplaceRange: EmoteReplaceRange = {
+        start: replaceRange.start,
+        end: replaceRange.start + mention.length + 1,
+      }
+
+      const nextTab: ChatterTabCompleterState = {
+        ...tabState,
+        index: tabState.index,
+        replaceRange: nextReplaceRange,
+        expectedWord: `${mention} `,
+      }
+
+      setChatterCompleter((current) => ({
+        ...current,
+        query: mention,
+        replaceRange: nextReplaceRange,
+        active: true,
+        suggestions: tabState.matches,
+        current: tabState.index,
+        tab: nextTab,
+      }))
+      setCompleter((current) => ({ ...current, tab: null }))
+
+      requestAnimationFrame(() => {
+        const el = inputRef.current
+        if (!el) return
+        el.focus()
+        el.setSelectionRange(applied.caret, applied.caret)
+      })
+    },
+    [value]
   )
 
   const applyTabMatch = React.useCallback(
@@ -635,6 +833,54 @@ export function ChatComposer({
         const wordAtCursor = getWordAtCursor(value, cursor)
         if (!wordAtCursor) return
 
+        if (wordAtCursor.word.startsWith("@")) {
+          const { word, start, end } = wordAtCursor
+          const replaceRange = { start, end }
+          const activeChatterCompleter = chatterCompleterRef.current
+
+          let tabState = activeChatterCompleter.tab
+          let matches: ChatterSuggestion[]
+          let matchIndex: number
+
+          if (shouldResetTabState(tabState, replaceRange)) {
+            matches =
+              activeChatterCompleter.suggestions.length > 0
+                ? activeChatterCompleter.suggestions
+                : searchChatters(
+                    channelLogin,
+                    word.endsWith(" ") ? word.slice(1, -1) : word.slice(1),
+                    {
+                      isBlocked: hideBlockedUsers ? isUserBlocked : undefined,
+                    }
+                  ).map(toChatterSuggestion)
+            if (matches.length === 0) return
+
+            matchIndex = Math.min(
+              activeChatterCompleter.current,
+              matches.length - 1
+            )
+            tabState = {
+              matches,
+              index: matchIndex,
+              replaceRange,
+              expectedWord: word,
+            }
+          } else {
+            matches = tabState!.matches
+            matchIndex = shift
+              ? prevSuggestionIndex(tabState!.index, matches.length)
+              : nextSuggestionIndex(tabState!.index, matches.length)
+            tabState = { ...tabState!, index: matchIndex }
+          }
+
+          applyChatterTabMatch(
+            matches[matchIndex]!,
+            tabState.replaceRange,
+            tabState
+          )
+          return
+        }
+
         if (
           activeCompleter.prefixed &&
           activeCompleter.suggestions.length > 0
@@ -675,10 +921,15 @@ export function ChatComposer({
       }
     },
     [
+      applyChatterTabMatch,
       applyTabMatch,
+      channelLogin,
       completeCommandSuggestion,
       completeSuggestion,
       emoteList,
+      hideBlockedUsers,
+      isUserBlocked,
+      searchChatters,
       value,
     ]
   )
@@ -748,6 +999,7 @@ export function ChatComposer({
       setValue((current) => (current ? `${current} ${text}` : text))
       setCompleter(createEmoteCompleterState())
       setCommandCompleter(createCommandCompleterState())
+      setChatterCompleter(createChatterCompleterState())
       requestAnimationFrame(() => {
         const el = inputRef.current
         if (!el) return
@@ -800,6 +1052,14 @@ export function ChatComposer({
   const sendCurrentMessage = () => {
     const message = value.trim()
     if (!message) return
+
+    if (showChatterSuggestions) {
+      completeChatterSuggestion(
+        chatterCompleter.suggestions[chatterCompleter.current]!,
+        { reset: true }
+      )
+      return
+    }
 
     if (showEmoteSuggestions) {
       completeSuggestion(completer.suggestions[completer.current]!, {
@@ -891,6 +1151,19 @@ export function ChatComposer({
         return
       }
 
+      if (showChatterSuggestions) {
+        event.preventDefault()
+        setChatterCompleter((current) => ({
+          ...current,
+          current: getChatterSuggestionIndices(
+            current.current,
+            current.suggestions.length,
+            "prev"
+          ),
+        }))
+        return
+      }
+
       if (showEmoteSuggestions) {
         event.preventDefault()
         setCompleter((current) => ({
@@ -928,6 +1201,19 @@ export function ChatComposer({
         setCommandCompleter((current) => ({
           ...current,
           current: getCommandSuggestionIndices(
+            current.current,
+            current.suggestions.length,
+            "next"
+          ),
+        }))
+        return
+      }
+
+      if (showChatterSuggestions) {
+        event.preventDefault()
+        setChatterCompleter((current) => ({
+          ...current,
+          current: getChatterSuggestionIndices(
             current.current,
             current.suggestions.length,
             "next"
@@ -985,8 +1271,6 @@ export function ChatComposer({
     }
   }
 
-  const activeNotice = !sendBlock ? (notices[0] ?? null) : null
-
   return (
     <div className="shrink-0">
       {replyThread ? (
@@ -1022,6 +1306,14 @@ export function ChatComposer({
             usageHintDetail={commandCompleter.usageHintDetail}
             onSelect={(suggestion) => completeCommandSuggestion(suggestion)}
           />
+          <ChatterSuggestions
+            open={showChatterSuggestions}
+            index={chatterCompleter.current}
+            suggestions={chatterCompleter.suggestions}
+            onSelect={(suggestion) =>
+              completeChatterSuggestion(suggestion, { reset: true })
+            }
+          />
           <ChatSuggestions
             open={showEmoteSuggestions}
             index={completer.current}
@@ -1033,6 +1325,7 @@ export function ChatComposer({
           <div className="overflow-hidden rounded-lg border border-border/50 bg-background/40 shadow-none backdrop-blur-sm focus-within:border-border/40 focus-within:ring-1 focus-within:ring-border/40 dark:bg-input/30">
             {activeNotice ? (
               <ComposerNoticeBanner
+                key={`${activeNotice.id}:${activeNotice.message}`}
                 noticeId={activeNotice.id}
                 message={activeNotice.message}
                 queueCount={notices.length}
@@ -1080,6 +1373,7 @@ export function ChatComposer({
                   setValue((current) => insertEmoteAtEnd(current, code))
                   setCompleter(createEmoteCompleterState())
                   setCommandCompleter(createCommandCompleterState())
+                  setChatterCompleter(createChatterCompleterState())
                   inputRef.current?.focus()
                 }}
               />
@@ -1093,7 +1387,7 @@ export function ChatComposer({
           disabled={disabled || !value.trim()}
           aria-label="Send chat message"
           onClick={sendCurrentMessage}
-          className="size-[calc(--spacing(9)+2px)] shrink-0 border-2 border-[var(--shine)]"
+          className="size-[calc(--spacing(9)+2px)] shrink-0 shine border-2 bg-transparent hover:bg-transparent hover:brightness-110 disabled:hover:brightness-100"
         >
           <SendHorizontalIcon className="size-4" />
         </Button>

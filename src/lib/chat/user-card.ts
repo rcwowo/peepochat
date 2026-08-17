@@ -1,3 +1,4 @@
+import type { ChannelChatter } from "@/lib/chat/chatter-store"
 import type {
   TwitchChatMessage,
   TwitchNoticeActor,
@@ -10,6 +11,7 @@ export type UserCardTarget = {
   displayName: string
   color: string | null
   flags: TwitchChatMessage["flags"]
+  channelLogin?: string
 }
 
 export function userCardTargetKey(target: UserCardTarget): string {
@@ -55,6 +57,20 @@ export function createUserCardTargetFromTwitchUser(
       ...createEmptyUserCardFlags(),
       isBroadcaster: user.login.toLowerCase() === channelLogin.toLowerCase(),
     },
+  }
+}
+
+export function createUserCardTargetFromChatter(
+  chatter: ChannelChatter,
+  channelLogin: string
+): UserCardTarget {
+  return {
+    userId: chatter.userId,
+    userName: chatter.login,
+    displayName: chatter.displayName,
+    color: chatter.color,
+    flags: chatter.flags,
+    channelLogin,
   }
 }
 
