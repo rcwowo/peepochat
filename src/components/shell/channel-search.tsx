@@ -763,11 +763,7 @@ export function ChannelSearch() {
             onClick={() => inputRef.current?.focus()}
           >
             {filters.map((filter, index) => (
-              <Badge
-                key={`${filter.key}:${filter.value}:${index}`}
-                variant="secondary"
-                asChild
-              >
+              <Badge key={`${filter.key}:${filter.value}:${index}`} asChild>
                 <button
                   type="button"
                   className="h-5 max-w-full cursor-pointer rounded-md px-1.5 font-medium"
