@@ -153,6 +153,7 @@ export class TwitchEventSubClient {
   private seenMessageIds = new Set<string>()
   private seenMessageIdOrder: string[] = []
   private migratingFromSocket: WebSocket | null = null
+  private permissionDeniedKeys = new Set<string>()
 
   setHandlers(handlers: TwitchEventSubHandlers) {
     this.handlers = handlers
@@ -202,6 +203,9 @@ export class TwitchEventSubClient {
 
     const nextSignature = desiredSignature(next.values())
     const signatureChanged = nextSignature !== this.desiredSignature
+    if (signatureChanged) {
+      this.permissionDeniedKeys.clear()
+    }
 
     for (const [key, desired] of next) {
       const existing = this.active.get(key)
@@ -237,11 +241,13 @@ export class TwitchEventSubClient {
     this.closeSocket(this.socket)
     this.socket = null
     this.active.clear()
+    this.permissionDeniedKeys.clear()
   }
 
   private needsSubscriptionSync(): boolean {
     if (!this.sessionId) return false
     for (const key of this.desired.keys()) {
+      if (this.permissionDeniedKeys.has(key)) continue
       const active = this.active.get(key)
       if (!active) return true
       if (active.status === "failed") return true
@@ -413,6 +419,7 @@ export class TwitchEventSubClient {
       this.migratingFromSocket = null
     } else {
       this.active.clear()
+      this.permissionDeniedKeys.clear()
     }
 
     this.queueSyncSubscriptions()
@@ -621,7 +628,7 @@ export class TwitchEventSubClient {
               auth.onAuthFailure?.("expired")
             } else if (error.status === 403) {
               authFailureReported = true
-              auth.onAuthFailure?.("scopes")
+              this.permissionDeniedKeys.add(key)
             }
           }
         }
