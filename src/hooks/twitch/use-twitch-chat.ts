@@ -394,6 +394,7 @@ export function useTwitchChat(options?: {
     getRoomId: roomStore.getRoomId,
     subscribeToChatters: chatterStore.subscribe,
     getChatters: chatterStore.getChatters,
+    getChatterByLogin: chatterStore.getChatterByLogin,
     searchChatters: chatterStore.searchChatters,
     isRecentMessagesLoading: recentMessages.isRecentMessagesLoading,
     subscribeToRecentMessagesLoading:

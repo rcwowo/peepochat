@@ -302,6 +302,7 @@ function ChatMessageRowInner({
                 emotes={message.emotes}
                 pingMatchRange={pingHighlighted ? pingMatchRange : null}
                 highlightRanges={searchHighlightRanges}
+                channelLogin={message.channel}
               />
             </span>
           </>
@@ -319,6 +320,7 @@ function ChatMessageRowInner({
               emotes={message.emotes}
               pingMatchRange={pingHighlighted ? pingMatchRange : null}
               highlightRanges={searchHighlightRanges}
+              channelLogin={message.channel}
             />
           </span>
         )}

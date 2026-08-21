@@ -2,6 +2,7 @@ import * as React from "react"
 
 import { ChatEmote } from "@/components/chat/chat-emote"
 import { ChatCheermote } from "@/components/chat/chat-cheermote"
+import { ChatMention } from "@/components/chat/chat-mention"
 import type { PingMatchRange } from "@/lib/highlights/highlight-rules"
 import { PingMatchMark } from "@/lib/highlights/ping-match-mark"
 import { findMessageUrls } from "@/lib/peepochat/peepochat-config"
@@ -109,7 +110,8 @@ function renderPlainText(
   text: string,
   keyPrefix: string,
   segmentStart = 0,
-  highlightRanges: PingMatchRange[] = EMPTY_HIGHLIGHT_RANGES
+  highlightRanges: PingMatchRange[] = EMPTY_HIGHLIGHT_RANGES,
+  channelLogin?: string
 ) {
   const parts: React.ReactNode[] = []
   let lastIndex = 0
@@ -141,12 +143,13 @@ function renderPlainText(
       highlightRanges
     )
     parts.push(
-      <span
+      <ChatMention
         key={`${keyPrefix}-mention-${mentionIndex}`}
-        className="chat-mention font-semibold"
+        mention={match[0]}
+        channelLogin={channelLogin}
       >
         {mentionParts}
-      </span>
+      </ChatMention>
     )
 
     lastIndex = index + match[0].length
@@ -182,12 +185,19 @@ function renderTextWithLinks(
   text: string,
   keyPrefix: string,
   segmentStart = 0,
-  highlightRanges: PingMatchRange[] = EMPTY_HIGHLIGHT_RANGES
+  highlightRanges: PingMatchRange[] = EMPTY_HIGHLIGHT_RANGES,
+  channelLogin?: string
 ) {
   const urls = findMessageUrls(text)
 
   if (urls.length === 0) {
-    return renderPlainText(text, keyPrefix, segmentStart, highlightRanges)
+    return renderPlainText(
+      text,
+      keyPrefix,
+      segmentStart,
+      highlightRanges,
+      channelLogin
+    )
   }
 
   const parts: React.ReactNode[] = []
@@ -200,7 +210,8 @@ function renderTextWithLinks(
           text.slice(lastIdx, match.start),
           `${keyPrefix}-t-${lastIdx}`,
           segmentStart + lastIdx,
-          highlightRanges
+          highlightRanges,
+          channelLogin
         )
       )
     }
@@ -235,7 +246,8 @@ function renderTextWithLinks(
         text.slice(lastIdx),
         `${keyPrefix}-t-${lastIdx}`,
         segmentStart + lastIdx,
-        highlightRanges
+        highlightRanges,
+        channelLogin
       )
     )
   }
@@ -248,11 +260,13 @@ export function ChatMessageBody({
   emotes,
   pingMatchRange = null,
   highlightRanges,
+  channelLogin,
 }: {
   text: string
   emotes: TwitchEmote[]
   pingMatchRange?: PingMatchRange | null
   highlightRanges?: PingMatchRange[] | null
+  channelLogin?: string
 }) {
   const ranges =
     highlightRanges != null
@@ -262,7 +276,7 @@ export function ChatMessageBody({
         : EMPTY_HIGHLIGHT_RANGES
 
   if (emotes.length === 0) {
-    return <>{renderTextWithLinks(text, "message", 0, ranges)}</>
+    return <>{renderTextWithLinks(text, "message", 0, ranges, channelLogin)}</>
   }
 
   const parts: React.ReactNode[] = []
@@ -275,7 +289,8 @@ export function ChatMessageBody({
           text.slice(lastIdx, emote.start),
           `t-${lastIdx}`,
           lastIdx,
-          ranges
+          ranges,
+          channelLogin
         )
       )
     }
@@ -309,7 +324,8 @@ export function ChatMessageBody({
         text.slice(lastIdx),
         `t-${lastIdx}`,
         lastIdx,
-        ranges
+        ranges,
+        channelLogin
       )
     )
   }

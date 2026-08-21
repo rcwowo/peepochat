@@ -143,6 +143,10 @@ export type PeepochatChatContextValue = {
   getRoomId: (login: string) => string | null
   subscribeToChatters: (login: string, listener: () => void) => () => void
   getChatters: (login: string) => ChannelChatter[]
+  getChatterByLogin: (
+    channelLogin: string,
+    chatterLogin: string
+  ) => ChannelChatter | null
   searchChatters: (
     login: string,
     query: string,
@@ -297,6 +301,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     getRoomId,
     subscribeToChatters,
     getChatters,
+    getChatterByLogin,
     searchChatters,
     isRecentMessagesLoading,
     subscribeToRecentMessagesLoading,
@@ -874,6 +879,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       getRoomId,
       subscribeToChatters,
       getChatters,
+      getChatterByLogin,
       searchChatters,
       isRecentMessagesLoading,
       subscribeToRecentMessagesLoading,
@@ -912,6 +918,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       getRoomId,
       subscribeToChatters,
       getChatters,
+      getChatterByLogin,
       searchChatters,
       isRecentMessagesLoading,
       subscribeToRecentMessagesLoading,
