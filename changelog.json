@@ -1,5 +1,14 @@
 [
     {
+        "version": "1.1.3",
+        "date": "2026-09-01",
+        "items": [
+            "Added clickable '@' mentions to open user cards.",
+            "Added the user's color where applicable in chat panes.",
+            "Changed the background color of chat notices."
+        ]
+    },
+    {
         "version": "1.1.2",
         "date": "2026-08-21",
         "items": [
