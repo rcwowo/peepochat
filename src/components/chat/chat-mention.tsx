@@ -1,41 +1,15 @@
 import * as React from "react"
 
+import { useChatterByLogin } from "@/hooks/chat-ui/use-chatter-by-login"
+import { useResolvedUsernameColor } from "@/hooks/chat-ui/use-resolved-username-color"
 import { useUserCardContext } from "@/hooks/twitch/use-user-card-context"
 import type { ChannelChatter } from "@/lib/chat/chatter-store"
 import {
   createEmptyUserCardFlags,
   type UserCardTarget,
 } from "@/lib/chat/user-card"
-import { usePeepochatChat } from "@/lib/peepochat/peepochat-context"
-import { getReadableUsernameColor } from "@/lib/chat/chat-username"
 
 const MENTION_LOGIN_PATTERN = /^@([A-Za-z0-9_]+)$/
-
-function useMentionChatter(
-  channelLogin: string | undefined,
-  login: string | undefined
-) {
-  const { subscribeToChatters, getChatterByLogin } = usePeepochatChat()
-
-  const subscribe = React.useCallback(
-    (onStoreChange: () => void) => {
-      if (!channelLogin || !login) {
-        return () => {}
-      }
-      return subscribeToChatters(channelLogin, onStoreChange)
-    },
-    [channelLogin, login, subscribeToChatters]
-  )
-
-  const getSnapshot = React.useCallback(() => {
-    if (!channelLogin || !login) {
-      return null
-    }
-    return getChatterByLogin(channelLogin, login)
-  }, [channelLogin, getChatterByLogin, login])
-
-  return React.useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
-}
 
 function createMentionTarget(
   mention: string,
@@ -77,13 +51,17 @@ export function ChatMention({
   const triggerRef = React.useRef<HTMLButtonElement>(null)
 
   const login = MENTION_LOGIN_PATTERN.exec(mention)?.[1]?.toLowerCase()
-  const chatter = useMentionChatter(channelLogin, login)
+  const chatter = useChatterByLogin(channelLogin, login)
 
   const target =
     channelLogin && login
       ? createMentionTarget(mention, login, chatter, channelLogin)
       : null
-  const readableColor = target ? getReadableUsernameColor(target.color) : null
+  const readableColor = useResolvedUsernameColor({
+    channelLogin,
+    userName: login,
+    color: target?.color,
+  })
 
   const handleTriggerClick = React.useCallback(() => {
     if (!target || !userCardContext) {
@@ -94,7 +72,12 @@ export function ChatMention({
 
   if (!target || !userCardContext) {
     return (
-      <span className="chat-mention font-semibold">{children ?? mention}</span>
+      <span
+        className="chat-mention font-semibold"
+        style={readableColor ? { color: readableColor } : undefined}
+      >
+        {children ?? mention}
+      </span>
     )
   }
 

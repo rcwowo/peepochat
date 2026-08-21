@@ -1,15 +1,23 @@
-import { getReadableUsernameColor } from "@/lib/chat/chat-username"
+import { useResolvedUsernameColor } from "@/hooks/chat-ui/use-resolved-username-color"
 
 export function ChatUsername({
   displayName,
   color,
+  channelLogin,
+  userName,
   className = "font-semibold",
 }: {
   displayName: string
   color?: string | null
+  channelLogin?: string
+  userName?: string | null
   className?: string
 }) {
-  const readableColor = getReadableUsernameColor(color)
+  const readableColor = useResolvedUsernameColor({
+    channelLogin,
+    userName,
+    color,
+  })
 
   return (
     <span

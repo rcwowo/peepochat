@@ -14,6 +14,7 @@ import { ChatMessageBody } from "@/components/chat/chat-message-body"
 import { ChatReplyPreview } from "@/components/chat/chat-reply-preview"
 import { UserCardPopover } from "@/components/chat/user-card-popover"
 import { Button } from "@/components/ui/button"
+import { useResolvedUsernameColor } from "@/hooks/chat-ui/use-resolved-username-color"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,7 +26,6 @@ import {
   type ChatBadgeCatalog,
 } from "@/lib/chat/chat-badges"
 import { createComposerReplyFromMessage } from "@/lib/chat/reply-threads"
-import { getReadableUsernameColor } from "@/lib/chat/chat-username"
 import {
   canDeleteMessageInChannel,
   canModerateTarget,
@@ -105,7 +105,11 @@ function ChatMessageRowInner({
     ? resolveMessageBadges(message.badges, badgeCatalog)
     : []
   const memberBadge = showMemberBadges ? getMemberBadge(message.userId) : null
-  const usernameColor = getReadableUsernameColor(message.color)
+  const usernameColor = useResolvedUsernameColor({
+    channelLogin: message.channel,
+    userName: message.userName,
+    color: message.color,
+  })
   const moderationTarget = React.useMemo(
     () => ({
       userId: message.userId,
@@ -252,6 +256,7 @@ function ChatMessageRowInner({
         <div className="mb-0.5">
           <ChatReplyPreview
             reply={message.reply}
+            channelLogin={message.channel}
             onClick={showReplyButton ? startReply : undefined}
           />
         </div>

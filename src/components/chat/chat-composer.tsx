@@ -1275,6 +1275,7 @@ export function ChatComposer({
     <div className="shrink-0">
       {replyThread ? (
         <ChatReplyThreadTray
+          channelLogin={channelLogin}
           thread={replyThread}
           badgeCatalog={badgeCatalog}
           getMemberBadge={getMemberBadge}
