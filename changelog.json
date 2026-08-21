@@ -1,5 +1,12 @@
 [
     {
+        "version": "1.1.2",
+        "date": "2026-08-21",
+        "items": [
+            "Fixed critical bug where joining a channel where you're banned starts a login loop."
+        ]
+    },
+    {
         "version": "1.1.1",
         "date": "2026-08-17",
         "items": [
