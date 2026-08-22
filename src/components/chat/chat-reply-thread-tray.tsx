@@ -1,3 +1,4 @@
+import * as React from "react"
 import { XIcon } from "lucide-react"
 
 import { ChatBadgeList } from "@/components/chat/chat-badge"
@@ -14,6 +15,7 @@ import {
   type ReplyThread,
   type ReplyThreadRoot,
 } from "@/lib/chat/reply-threads"
+import { getReplyDisplayContent } from "@/lib/chat/strip-reply-mention"
 import type { ResolvedMemberBadge } from "@/lib/chat/rcw-badges"
 import type {
   TwitchChatMessage,
@@ -134,14 +136,19 @@ function MessageFromChat({
   showBadgeFallback: boolean
   onSelect?: () => void
 }) {
+  const displayContent = React.useMemo(
+    () => getReplyDisplayContent(message.text, message.emotes, message.reply),
+    [message.emotes, message.reply, message.text]
+  )
+
   return (
     <ThreadMessageLine
       channelLogin={message.channel}
       displayName={message.displayName}
       userName={message.userName}
       color={message.color}
-      text={message.text}
-      emotes={message.emotes}
+      text={displayContent.text}
+      emotes={displayContent.emotes}
       badges={
         showTwitchBadges
           ? resolveMessageBadges(message.badges, badgeCatalog)

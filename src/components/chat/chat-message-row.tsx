@@ -27,6 +27,10 @@ import {
 } from "@/lib/chat/chat-badges"
 import { createComposerReplyFromMessage } from "@/lib/chat/reply-threads"
 import {
+  adjustHighlightRangesForReplyStrip,
+  getReplyDisplayContent,
+} from "@/lib/chat/strip-reply-mention"
+import {
   canDeleteMessageInChannel,
   canModerateTarget,
 } from "@/lib/chat/moderation-permissions"
@@ -150,6 +154,35 @@ function ChatMessageRowInner({
     canDeleteMessage ||
     showTimeoutButton ||
     showBanButton
+  const displayContent = React.useMemo(
+    () => getReplyDisplayContent(message.text, message.emotes, message.reply),
+    [message.emotes, message.reply, message.text]
+  )
+  const displayPingMatchRange = React.useMemo(() => {
+    if (
+      !pingHighlighted ||
+      !pingMatchRange ||
+      displayContent.stripOffset === 0
+    ) {
+      return pingHighlighted ? pingMatchRange : null
+    }
+
+    return (
+      adjustHighlightRangesForReplyStrip(
+        [pingMatchRange],
+        displayContent.stripOffset
+      )?.[0] ?? null
+    )
+  }, [displayContent.stripOffset, pingHighlighted, pingMatchRange])
+  const displaySearchHighlightRanges = React.useMemo(
+    () =>
+      adjustHighlightRangesForReplyStrip(
+        searchHighlightRanges,
+        displayContent.stripOffset
+      ),
+    [displayContent.stripOffset, searchHighlightRanges]
+  )
+
   const userCardTarget = React.useMemo(
     () => ({
       userId: message.userId,
@@ -303,10 +336,10 @@ function ChatMessageRowInner({
               }
             >
               <ChatMessageBody
-                text={message.text}
-                emotes={message.emotes}
-                pingMatchRange={pingHighlighted ? pingMatchRange : null}
-                highlightRanges={searchHighlightRanges}
+                text={displayContent.text}
+                emotes={displayContent.emotes}
+                pingMatchRange={displayPingMatchRange}
+                highlightRanges={displaySearchHighlightRanges}
                 channelLogin={message.channel}
               />
             </span>
@@ -321,10 +354,10 @@ function ChatMessageRowInner({
             }
           >
             <ChatMessageBody
-              text={message.text}
-              emotes={message.emotes}
-              pingMatchRange={pingHighlighted ? pingMatchRange : null}
-              highlightRanges={searchHighlightRanges}
+              text={displayContent.text}
+              emotes={displayContent.emotes}
+              pingMatchRange={displayPingMatchRange}
+              highlightRanges={displaySearchHighlightRanges}
               channelLogin={message.channel}
             />
           </span>
