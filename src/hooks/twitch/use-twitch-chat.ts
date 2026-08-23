@@ -40,10 +40,14 @@ export function useTwitchChat(options?: {
   onChatMessageRef?: React.RefObject<
     ((message: TwitchChatMessage) => void) | null
   >
+  onHistoricalMessagesRef?: React.RefObject<
+    ((messages: TwitchChatMessage[]) => void) | null
+  >
 }) {
   const account = options?.account ?? null
   const onAuthFailure = options?.onAuthFailure
   const onChatMessageRef = options?.onChatMessageRef
+  const onHistoricalMessagesRef = options?.onHistoricalMessagesRef
 
   const hideBlockedUsersRef = React.useRef(true)
   const isUserBlockedRef = React.useRef<
@@ -112,6 +116,9 @@ export function useTwitchChat(options?: {
     timeline,
     emotes,
     syncedChannelsRef,
+    hideBlockedUsersRef,
+    isUserBlockedRef,
+    onHistoricalMessagesRef,
   })
 
   const send = useChatSend({

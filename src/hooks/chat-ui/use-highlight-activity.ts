@@ -3,17 +3,17 @@ import * as React from "react"
 import { useLazyRef } from "@/hooks/use-lazy-ref"
 import { addChannelMessageHighlight } from "@/lib/highlights/channel-message-highlights"
 import {
+  addMissedPingNotifications,
   addPingNotification,
   markLiveNotificationsReadForChannels,
   markPingNotificationsReadForChannels,
+  type MissedPingNotification,
 } from "@/lib/highlights/notification-center"
 import {
   compilePingRules,
   findPingMatchRange,
   getPingMatchPattern,
-  getUsernameMentionRuleId,
-  matchPingRules,
-  messageMentionsUsername,
+  resolveMessagePingMatch,
   type CompiledPingRule,
 } from "@/lib/highlights/highlight-rules"
 import { playAlertSound } from "@/lib/highlights/alert-sounds"
@@ -247,18 +247,10 @@ export function useHighlightActivity({
           continue
         }
 
-        let pingMatch = matchPingRules(compiled, message)
-        if (
-          !pingMatch &&
-          pingOnUsernameMentionRef.current &&
-          account &&
-          messageMentionsUsername(message, account)
-        ) {
-          pingMatch = {
-            ruleId: getUsernameMentionRuleId(),
-            notify: true,
-          }
-        }
+        const pingMatch = resolveMessagePingMatch(compiled, message, {
+          pingOnUsernameMention: pingOnUsernameMentionRef.current,
+          accountLogin: account,
+        })
 
         if (!pingMatch) {
           continue
@@ -381,6 +373,82 @@ export function useHighlightActivity({
     [processIncomingMessages]
   )
 
+  const handleHistoricalMessages = React.useCallback(
+    (messages: TwitchChatMessage[]) => {
+      if (messages.length === 0) {
+        return
+      }
+
+      const compiled = compiledPingsRef.current
+      const hasPingRules =
+        compiled.length > 0 || pingOnUsernameMentionRef.current
+      if (!hasPingRules) {
+        return
+      }
+
+      const account = accountLoginRef.current
+      const accountLower = account?.toLowerCase() ?? null
+      const missed: Array<Omit<MissedPingNotification, "id">> = []
+
+      for (const message of messages) {
+        if (message.deletedAt !== null) {
+          continue
+        }
+
+        if (accountLower && message.userName.toLowerCase() === accountLower) {
+          continue
+        }
+
+        const pingMatch = resolveMessagePingMatch(compiled, message, {
+          pingOnUsernameMention: pingOnUsernameMentionRef.current,
+          accountLogin: account,
+        })
+        if (!pingMatch) {
+          continue
+        }
+
+        const login = normalizeChannelLogin(message.channel)
+        const matchPattern = getPingMatchPattern(
+          pingMatch.ruleId,
+          pingMatch.pattern,
+          account
+        )
+
+        if (highlightPingedMessagesRef.current) {
+          addChannelMessageHighlight(login, {
+            messageId: message.id,
+            ruleId: pingMatch.ruleId,
+            matchPattern,
+            matchRange: findPingMatchRange(
+              message.text,
+              pingMatch.ruleId,
+              matchPattern
+            ),
+          })
+        }
+
+        missed.push({
+          channelLogin: login,
+          messageId: message.id,
+          userName: message.userName,
+          displayName: message.displayName,
+          text: message.text,
+          receivedAt: message.receivedAt,
+          ruleId: pingMatch.ruleId,
+          matchPattern,
+        })
+      }
+
+      addMissedPingNotifications(missed)
+    },
+    [
+      accountLoginRef,
+      compiledPingsRef,
+      highlightPingedMessagesRef,
+      pingOnUsernameMentionRef,
+    ]
+  )
+
   const hasUnreadForChannel = React.useCallback(
     (login: string) => {
       if (!isUnreadIndicatorEnabledForChannel(configRef.current, login)) {
@@ -443,5 +511,6 @@ export function useHighlightActivity({
     markChannelRead,
     markSplitRead,
     handleIncomingMessage,
+    handleHistoricalMessages,
   }
 }

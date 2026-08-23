@@ -7,6 +7,9 @@ import {
   BellRingIcon,
   CheckCheckIcon,
   CheckIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  HistoryIcon,
   RadioIcon,
   Trash2Icon,
   Undo2Icon,
@@ -32,6 +35,7 @@ import {
   useNotificationCenter,
   formatLiveNotificationText,
   type LiveNotification,
+  type MissedPingNotification,
   type PingNotification,
 } from "@/lib/highlights/notification-center"
 import {
@@ -40,6 +44,12 @@ import {
 } from "@/lib/peepochat/peepochat-context"
 import { fetchTwitchUsersByLogin } from "@/lib/twitch/twitch-api"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
+import { clamp, cn } from "@/lib/utils"
+
+const MISSED_DRAWER_DEFAULT_RATIO = 0.4
+const MISSED_DRAWER_MIN_PX = 148
+const PING_PANE_MIN_PX = 128
+const MISSED_DRAWER_RESIZE_HIT_AREA_PX = 11
 
 const profileImageCache = new Map<string, string>()
 
@@ -430,6 +440,360 @@ function LiveNotificationRow({
   )
 }
 
+function MissedPingNotificationRow({
+  notification,
+  channelLabel,
+  onNavigate,
+}: {
+  notification: MissedPingNotification
+  channelLabel: string
+  onNavigate: (login: string) => void
+}) {
+  return (
+    <div className={notificationRowClassName}>
+      <button
+        type="button"
+        className="flex w-full cursor-pointer items-start gap-3 px-4 py-3 text-left"
+        onClick={() => onNavigate(notification.channelLogin)}
+      >
+        <PingUserAvatar
+          userName={notification.userName}
+          displayName={notification.displayName}
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="truncate text-sm font-medium text-foreground">
+              {notification.displayName}
+            </span>
+            <time
+              className="shrink-0 text-xs text-muted-foreground"
+              dateTime={notification.receivedAt}
+              title={
+                formatMessageTimestamp(
+                  notification.receivedAt,
+                  "12-hour-meridiem"
+                ) ?? undefined
+              }
+            >
+              {formatRelativeTime(notification.receivedAt)}
+            </time>
+          </div>
+          <p className="mt-0.5 truncate text-xs text-muted-foreground">
+            Pinged you in {channelLabel}
+          </p>
+          <p className="mt-1.5 line-clamp-3 text-sm leading-relaxed text-foreground/90">
+            <PingMatchText
+              text={notification.text}
+              ruleId={notification.ruleId}
+              matchPattern={notification.matchPattern}
+            />
+          </p>
+        </div>
+      </button>
+    </div>
+  )
+}
+
+function clampMissedDrawerRatio(ratio: number, containerHeight: number) {
+  if (containerHeight <= 0) {
+    return MISSED_DRAWER_DEFAULT_RATIO
+  }
+
+  const minRatio = MISSED_DRAWER_MIN_PX / containerHeight
+  const maxRatio = 1 - PING_PANE_MIN_PX / containerHeight
+  if (maxRatio <= minRatio) {
+    return clamp(ratio, 0.25, 0.75)
+  }
+
+  return clamp(ratio, minRatio, maxRatio)
+}
+
+function MissedDrawerResizeHandle({
+  onPointerDown,
+  onDoubleClick,
+}: {
+  onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => void
+  onDoubleClick: () => void
+}) {
+  return (
+    <div
+      role="separator"
+      aria-orientation="horizontal"
+      aria-label="Resize missed pings"
+      className="group relative z-10 shrink-0 cursor-row-resize touch-none bg-border transition-colors hover:bg-primary/60"
+      style={{ height: 1 }}
+      onPointerDown={onPointerDown}
+      onDoubleClick={onDoubleClick}
+    >
+      <div
+        className="absolute inset-x-0 top-1/2 -translate-y-1/2 cursor-row-resize bg-transparent"
+        style={{ height: MISSED_DRAWER_RESIZE_HIT_AREA_PX }}
+      />
+    </div>
+  )
+}
+
+function MissedPingsDrawer({
+  notifications,
+  channelMetaByLogin,
+  expanded,
+  heightRatio,
+  onExpandedChange,
+  onDismissAll,
+  onNavigate,
+}: {
+  notifications: MissedPingNotification[]
+  channelMetaByLogin: Map<string, { label: string; profileImageUrl?: string }>
+  expanded: boolean
+  heightRatio: number
+  onExpandedChange: (expanded: boolean) => void
+  onDismissAll: () => void
+  onNavigate: (login: string) => void
+}) {
+  if (notifications.length === 0) {
+    return null
+  }
+
+  return (
+    <div
+      className={cn(
+        "flex min-h-0 shrink-0 flex-col bg-muted/20",
+        expanded ? "" : "border-t border-border"
+      )}
+      style={expanded ? { height: `${heightRatio * 100}%` } : undefined}
+    >
+      <div className="flex shrink-0 items-start justify-between gap-1 px-2 py-1.5">
+        <button
+          type="button"
+          className="min-w-0 flex-1 rounded-md px-2 py-1 text-left hover:bg-muted/70"
+          aria-expanded={expanded}
+          onClick={() => onExpandedChange(!expanded)}
+        >
+          <div className="flex items-center gap-1.5">
+            {expanded ? (
+              <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
+            ) : (
+              <ChevronUpIcon className="size-3.5 shrink-0 text-muted-foreground" />
+            )}
+            <HistoryIcon className="size-3.5 shrink-0 text-muted-foreground" />
+            <p className="truncate text-sm font-medium text-foreground">
+              You may have missed
+            </p>
+            <span className="shrink-0 text-xs text-muted-foreground">
+              ({notifications.length})
+            </span>
+          </div>
+          {expanded ? (
+            <p className="mt-0.5 pl-9 text-xs text-muted-foreground">
+              Pings from before you connected
+            </p>
+          ) : null}
+        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              className="mt-1 text-muted-foreground"
+              onClick={onDismissAll}
+            >
+              <XIcon className="size-3.5" />
+              <span className="sr-only">Remove</span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left">Remove</TooltipContent>
+        </Tooltip>
+      </div>
+      {expanded ? (
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain border-t border-border">
+          {notifications.map((notification) => {
+            const channelMeta = channelMetaByLogin.get(
+              notification.channelLogin
+            )
+
+            return (
+              <MissedPingNotificationRow
+                key={notification.id}
+                notification={notification}
+                channelLabel={channelMeta?.label ?? notification.channelLogin}
+                onNavigate={onNavigate}
+              />
+            )
+          })}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function PingNotificationsPane({
+  pingNotifications,
+  missedPingNotifications,
+  channelMetaByLogin,
+  expanded,
+  drawerRatio,
+  onExpandedChange,
+  onDrawerRatioChange,
+  onDismissAll,
+  onNavigate,
+  onMarkRead,
+  onMarkUnread,
+  onRemove,
+}: {
+  pingNotifications: PingNotification[]
+  missedPingNotifications: MissedPingNotification[]
+  channelMetaByLogin: Map<string, { label: string; profileImageUrl?: string }>
+  expanded: boolean
+  drawerRatio: number
+  onExpandedChange: (expanded: boolean) => void
+  onDrawerRatioChange: (ratio: number) => void
+  onDismissAll: () => void
+  onNavigate: (login: string) => void
+  onMarkRead: (id: string) => void
+  onMarkUnread: (id: string) => void
+  onRemove: (id: string) => void
+}) {
+  const containerRef = React.useRef<HTMLDivElement>(null)
+  const drawerRatioRef = React.useRef(drawerRatio)
+  const onDrawerRatioChangeRef = React.useRef(onDrawerRatioChange)
+  const frameRef = React.useRef<number | null>(null)
+  const hasMissed = missedPingNotifications.length > 0
+  const showResize = hasMissed && expanded
+
+  React.useEffect(() => {
+    drawerRatioRef.current = drawerRatio
+  }, [drawerRatio])
+
+  React.useEffect(() => {
+    onDrawerRatioChangeRef.current = onDrawerRatioChange
+  }, [onDrawerRatioChange])
+
+  React.useEffect(() => {
+    const container = containerRef.current
+    if (!container || !showResize) {
+      return
+    }
+
+    const observer = new ResizeObserver((entries) => {
+      const height = entries[0]?.contentRect.height ?? 0
+      const next = clampMissedDrawerRatio(drawerRatioRef.current, height)
+      if (next !== drawerRatioRef.current) {
+        onDrawerRatioChangeRef.current(next)
+      }
+    })
+    observer.observe(container)
+    return () => observer.disconnect()
+  }, [showResize])
+
+  const handleResizePointerDown = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (event.button !== 0) {
+        return
+      }
+
+      event.preventDefault()
+      event.stopPropagation()
+
+      const container = containerRef.current
+      if (!container) {
+        return
+      }
+
+      const previousCursor = document.body.style.cursor
+      const previousUserSelect = document.body.style.userSelect
+      document.body.style.cursor = "row-resize"
+      document.body.style.userSelect = "none"
+
+      const handlePointerMove = (moveEvent: PointerEvent) => {
+        const rect = container.getBoundingClientRect()
+        if (rect.height <= 0) {
+          return
+        }
+
+        const nextRatio = clampMissedDrawerRatio(
+          (rect.bottom - moveEvent.clientY) / rect.height,
+          rect.height
+        )
+
+        if (frameRef.current !== null) {
+          cancelAnimationFrame(frameRef.current)
+        }
+
+        frameRef.current = requestAnimationFrame(() => {
+          onDrawerRatioChangeRef.current(nextRatio)
+          frameRef.current = null
+        })
+      }
+
+      const handlePointerUp = () => {
+        document.body.style.cursor = previousCursor
+        document.body.style.userSelect = previousUserSelect
+        window.removeEventListener("pointermove", handlePointerMove)
+        window.removeEventListener("pointerup", handlePointerUp)
+        if (frameRef.current !== null) {
+          cancelAnimationFrame(frameRef.current)
+          frameRef.current = null
+        }
+      }
+
+      window.addEventListener("pointermove", handlePointerMove)
+      window.addEventListener("pointerup", handlePointerUp)
+    },
+    []
+  )
+
+  const handleResizeReset = React.useCallback(() => {
+    const height = containerRef.current?.getBoundingClientRect().height ?? 0
+    onDrawerRatioChange(
+      clampMissedDrawerRatio(MISSED_DRAWER_DEFAULT_RATIO, height)
+    )
+  }, [onDrawerRatioChange])
+
+  return (
+    <div
+      ref={containerRef}
+      className="flex min-h-0 flex-1 flex-col overflow-hidden"
+    >
+      <NotificationList
+        emptyMessage="No ping notifications yet."
+        isEmpty={pingNotifications.length === 0}
+      >
+        {pingNotifications.map((notification) => {
+          const channelMeta = channelMetaByLogin.get(notification.channelLogin)
+
+          return (
+            <PingNotificationRow
+              key={notification.id}
+              notification={notification}
+              channelLabel={channelMeta?.label ?? notification.channelLogin}
+              onMarkRead={onMarkRead}
+              onMarkUnread={onMarkUnread}
+              onRemove={onRemove}
+              onNavigate={onNavigate}
+            />
+          )
+        })}
+      </NotificationList>
+      {showResize ? (
+        <MissedDrawerResizeHandle
+          onPointerDown={handleResizePointerDown}
+          onDoubleClick={handleResizeReset}
+        />
+      ) : null}
+      <MissedPingsDrawer
+        notifications={missedPingNotifications}
+        channelMetaByLogin={channelMetaByLogin}
+        expanded={expanded}
+        heightRatio={drawerRatio}
+        onExpandedChange={onExpandedChange}
+        onDismissAll={onDismissAll}
+        onNavigate={onNavigate}
+      />
+    </div>
+  )
+}
+
 function NotificationList({
   children,
   emptyMessage,
@@ -479,6 +843,7 @@ export function NotificationCenter({
   const {
     pingNotifications,
     liveNotifications,
+    missedPingNotifications,
     pingCount,
     liveCount,
     totalCount,
@@ -486,6 +851,7 @@ export function NotificationCenter({
     dismissLive,
     dismissAllPings,
     dismissAllLive,
+    dismissAllMissed,
     markPingRead,
     markLiveRead,
     markPingUnread,
@@ -499,6 +865,10 @@ export function NotificationCenter({
   const ignoreNextClickRef = React.useRef(false)
 
   const [activeTab, setActiveTab] = React.useState<"pings" | "live">("pings")
+  const [missedDrawerExpanded, setMissedDrawerExpanded] = React.useState(true)
+  const [missedDrawerRatio, setMissedDrawerRatio] = React.useState(
+    MISSED_DRAWER_DEFAULT_RATIO
+  )
 
   const resolvedTab =
     !liveNotificationsEnabled && activeTab === "live" ? "pings" : activeTab
@@ -510,6 +880,11 @@ export function NotificationCenter({
     },
     [onOpenChange, setActiveChannel]
   )
+
+  const handleDismissMissed = React.useCallback(() => {
+    dismissAllMissed()
+    setMissedDrawerExpanded(true)
+  }, [dismissAllMissed])
 
   const unreadCount = resolvedTab === "pings" ? pingCount : liveCount
   const historyCount =
@@ -534,26 +909,20 @@ export function NotificationCenter({
   }, [doNotDisturbEnabled, updateConfig])
 
   const pingList = (
-    <NotificationList
-      emptyMessage="No ping notifications yet."
-      isEmpty={pingNotifications.length === 0}
-    >
-      {pingNotifications.map((notification) => {
-        const channelMeta = channelMetaByLogin.get(notification.channelLogin)
-
-        return (
-          <PingNotificationRow
-            key={notification.id}
-            notification={notification}
-            channelLabel={channelMeta?.label ?? notification.channelLogin}
-            onMarkRead={markPingRead}
-            onMarkUnread={markPingUnread}
-            onRemove={dismissPing}
-            onNavigate={handleNavigate}
-          />
-        )
-      })}
-    </NotificationList>
+    <PingNotificationsPane
+      pingNotifications={pingNotifications}
+      missedPingNotifications={missedPingNotifications}
+      channelMetaByLogin={channelMetaByLogin}
+      expanded={missedDrawerExpanded}
+      drawerRatio={missedDrawerRatio}
+      onExpandedChange={setMissedDrawerExpanded}
+      onDrawerRatioChange={setMissedDrawerRatio}
+      onDismissAll={handleDismissMissed}
+      onNavigate={handleNavigate}
+      onMarkRead={markPingRead}
+      onMarkUnread={markPingUnread}
+      onRemove={dismissPing}
+    />
   )
 
   const liveList = (

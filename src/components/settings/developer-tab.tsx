@@ -2,6 +2,7 @@ import * as React from "react"
 import {
   BellRingIcon,
   GlobeIcon,
+  HistoryIcon,
   MessageSquareIcon,
   MessageSquarePlusIcon,
   RadioIcon,
@@ -46,6 +47,7 @@ import {
 import {
   clearAllTestNotifications,
   sendTestLiveNotification,
+  sendTestMissedPingNotification,
   sendTestPingNotification,
 } from "@/lib/dev/test-notifications"
 import {
@@ -132,6 +134,25 @@ export function DeveloperTab() {
     }
 
     toast.error("Could not add test ping notification.")
+  }
+
+  const handleSendMissedPing = () => {
+    if (!channelLogin) {
+      toast.error("Add a channel first.")
+      return
+    }
+
+    const added = sendTestMissedPingNotification({
+      channelLogin,
+      accountLogin: account?.login ?? null,
+    })
+
+    if (added) {
+      toast.success("Test missed ping added.")
+      return
+    }
+
+    toast.error("Could not add test missed ping.")
   }
 
   const handleSendLive = () => {
@@ -257,6 +278,15 @@ export function DeveloperTab() {
           >
             <BellRingIcon className="size-3.5" />
             Send test ping
+          </SettingsActionButton>
+          <SettingsActionButton
+            type="button"
+            variant="outline"
+            disabled={!hasChannels}
+            onClick={handleSendMissedPing}
+          >
+            <HistoryIcon className="size-3.5" />
+            Send test missed ping
           </SettingsActionButton>
           <SettingsActionButton
             type="button"

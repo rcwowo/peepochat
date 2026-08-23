@@ -14,12 +14,20 @@ import {
 } from "@/lib/chat/recent-messages"
 import type { DeletedMessagesBehavior } from "@/lib/peepochat/peepochat-config"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
+import type { TwitchChatMessage } from "@/lib/twitch/twitch-chat"
 
 type UseRecentMessagesOptions = {
   roomStore: RoomStore
   timeline: TimelineApi
   emotes: ChatEmotesApi
   syncedChannelsRef: React.MutableRefObject<string[]>
+  hideBlockedUsersRef: React.MutableRefObject<boolean>
+  isUserBlockedRef: React.MutableRefObject<
+    (userId?: string | null, login?: string | null) => boolean
+  >
+  onHistoricalMessagesRef?: React.RefObject<
+    ((messages: TwitchChatMessage[]) => void) | null
+  >
 }
 
 export function useRecentMessages({
@@ -27,6 +35,9 @@ export function useRecentMessages({
   timeline,
   emotes,
   syncedChannelsRef,
+  hideBlockedUsersRef,
+  isUserBlockedRef,
+  onHistoricalMessagesRef,
 }: UseRecentMessagesOptions) {
   const { roomsRef, updateRoom } = roomStore
   const {
@@ -224,26 +235,40 @@ export function useRecentMessages({
                   const hideDeletedMessages =
                     deletedMessagesBehaviorRef.current === "remove"
 
+                  const historicalMessages = outcome.messages.filter(
+                    (message) =>
+                      !hideDeletedMessages || message.deletedAt === null
+                  )
+
                   prependHistoricalTimeline(
                     normalized,
-                    outcome.messages
-                      .filter(
-                        (message) =>
-                          !hideDeletedMessages || message.deletedAt === null
-                      )
-                      .map((message) => {
-                        const resolvedMessage =
-                          roomId && !message.roomId
-                            ? { ...message, roomId }
-                            : message
+                    historicalMessages.map((message) => {
+                      const resolvedMessage =
+                        roomId && !message.roomId
+                          ? { ...message, roomId }
+                          : message
 
-                        return {
-                          kind: "chat" as const,
-                          message: hydrateRoomMessage(resolvedMessage, catalog),
-                          isHistorical: true,
-                        }
-                      })
+                      return {
+                        kind: "chat" as const,
+                        message: hydrateRoomMessage(resolvedMessage, catalog),
+                        isHistorical: true,
+                      }
+                    })
                   )
+
+                  const highlightMessages = hideBlockedUsersRef.current
+                    ? historicalMessages.filter(
+                        (message) =>
+                          !isUserBlockedRef.current(
+                            message.userId,
+                            message.userName
+                          )
+                      )
+                    : historicalMessages
+                  if (highlightMessages.length > 0) {
+                    onHistoricalMessagesRef?.current?.(highlightMessages)
+                  }
+
                   historyLoadedRef.current.add(normalized)
                   break
                 }
@@ -296,13 +321,16 @@ export function useRecentMessages({
     deletedMessagesBehaviorRef,
     emoteCatalogsRef,
     ensureRoomEmotes,
+    hideBlockedUsersRef,
     historyErrorNotifiedRef,
     historyFetchLimitRef,
     historyLoadedRef,
     historyLoadingRef,
     hydrateRoomMessage,
+    isUserBlockedRef,
     liveMessageLimitRef,
     notifyRecentMessagesLoading,
+    onHistoricalMessagesRef,
     prependHistoricalTimeline,
     recentMessagesActiveRef,
     recentMessagesGenerationRef,

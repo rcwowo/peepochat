@@ -99,6 +99,33 @@ export function messageMentionsUsername(
   return mentionPattern.test(message.text)
 }
 
+export function resolveMessagePingMatch(
+  compiled: CompiledPingRule[],
+  message: TwitchChatMessage,
+  options: {
+    pingOnUsernameMention: boolean
+    accountLogin: string | null
+  }
+): PingMatchResult | null {
+  const pingMatch = matchPingRules(compiled, message)
+  if (pingMatch) {
+    return pingMatch
+  }
+
+  if (
+    options.pingOnUsernameMention &&
+    options.accountLogin &&
+    messageMentionsUsername(message, options.accountLogin)
+  ) {
+    return {
+      ruleId: getUsernameMentionRuleId(),
+      notify: true,
+    }
+  }
+
+  return null
+}
+
 export type PingMatchRange = {
   start: number
   end: number

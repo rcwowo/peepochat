@@ -289,6 +289,12 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     | ((message: import("@/lib/twitch/twitch-chat").TwitchChatMessage) => void)
     | null
   >(null)
+  const onHistoricalMessagesRef = React.useRef<
+    | ((
+        messages: import("@/lib/twitch/twitch-chat").TwitchChatMessage[]
+      ) => void)
+    | null
+  >(null)
 
   const {
     connectionState,
@@ -339,6 +345,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     account,
     onAuthFailure: invalidateSession,
     onChatMessageRef,
+    onHistoricalMessagesRef,
   })
   const {
     isBlocked,
@@ -427,6 +434,10 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     onChatMessageRef.current = highlightActivity.handleIncomingMessage
   }, [highlightActivity.handleIncomingMessage])
+
+  React.useEffect(() => {
+    onHistoricalMessagesRef.current = highlightActivity.handleHistoricalMessages
+  }, [highlightActivity.handleHistoricalMessages])
 
   const { isLive: isChannelLive, getLiveStream } = useStreamLiveStatus({
     channelLogins,
