@@ -46,11 +46,9 @@ function isVerticalScrollbarInteraction(event: PointerEvent, el: HTMLElement) {
 
 export function useChatScroll<T extends TimelineEntry>({
   timeline,
-  isActive,
   channelLogin,
 }: {
   timeline: T[]
-  isActive: boolean
   channelLogin: string
 }) {
   const chatContainerRef = React.useRef<HTMLDivElement>(null)
@@ -224,7 +222,7 @@ export function useChatScroll<T extends TimelineEntry>({
     overscan: 8,
     paddingStart: listPaddingStart,
     paddingEnd: LIST_EDGE_PADDING_PX,
-    enabled: isActive && displayedTimeline.length > 0,
+    enabled: displayedTimeline.length > 0,
   })
 
   const scrollToEnd = React.useCallback(
@@ -399,7 +397,7 @@ export function useChatScroll<T extends TimelineEntry>({
 
   React.useEffect(() => {
     const chatContainer = chatContainerRef.current
-    if (!chatContainer || !isActive) {
+    if (!chatContainer) {
       return
     }
 
@@ -489,12 +487,7 @@ export function useChatScroll<T extends TimelineEntry>({
       chatContainer.removeEventListener("pointerdown", onPointerDown)
       chatContainer.removeEventListener("scrollend", onScrollEnd)
     }
-  }, [
-    clearProgrammaticScroll,
-    finishResumeScroll,
-    isActive,
-    pauseForUserScroll,
-  ])
+  }, [clearProgrammaticScroll, finishResumeScroll, pauseForUserScroll])
 
   const timelineScrollKey = React.useMemo(() => {
     if (timeline.length === 0) {
@@ -507,7 +500,6 @@ export function useChatScroll<T extends TimelineEntry>({
 
   React.useLayoutEffect(() => {
     if (
-      !isActive ||
       isScrollPaused ||
       !isPinnedRef.current ||
       displayedTimeline.length === 0
@@ -525,7 +517,6 @@ export function useChatScroll<T extends TimelineEntry>({
     }
   }, [
     displayedTimeline.length,
-    isActive,
     isScrollPaused,
     schedulePinnedScrollSettle,
     scrollToEnd,
@@ -536,7 +527,7 @@ export function useChatScroll<T extends TimelineEntry>({
   const totalSize = virtualizer.getTotalSize()
 
   React.useLayoutEffect(() => {
-    if (!isActive || isScrollPaused || displayedTimeline.length === 0) {
+    if (isScrollPaused || displayedTimeline.length === 0) {
       return
     }
 
@@ -544,7 +535,6 @@ export function useChatScroll<T extends TimelineEntry>({
     stickToBottomIfPinned()
   }, [
     displayedTimeline.length,
-    isActive,
     isScrollPaused,
     listPaddingStart,
     stickToBottomIfPinned,
@@ -555,7 +545,6 @@ export function useChatScroll<T extends TimelineEntry>({
   React.useLayoutEffect(() => {
     const chatContainer = chatContainerRef.current
     if (
-      !isActive ||
       displayedTimeline.length === 0 ||
       !chatContainer ||
       typeof ResizeObserver === "undefined"
@@ -573,12 +562,7 @@ export function useChatScroll<T extends TimelineEntry>({
     return () => {
       observer.disconnect()
     }
-  }, [
-    displayedTimeline.length,
-    isActive,
-    stickToBottomIfPinned,
-    syncListPadding,
-  ])
+  }, [displayedTimeline.length, stickToBottomIfPinned, syncListPadding])
 
   return {
     chatContainerRef,

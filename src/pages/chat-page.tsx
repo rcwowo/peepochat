@@ -1,6 +1,6 @@
 import * as React from "react"
 
-import { ChatPane } from "@/components/chat/chat-pane"
+import { ChatPane, ChatViewActiveProvider } from "@/components/chat/chat-pane"
 import { ChatSplitLayout } from "@/components/chat/chat-split-layout"
 import { useChannelRoom } from "@/hooks/chat-ui/use-channel-room"
 import type { TwitchSelfChatState } from "@/lib/twitch/twitch-chat-types"
@@ -18,7 +18,11 @@ import {
   type MessageTimestampFormat,
   type TwitchChannel,
 } from "@/lib/peepochat/peepochat-config"
-import { usePeepochat } from "@/lib/peepochat/peepochat-context"
+import {
+  usePeepochatChat,
+  usePeepochatLayout,
+  usePeepochatSettings,
+} from "@/lib/peepochat/peepochat-context"
 import { cn } from "@/lib/utils"
 
 type ChatPaneBindings = {
@@ -33,8 +37,8 @@ type ChatPaneBindings = {
   hasBadgeSupport: boolean
   showTwitchBadges: boolean
   showMemberBadges: boolean
-  account: ReturnType<typeof usePeepochat>["account"]
-  loginWithTwitch: ReturnType<typeof usePeepochat>["loginWithTwitch"]
+  account: ReturnType<typeof usePeepochatSettings>["account"]
+  loginWithTwitch: ReturnType<typeof usePeepochatSettings>["loginWithTwitch"]
   removeSplitChannel: (login: string) => void
   moveSplitPane: (
     splitId: string,
@@ -51,11 +55,9 @@ type ChatPaneBindings = {
 
 function SingleChannelPane({
   login,
-  isActive,
   bindings,
 }: {
   login: string
-  isActive: boolean
   bindings: ChatPaneBindings
 }) {
   const meta = bindings.channelMeta.get(login)
@@ -82,7 +84,6 @@ function SingleChannelPane({
         showTwitchBadges={bindings.showTwitchBadges}
         showMemberBadges={bindings.showMemberBadges}
         joined={room?.joined ?? false}
-        isActive={isActive}
       />
     </div>
   )
@@ -90,12 +91,10 @@ function SingleChannelPane({
 
 function SplitChatPane({
   login,
-  isActive,
   bindings,
   dragHandleProps,
 }: {
   login: string
-  isActive: boolean
   bindings: ChatPaneBindings
   dragHandleProps: React.HTMLAttributes<HTMLDivElement>
 }) {
@@ -124,7 +123,6 @@ function SplitChatPane({
       joined={room?.joined ?? false}
       showRemoveSplit
       onRemoveSplit={bindings.removeSplitChannel}
-      isActive={isActive}
       dragHandleProps={dragHandleProps}
     />
   )
@@ -134,13 +132,11 @@ function SplitChannelPanes({
   splitId,
   channels,
   layout,
-  isActive,
   bindings,
 }: {
   splitId: string
   channels: string[]
   layout?: ChatSplitLayoutNode
-  isActive: boolean
   bindings: ChatPaneBindings
 }) {
   const renderPane = React.useCallback(
@@ -148,12 +144,11 @@ function SplitChannelPanes({
       <SplitChatPane
         key={login}
         login={login}
-        isActive={isActive}
         bindings={bindings}
         dragHandleProps={dragHandleProps}
       />
     ),
-    [bindings, isActive]
+    [bindings]
   )
   const getPanePreview = React.useCallback(
     (login: string) => {
@@ -179,7 +174,7 @@ function SplitChannelPanes({
   )
 }
 
-function CachedChatViewLayer({
+const CachedChatViewLayer = React.memo(function CachedChatViewLayer({
   view,
   isActive,
   bindings,
@@ -191,29 +186,27 @@ function CachedChatViewLayer({
   return (
     <div
       className={cn(
-        "absolute inset-0 flex min-h-0 min-w-0",
-        !isActive && "hidden"
+        "absolute inset-0 flex min-h-0 min-w-0 contain-content",
+        isActive ? "z-10" : "pointer-events-none invisible"
       )}
       aria-hidden={!isActive}
+      inert={!isActive}
     >
-      {view.kind === "channel" ? (
-        <SingleChannelPane
-          login={view.login}
-          isActive={isActive}
-          bindings={bindings}
-        />
-      ) : (
-        <SplitChannelPanes
-          splitId={view.splitId}
-          channels={view.channels}
-          layout={view.layout}
-          isActive={isActive}
-          bindings={bindings}
-        />
-      )}
+      <ChatViewActiveProvider isActive={isActive}>
+        {view.kind === "channel" ? (
+          <SingleChannelPane login={view.login} bindings={bindings} />
+        ) : (
+          <SplitChannelPanes
+            splitId={view.splitId}
+            channels={view.channels}
+            layout={view.layout}
+            bindings={bindings}
+          />
+        )}
+      </ChatViewActiveProvider>
     </div>
   )
-}
+})
 
 function useChatPresentationProps(chat: ChatConfig) {
   const cssFontFamily = useChatFontFamily(chat.fontFamily)
@@ -237,10 +230,9 @@ function useChatPresentationProps(chat: ChatConfig) {
 }
 
 export function ChatPage() {
+  const { config, channels, activeChannelLogin, account, loginWithTwitch } =
+    usePeepochatSettings()
   const {
-    config,
-    channels,
-    activeChannelLogin,
     activeSplitId,
     activeSplitLayout,
     isSplitView,
@@ -249,16 +241,12 @@ export function ChatPage() {
     keepChatViewsMounted,
     cachedChatViews,
     activeChatViewKey,
-    getSelfChatState,
-    getBadgeCatalog,
-    getMemberBadge,
-    hasBadgeSupport,
-    account,
-    loginWithTwitch,
     removeSplitChannel,
     moveSplitPane,
     resizeSplitPanePath,
-  } = usePeepochat()
+  } = usePeepochatLayout()
+  const { getSelfChatState, getBadgeCatalog, getMemberBadge, hasBadgeSupport } =
+    usePeepochatChat()
 
   const timestampFormat = config.chat.messageTimestampFormat
   const messageQuickActions = config.chat.messageQuickActions
@@ -353,7 +341,6 @@ export function ChatPage() {
           splitId={activeSplitId}
           channels={splitChannels}
           layout={activeSplitLayout}
-          isActive
           bindings={bindings}
         />
       </div>
@@ -365,7 +352,6 @@ export function ChatPage() {
       <SingleChannelPane
         key={activeChannelLogin}
         login={activeChannelLogin}
-        isActive
         bindings={bindings}
       />
     </div>

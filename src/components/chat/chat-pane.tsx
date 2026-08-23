@@ -69,6 +69,58 @@ import { maskReplyForBlockedUser } from "@/lib/twitch/blocked-users"
 
 const CHATVOICE_URL = "https://chatvoice.rcw.lol"
 
+const ChatViewActiveContext = React.createContext(true)
+
+export function ChatViewActiveProvider({
+  isActive,
+  children,
+}: {
+  isActive: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <ChatViewActiveContext.Provider value={isActive}>
+      {children}
+    </ChatViewActiveContext.Provider>
+  )
+}
+
+function ChatPaneHotkeyRegistration({
+  channelLogin,
+  toggleEmotePicker,
+  toggleViewerList,
+  focusComposer,
+}: {
+  channelLogin: string
+  toggleEmotePicker: () => boolean
+  toggleViewerList: () => boolean
+  focusComposer: () => void
+}) {
+  const isActive = React.useContext(ChatViewActiveContext)
+  const { registerPane } = useHotkeyRegistry()
+
+  React.useEffect(() => {
+    if (!isActive) {
+      return
+    }
+
+    return registerPane(channelLogin, {
+      toggleEmotePicker,
+      toggleViewerList,
+      focusComposer,
+    })
+  }, [
+    channelLogin,
+    focusComposer,
+    isActive,
+    registerPane,
+    toggleEmotePicker,
+    toggleViewerList,
+  ])
+
+  return null
+}
+
 function ChannelPaneAvatar({
   login,
   profileImageUrl,
@@ -112,7 +164,6 @@ type ChatPaneProps = {
   showTwitchBadges: boolean
   showMemberBadges: boolean
   joined?: boolean
-  isActive?: boolean
   showRemoveSplit?: boolean
   onRemoveSplit?: (channelLogin: string) => void
   dragHandleProps?: React.HTMLAttributes<HTMLDivElement>
@@ -138,7 +189,6 @@ function ChatPaneInner({
   showTwitchBadges,
   showMemberBadges,
   joined = true,
-  isActive = true,
   showRemoveSplit = false,
   onRemoveSplit,
   dragHandleProps,
@@ -171,7 +221,7 @@ function ChatPaneInner({
   const emotePickerOpenRef = React.useRef(false)
   const chattersOpenRef = React.useRef(false)
   const composerInputRef = React.useRef<HTMLTextAreaElement | null>(null)
-  const { registerPane, rememberFocusedPane } = useHotkeyRegistry()
+  const { rememberFocusedPane } = useHotkeyRegistry()
 
   React.useEffect(() => {
     emotePickerOpenRef.current = emotePickerOpen
@@ -195,25 +245,6 @@ function ChatPaneInner({
   const focusComposer = React.useCallback(() => {
     composerInputRef.current?.focus()
   }, [])
-
-  React.useEffect(() => {
-    if (!isActive) {
-      return
-    }
-
-    return registerPane(channelLogin, {
-      toggleEmotePicker,
-      toggleViewerList,
-      focusComposer,
-    })
-  }, [
-    channelLogin,
-    focusComposer,
-    isActive,
-    registerPane,
-    toggleEmotePicker,
-    toggleViewerList,
-  ])
 
   const label = displayName ?? channelLogin
   const isLive = isChannelLive(channelLogin)
@@ -258,7 +289,6 @@ function ChatPaneInner({
     notifyComposerResize,
   } = useChatScroll({
     timeline: visibleTimeline,
-    isActive,
     channelLogin,
   })
 
@@ -302,6 +332,12 @@ function ChatPaneInner({
     >
       <EmoteCardProvider catalog={composerCatalog}>
         <ChatHoverTooltipProvider>
+          <ChatPaneHotkeyRegistration
+            channelLogin={channelLogin}
+            toggleEmotePicker={toggleEmotePicker}
+            toggleViewerList={toggleViewerList}
+            focusComposer={focusComposer}
+          />
           <div
             className={cn(
               "flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
