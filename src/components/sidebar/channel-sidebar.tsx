@@ -6,7 +6,6 @@ import {
   Trash2Icon,
   UngroupIcon,
 } from "lucide-react"
-import { toast } from "sonner"
 
 import { SortableSidebarList } from "@/components/sidebar/channel-sidebar-list"
 import {
@@ -25,10 +24,7 @@ import {
   isUnreadIndicatorEnabledForChannel,
   isUnreadIndicatorEnabledForSplit,
 } from "@/lib/peepochat/peepochat-config"
-import {
-  CHANNEL_ORDER_PREFIX,
-  SPLIT_ORDER_PREFIX,
-} from "@/lib/sidebar/sidebar-order"
+import { getSidebarEntries } from "@/lib/sidebar/sidebar-entries"
 import { Button } from "@/components/ui/button"
 import {
   ContextMenu,
@@ -38,16 +34,6 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import {
   Sidebar,
   SidebarContent,
@@ -395,89 +381,7 @@ function SplitContextMenu({
   )
 }
 
-function AddChannelDialog({
-  open,
-  onOpenChange,
-  onAdd,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onAdd: (login: string) => Promise<void>
-}) {
-  const [draft, setDraft] = React.useState("")
-  const [submitting, setSubmitting] = React.useState(false)
-
-  const handleOpenChange = (nextOpen: boolean) => {
-    onOpenChange(nextOpen)
-    if (!nextOpen) {
-      setDraft("")
-      setSubmitting(false)
-    }
-  }
-
-  const handleSubmit = async () => {
-    const value = draft.trim()
-    if (!value || submitting) {
-      return
-    }
-
-    setSubmitting(true)
-    try {
-      await onAdd(value)
-      handleOpenChange(false)
-    } catch {
-      // Caller shows toast
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Add channel</DialogTitle>
-          <DialogDescription>
-            Enter a username to join their channel.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="grid gap-1.5">
-          <Label htmlFor="add-channel-input">Channel name</Label>
-          <Input
-            id="add-channel-input"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder="Channel name"
-            disabled={submitting}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") void handleSubmit()
-            }}
-            autoFocus
-          />
-        </div>
-
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={submitting}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={() => void handleSubmit()}
-            disabled={!draft.trim() || submitting}
-          >
-            {submitting ? "Adding…" : "Add channel"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-export function ChannelSidebar() {
+export function ChannelSidebar({ onAddChannel }: { onAddChannel: () => void }) {
   const { config, updateConfig } = usePeepochatSettings()
   const {
     hasUnreadForChannel,
@@ -493,7 +397,6 @@ export function ChannelSidebar() {
     channels,
     activeChannelLogin,
     setActiveChannel,
-    addChannel,
     removeChannel,
     isSplitView,
     activeSplitId,
@@ -506,7 +409,6 @@ export function ChannelSidebar() {
     unsplit,
     reorderSidebar,
   } = usePeepochatLayout()
-  const [addDialogOpen, setAddDialogOpen] = React.useState(false)
 
   const splitById = React.useMemo(
     () => new Map(savedSplits.map((split) => [split.id, split])),
@@ -522,51 +424,11 @@ export function ChannelSidebar() {
     () => new Set(activeSplit?.channels ?? []),
     [activeSplit]
   )
-  const sidebarEntries = React.useMemo(() => {
-    return sidebarOrder
-      .map((key) => {
-        if (key.startsWith(SPLIT_ORDER_PREFIX)) {
-          const split = splitById.get(key.slice(SPLIT_ORDER_PREFIX.length))
-          if (!split || split.channels.length < 2) {
-            return null
-          }
-
-          return {
-            key,
-            kind: "split" as const,
-            split,
-            channels: split.channels.map(
-              (login) => channelByLogin.get(login) ?? { login }
-            ),
-          }
-        }
-
-        if (key.startsWith(CHANNEL_ORDER_PREFIX)) {
-          const channel = channelByLogin.get(
-            key.slice(CHANNEL_ORDER_PREFIX.length)
-          )
-          if (!channel || channelsInSplits.has(channel.login)) {
-            return null
-          }
-
-          return { key, kind: "channel" as const, channel }
-        }
-
-        return null
-      })
-      .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
-  }, [channelByLogin, channelsInSplits, sidebarOrder, splitById])
-
-  const handleAddChannel = async (login: string) => {
-    try {
-      await addChannel(login)
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Could not add channel"
-      )
-      throw error
-    }
-  }
+  const sidebarEntries = React.useMemo(
+    () =>
+      getSidebarEntries(sidebarOrder, savedSplits, channels, channelsInSplits),
+    [channels, channelsInSplits, savedSplits, sidebarOrder]
+  )
 
   const handleSplitWith = (login: string) => {
     if (isSplitView) {
@@ -620,7 +482,7 @@ export function ChannelSidebar() {
       variant="outline"
       size="icon"
       className="size-11 shrink-0 rounded-full"
-      onClick={() => setAddDialogOpen(true)}
+      onClick={onAddChannel}
     >
       <PlusIcon className="size-5 shrink-0" strokeWidth={2.5} />
       <span className="sr-only">Add channel</span>
@@ -733,12 +595,6 @@ export function ChannelSidebar() {
           </Tooltip>
         </SidebarFooter>
       </Sidebar>
-
-      <AddChannelDialog
-        open={addDialogOpen}
-        onOpenChange={setAddDialogOpen}
-        onAdd={handleAddChannel}
-      />
     </>
   )
 }

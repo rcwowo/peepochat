@@ -287,6 +287,7 @@ export function ChatChattersPanel({
           side="right"
           showCloseButton={false}
           showOverlay={false}
+          data-hotkey-surface="viewer-list"
           className="h-svh gap-0 p-0 data-[side=right]:w-full max-sm:data-[side=right]:border-l-0 data-[side=right]:sm:max-w-72 sm:data-[side=right]:border-l"
           onAnimationEnd={() => virtualizer.measure()}
           onInteractOutside={(event) => {

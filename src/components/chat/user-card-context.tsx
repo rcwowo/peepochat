@@ -16,6 +16,8 @@ import type {
   TwitchAccount,
 } from "@/lib/peepochat/peepochat-config"
 import type { TwitchChatMessage } from "@/lib/twitch/twitch-chat"
+import { HotkeyRegistryContext } from "@/lib/hotkeys/hotkey-registry.shared"
+import { canRestoreComposerFocus } from "@/lib/hotkeys/match"
 
 const USER_CARD_WIDTH_PX = 352
 const USER_CARD_HEIGHT_PX = 544
@@ -122,6 +124,7 @@ export function UserCardProvider({
   const activeTriggerRef = React.useRef<HTMLElement | null>(null)
   const panelRef = React.useRef<HTMLDivElement>(null)
   const actionsMenuOpenRef = React.useRef(false)
+  const hotkeys = React.useContext(HotkeyRegistryContext)
 
   const resolvedChannelLogin = activeTarget?.channelLogin
     ? normalizeChannelLogin(activeTarget.channelLogin)
@@ -261,6 +264,9 @@ export function UserCardProvider({
         event.preventDefault()
         event.stopPropagation()
         onCloseUserCard()
+        if (canRestoreComposerFocus()) {
+          hotkeys?.restoreLastComposerFocus()
+        }
       }
     }
 
@@ -270,7 +276,7 @@ export function UserCardProvider({
       window.removeEventListener("pointerdown", handlePointerDown, true)
       window.removeEventListener("keydown", handleKeyDown, true)
     }
-  }, [open])
+  }, [hotkeys, open])
 
   const contextValue = React.useMemo<UserCardContextValue>(
     () => ({

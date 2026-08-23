@@ -357,8 +357,13 @@ function useChannelMetaByLogin() {
   }, [channels])
 }
 
-export function NotificationCenter() {
-  const [open, setOpen] = React.useState(false)
+export function NotificationCenter({
+  open,
+  onOpenChange,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
   const { config, setActiveChannel, updateConfig } = usePeepochatSettings()
   const doNotDisturbEnabled = config.highlights.doNotDisturbEnabled
   const channelMetaByLogin = useChannelMetaByLogin()
@@ -385,9 +390,9 @@ export function NotificationCenter() {
   const handleNavigate = React.useCallback(
     (login: string) => {
       setActiveChannel(login)
-      setOpen(false)
+      onOpenChange(false)
     },
-    [setActiveChannel]
+    [onOpenChange, setActiveChannel]
   )
 
   const clearAllCount =
@@ -451,7 +456,7 @@ export function NotificationCenter() {
   )
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={onOpenChange}>
       {doNotDisturbEnabled ? (
         <Tooltip>
           <PopoverTrigger asChild>

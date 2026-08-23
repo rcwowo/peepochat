@@ -5,6 +5,7 @@
         "items": [
             "Added clickable '@' mentions to open user cards.",
             "Added the user's color where applicable in chat panes.",
+            "Added keyboard hotkeys to quickly navigate through the client.",
             "Changed the background color of chat notices.",
             "Removed the initial mention from reply threads."
         ]

@@ -61,6 +61,7 @@ import {
   type RowStripeCache,
 } from "@/lib/chat/chat-row-stripes"
 import { useChatScroll } from "@/hooks/chat-ui/use-chat-scroll"
+import { useHotkeyRegistry } from "@/hooks/use-hotkey-registry"
 import { cn } from "@/lib/utils"
 
 import { openExternalTool, CHATLOGS_URL } from "@/lib/chat/moderation-tools"
@@ -166,6 +167,53 @@ function ChatPaneInner({
   )
   const [liveInfoExpanded, setLiveInfoExpanded] = React.useState(false)
   const [chattersOpen, setChattersOpen] = React.useState(false)
+  const [emotePickerOpen, setEmotePickerOpen] = React.useState(false)
+  const emotePickerOpenRef = React.useRef(false)
+  const chattersOpenRef = React.useRef(false)
+  const composerInputRef = React.useRef<HTMLTextAreaElement | null>(null)
+  const { registerPane, rememberFocusedPane } = useHotkeyRegistry()
+
+  React.useEffect(() => {
+    emotePickerOpenRef.current = emotePickerOpen
+    chattersOpenRef.current = chattersOpen
+  }, [chattersOpen, emotePickerOpen])
+
+  const toggleEmotePicker = React.useCallback(() => {
+    const next = !emotePickerOpenRef.current
+    emotePickerOpenRef.current = next
+    setEmotePickerOpen(next)
+    return next
+  }, [])
+
+  const toggleViewerList = React.useCallback(() => {
+    const next = !chattersOpenRef.current
+    chattersOpenRef.current = next
+    setChattersOpen(next)
+    return next
+  }, [])
+
+  const focusComposer = React.useCallback(() => {
+    composerInputRef.current?.focus()
+  }, [])
+
+  React.useEffect(() => {
+    if (!isActive) {
+      return
+    }
+
+    return registerPane(channelLogin, {
+      toggleEmotePicker,
+      toggleViewerList,
+      focusComposer,
+    })
+  }, [
+    channelLogin,
+    focusComposer,
+    isActive,
+    registerPane,
+    toggleEmotePicker,
+    toggleViewerList,
+  ])
 
   const label = displayName ?? channelLogin
   const isLive = isChannelLive(channelLogin)
@@ -541,6 +589,10 @@ function ChatPaneInner({
                 channelLogin={channelLogin}
                 joined={joined}
                 onLayoutChange={notifyComposerResize}
+                emotePickerOpen={emotePickerOpen}
+                onEmotePickerOpenChange={setEmotePickerOpen}
+                composerInputRef={composerInputRef}
+                onComposerFocus={() => rememberFocusedPane(channelLogin)}
               />
             </div>
             <ChatChattersPanel

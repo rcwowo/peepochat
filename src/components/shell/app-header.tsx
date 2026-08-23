@@ -15,10 +15,14 @@ export function AppHeader({
   onSettingsClick,
   channelSidebarVisible,
   onChannelSidebarToggle,
+  notificationsOpen,
+  onNotificationsOpenChange,
 }: {
   onSettingsClick: () => void
   channelSidebarVisible: boolean
   onChannelSidebarToggle: () => void
+  notificationsOpen: boolean
+  onNotificationsOpenChange: (open: boolean) => void
 }) {
   useNotificationDocumentIndicators()
 
@@ -51,7 +55,10 @@ export function AppHeader({
       </div>
       <div className="flex items-center gap-2">
         <ChannelSearch />
-        <NotificationCenter />
+        <NotificationCenter
+          open={notificationsOpen}
+          onOpenChange={onNotificationsOpenChange}
+        />
         <Tooltip>
           <TooltipTrigger asChild>
             <Button

@@ -77,12 +77,20 @@ type ChatComposerProps = {
   channelLogin: string
   joined?: boolean
   onLayoutChange?: () => void
+  emotePickerOpen: boolean
+  onEmotePickerOpenChange: (open: boolean) => void
+  composerInputRef?: React.RefObject<HTMLTextAreaElement | null>
+  onComposerFocus?: () => void
 }
 
 export function ChatComposer({
   channelLogin,
   joined = true,
   onLayoutChange,
+  emotePickerOpen,
+  onEmotePickerOpenChange,
+  composerInputRef,
+  onComposerFocus,
 }: ChatComposerProps) {
   const {
     account,
@@ -201,6 +209,15 @@ export function ChatComposer({
   })
 
   const inputRef = React.useRef<HTMLTextAreaElement>(null)
+  const setInputRef = React.useCallback(
+    (node: HTMLTextAreaElement | null) => {
+      inputRef.current = node
+      if (composerInputRef) {
+        composerInputRef.current = node
+      }
+    },
+    [composerInputRef]
+  )
   const historyRef = React.useRef<string[]>([])
   const historyIndexRef = React.useRef(-1)
   const commandSubmitRef = React.useRef(0)
@@ -1272,7 +1289,12 @@ export function ChatComposer({
   }
 
   return (
-    <div className="shrink-0">
+    <div
+      className="shrink-0"
+      data-chat-composer=""
+      data-channel-login={channelLogin}
+      onFocus={onComposerFocus}
+    >
       {replyThread ? (
         <ChatReplyThreadTray
           channelLogin={channelLogin}
@@ -1336,7 +1358,7 @@ export function ChatComposer({
             ) : null}
             <div className="relative">
               <Textarea
-                ref={inputRef}
+                ref={setInputRef}
                 value={value}
                 disabled={disabled}
                 maxLength={MESSAGE_LIMIT}
@@ -1370,6 +1392,8 @@ export function ChatComposer({
                 catalog={catalog}
                 loading={emotesLoading}
                 disabled={disabled}
+                open={emotePickerOpen}
+                onOpenChange={onEmotePickerOpenChange}
                 onSelect={(code) => {
                   setValue((current) => insertEmoteAtEnd(current, code))
                   setCompleter(createEmoteCompleterState())
