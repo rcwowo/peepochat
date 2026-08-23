@@ -1369,7 +1369,7 @@ export function ChatComposer({
                 placeholder={placeholder}
                 autoCapitalize="off"
                 autoCorrect="off"
-                spellCheck={false}
+                spellCheck
                 rows={1}
                 className="field-sizing-fixed max-h-40 min-h-9 resize-none overflow-y-hidden rounded-lg border-0 bg-transparent py-2 pr-10 text-sm leading-5 shadow-none focus-visible:border-transparent focus-visible:ring-0 dark:bg-transparent"
                 onChange={(event) => {
