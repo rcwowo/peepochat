@@ -982,6 +982,10 @@ export function ChatComposer({
   }, [replyThread])
 
   React.useLayoutEffect(() => {
+    onLayoutChangeRef.current?.()
+  }, [activeNotice])
+
+  React.useLayoutEffect(() => {
     const el = inputRef.current
     if (!el || typeof ResizeObserver === "undefined") return
 
@@ -1345,7 +1349,7 @@ export function ChatComposer({
               completeSuggestion(suggestion, { reset: true })
             }
           />
-          <div className="overflow-hidden rounded-lg border border-border/50 bg-background/40 shadow-none backdrop-blur-sm focus-within:border-border/40 focus-within:ring-1 focus-within:ring-border/40 dark:bg-input/30">
+          <div className={activeNotice ? "relative mt-8" : "relative"}>
             {activeNotice ? (
               <ComposerNoticeBanner
                 key={`${activeNotice.id}:${activeNotice.message}`}
@@ -1356,7 +1360,7 @@ export function ChatComposer({
                 onDismiss={dismissFrontNotice}
               />
             ) : null}
-            <div className="relative">
+            <div className="relative z-10 overflow-hidden rounded-lg border border-border/50 bg-background/40 shadow-none backdrop-blur-sm focus-within:border-border/40 focus-within:ring-1 focus-within:ring-border/40 dark:bg-input/30">
               <Textarea
                 ref={setInputRef}
                 value={value}
@@ -1367,7 +1371,7 @@ export function ChatComposer({
                 autoCorrect="off"
                 spellCheck={false}
                 rows={1}
-                className="field-sizing-fixed max-h-40 min-h-9 resize-none overflow-y-hidden rounded-none border-0 bg-transparent py-2 pr-10 text-sm leading-5 shadow-none focus-visible:border-transparent focus-visible:ring-0 dark:bg-transparent"
+                className="field-sizing-fixed max-h-40 min-h-9 resize-none overflow-y-hidden rounded-lg border-0 bg-transparent py-2 pr-10 text-sm leading-5 shadow-none focus-visible:border-transparent focus-visible:ring-0 dark:bg-transparent"
                 onChange={(event) => {
                   const nextValue = event.target.value
                   setValue(nextValue)

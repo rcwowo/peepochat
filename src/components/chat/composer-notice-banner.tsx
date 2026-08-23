@@ -133,35 +133,38 @@ export function ComposerNoticeBanner({
 
   return (
     <div
-      className="flex items-center gap-2 border-b border-border/50 bg-background px-2.5 py-1.5"
+      className="absolute inset-x-0 bottom-full z-0 -mb-3 rounded-t-lg border border-b-0 border-border/50 bg-background/80 backdrop-blur-sm dark:bg-background/50"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <ComposerNoticeTimer
-        key={noticeId}
-        noticeId={noticeId}
-        chatVisible={chatVisible}
-        hovered={hovered}
-        pageVisible={pageVisible}
-        onDismiss={onDismiss}
-      />
-      <p className="min-w-0 flex-1 text-[11px] leading-snug text-muted-foreground">
-        {message}
-      </p>
-      {queueCount > 1 ? (
-        <span className="shrink-0 text-[11px] text-muted-foreground/70 tabular-nums">
-          1/{queueCount}
-        </span>
-      ) : null}
-      <Button
-        type="button"
-        variant="outline"
-        size="xs"
-        className="h-5 shrink-0 px-2 text-[11px]"
-        onClick={onDismiss}
-      >
-        Dismiss
-      </Button>
+      <div className="flex items-center gap-2 px-2.5 py-1.5">
+        <ComposerNoticeTimer
+          key={noticeId}
+          noticeId={noticeId}
+          chatVisible={chatVisible}
+          hovered={hovered}
+          pageVisible={pageVisible}
+          onDismiss={onDismiss}
+        />
+        <p className="min-w-0 flex-1 text-[11px] leading-snug text-muted-foreground">
+          {message}
+        </p>
+        {queueCount > 1 ? (
+          <span className="shrink-0 text-[11px] text-muted-foreground/70 tabular-nums">
+            1/{queueCount}
+          </span>
+        ) : null}
+        <Button
+          type="button"
+          variant="outline"
+          size="xs"
+          className="h-5 shrink-0 px-2 text-[11px]"
+          onClick={onDismiss}
+        >
+          Dismiss
+        </Button>
+      </div>
+      <div aria-hidden="true" className="h-3" />
     </div>
   )
 }
