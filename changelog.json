@@ -6,7 +6,8 @@
             "Added clickable '@' mentions to open user cards.",
             "Added the user's color where applicable in chat panes.",
             "Added keyboard hotkeys to quickly navigate through the client.",
-            "Slight improvements to the appearance of chat notices.",
+            "Minor touch ups to the appearance of chat notices.",
+            "Minor touch ups to the notification center.",
             "Slight performance improvements to channel switching.",
             "Enabled spellcheck in the chat composer.",
             "Removed the initial mention from reply threads."

@@ -39,12 +39,14 @@ function DashboardLayout() {
 
   const openSettings = React.useCallback(() => {
     setSettingsInitialCategory(undefined)
+    setNotificationsOpen(false)
     setSettingsOpen(true)
   }, [])
   const toggleSettings = React.useCallback(() => {
     setSettingsOpen((open) => {
       if (!open) {
         setSettingsInitialCategory(undefined)
+        setNotificationsOpen(false)
       }
       return !open
     })
@@ -55,8 +57,19 @@ function DashboardLayout() {
   const toggleAddChannel = React.useCallback(() => {
     setAddChannelOpen((open) => !open)
   }, [])
+  const handleNotificationsOpenChange = React.useCallback((open: boolean) => {
+    if (open) {
+      setSettingsOpen(false)
+    }
+    setNotificationsOpen(open)
+  }, [])
   const toggleNotifications = React.useCallback(() => {
-    setNotificationsOpen((open) => !open)
+    setNotificationsOpen((open) => {
+      if (!open) {
+        setSettingsOpen(false)
+      }
+      return !open
+    })
   }, [])
 
   useAppHotkeys({
@@ -81,6 +94,7 @@ function DashboardLayout() {
           label: "What's new",
           onClick: () => {
             setSettingsInitialCategory("changelog")
+            setNotificationsOpen(false)
             setSettingsOpen(true)
             markVersionSeen()
           },
@@ -124,7 +138,7 @@ function DashboardLayout() {
           channelSidebarVisible={channelSidebarVisible}
           onChannelSidebarToggle={toggleChannelSidebar}
           notificationsOpen={notificationsOpen}
-          onNotificationsOpenChange={setNotificationsOpen}
+          onNotificationsOpenChange={handleNotificationsOpenChange}
         />
         <SidebarInset className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
           <ChatPage />

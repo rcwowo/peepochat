@@ -67,6 +67,41 @@ function isLiveUnread(notification: LiveNotification) {
   return notification.readAt === null
 }
 
+function markNotificationsRead<T extends { readAt: string | null }>(
+  items: T[],
+  shouldMark: (item: T) => boolean
+): T[] | null {
+  const readAt = new Date().toISOString()
+  let changed = false
+  const next = items.map((item) => {
+    if (item.readAt !== null || !shouldMark(item)) {
+      return item
+    }
+
+    changed = true
+    return { ...item, readAt }
+  })
+
+  return changed ? next : null
+}
+
+function markNotificationsUnread<T extends { readAt: string | null }>(
+  items: T[],
+  shouldUnmark: (item: T) => boolean
+): T[] | null {
+  let changed = false
+  const next = items.map((item) => {
+    if (item.readAt === null || !shouldUnmark(item)) {
+      return item
+    }
+
+    changed = true
+    return { ...item, readAt: null }
+  })
+
+  return changed ? next : null
+}
+
 export function addPingNotification(
   notification: Omit<PingNotification, "id" | "readAt"> & {
     readAt?: string | null
@@ -117,6 +152,78 @@ export function addLiveNotification(
   return true
 }
 
+export function markPingNotificationRead(id: string) {
+  const next = markNotificationsRead(
+    store.pingNotifications,
+    (notification) => notification.id === id
+  )
+  if (!next) {
+    return
+  }
+
+  store.pingNotifications = next
+  notifyListeners()
+}
+
+export function markLiveNotificationRead(id: string) {
+  const next = markNotificationsRead(
+    store.liveNotifications,
+    (notification) => notification.id === id
+  )
+  if (!next) {
+    return
+  }
+
+  store.liveNotifications = next
+  notifyListeners()
+}
+
+export function markPingNotificationUnread(id: string) {
+  const next = markNotificationsUnread(
+    store.pingNotifications,
+    (notification) => notification.id === id
+  )
+  if (!next) {
+    return
+  }
+
+  store.pingNotifications = next
+  notifyListeners()
+}
+
+export function markLiveNotificationUnread(id: string) {
+  const next = markNotificationsUnread(
+    store.liveNotifications,
+    (notification) => notification.id === id
+  )
+  if (!next) {
+    return
+  }
+
+  store.liveNotifications = next
+  notifyListeners()
+}
+
+export function markAllPingNotificationsRead() {
+  const next = markNotificationsRead(store.pingNotifications, () => true)
+  if (!next) {
+    return
+  }
+
+  store.pingNotifications = next
+  notifyListeners()
+}
+
+export function markAllLiveNotificationsRead() {
+  const next = markNotificationsRead(store.liveNotifications, () => true)
+  if (!next) {
+    return
+  }
+
+  store.liveNotifications = next
+  notifyListeners()
+}
+
 export function markPingNotificationsReadForChannel(login: string) {
   markPingNotificationsReadForChannels([login])
 }
@@ -129,22 +236,10 @@ export function markPingNotificationsReadForChannels(logins: string[]) {
   const channelLogins = new Set(
     logins.map((login) => normalizeChannelLogin(login))
   )
-  const readAt = new Date().toISOString()
-  let changed = false
-
-  const next = store.pingNotifications.map((notification) => {
-    if (
-      !channelLogins.has(notification.channelLogin) ||
-      notification.readAt !== null
-    ) {
-      return notification
-    }
-
-    changed = true
-    return { ...notification, readAt }
-  })
-
-  if (!changed) {
+  const next = markNotificationsRead(store.pingNotifications, (notification) =>
+    channelLogins.has(notification.channelLogin)
+  )
+  if (!next) {
     return
   }
 
@@ -164,22 +259,10 @@ export function markLiveNotificationsReadForChannels(logins: string[]) {
   const channelLogins = new Set(
     logins.map((login) => normalizeChannelLogin(login))
   )
-  const readAt = new Date().toISOString()
-  let changed = false
-
-  const next = store.liveNotifications.map((notification) => {
-    if (
-      !channelLogins.has(notification.channelLogin) ||
-      notification.readAt !== null
-    ) {
-      return notification
-    }
-
-    changed = true
-    return { ...notification, readAt }
-  })
-
-  if (!changed) {
+  const next = markNotificationsRead(store.liveNotifications, (notification) =>
+    channelLogins.has(notification.channelLogin)
+  )
+  if (!next) {
     return
   }
 
@@ -313,6 +396,12 @@ export function useNotificationCenter() {
       dismissLive: dismissLiveNotification,
       dismissAllPings: dismissAllPingNotifications,
       dismissAllLive: dismissAllLiveNotifications,
+      markPingRead: markPingNotificationRead,
+      markLiveRead: markLiveNotificationRead,
+      markPingUnread: markPingNotificationUnread,
+      markLiveUnread: markLiveNotificationUnread,
+      markAllPingsRead: markAllPingNotificationsRead,
+      markAllLiveRead: markAllLiveNotificationsRead,
       markPingNotificationsReadForChannel,
       markPingNotificationsReadForChannels,
       markLiveNotificationsReadForChannel,

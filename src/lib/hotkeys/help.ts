@@ -30,7 +30,8 @@ const HOTKEY_ACTION_HELP: Record<
   },
   "dnd.toggle": {
     title: "Do not disturb",
-    description: "Toggle muting pings and live notifications.",
+    description:
+      "Toggle muting pings and live notifications. You can also right-click the notification icon.",
   },
   "settings.open": {
     title: "Settings",

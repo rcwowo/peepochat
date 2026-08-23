@@ -1,19 +1,27 @@
 import * as React from "react"
+import { createPortal } from "react-dom"
+import { toast } from "sonner"
 import {
   BellIcon,
   BellOffIcon,
   BellRingIcon,
+  CheckCheckIcon,
+  CheckIcon,
   RadioIcon,
   Trash2Icon,
+  Undo2Icon,
+  XIcon,
 } from "lucide-react"
 
 import { PingMatchText } from "@/components/shell/ping-match-text"
 import { Button } from "@/components/ui/button"
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Tooltip,
@@ -45,9 +53,6 @@ const notificationRelativeDateFormatter = new Intl.DateTimeFormat(undefined, {
 const notificationRowClassName =
   "relative border-b border-border last:border-b-0 transition-colors hover:bg-muted/40"
 
-const notificationRowButtonClassName =
-  "w-full cursor-pointer px-4 py-3 text-left"
-
 function formatRelativeTime(value: string) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) {
@@ -72,9 +77,16 @@ function formatRelativeTime(value: string) {
   return notificationRelativeDateFormatter.format(date)
 }
 
+function shouldPreventNotificationsSheetDismiss(target: EventTarget | null) {
+  return (
+    target instanceof Element &&
+    Boolean(target.closest("[data-notifications-trigger]"))
+  )
+}
+
 function NotificationEmptyState({ message }: { message: string }) {
   return (
-    <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
+    <div className="flex flex-1 flex-col items-center justify-center px-6 py-12 text-center">
       <div className="mb-3 flex size-10 items-center justify-center rounded-full bg-muted">
         <BellIcon className="size-4 text-muted-foreground" />
       </div>
@@ -83,26 +95,95 @@ function NotificationEmptyState({ message }: { message: string }) {
   )
 }
 
-function NotificationDismissButton({ onDismiss }: { onDismiss: () => void }) {
+function NotificationRowActions({
+  isUnread,
+  onToggleRead,
+  onRemove,
+}: {
+  isUnread: boolean
+  onToggleRead: () => void
+  onRemove: () => void
+}) {
+  const readActionLabel = isUnread ? "Mark as read" : "Unmark as read"
+
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          className="absolute top-2 right-2 text-muted-foreground"
-          onClick={(event) => {
-            event.stopPropagation()
-            onDismiss()
-          }}
-        >
-          <Trash2Icon className="size-3.5" />
-          <span className="sr-only">Dismiss</span>
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent side="left">Remove from history</TooltipContent>
-    </Tooltip>
+    <div className="flex shrink-0 items-center gap-0.5">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            className="text-muted-foreground"
+            onClick={(event) => {
+              event.stopPropagation()
+              onToggleRead()
+            }}
+          >
+            {isUnread ? (
+              <CheckIcon className="size-3.5" />
+            ) : (
+              <Undo2Icon className="size-3.5" />
+            )}
+            <span className="sr-only">{readActionLabel}</span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="left">{readActionLabel}</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            className="text-muted-foreground"
+            onClick={(event) => {
+              event.stopPropagation()
+              onRemove()
+            }}
+          >
+            <Trash2Icon className="size-3.5" />
+            <span className="sr-only">Remove</span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="left">Remove from history</TooltipContent>
+      </Tooltip>
+    </div>
+  )
+}
+
+function NotificationBulkActions({
+  unreadCount,
+  totalCount,
+  onMarkAllRead,
+  onClear,
+}: {
+  unreadCount: number
+  totalCount: number
+  onMarkAllRead: () => void
+  onClear: () => void
+}) {
+  if (totalCount === 0) {
+    return null
+  }
+
+  return (
+    <div className="flex shrink-0 items-center justify-between px-4 py-2">
+      <Button type="button" variant="outline" size="xs" onClick={onClear}>
+        <Trash2Icon />
+        Clear history
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        size="xs"
+        disabled={unreadCount === 0}
+        onClick={onMarkAllRead}
+      >
+        <CheckCheckIcon />
+        Mark all as read
+      </Button>
+    </div>
   )
 }
 
@@ -199,12 +280,16 @@ function PingUserAvatar({
 function PingNotificationRow({
   notification,
   channelLabel,
-  onDismiss,
+  onMarkRead,
+  onMarkUnread,
+  onRemove,
   onNavigate,
 }: {
   notification: PingNotification
   channelLabel: string
-  onDismiss: (id: string) => void
+  onMarkRead: (id: string) => void
+  onMarkUnread: (id: string) => void
+  onRemove: (id: string) => void
   onNavigate: (login: string) => void
 }) {
   const isUnread = notification.readAt === null
@@ -213,48 +298,58 @@ function PingNotificationRow({
     <div
       className={`${notificationRowClassName} ${isUnread ? "" : "opacity-70"}`}
     >
-      <button
-        type="button"
-        className={notificationRowButtonClassName}
-        onClick={() => onNavigate(notification.channelLogin)}
-      >
-        <div className="flex gap-3 pr-6">
-          <PingUserAvatar
-            userName={notification.userName}
-            displayName={notification.displayName}
-          />
-          <div className="min-w-0 flex-1">
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="truncate text-sm font-medium text-foreground">
-                {notification.displayName}
-              </span>
-              <time
-                className="shrink-0 text-xs text-muted-foreground"
-                dateTime={notification.receivedAt}
-                title={
-                  formatMessageTimestamp(
-                    notification.receivedAt,
-                    "12-hour-meridiem"
-                  ) ?? undefined
-                }
-              >
-                {formatRelativeTime(notification.receivedAt)}
-              </time>
+      <div className="flex items-start gap-3 px-4 py-3">
+        <button
+          type="button"
+          className="min-w-0 flex-1 cursor-pointer text-left"
+          onClick={() => onNavigate(notification.channelLogin)}
+        >
+          <div className="flex gap-3">
+            <PingUserAvatar
+              userName={notification.userName}
+              displayName={notification.displayName}
+            />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="truncate text-sm font-medium text-foreground">
+                  {notification.displayName}
+                </span>
+                <time
+                  className="shrink-0 text-xs text-muted-foreground"
+                  dateTime={notification.receivedAt}
+                  title={
+                    formatMessageTimestamp(
+                      notification.receivedAt,
+                      "12-hour-meridiem"
+                    ) ?? undefined
+                  }
+                >
+                  {formatRelativeTime(notification.receivedAt)}
+                </time>
+              </div>
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                Pinged you in {channelLabel}
+              </p>
+              <p className="mt-1.5 line-clamp-3 text-sm leading-relaxed text-foreground/90">
+                <PingMatchText
+                  text={notification.text}
+                  ruleId={notification.ruleId}
+                  matchPattern={notification.matchPattern}
+                />
+              </p>
             </div>
-            <p className="mt-0.5 truncate text-xs text-muted-foreground">
-              Pinged you in {channelLabel}
-            </p>
-            <p className="mt-1.5 line-clamp-3 text-sm leading-relaxed text-foreground/90">
-              <PingMatchText
-                text={notification.text}
-                ruleId={notification.ruleId}
-                matchPattern={notification.matchPattern}
-              />
-            </p>
           </div>
-        </div>
-      </button>
-      <NotificationDismissButton onDismiss={() => onDismiss(notification.id)} />
+        </button>
+        <NotificationRowActions
+          isUnread={isUnread}
+          onToggleRead={() =>
+            isUnread
+              ? onMarkRead(notification.id)
+              : onMarkUnread(notification.id)
+          }
+          onRemove={() => onRemove(notification.id)}
+        />
+      </div>
     </div>
   )
 }
@@ -263,13 +358,17 @@ function LiveNotificationRow({
   notification,
   channelLabel,
   profileImageUrl,
-  onDismiss,
+  onMarkRead,
+  onMarkUnread,
+  onRemove,
   onNavigate,
 }: {
   notification: LiveNotification
   channelLabel: string
   profileImageUrl?: string
-  onDismiss: (id: string) => void
+  onMarkRead: (id: string) => void
+  onMarkUnread: (id: string) => void
+  onRemove: (id: string) => void
   onNavigate: (login: string) => void
 }) {
   const isUnread = notification.readAt === null
@@ -278,45 +377,55 @@ function LiveNotificationRow({
     <div
       className={`${notificationRowClassName} ${isUnread ? "" : "opacity-70"}`}
     >
-      <button
-        type="button"
-        className={notificationRowButtonClassName}
-        onClick={() => onNavigate(notification.channelLogin)}
-      >
-        <div className="flex gap-3 pr-6">
-          <ChannelAvatar
-            login={notification.channelLogin}
-            displayName={channelLabel}
-            profileImageUrl={profileImageUrl}
-          />
-          <div className="min-w-0 flex-1">
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="truncate text-sm font-medium text-foreground">
-                {channelLabel}
-              </span>
-              <time
-                className="shrink-0 text-xs text-muted-foreground"
-                dateTime={notification.wentLiveAt}
-                title={
-                  formatMessageTimestamp(
-                    notification.wentLiveAt,
-                    "12-hour-meridiem"
-                  ) ?? undefined
-                }
-              >
-                {formatRelativeTime(notification.wentLiveAt)}
-              </time>
+      <div className="flex items-start gap-3 px-4 py-3">
+        <button
+          type="button"
+          className="min-w-0 flex-1 cursor-pointer text-left"
+          onClick={() => onNavigate(notification.channelLogin)}
+        >
+          <div className="flex gap-3">
+            <ChannelAvatar
+              login={notification.channelLogin}
+              displayName={channelLabel}
+              profileImageUrl={profileImageUrl}
+            />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="truncate text-sm font-medium text-foreground">
+                  {channelLabel}
+                </span>
+                <time
+                  className="shrink-0 text-xs text-muted-foreground"
+                  dateTime={notification.wentLiveAt}
+                  title={
+                    formatMessageTimestamp(
+                      notification.wentLiveAt,
+                      "12-hour-meridiem"
+                    ) ?? undefined
+                  }
+                >
+                  {formatRelativeTime(notification.wentLiveAt)}
+                </time>
+              </div>
+              <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-foreground/90">
+                {formatLiveNotificationText(
+                  notification.gameName ?? "",
+                  notification.title
+                )}
+              </p>
             </div>
-            <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-foreground/90">
-              {formatLiveNotificationText(
-                notification.gameName ?? "",
-                notification.title
-              )}
-            </p>
           </div>
-        </div>
-      </button>
-      <NotificationDismissButton onDismiss={() => onDismiss(notification.id)} />
+        </button>
+        <NotificationRowActions
+          isUnread={isUnread}
+          onToggleRead={() =>
+            isUnread
+              ? onMarkRead(notification.id)
+              : onMarkUnread(notification.id)
+          }
+          onRemove={() => onRemove(notification.id)}
+        />
+      </div>
     </div>
   )
 }
@@ -335,7 +444,7 @@ function NotificationList({
   }
 
   return (
-    <div className="max-h-[min(24rem,60vh)] overflow-y-auto overscroll-y-contain">
+    <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain">
       {children}
     </div>
   )
@@ -377,10 +486,17 @@ export function NotificationCenter({
     dismissLive,
     dismissAllPings,
     dismissAllLive,
+    markPingRead,
+    markLiveRead,
+    markPingUnread,
+    markLiveUnread,
+    markAllPingsRead,
+    markAllLiveRead,
   } = useNotificationCenter()
 
   const liveNotificationsEnabled =
     config.highlights.livePushNotificationsEnabled
+  const ignoreNextClickRef = React.useRef(false)
 
   const [activeTab, setActiveTab] = React.useState<"pings" | "live">("pings")
 
@@ -395,22 +511,27 @@ export function NotificationCenter({
     [onOpenChange, setActiveChannel]
   )
 
-  const clearAllCount =
+  const unreadCount = resolvedTab === "pings" ? pingCount : liveCount
+  const historyCount =
     resolvedTab === "pings"
       ? pingNotifications.length
       : liveNotifications.length
-  const handleDismissAll =
+  const handleMarkAllRead =
+    resolvedTab === "pings" ? markAllPingsRead : markAllLiveRead
+  const handleClearHistory =
     resolvedTab === "pings" ? dismissAllPings : dismissAllLive
 
   const handleToggleDoNotDisturb = React.useCallback(() => {
+    const nextEnabled = !doNotDisturbEnabled
     updateConfig((current) => ({
       ...current,
       highlights: {
         ...current.highlights,
-        doNotDisturbEnabled: !current.highlights.doNotDisturbEnabled,
+        doNotDisturbEnabled: nextEnabled,
       },
     }))
-  }, [updateConfig])
+    toast(nextEnabled ? "Do not disturb is on" : "Do not disturb is off")
+  }, [doNotDisturbEnabled, updateConfig])
 
   const pingList = (
     <NotificationList
@@ -425,7 +546,9 @@ export function NotificationCenter({
             key={notification.id}
             notification={notification}
             channelLabel={channelMeta?.label ?? notification.channelLogin}
-            onDismiss={dismissPing}
+            onMarkRead={markPingRead}
+            onMarkUnread={markPingUnread}
+            onRemove={dismissPing}
             onNavigate={handleNavigate}
           />
         )
@@ -447,7 +570,9 @@ export function NotificationCenter({
             notification={notification}
             channelLabel={channelMeta?.label ?? notification.channelLogin}
             profileImageUrl={channelMeta?.profileImageUrl}
-            onDismiss={dismissLive}
+            onMarkRead={markLiveRead}
+            onMarkUnread={markLiveUnread}
+            onRemove={dismissLive}
             onNavigate={handleNavigate}
           />
         )
@@ -455,142 +580,165 @@ export function NotificationCenter({
     </NotificationList>
   )
 
+  const bulkActions = (
+    <NotificationBulkActions
+      unreadCount={unreadCount}
+      totalCount={historyCount}
+      onMarkAllRead={handleMarkAllRead}
+      onClear={handleClearHistory}
+    />
+  )
+
   return (
-    <Popover open={open} onOpenChange={onOpenChange}>
-      {doNotDisturbEnabled ? (
-        <Tooltip>
-          <PopoverTrigger asChild>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon-sm"
-                className="relative"
-                aria-label="Notifications — Do not disturb is on"
-              >
-                <BellOffIcon className="size-4 text-destructive" />
-                {totalCount > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
-                    {totalCount > 99 ? "99+" : totalCount}
-                  </span>
-                )}
-              </Button>
-            </TooltipTrigger>
-          </PopoverTrigger>
-          <TooltipContent>Do not disturb is on</TooltipContent>
-        </Tooltip>
-      ) : (
-        <Tooltip>
-          <PopoverTrigger asChild>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon-sm"
-                className="relative"
-                aria-label="Notification Center"
-              >
-                <BellIcon className="size-4" />
-                {totalCount > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
-                    {totalCount > 99 ? "99+" : totalCount}
-                  </span>
-                )}
-              </Button>
-            </TooltipTrigger>
-          </PopoverTrigger>
-          <TooltipContent>Notification Center</TooltipContent>
-        </Tooltip>
-      )}
+    <>
+      {open
+        ? createPortal(
+            <button
+              type="button"
+              aria-label="Close panel"
+              className="fixed inset-0 z-50 hidden cursor-default border-0 bg-black/55 sm:block"
+              onPointerDown={(event) => {
+                if (shouldPreventNotificationsSheetDismiss(event.target)) {
+                  return
+                }
 
-      <PopoverContent
-        align="end"
-        side="bottom"
-        sideOffset={8}
-        className="flex w-[min(24rem,calc(100vw-2rem))] flex-col overflow-hidden p-0"
-        onOpenAutoFocus={(event) => event.preventDefault()}
-        onWheel={(event) => event.stopPropagation()}
-      >
-        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-2.5">
-          <h2 className="font-heading text-sm font-medium text-foreground">
-            Notifications
-          </h2>
-          <div className="flex shrink-0 items-center gap-1">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className={`h-7 shrink-0 gap-1.5 text-xs text-muted-foreground ${
-                clearAllCount === 0 ? "pointer-events-none invisible" : ""
-              }`}
-              disabled={clearAllCount === 0}
-              onClick={handleDismissAll}
-            >
-              <Trash2Icon className="size-3.5" />
-              Dismiss all
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className="size-7 shrink-0"
-              aria-pressed={doNotDisturbEnabled}
-              aria-label={
-                doNotDisturbEnabled
-                  ? "Do not disturb is on"
-                  : "Turn on do not disturb"
+                onOpenChange(false)
+              }}
+            />,
+            document.body
+          )
+        : null}
+
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="outline"
+            size="icon-sm"
+            className="relative"
+            data-notifications-trigger=""
+            aria-expanded={open}
+            aria-label={
+              doNotDisturbEnabled
+                ? "Notifications — Do not disturb is on"
+                : "Notification Center"
+            }
+            onClick={() => {
+              if (ignoreNextClickRef.current) {
+                ignoreNextClickRef.current = false
+                return
               }
-              onClick={handleToggleDoNotDisturb}
-            >
-              <BellOffIcon
-                className={`size-4 ${
-                  doNotDisturbEnabled ? "text-destructive" : ""
-                }`}
-              />
-            </Button>
-          </div>
-        </div>
-
-        {liveNotificationsEnabled ? (
-          <Tabs
-            value={resolvedTab}
-            onValueChange={(value) => {
-              setActiveTab(value as "pings" | "live")
+              onOpenChange(!open)
             }}
-            className="flex min-h-0 flex-col gap-0"
+            onContextMenu={(event) => {
+              event.preventDefault()
+              ignoreNextClickRef.current = true
+              handleToggleDoNotDisturb()
+            }}
           >
-            <div className="shrink-0 border-b border-border px-4 py-2">
-              <TabsList className="w-full">
-                <TabsTrigger value="pings" className="flex-1">
-                  <BellRingIcon className="size-3.5" />
-                  Pings
-                  {pingCount > 0 && (
-                    <span className="ml-1 text-xs text-muted-foreground">
-                      ({pingCount} unread)
-                    </span>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger value="live" className="flex-1">
-                  <RadioIcon className="size-3.5" />
-                  Live
-                  {liveCount > 0 && (
-                    <span className="ml-1 text-xs text-muted-foreground">
-                      ({liveCount} unread)
-                    </span>
-                  )}
-                </TabsTrigger>
-              </TabsList>
-            </div>
+            {doNotDisturbEnabled ? (
+              <BellOffIcon className="size-4 text-destructive" />
+            ) : (
+              <BellIcon className="size-4" />
+            )}
+            {totalCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+                {totalCount > 99 ? "99+" : totalCount}
+              </span>
+            )}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          {doNotDisturbEnabled ? "Do not disturb is on" : "Notification Center"}
+        </TooltipContent>
+      </Tooltip>
 
-            <TabsContent value="pings" className="mt-0 min-h-0">
+      <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
+        <SheetContent
+          side="right"
+          showCloseButton={false}
+          showOverlay={false}
+          data-hotkey-surface="notifications"
+          className="h-svh gap-0 p-0 data-[side=right]:w-full max-sm:data-[side=right]:border-l-0 sm:max-w-md sm:data-[side=right]:border-l"
+          onInteractOutside={(event) => {
+            if (shouldPreventNotificationsSheetDismiss(event.target)) {
+              event.preventDefault()
+            }
+          }}
+          onPointerDownOutside={(event) => {
+            if (shouldPreventNotificationsSheetDismiss(event.target)) {
+              event.preventDefault()
+            }
+          }}
+          onFocusOutside={(event) => {
+            if (shouldPreventNotificationsSheetDismiss(event.target)) {
+              event.preventDefault()
+            }
+          }}
+        >
+          <SheetHeader className="h-11 shrink-0 flex-row items-center justify-between border-b border-border bg-sidebar px-4 py-0">
+            <SheetTitle>Notifications</SheetTitle>
+            <SheetClose asChild>
+              <Button variant="ghost" size="icon-sm">
+                <XIcon />
+                <span className="sr-only">Close</span>
+              </Button>
+            </SheetClose>
+          </SheetHeader>
+
+          {liveNotificationsEnabled ? (
+            <Tabs
+              value={resolvedTab}
+              onValueChange={(value) => {
+                setActiveTab(value as "pings" | "live")
+              }}
+              className="flex min-h-0 flex-1 flex-col gap-0"
+            >
+              <div className="shrink-0 border-b border-border px-4 py-2">
+                <TabsList className="w-full">
+                  <TabsTrigger value="pings" className="flex-1">
+                    <BellRingIcon className="size-3.5" />
+                    Pings
+                    {pingCount > 0 && (
+                      <span className="ml-1 text-xs text-muted-foreground">
+                        ({pingCount} unread)
+                      </span>
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger value="live" className="flex-1">
+                    <RadioIcon className="size-3.5" />
+                    Live
+                    {liveCount > 0 && (
+                      <span className="ml-1 text-xs text-muted-foreground">
+                        ({liveCount} unread)
+                      </span>
+                    )}
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+
+              {bulkActions}
+
+              <TabsContent
+                value="pings"
+                className="mt-0 flex min-h-0 flex-1 flex-col"
+              >
+                {pingList}
+              </TabsContent>
+              <TabsContent
+                value="live"
+                className="mt-0 flex min-h-0 flex-1 flex-col"
+              >
+                {liveList}
+              </TabsContent>
+            </Tabs>
+          ) : (
+            <div className="flex min-h-0 flex-1 flex-col">
+              {bulkActions}
               {pingList}
-            </TabsContent>
-            <TabsContent value="live" className="mt-0 min-h-0">
-              {liveList}
-            </TabsContent>
-          </Tabs>
-        ) : (
-          pingList
-        )}
-      </PopoverContent>
-    </Popover>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+    </>
   )
 }

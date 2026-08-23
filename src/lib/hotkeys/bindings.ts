@@ -22,7 +22,8 @@ export type HotkeyBinding =
   | {
       action: Exclude<HotkeyActionId, "sidebar.select">
       combo: HotkeyCombo
-      allowWhenSurface?: "search" | "add-channel" | "settings" | "viewer-list"
+      allowWhenSurface?:
+        "search" | "add-channel" | "settings" | "viewer-list" | "notifications"
     }
   | {
       action: "sidebar.select"
@@ -51,10 +52,12 @@ export const HOTKEY_BINDINGS: HotkeyBinding[] = [
   {
     action: "notifications.open",
     combo: { ...ALT, code: "KeyN" },
+    allowWhenSurface: "notifications",
   },
   {
     action: "dnd.toggle",
     combo: { ...ALT, shift: true, code: "KeyN" },
+    allowWhenSurface: "notifications",
   },
   {
     action: "settings.open",
