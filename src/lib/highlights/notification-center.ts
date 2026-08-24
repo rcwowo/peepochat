@@ -37,6 +37,7 @@ export type MissedPingNotification = {
   receivedAt: string
   ruleId: string
   matchPattern: string
+  readAt: string | null
 }
 
 type NotificationCenterStore = {
@@ -108,6 +109,10 @@ function isPingUnread(notification: PingNotification) {
 }
 
 function isLiveUnread(notification: LiveNotification) {
+  return notification.readAt === null
+}
+
+function isMissedUnread(notification: MissedPingNotification) {
   return notification.readAt === null
 }
 
@@ -270,6 +275,42 @@ export function markAllLiveNotificationsRead() {
   notifyListeners()
 }
 
+export function markMissedPingNotificationRead(id: string) {
+  const next = markNotificationsRead(
+    store.missedPingNotifications,
+    (notification) => notification.id === id
+  )
+  if (!next) {
+    return
+  }
+
+  store.missedPingNotifications = next
+  notifyListeners()
+}
+
+export function markMissedPingNotificationUnread(id: string) {
+  const next = markNotificationsUnread(
+    store.missedPingNotifications,
+    (notification) => notification.id === id
+  )
+  if (!next) {
+    return
+  }
+
+  store.missedPingNotifications = next
+  notifyListeners()
+}
+
+export function markAllMissedPingNotificationsRead() {
+  const next = markNotificationsRead(store.missedPingNotifications, () => true)
+  if (!next) {
+    return
+  }
+
+  store.missedPingNotifications = next
+  notifyListeners()
+}
+
 export function markPingNotificationsReadForChannel(login: string) {
   markPingNotificationsReadForChannels([login])
 }
@@ -369,7 +410,9 @@ export function dismissAllLiveNotifications() {
 }
 
 export function addMissedPingNotifications(
-  notifications: Array<Omit<MissedPingNotification, "id">>
+  notifications: Array<
+    Omit<MissedPingNotification, "id" | "readAt"> & { readAt?: string | null }
+  >
 ): number {
   if (notifications.length === 0) {
     return 0
@@ -399,6 +442,7 @@ export function addMissedPingNotifications(
       ...notification,
       id,
       channelLogin,
+      readAt: notification.readAt ?? null,
     })
   }
 
@@ -411,6 +455,29 @@ export function addMissedPingNotifications(
   )
   notifyListeners()
   return added.length
+}
+
+export function dismissMissedPingNotification(id: string) {
+  const notification = store.missedPingNotifications.find(
+    (entry) => entry.id === id
+  )
+  const next = store.missedPingNotifications.filter((entry) => entry.id !== id)
+  if (next.length === store.missedPingNotifications.length) {
+    return null
+  }
+
+  store.dismissedMissedPingIds.add(id)
+  store.missedPingNotifications = next
+  notifyListeners()
+
+  if (notification) {
+    removeChannelMessageHighlight(
+      notification.channelLogin,
+      notification.messageId
+    )
+  }
+
+  return notification ?? null
 }
 
 export function dismissAllMissedPingNotifications() {
@@ -466,6 +533,10 @@ function getLiveUnreadCount() {
   return store.liveNotifications.filter(isLiveUnread).length
 }
 
+function getMissedUnreadCount() {
+  return store.missedPingNotifications.filter(isMissedUnread).length
+}
+
 function getTotalUnreadCount() {
   return getPingUnreadCount() + getLiveUnreadCount()
 }
@@ -496,6 +567,11 @@ export function useNotificationCenter() {
     getLiveUnreadCount,
     getLiveUnreadCount
   )
+  const missedUnreadCount = React.useSyncExternalStore(
+    subscribe,
+    getMissedUnreadCount,
+    getMissedUnreadCount
+  )
   const totalUnreadCount = React.useSyncExternalStore(
     subscribe,
     getTotalUnreadCount,
@@ -509,6 +585,7 @@ export function useNotificationCenter() {
       missedPingNotifications,
       pingCount: pingUnreadCount,
       liveCount: liveUnreadCount,
+      missedCount: missedUnreadCount,
       totalCount: totalUnreadCount,
       dismissPing: dismissPingNotification,
       dismissLive: dismissLiveNotification,
@@ -518,18 +595,23 @@ export function useNotificationCenter() {
       markLiveRead: markLiveNotificationRead,
       markPingUnread: markPingNotificationUnread,
       markLiveUnread: markLiveNotificationUnread,
+      markMissedRead: markMissedPingNotificationRead,
+      markMissedUnread: markMissedPingNotificationUnread,
       markAllPingsRead: markAllPingNotificationsRead,
       markAllLiveRead: markAllLiveNotificationsRead,
+      markAllMissedRead: markAllMissedPingNotificationsRead,
       markPingNotificationsReadForChannel,
       markPingNotificationsReadForChannels,
       markLiveNotificationsReadForChannel,
       markLiveNotificationsReadForChannels,
       dismissAllMissed: dismissAllMissedPingNotifications,
+      dismissMissed: dismissMissedPingNotification,
     }),
     [
       liveNotifications,
       liveUnreadCount,
       missedPingNotifications,
+      missedUnreadCount,
       pingNotifications,
       pingUnreadCount,
       totalUnreadCount,

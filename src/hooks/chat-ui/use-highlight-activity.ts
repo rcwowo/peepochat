@@ -388,7 +388,7 @@ export function useHighlightActivity({
 
       const account = accountLoginRef.current
       const accountLower = account?.toLowerCase() ?? null
-      const missed: Array<Omit<MissedPingNotification, "id">> = []
+      const missed: Array<Omit<MissedPingNotification, "id" | "readAt">> = []
 
       for (const message of messages) {
         if (message.deletedAt !== null) {
