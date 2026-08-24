@@ -262,7 +262,7 @@
     border-bottom: 1px solid var(--chat-row-separator);
   }
 
-  .chat-presentation--message-separators .chat-message:last-child {
+  .chat-presentation--message-separators > .chat-message:last-child {
     border-bottom-color: transparent;
   }
 
