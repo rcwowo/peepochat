@@ -11,7 +11,8 @@
             "Minor touch ups to the notification center.",
             "Slight performance improvements to channel switching.",
             "Enabled spellcheck in the chat composer.",
-            "Removed the initial mention from reply threads."
+            "Removed the initial mention from reply threads.",
+            "Fixed race condition when loading third-party emotes."
         ]
     },
     {

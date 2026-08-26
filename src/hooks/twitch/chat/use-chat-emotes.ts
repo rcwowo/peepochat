@@ -267,31 +267,67 @@ export function useChatEmotes({
 
       const generation = emoteCatalogGenerationRef.current
       const context = emoteLoadContextRef.current
+      let appliedPartial = false
 
-      void fetchRoomEmoteBundle({
-        roomId,
-        channelLogin: login,
-        accessToken: context.accessToken,
-        clientId: context.clientId,
-        userId: context.userId,
-        channelHints: context.channelHints,
-      })
+      const applyBundle = (bundle: {
+        thirdParty: ThirdPartyEmoteCatalog
+        composer: ComposerEmoteCatalog
+        cheermotes: CheermoteCatalog
+      }) => {
+        if (generation !== emoteCatalogGenerationRef.current) {
+          return
+        }
+
+        roomEmotesFailedAtRef.current.delete(roomId)
+        emoteCatalogsRef.current.set(roomId, bundle.thirdParty)
+        cheermoteCatalogsRef.current.set(roomId, bundle.cheermotes)
+        composerCatalogLoadedRef.current.add(roomId)
+        composerCatalogsRef.current.set(roomId, bundle.composer)
+        setComposerCatalogs((current) => ({
+          ...current,
+          [roomId]: bundle.composer,
+        }))
+        rehydrateRoomTimeline(login, roomId)
+      }
+
+      const clearComposerLoading = () => {
+        if (generation !== emoteCatalogGenerationRef.current) {
+          return
+        }
+
+        setComposerCatalogLoading((current) => {
+          if (!current[roomId]) return current
+          const next = { ...current }
+          delete next[roomId]
+          return next
+        })
+      }
+
+      void fetchRoomEmoteBundle(
+        {
+          roomId,
+          channelLogin: login,
+          accessToken: context.accessToken,
+          clientId: context.clientId,
+          userId: context.userId,
+          channelHints: context.channelHints,
+        },
+        (partialBundle) => {
+          applyBundle(partialBundle)
+
+          if (!appliedPartial) {
+            appliedPartial = true
+            clearComposerLoading()
+          }
+        }
+      )
         .then((bundle) => {
           if (generation !== emoteCatalogGenerationRef.current) {
             return
           }
 
-          roomEmotesFailedAtRef.current.delete(roomId)
-          emoteCatalogsRef.current.set(roomId, bundle.thirdParty)
-          cheermoteCatalogsRef.current.set(roomId, bundle.cheermotes)
-          composerCatalogLoadedRef.current.add(roomId)
-          composerCatalogsRef.current.set(roomId, bundle.composer)
+          applyBundle(bundle)
           roomEmotesSettledRef.current.add(roomId)
-          setComposerCatalogs((current) => ({
-            ...current,
-            [roomId]: bundle.composer,
-          }))
-          rehydrateRoomTimeline(login, roomId)
           onRoomEmotesSettledRef?.current?.(roomId)
           devFetchLogger.debugLazy(() => [
             "emotes:success",
@@ -311,23 +347,27 @@ export function useChatEmotes({
           }
 
           roomEmotesFailedAtRef.current.set(roomId, Date.now())
+
+          if (!appliedPartial) {
+            const emptyThirdParty = createEmptyEmoteCatalog()
+            const emptyComposer = createEmptyComposerCatalog()
+            emoteCatalogsRef.current.set(roomId, emptyThirdParty)
+            composerCatalogsRef.current.set(roomId, emptyComposer)
+            composerCatalogLoadedRef.current.add(roomId)
+            setComposerCatalogs((current) => ({
+              ...current,
+              [roomId]: emptyComposer,
+            }))
+          }
+
+          roomEmotesSettledRef.current.add(roomId)
           devFetchLogger.warn("emotes:error", { login, roomId })
           appendLog(`Emotes could not be loaded for #${login}.`)
         })
         .finally(() => {
           roomEmotesLoadingRef.current.delete(roomId)
           composerCatalogLoadingRef.current.delete(roomId)
-
-          if (generation !== emoteCatalogGenerationRef.current) {
-            return
-          }
-
-          setComposerCatalogLoading((current) => {
-            if (!current[roomId]) return current
-            const next = { ...current }
-            delete next[roomId]
-            return next
-          })
+          clearComposerLoading()
         })
     },
     [
@@ -463,22 +503,18 @@ export function useChatEmotes({
 
       const generation = emoteCatalogGenerationRef.current
       const context = emoteLoadContextRef.current
+      let appliedPartial = false
 
       roomEmotesLoadingRef.current.set(roomId, true)
       composerCatalogLoadingRef.current.set(roomId, true)
 
-      try {
-        const bundle = await fetchRoomEmoteBundle({
-          roomId,
-          channelLogin: normalized,
-          accessToken: context.accessToken,
-          clientId: context.clientId,
-          userId: context.userId,
-          channelHints: context.channelHints,
-        })
-
+      const applyBundle = (bundle: {
+        thirdParty: ThirdPartyEmoteCatalog
+        composer: ComposerEmoteCatalog
+        cheermotes: CheermoteCatalog
+      }) => {
         if (generation !== emoteCatalogGenerationRef.current) {
-          return true
+          return
         }
 
         roomEmotesFailedAtRef.current.delete(roomId)
@@ -486,37 +522,75 @@ export function useChatEmotes({
         cheermoteCatalogsRef.current.set(roomId, bundle.cheermotes)
         composerCatalogLoadedRef.current.add(roomId)
         composerCatalogsRef.current.set(roomId, bundle.composer)
-        roomEmotesSettledRef.current.add(roomId)
         setComposerCatalogs((current) => ({
           ...current,
           [roomId]: bundle.composer,
         }))
         rehydrateRoomTimeline(normalized, roomId)
+      }
+
+      const clearComposerLoading = () => {
+        if (generation !== emoteCatalogGenerationRef.current) {
+          return
+        }
+
+        setComposerCatalogLoading((current) => {
+          if (!current[roomId]) return current
+          const next = { ...current }
+          delete next[roomId]
+          return next
+        })
+      }
+
+      try {
+        const bundle = await fetchRoomEmoteBundle(
+          {
+            roomId,
+            channelLogin: normalized,
+            accessToken: context.accessToken,
+            clientId: context.clientId,
+            userId: context.userId,
+            channelHints: context.channelHints,
+          },
+          (partialBundle) => {
+            applyBundle(partialBundle)
+
+            if (!appliedPartial) {
+              appliedPartial = true
+              clearComposerLoading()
+            }
+          }
+        )
+
+        if (generation !== emoteCatalogGenerationRef.current) {
+          return true
+        }
+
+        applyBundle(bundle)
+        roomEmotesSettledRef.current.add(roomId)
         onRoomEmotesSettledRef?.current?.(roomId)
       } catch {
         if (generation === emoteCatalogGenerationRef.current) {
-          const emptyThirdParty = createEmptyEmoteCatalog()
-          const emptyComposer = createEmptyComposerCatalog()
-          emoteCatalogsRef.current.set(roomId, emptyThirdParty)
-          composerCatalogsRef.current.set(roomId, emptyComposer)
-          composerCatalogLoadedRef.current.add(roomId)
+          if (!appliedPartial) {
+            const emptyThirdParty = createEmptyEmoteCatalog()
+            const emptyComposer = createEmptyComposerCatalog()
+            emoteCatalogsRef.current.set(roomId, emptyThirdParty)
+            composerCatalogsRef.current.set(roomId, emptyComposer)
+            composerCatalogLoadedRef.current.add(roomId)
+            setComposerCatalogs((current) => ({
+              ...current,
+              [roomId]: emptyComposer,
+            }))
+          }
+
           roomEmotesSettledRef.current.add(roomId)
-          setComposerCatalogs((current) => ({
-            ...current,
-            [roomId]: emptyComposer,
-          }))
         }
       } finally {
         roomEmotesLoadingRef.current.delete(roomId)
         composerCatalogLoadingRef.current.delete(roomId)
 
         if (generation === emoteCatalogGenerationRef.current) {
-          setComposerCatalogLoading((current) => {
-            if (!current[roomId]) return current
-            const next = { ...current }
-            delete next[roomId]
-            return next
-          })
+          clearComposerLoading()
         }
       }
 

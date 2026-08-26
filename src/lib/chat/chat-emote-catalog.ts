@@ -90,6 +90,14 @@ export type ComposerEmoteLoadOptions = {
   channelHints?: ChannelProfileHint[]
 }
 
+export type RoomEmoteBundlePartialListener = (bundle: RoomEmoteBundle) => void
+
+const EMPTY_THIRD_PARTY_SETS: ThirdPartyEmoteSets = {
+  bttv: { channel: [], global: [] },
+  ffz: { channel: [], global: [] },
+  "7tv": { channel: [], global: [] },
+}
+
 type CategoryIconRef =
   | { kind: "platform"; platformId: EmotePickerPlatformId }
   | { kind: "broadcaster"; ownerId: string }
@@ -245,7 +253,8 @@ function roomEmoteBundleKey(options: ComposerEmoteLoadOptions) {
 
 /** One network pass per room: third-party + Twitch Helix + profiles (deduped in-flight). */
 export async function fetchRoomEmoteBundle(
-  options: ComposerEmoteLoadOptions
+  options: ComposerEmoteLoadOptions,
+  onPartial?: RoomEmoteBundlePartialListener
 ): Promise<RoomEmoteBundle> {
   const key = roomEmoteBundleKey(options)
 
@@ -259,6 +268,7 @@ export async function fetchRoomEmoteBundle(
         emoteCount: cached.composer.byCode.size,
       },
     ])
+    onPartial?.(cached)
     return cached
   }
 
@@ -283,7 +293,7 @@ export async function fetchRoomEmoteBundle(
     },
   ])
 
-  const promise = buildRoomEmoteBundle(options)
+  const promise = buildRoomEmoteBundle(options, onPartial)
     .then((bundle) => {
       roomEmoteBundleCache.set(key, bundle)
       devFetchLogger.debugLazy(() => [
@@ -308,33 +318,117 @@ export async function fetchRoomEmoteBundle(
 }
 
 async function buildRoomEmoteBundle(
-  options: ComposerEmoteLoadOptions
+  options: ComposerEmoteLoadOptions,
+  onPartial?: RoomEmoteBundlePartialListener
 ): Promise<RoomEmoteBundle> {
   const { roomId, channelLogin, accessToken, clientId, userId } = options
   const canLoadTwitch = Boolean(accessToken?.trim() && clientId?.trim())
 
-  const [thirdPartySets, twitchEmotes, cheermotes] = await Promise.all([
-    getThirdPartyEmoteSets(roomId),
-    canLoadTwitch
-      ? loadTwitchEmotesForComposer({
+  let twitchBundle: RoomEmoteBundle | null = null
+  let thirdPartyBundle: RoomEmoteBundle | null = null
+  let thirdPartySetsResult: ThirdPartyEmoteSets = EMPTY_THIRD_PARTY_SETS
+  let currentChannelProfile: TwitchUser | undefined
+
+  const emitPartial = () => {
+    if (!onPartial) {
+      return
+    }
+
+    if (twitchBundle && thirdPartyBundle) {
+      onPartial(
+        mergeRoomEmoteBundles(
+          twitchBundle,
+          thirdPartySetsResult,
+          options,
+          currentChannelProfile
+        )
+      )
+      return
+    }
+
+    if (twitchBundle) {
+      onPartial(twitchBundle)
+      return
+    }
+
+    if (thirdPartyBundle) {
+      onPartial(thirdPartyBundle)
+    }
+  }
+
+  const thirdPartyPromise = getThirdPartyEmoteSets(roomId, (thirdPartySets) => {
+    thirdPartySetsResult = thirdPartySets
+    thirdPartyBundle = buildThirdPartyRoomEmoteBundle(
+      options,
+      thirdPartySets,
+      twitchBundle?.cheermotes ?? DEFAULT_CHEERMOTE_CATALOG
+    )
+    emitPartial()
+  })
+    .then((thirdPartySets) => {
+      thirdPartySetsResult = thirdPartySets
+      thirdPartyBundle = buildThirdPartyRoomEmoteBundle(
+        options,
+        thirdPartySets,
+        twitchBundle?.cheermotes ?? DEFAULT_CHEERMOTE_CATALOG
+      )
+      emitPartial()
+      return thirdPartySets
+    })
+    .catch(() => {
+      thirdPartySetsResult = EMPTY_THIRD_PARTY_SETS
+      thirdPartyBundle = buildThirdPartyRoomEmoteBundle(
+        options,
+        EMPTY_THIRD_PARTY_SETS,
+        twitchBundle?.cheermotes ?? DEFAULT_CHEERMOTE_CATALOG
+      )
+      emitPartial()
+      return EMPTY_THIRD_PARTY_SETS
+    })
+
+  const twitchPromise = canLoadTwitch
+    ? Promise.all([
+        loadTwitchEmotesForComposer({
           roomId,
           accessToken,
           clientId,
           userId,
-        })
-      : Promise.resolve({
-          global: [],
-          userAll: [],
-          channel: [],
-          userChannel: [],
         }),
-    canLoadTwitch
-      ? fetchCheermotes(accessToken!, clientId!, roomId).catch(
+        fetchCheermotes(accessToken!, clientId!, roomId).catch(
           () => DEFAULT_CHEERMOTE_CATALOG
-        )
-      : Promise.resolve(DEFAULT_CHEERMOTE_CATALOG),
+        ),
+      ])
+        .then(async ([twitchEmotes, cheermotes]) => {
+          const built = await buildTwitchRoomEmoteBundle(
+            options,
+            twitchEmotes,
+            cheermotes
+          )
+          twitchBundle = built.bundle
+          currentChannelProfile = built.currentChannelProfile
+          emitPartial()
+          return { twitchEmotes, cheermotes }
+        })
+        .catch(() => null)
+    : Promise.resolve(null)
+
+  const [thirdPartySets, twitchResult] = await Promise.all([
+    thirdPartyPromise,
+    twitchPromise,
   ])
 
+  if (!twitchResult) {
+    return (
+      thirdPartyBundle ??
+      buildThirdPartyRoomEmoteBundle(
+        options,
+        thirdPartySets,
+        DEFAULT_CHEERMOTE_CATALOG
+      )
+    )
+  }
+
+  const { twitchEmotes, cheermotes } = twitchResult
   const thirdParty = buildThirdPartyEmoteCatalog(thirdPartySets)
 
   const {
@@ -359,7 +453,7 @@ async function buildRoomEmoteBundle(
     roomId,
     channelLogin,
     hints: options.channelHints ?? [],
-    ownerIds: canLoadTwitch ? collectBroadcasterOwnerIds(twitchDrafts) : [],
+    ownerIds: collectBroadcasterOwnerIds(twitchDrafts),
   })
 
   const twitchCategories = reorderTwitchCategories(
@@ -375,6 +469,125 @@ async function buildRoomEmoteBundle(
   })
 
   return { composer, thirdParty, cheermotes }
+}
+
+async function buildTwitchRoomEmoteBundle(
+  options: ComposerEmoteLoadOptions,
+  twitchEmotes: Awaited<ReturnType<typeof loadTwitchEmotesForComposer>>,
+  cheermotes: CheermoteCatalog
+): Promise<{
+  bundle: RoomEmoteBundle
+  currentChannelProfile?: TwitchUser
+}> {
+  const { roomId, channelLogin, accessToken, clientId } = options
+
+  const {
+    global: twitchGlobal,
+    channel: twitchChannelRaw,
+    userAll: twitchUserAll,
+    userChannel: twitchUserChannel,
+  } = twitchEmotes
+
+  const twitchDrafts = partitionTwitchEmotes({
+    roomId,
+    channelLogin,
+    channelEmotes: twitchChannelRaw,
+    userChannelEmotes: twitchUserChannel,
+    userAllEmotes: twitchUserAll,
+    globalEmotes: twitchGlobal,
+  })
+
+  const profiles = await resolveBroadcasterProfiles({
+    accessToken: accessToken ?? "",
+    clientId: clientId ?? "",
+    roomId,
+    channelLogin,
+    hints: options.channelHints ?? [],
+    ownerIds: collectBroadcasterOwnerIds(twitchDrafts),
+  })
+
+  const currentChannelProfile = profiles.get(roomId)
+  const twitchCategories = reorderTwitchCategories(
+    resolveCategoryDrafts(twitchDrafts, profiles, roomId, channelLogin),
+    channelLogin
+  )
+
+  const composer = buildComposerCatalog({
+    channelLogin,
+    thirdPartySets: EMPTY_THIRD_PARTY_SETS,
+    twitchCategories,
+    currentChannelProfile,
+  })
+
+  return {
+    bundle: {
+      composer,
+      thirdParty: buildThirdPartyEmoteCatalog(EMPTY_THIRD_PARTY_SETS),
+      cheermotes,
+    },
+    currentChannelProfile,
+  }
+}
+
+function buildThirdPartyRoomEmoteBundle(
+  options: ComposerEmoteLoadOptions,
+  thirdPartySets: ThirdPartyEmoteSets,
+  cheermotes: CheermoteCatalog
+): RoomEmoteBundle {
+  const { channelLogin, roomId } = options
+  const channelHint = (options.channelHints ?? []).find(
+    (hint) =>
+      normalizeChannelLogin(hint.login) === normalizeChannelLogin(channelLogin)
+  )
+
+  const composer = buildComposerCatalog({
+    channelLogin,
+    thirdPartySets: dedupeThirdPartySets(thirdPartySets),
+    twitchCategories: [],
+    currentChannelProfile: channelHint
+      ? {
+          id: roomId,
+          login: normalizeChannelLogin(channelLogin),
+          displayName: channelHint.displayName ?? channelLogin,
+          profileImageUrl: channelHint.profileImageUrl ?? "",
+          bannerImageUrl: "",
+          description: "",
+          createdAt: "",
+          broadcasterType: "",
+          type: "",
+        }
+      : undefined,
+  })
+
+  return {
+    composer,
+    thirdParty: buildThirdPartyEmoteCatalog(thirdPartySets),
+    cheermotes,
+  }
+}
+
+function mergeRoomEmoteBundles(
+  twitchBundle: RoomEmoteBundle,
+  thirdPartySets: ThirdPartyEmoteSets,
+  options: ComposerEmoteLoadOptions,
+  currentChannelProfile?: TwitchUser
+): RoomEmoteBundle {
+  const twitchPlatform = twitchBundle.composer.platforms.find(
+    (platform) => platform.id === "twitch"
+  )
+
+  const composer = buildComposerCatalog({
+    channelLogin: options.channelLogin,
+    thirdPartySets: dedupeThirdPartySets(thirdPartySets),
+    twitchCategories: twitchPlatform?.categories ?? [],
+    currentChannelProfile,
+  })
+
+  return {
+    composer,
+    thirdParty: buildThirdPartyEmoteCatalog(thirdPartySets),
+    cheermotes: twitchBundle.cheermotes,
+  }
 }
 
 function collectBroadcasterOwnerIds(drafts: CategoryDraft[]): string[] {
