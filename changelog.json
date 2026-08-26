@@ -12,7 +12,8 @@
             "Slight performance improvements to channel switching.",
             "Enabled spellcheck in the chat composer.",
             "Removed the initial mention from reply threads.",
-            "Fixed race condition when loading third-party emotes."
+            "Fixed race condition when loading third-party emotes.",
+            "Fixed bad message height estimations in virtualizer (hopefully)."
         ]
     },
     {

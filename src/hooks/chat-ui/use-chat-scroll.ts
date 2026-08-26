@@ -5,35 +5,31 @@ import {
   type Virtualizer,
 } from "@tanstack/react-virtual"
 
+import {
+  estimateTimelineItemSize,
+  type ChatListLayout,
+} from "@/lib/chat/chat-message-layout"
+import type { TwitchTimelineItem } from "@/lib/twitch/twitch-chat-types"
+
 const NEAR_BOTTOM_PX = 24
 const STICK_TO_END_PX = 1
 const LIST_EDGE_PADDING_PX = 4
-const DEFAULT_ESTIMATE_SIZE_PX = 72
 const USER_SCROLL_INTENT_PX = 2
 
-type TimelineEntry = {
-  kind: string
-  message: { id: string; reply?: unknown }
-}
+export type ChatScrollLayout = Omit<
+  ChatListLayout,
+  "viewportWidth" | "fontFamily"
+>
 
-function estimateTimelineItemSize(entry: TimelineEntry | undefined) {
-  if (!entry) {
-    return DEFAULT_ESTIMATE_SIZE_PX
+function readChatViewport(el: HTMLElement | null) {
+  if (!el) {
+    return { width: 0, fontFamily: "" }
   }
 
-  if (entry.kind === "automod" || entry.kind === "suspicious") {
-    return 128
+  return {
+    width: el.clientWidth,
+    fontFamily: getComputedStyle(el).fontFamily,
   }
-
-  if (entry.kind === "system") {
-    return 80
-  }
-
-  if (entry.kind === "chat" && entry.message.reply) {
-    return 96
-  }
-
-  return DEFAULT_ESTIMATE_SIZE_PX
 }
 
 function getDistanceFromBottom(el: HTMLElement) {
@@ -44,12 +40,14 @@ function isVerticalScrollbarInteraction(event: PointerEvent, el: HTMLElement) {
   return event.clientX - el.getBoundingClientRect().left >= el.clientWidth
 }
 
-export function useChatScroll<T extends TimelineEntry>({
+export function useChatScroll<T extends TwitchTimelineItem>({
   timeline,
   channelLogin,
+  layout,
 }: {
   timeline: T[]
   channelLogin: string
+  layout: ChatScrollLayout
 }) {
   const chatContainerRef = React.useRef<HTMLDivElement>(null)
   const isProgrammaticScrollRef = React.useRef(false)
@@ -72,6 +70,19 @@ export function useChatScroll<T extends TimelineEntry>({
   const [pausedForChannel, setPausedForChannel] = React.useState(channelLogin)
   const [listPaddingStart, setListPaddingStart] =
     React.useState(LIST_EDGE_PADDING_PX)
+  const [viewportWidth, setViewportWidth] = React.useState(0)
+  const [fontFamily, setFontFamily] = React.useState("")
+
+  const listLayout = React.useMemo<ChatListLayout>(
+    () => ({
+      ...layout,
+      viewportWidth,
+      fontFamily,
+    }),
+    [fontFamily, layout, viewportWidth]
+  )
+  const listLayoutRef = React.useRef(listLayout)
+  listLayoutRef.current = listLayout
 
   if (pausedForChannel !== channelLogin) {
     setPausedForChannel(channelLogin)
@@ -204,7 +215,8 @@ export function useChatScroll<T extends TimelineEntry>({
   )
 
   const estimateSize = React.useCallback(
-    (index: number) => estimateTimelineItemSize(displayedTimeline[index]),
+    (index: number) =>
+      estimateTimelineItemSize(displayedTimeline[index], listLayoutRef.current),
     [displayedTimeline]
   )
 
@@ -543,6 +555,30 @@ export function useChatScroll<T extends TimelineEntry>({
   ])
 
   React.useLayoutEffect(() => {
+    const viewport = readChatViewport(chatContainerRef.current)
+    setViewportWidth((current) =>
+      current === viewport.width ? current : viewport.width
+    )
+    setFontFamily((current) =>
+      current === viewport.fontFamily ? current : viewport.fontFamily
+    )
+  }, [displayedTimeline.length])
+
+  React.useLayoutEffect(() => {
+    virtualizer.measure()
+  }, [
+    layout.messageSeparators,
+    layout.metrics.emoteSizePx,
+    layout.metrics.fontSizePx,
+    layout.metrics.lineHeightPx,
+    layout.metrics.rowPaddingY,
+    layout.showTwitchBadges,
+    layout.timestampFormat,
+    viewportWidth,
+    virtualizer,
+  ])
+
+  React.useLayoutEffect(() => {
     const chatContainer = chatContainerRef.current
     if (
       displayedTimeline.length === 0 ||
@@ -553,6 +589,13 @@ export function useChatScroll<T extends TimelineEntry>({
     }
 
     const observer = new ResizeObserver(() => {
+      const viewport = readChatViewport(chatContainer)
+      setViewportWidth((current) =>
+        current === viewport.width ? current : viewport.width
+      )
+      setFontFamily((current) =>
+        current === viewport.fontFamily ? current : viewport.fontFamily
+      )
       syncListPadding()
       stickToBottomIfPinned()
     })

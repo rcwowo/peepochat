@@ -311,17 +311,23 @@
 
   .chat-emote {
     display: inline-grid;
+    grid-template-rows: var(--chat-emote-size);
     vertical-align: middle;
+    height: var(--chat-emote-size);
+    min-height: var(--chat-emote-size);
     min-width: var(--chat-emote-size);
+    margin-block: var(--chat-emote-margin);
   }
 
   .chat-emote img {
     grid-area: 1 / 1;
+    box-sizing: border-box;
     height: var(--chat-emote-size);
     max-height: var(--chat-emote-size);
     width: auto;
+    min-height: 0;
+    min-width: 0;
     place-self: center;
-    margin-block: var(--chat-emote-margin);
     object-fit: contain;
   }
 

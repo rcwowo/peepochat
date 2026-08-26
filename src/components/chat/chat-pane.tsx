@@ -60,6 +60,7 @@ import {
   updateStableRowStripes,
   type RowStripeCache,
 } from "@/lib/chat/chat-row-stripes"
+import { getChatPresentationMetrics } from "@/lib/chat/chat-presentation-style"
 import { useChatScroll } from "@/hooks/chat-ui/use-chat-scroll"
 import { useHotkeyRegistry } from "@/hooks/use-hotkey-registry"
 import { cn } from "@/lib/utils"
@@ -279,6 +280,25 @@ function ChatPaneInner({
     return timeline
   }, [hideBlockedUsers, isUserBlocked, showSuspiciousActivity, timeline])
 
+  const scrollLayout = React.useMemo(
+    () => ({
+      metrics: getChatPresentationMetrics({
+        fontSizePx: config.chat.fontSizePx,
+        emoteScale: config.chat.emoteScale,
+      }),
+      timestampFormat,
+      messageSeparators: config.chat.messageSeparators,
+      showTwitchBadges,
+    }),
+    [
+      config.chat.emoteScale,
+      config.chat.fontSizePx,
+      config.chat.messageSeparators,
+      showTwitchBadges,
+      timestampFormat,
+    ]
+  )
+
   const {
     chatContainerRef,
     displayedTimeline,
@@ -290,6 +310,7 @@ function ChatPaneInner({
   } = useChatScroll({
     timeline: visibleTimeline,
     channelLogin,
+    layout: scrollLayout,
   })
 
   const rowStripes = React.useMemo(
