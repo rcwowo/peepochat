@@ -62,7 +62,9 @@ export function estimateTimelineItemSize(
           text: entry.message.text,
           emotes: entry.message.emotes,
           displayName: entry.message.displayName,
-          badgeCount: layout.showTwitchBadges ? entry.message.badges.length : 0,
+          badgeCount: layout.showTwitchBadges
+            ? entry.message.badges.length + (entry.message.sourceRoomId ? 1 : 0)
+            : 0,
           hasReply: Boolean(entry.message.reply),
           isFirst: entry.message.flags.isFirst,
           layout,

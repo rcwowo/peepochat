@@ -100,6 +100,7 @@ export type TwitchChatMessage = {
   id: string
   channel: string
   roomId: string | null
+  sourceRoomId: string | null
   userId: string | null
   userName: string
   displayName: string
@@ -902,43 +903,49 @@ function parsePrivmsg(tagged: IrcTaggedLine): TwitchChatMessage | null {
     messageText = messageText.slice(8, -1)
   }
 
-  // Extract badge info
-  const badges = tags.get("badges") ?? ""
-  const badgeInfo = tags.get("badge-info") ?? ""
-  const parsedBadges = parseBadgesTag(badges)
-  const parsedBadgeInfo = parseBadgesTag(badgeInfo)
+  const roomId = tags.get("room-id") || null
+  const source = resolveSharedChatSource(tags, roomId)
   const parsedEmotes = parseEmotesTag(tags.get("emotes") ?? "", messageText)
 
   const displayName = decodeTagValue(tags.get("display-name") || "") || userName
   const color = tags.get("color") || null
   const id = tags.get("id") || stableMessageId(channel, userName, messageText)
-  const roomId = tags.get("room-id") || null
   const userId = tags.get("user-id") || null
   const reply = parseReplyTag(tags)
 
   const receivedAt = parseMessageReceivedAt(tags)
+  const fromOtherRoom = Boolean(source.sourceRoomId)
 
   return {
     id,
     channel,
     roomId,
+    sourceRoomId: source.sourceRoomId,
     userId,
     userName,
     displayName,
     text: messageText,
     color,
     receivedAt,
-    badges: parsedBadges,
-    badgeInfo: parsedBadgeInfo,
+    badges: source.badges,
+    badgeInfo: source.badgeInfo,
     emotes: parsedEmotes,
     reply,
     bits: parseOptionalInt(tags.get("bits")),
     deletedAt: null,
     flags: {
-      isBroadcaster: badges.includes("broadcaster/"),
-      isModerator: tags.get("mod") === "1",
-      isSubscriber: tags.get("subscriber") === "1",
-      isVip: tags.has("vip"),
+      isBroadcaster: source.badges.some((badge) => badge.set === "broadcaster"),
+      isModerator: fromOtherRoom
+        ? source.badges.some((badge) => badge.set === "moderator")
+        : tags.get("mod") === "1",
+      isSubscriber: fromOtherRoom
+        ? source.badges.some(
+            (badge) => badge.set === "subscriber" || badge.set === "founder"
+          )
+        : tags.get("subscriber") === "1",
+      isVip: fromOtherRoom
+        ? source.badges.some((badge) => badge.set === "vip")
+        : tags.has("vip"),
       isFirst: tags.get("first-msg") === "1",
       isAction,
     },
@@ -1328,6 +1335,44 @@ function parseBadgesTag(raw: string): TwitchBadge[] {
       return { set, version: version ?? "1" }
     })
     .filter((b) => b.set)
+}
+
+function resolveSharedChatSource(
+  tags: Map<string, string>,
+  roomId: string | null
+): {
+  sourceRoomId: string | null
+  badges: TwitchBadge[]
+  badgeInfo: TwitchBadge[]
+} {
+  const currentRoomId = roomId?.trim() ?? ""
+  const sourceRoomId = (tags.get("source-room-id") ?? "").trim()
+  const fromOtherRoom = Boolean(
+    sourceRoomId && currentRoomId && sourceRoomId !== currentRoomId
+  )
+
+  if (!fromOtherRoom) {
+    return {
+      sourceRoomId: null,
+      badges: parseBadgesTag(tags.get("badges") ?? ""),
+      badgeInfo: parseBadgesTag(tags.get("badge-info") ?? ""),
+    }
+  }
+
+  const sourceBadges = parseBadgesTag(tags.get("source-badges") ?? "")
+  const sourceBadgeInfo = parseBadgesTag(tags.get("source-badge-info") ?? "")
+
+  return {
+    sourceRoomId,
+    badges:
+      sourceBadges.length > 0
+        ? sourceBadges
+        : parseBadgesTag(tags.get("badges") ?? ""),
+    badgeInfo:
+      sourceBadgeInfo.length > 0
+        ? sourceBadgeInfo
+        : parseBadgesTag(tags.get("badge-info") ?? ""),
+  }
 }
 
 function parseEmotesTag(raw: string, text: string): TwitchEmote[] {

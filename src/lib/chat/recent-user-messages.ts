@@ -14,6 +14,7 @@ function suspiciousAsChatMessage(
     id: message.id,
     channel: message.channel,
     roomId: message.roomId,
+    sourceRoomId: null,
     userId: message.userId,
     userName: message.userName,
     displayName: message.displayName,

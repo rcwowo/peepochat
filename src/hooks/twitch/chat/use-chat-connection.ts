@@ -46,6 +46,7 @@ export type ReadClientHandlers = {
   loadRecentMessages: (login: string) => void
   ensureRoomEmotes: (login: string, roomId: string | null) => void
   isRoomEmotesSettled: (roomId: string) => boolean
+  onRoomReady?: (login: string, roomId: string) => void
 }
 
 export type SendClientHandlers = {
@@ -409,6 +410,7 @@ export function useChatConnection({
             joining: false,
           }))
           if (pendingChatModesNoticeRef.current.has(login)) {
+            const roomId = event.state.roomId ?? roomsRef.current[login]?.roomId
             if (hasAnyChatModeEnabled(nextModes)) {
               const message = formatChatModesNotice(nextModes)
               if (message) {
@@ -418,9 +420,15 @@ export function useChatConnection({
                   id: chatModesNoticeId(login),
                 })
                 pendingChatModesNoticeRef.current.delete(login)
+                if (roomId) {
+                  handlers.onRoomReady?.(login, roomId)
+                }
               }
             } else if (event.state.isComplete) {
               pendingChatModesNoticeRef.current.delete(login)
+              if (roomId) {
+                handlers.onRoomReady?.(login, roomId)
+              }
             }
           }
           if (

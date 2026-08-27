@@ -1,11 +1,15 @@
 import * as React from "react"
 import { XIcon } from "lucide-react"
 
-import { ChatBadgeList } from "@/components/chat/chat-badge"
+import {
+  ChatBadgeList,
+  type ChatSourceChannelBadge,
+} from "@/components/chat/chat-badge"
 import { ChatMessageBody } from "@/components/chat/chat-message-body"
 import { ChatUsername } from "@/components/chat/chat-username"
 import { Button } from "@/components/ui/button"
 import { useResolvedUsernameColor } from "@/hooks/chat-ui/use-resolved-username-color"
+import { useSharedChatMessageChrome } from "@/hooks/chat-ui/use-shared-chat-source-badge"
 import {
   resolveMessageBadges,
   type ChatBadgeCatalog,
@@ -34,6 +38,7 @@ function ThreadMessageLine({
   memberBadge = null,
   unresolvedBadges,
   showBadgeFallback = false,
+  sourceChannel = null,
   isAction = false,
   isSelected = false,
   isSelectable = false,
@@ -49,6 +54,7 @@ function ThreadMessageLine({
   memberBadge?: ResolvedMemberBadge | null
   unresolvedBadges?: TwitchChatMessage["badges"]
   showBadgeFallback?: boolean
+  sourceChannel?: ChatSourceChannelBadge | null
   isAction?: boolean
   isSelected?: boolean
   isSelectable?: boolean
@@ -66,6 +72,7 @@ function ThreadMessageLine({
         memberBadge={memberBadge}
         unresolved={unresolvedBadges}
         showFallback={showBadgeFallback}
+        sourceChannel={sourceChannel}
       />
       <ChatUsername
         displayName={displayName}
@@ -140,6 +147,12 @@ function MessageFromChat({
     () => getReplyDisplayContent(message.text, message.emotes, message.reply),
     [message.emotes, message.reply, message.text]
   )
+  const { resolvedBadges, sourceChannel } = useSharedChatMessageChrome({
+    sourceRoomId: message.sourceRoomId,
+    badges: message.badges,
+    badgeCatalog,
+    showTwitchBadges,
+  })
 
   return (
     <ThreadMessageLine
@@ -149,14 +162,11 @@ function MessageFromChat({
       color={message.color}
       text={displayContent.text}
       emotes={displayContent.emotes}
-      badges={
-        showTwitchBadges
-          ? resolveMessageBadges(message.badges, badgeCatalog)
-          : []
-      }
+      badges={resolvedBadges}
       memberBadge={showMemberBadges ? getMemberBadge(message.userId) : null}
       unresolvedBadges={message.badges}
       showBadgeFallback={showTwitchBadges && showBadgeFallback}
+      sourceChannel={sourceChannel}
       isAction={message.flags.isAction}
       isSelected={isSelected}
       isSelectable

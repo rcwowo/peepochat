@@ -299,6 +299,15 @@
     height: var(--chat-badge-size);
   }
 
+  .chat-badge-source {
+    width: var(--chat-badge-size);
+    height: var(--chat-badge-size);
+    border-radius: 9999px;
+    object-fit: cover;
+    background-color: color-mix(in oklab, var(--muted) 80%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--foreground) 18%, transparent);
+  }
+
   .chat-badge-fallback {
     width: var(--chat-badge-size);
     height: var(--chat-badge-size);

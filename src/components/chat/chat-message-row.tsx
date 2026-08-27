@@ -15,16 +15,14 @@ import { ChatReplyPreview } from "@/components/chat/chat-reply-preview"
 import { UserCardPopover } from "@/components/chat/user-card-popover"
 import { Button } from "@/components/ui/button"
 import { useResolvedUsernameColor } from "@/hooks/chat-ui/use-resolved-username-color"
+import { useSharedChatMessageChrome } from "@/hooks/chat-ui/use-shared-chat-source-badge"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import {
-  resolveMessageBadges,
-  type ChatBadgeCatalog,
-} from "@/lib/chat/chat-badges"
+import type { ChatBadgeCatalog } from "@/lib/chat/chat-badges"
 import { createComposerReplyFromMessage } from "@/lib/chat/reply-threads"
 import {
   adjustHighlightRangesForReplyStrip,
@@ -105,9 +103,12 @@ function ChatMessageRowInner({
   const { markChatMessageDeleted } = usePeepochatChat()
   const isDeleted = message.deletedAt !== null
   const timestamp = formatMessageTimestamp(message.receivedAt, timestampFormat)
-  const badges = showTwitchBadges
-    ? resolveMessageBadges(message.badges, badgeCatalog)
-    : []
+  const { resolvedBadges: badges, sourceChannel } = useSharedChatMessageChrome({
+    sourceRoomId: message.sourceRoomId,
+    badges: message.badges,
+    badgeCatalog,
+    showTwitchBadges,
+  })
   const memberBadge = showMemberBadges ? getMemberBadge(message.userId) : null
   const usernameColor = useResolvedUsernameColor({
     channelLogin: message.channel,
@@ -314,6 +315,7 @@ function ChatMessageRowInner({
           memberBadge={memberBadge}
           unresolved={message.badges}
           showFallback={showTwitchBadges && showBadgeFallback}
+          sourceChannel={sourceChannel}
         />
         <UserCardPopover target={userCardTarget} />
         {message.flags.isAction ? null : (

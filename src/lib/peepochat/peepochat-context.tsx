@@ -39,6 +39,7 @@ import {
   formatLiveNotificationText,
 } from "@/lib/highlights/notification-center"
 import type { ChatBadgeCatalog } from "@/lib/chat/chat-badges"
+import type { SharedChatSourceProfile } from "@/lib/chat/shared-chat"
 import type { ResolvedMemberBadge } from "@/lib/chat/rcw-badges"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 import type {
@@ -166,6 +167,14 @@ export type PeepochatChatContextValue = {
   replayPendingComposerNotice: (channel: string) => void
   dismissComposerNotice: (notice: { channel: string; id: string }) => void
   getBadgeCatalog: (login: string) => ChatBadgeCatalog
+  getBadgeCatalogByRoomId: (roomId: string | null) => ChatBadgeCatalog
+  loadBadgesForRoom: (roomId: string | null) => void
+  getSharedChatSourceProfile: (
+    userId: string | null | undefined
+  ) => SharedChatSourceProfile | null
+  ensureSharedChatSourceProfiles: (
+    ids: Array<string | null | undefined>
+  ) => void
   getMemberBadge: (userId: string | null) => ResolvedMemberBadge | null
   getComposerEmoteCatalog: (login: string) => ComposerEmoteCatalog
   ensureComposerEmotes: (login: string, roomId: string | null) => void
@@ -341,6 +350,8 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     sendMessage,
     sendActionMessage,
     runChatCommand,
+    getSharedChatSourceProfile,
+    ensureSharedChatSourceProfiles,
   } = useTwitchChat({
     account,
     onAuthFailure: invalidateSession,
@@ -900,6 +911,10 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       replayPendingComposerNotice,
       dismissComposerNotice,
       getBadgeCatalog: getBadgeCatalogForChannel,
+      getBadgeCatalogByRoomId: getBadgeCatalog,
+      loadBadgesForRoom,
+      getSharedChatSourceProfile,
+      ensureSharedChatSourceProfiles,
       getMemberBadge,
       getComposerEmoteCatalog,
       ensureComposerEmotes,
@@ -939,6 +954,10 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       replayPendingComposerNotice,
       dismissComposerNotice,
       getBadgeCatalogForChannel,
+      getBadgeCatalog,
+      loadBadgesForRoom,
+      getSharedChatSourceProfile,
+      ensureSharedChatSourceProfiles,
       getMemberBadge,
       getComposerEmoteCatalog,
       ensureComposerEmotes,

@@ -7,6 +7,7 @@
             "Added the user's color where applicable in chat panes.",
             "Added keyboard hotkeys to quickly navigate through the client.",
             "Added 'you may have missed' section to notifications for potential pings before connecting.",
+            "Added visual support for shared chats.",
             "Minor touch ups to the appearance of chat notices.",
             "Minor touch ups to the notification center.",
             "Slight performance improvements to channel switching.",

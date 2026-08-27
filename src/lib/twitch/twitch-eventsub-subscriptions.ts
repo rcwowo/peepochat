@@ -100,6 +100,34 @@ export function buildDesiredEventSubSubscriptions({
       )
     }
 
+    pushSub(
+      out,
+      "channel.shared_chat.begin",
+      "1",
+      {
+        broadcaster_user_id: broadcasterUserId,
+      },
+      login
+    )
+    pushSub(
+      out,
+      "channel.shared_chat.update",
+      "1",
+      {
+        broadcaster_user_id: broadcasterUserId,
+      },
+      login
+    )
+    pushSub(
+      out,
+      "channel.shared_chat.end",
+      "1",
+      {
+        broadcaster_user_id: broadcasterUserId,
+      },
+      login
+    )
+
     if (hasScope(account, "user:read:chat")) {
       pushSub(
         out,

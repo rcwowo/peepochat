@@ -313,6 +313,67 @@ export async function fetchChannelChatBadges(
   return parseChatBadgeSets(payload.data)
 }
 
+export type TwitchSharedChatSession = {
+  sessionId: string
+  hostBroadcasterId: string
+  participants: Array<{ broadcasterId: string }>
+  createdAt: string
+  updatedAt: string
+}
+
+export async function fetchSharedChatSession(
+  broadcasterId: string,
+  accessToken: string,
+  clientId: string
+): Promise<TwitchSharedChatSession | null> {
+  const id = broadcasterId.trim()
+  if (!id) {
+    return null
+  }
+
+  const params = new URLSearchParams({ broadcaster_id: id })
+  const response = await devLoggedFetch(
+    `https://api.twitch.tv/helix/shared_chat/session?${params.toString()}`,
+    { headers: helixHeaders(accessToken, clientId) }
+  )
+
+  if (!response.ok) {
+    throw new TwitchApiError(
+      "Could not load shared chat session.",
+      response.status
+    )
+  }
+
+  const payload = (await response.json()) as {
+    data?: Array<{
+      session_id?: string
+      host_broadcaster_id?: string
+      participants?: Array<{ broadcaster_id?: string }>
+      created_at?: string
+      updated_at?: string
+    }>
+  }
+
+  const session = payload.data?.[0]
+  const sessionId = session?.session_id?.trim() ?? ""
+  if (!session || !sessionId) {
+    return null
+  }
+
+  const participants = (session.participants ?? []).flatMap((participant) => {
+    const participantId = participant.broadcaster_id?.trim() ?? ""
+    return participantId ? [{ broadcasterId: participantId }] : []
+  })
+
+  return {
+    sessionId,
+    hostBroadcasterId: session.host_broadcaster_id?.trim() || id,
+    participants,
+    createdAt: session.created_at ?? "",
+    updatedAt: session.updated_at ?? "",
+  }
+}
+
 export async function fetchTwitchModeratorStatus({
   broadcasterId,
   userId,

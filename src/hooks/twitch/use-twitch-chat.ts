@@ -139,6 +139,7 @@ export function useTwitchChat(options?: {
     loadRecentMessages: () => undefined,
     ensureRoomEmotes: () => undefined,
     isRoomEmotesSettled: () => false,
+    onRoomReady: () => undefined,
   })
   const sendHandlersRef = React.useRef<SendClientHandlers>({
     onSystemNotice: () => undefined,
@@ -193,6 +194,7 @@ export function useTwitchChat(options?: {
   const notifyChannelUpdatesSettingChangedRef = React.useRef(
     eventSub.notifyChannelUpdatesSettingChanged
   )
+  const notifyRoomReadyRef = React.useRef(eventSub.notifyRoomReady)
   const syncChannelsBaseRef = React.useRef(connection.syncChannels)
 
   React.useLayoutEffect(() => {
@@ -202,11 +204,13 @@ export function useTwitchChat(options?: {
       eventSub.notifySuspiciousSettingChanged
     notifyChannelUpdatesSettingChangedRef.current =
       eventSub.notifyChannelUpdatesSettingChanged
+    notifyRoomReadyRef.current = eventSub.notifyRoomReady
     syncChannelsBaseRef.current = connection.syncChannels
   }, [
     connection.syncChannels,
     eventSub.notifyChannelUpdatesSettingChanged,
     eventSub.notifyChannelsChanged,
+    eventSub.notifyRoomReady,
     eventSub.notifySelfStateChanged,
     eventSub.notifySuspiciousSettingChanged,
   ])
@@ -260,6 +264,9 @@ export function useTwitchChat(options?: {
       loadRecentMessages: recentMessages.loadRecentMessages,
       ensureRoomEmotes: emotes.ensureRoomEmotes,
       isRoomEmotesSettled: emotes.isRoomEmotesSettled,
+      onRoomReady: (login, roomId) => {
+        notifyRoomReadyRef.current(login, roomId)
+      },
     }
   }, [
     emotes.ensureRoomEmotes,
@@ -436,5 +443,7 @@ export function useTwitchChat(options?: {
     sendMessage: send.sendMessage,
     sendActionMessage: send.sendActionMessage,
     runChatCommand: send.runChatCommand,
+    getSharedChatSourceProfile: eventSub.getSharedChatSourceProfile,
+    ensureSharedChatSourceProfiles: eventSub.ensureSharedChatSourceProfiles,
   }
 }
