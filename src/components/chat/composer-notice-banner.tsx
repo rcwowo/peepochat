@@ -1,7 +1,8 @@
 import * as React from "react"
+import { InfoIcon, XIcon } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
 import { COMPOSER_NOTICE_AUTO_DISMISS_MS } from "@/lib/chat/chat-send-notice"
+import { cn } from "@/lib/utils"
 
 type ComposerNoticeBannerProps = {
   noticeId: string
@@ -11,46 +12,7 @@ type ComposerNoticeBannerProps = {
   onDismiss: () => void
 }
 
-function NoticeTimerRing({ progress }: { progress: number }) {
-  const size = 14
-  const stroke = 1.5
-  const radius = (size - stroke) / 2
-  const circumference = 2 * Math.PI * radius
-  const offset = circumference * Math.min(Math.max(progress, 0), 1)
-
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox={`0 0 ${size} ${size}`}
-      className="size-3.5 shrink-0 -rotate-90 text-muted-foreground"
-      aria-hidden="true"
-    >
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        fill="none"
-        stroke="currentColor"
-        strokeOpacity={0.25}
-        strokeWidth={stroke}
-      />
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={stroke}
-        strokeDasharray={circumference}
-        strokeDashoffset={offset}
-        strokeLinecap="round"
-      />
-    </svg>
-  )
-}
-
-function ComposerNoticeTimer({
+function DismissTimerButton({
   noticeId,
   chatVisible,
   hovered,
@@ -104,7 +66,59 @@ function ComposerNoticeTimer({
     }
   }, [noticeId])
 
-  return <NoticeTimerRing progress={progress} />
+  const size = hovered ? 18 : 14
+  const stroke = hovered ? 1.5 : 1.25
+  const radius = (size - stroke) / 2
+  const circumference = 2 * Math.PI * radius
+  const offset = circumference * Math.min(Math.max(progress, 0), 1)
+
+  return (
+    <button
+      type="button"
+      aria-label="Dismiss notice"
+      onClick={onDismiss}
+      className={cn(
+        "relative flex shrink-0 cursor-pointer items-center justify-center rounded-full",
+        "text-muted-foreground transition-[color,width,height] duration-150 hover:text-foreground",
+        hovered ? "size-[18px]" : "size-3.5"
+      )}
+    >
+      <svg
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        className="absolute inset-0 m-auto -rotate-90"
+        aria-hidden="true"
+      >
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          className="stroke-border"
+          strokeWidth={stroke}
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          className="stroke-muted-foreground"
+          strokeWidth={stroke}
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+        />
+      </svg>
+      <XIcon
+        className={cn(
+          "relative transition-opacity duration-150",
+          hovered ? "size-2.5 opacity-100" : "size-2.5 opacity-0"
+        )}
+        strokeWidth={2.5}
+      />
+    </button>
+  )
 }
 
 export function ComposerNoticeBanner({
@@ -137,8 +151,26 @@ export function ComposerNoticeBanner({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <div className="flex items-center gap-2 px-2.5 py-1.5">
-        <ComposerNoticeTimer
+      <div
+        className={cn(
+          "flex items-center gap-1.5 px-2 transition-[min-height] duration-150",
+          hovered ? "min-h-7" : "min-h-[22px]"
+        )}
+      >
+        <InfoIcon
+          className="size-3 shrink-0 text-muted-foreground/70"
+          strokeWidth={2}
+          aria-hidden="true"
+        />
+        <p className="min-w-0 flex-1 text-[11px] leading-tight text-muted-foreground">
+          {message}
+        </p>
+        {queueCount > 1 ? (
+          <span className="shrink-0 text-[10px] text-muted-foreground/70 tabular-nums">
+            1/{queueCount}
+          </span>
+        ) : null}
+        <DismissTimerButton
           key={noticeId}
           noticeId={noticeId}
           chatVisible={chatVisible}
@@ -146,23 +178,6 @@ export function ComposerNoticeBanner({
           pageVisible={pageVisible}
           onDismiss={onDismiss}
         />
-        <p className="min-w-0 flex-1 text-[11px] leading-snug text-muted-foreground">
-          {message}
-        </p>
-        {queueCount > 1 ? (
-          <span className="shrink-0 text-[11px] text-muted-foreground/70 tabular-nums">
-            1/{queueCount}
-          </span>
-        ) : null}
-        <Button
-          type="button"
-          variant="outline"
-          size="xs"
-          className="h-5 shrink-0 px-2 text-[11px]"
-          onClick={onDismiss}
-        >
-          Dismiss
-        </Button>
       </div>
       <div aria-hidden="true" className="h-3" />
     </div>

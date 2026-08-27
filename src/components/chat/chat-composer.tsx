@@ -25,6 +25,7 @@ import {
   BLOCKED_USER_DISPLAY_NAME,
   maskReplyForBlockedUser,
 } from "@/lib/twitch/blocked-users"
+import { cn } from "@/lib/utils"
 import {
   applyEmoteSuggestion,
   createEmoteCompleterState,
@@ -1349,7 +1350,7 @@ export function ChatComposer({
               completeSuggestion(suggestion, { reset: true })
             }
           />
-          <div className={activeNotice ? "relative mt-8" : "relative"}>
+          <div className={cn("relative", activeNotice && "mt-8")}>
             {activeNotice ? (
               <ComposerNoticeBanner
                 key={`${activeNotice.id}:${activeNotice.message}`}
