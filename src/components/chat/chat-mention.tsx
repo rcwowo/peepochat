@@ -63,12 +63,16 @@ export function ChatMention({
     color: target?.color,
   })
 
-  const handleTriggerClick = React.useCallback(() => {
-    if (!target || !userCardContext) {
-      return
-    }
-    userCardContext.toggleUserCard(target, triggerRef.current)
-  }, [target, userCardContext])
+  const handleTriggerClick = React.useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.stopPropagation()
+      if (!target || !userCardContext) {
+        return
+      }
+      userCardContext.toggleUserCard(target, triggerRef.current)
+    },
+    [target, userCardContext]
+  )
 
   if (!target || !userCardContext) {
     return (

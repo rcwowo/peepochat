@@ -3,12 +3,12 @@ import * as React from "react"
 import { ChatEmote } from "@/components/chat/chat-emote"
 import { ChatCheermote } from "@/components/chat/chat-cheermote"
 import { ChatMention } from "@/components/chat/chat-mention"
+import { matchChatMentions } from "@/lib/chat/chat-mentions"
 import type { PingMatchRange } from "@/lib/highlights/highlight-rules"
 import { PingMatchMark } from "@/lib/highlights/ping-match-mark"
 import { findMessageUrls } from "@/lib/peepochat/peepochat-config"
 import { getEmoteConsumedEnd, type TwitchEmote } from "@/lib/twitch/twitch-chat"
 
-const MENTION_PATTERN = /(@[A-Za-z0-9_]+)/g
 const EMPTY_HIGHLIGHT_RANGES: PingMatchRange[] = []
 
 function overlappingHighlightRanges(
@@ -117,7 +117,7 @@ function renderPlainText(
   let lastIndex = 0
   let mentionIndex = 0
 
-  for (const match of text.matchAll(MENTION_PATTERN)) {
+  for (const match of matchChatMentions(text)) {
     const index = match.index ?? -1
     if (index < 0) {
       continue

@@ -192,6 +192,7 @@ export function useTwitchEventSub({
     Record<string, SharedChatSourceProfile>
   >({})
   const sourceProfileFetchesRef = React.useRef(new Set<string>())
+  const sourceProfilesResolvedRef = React.useRef(new Set<string>())
   const roomIdsKey = Object.keys(rooms)
     .sort()
     .map((login) => `${login}:${rooms[login]?.roomId?.trim() ?? ""}`)
@@ -293,6 +294,9 @@ export function useTwitchEventSub({
             if (sourceProfilesRef.current[trimmed]?.profileImageUrl) {
               return []
             }
+            if (sourceProfilesResolvedRef.current.has(trimmed)) {
+              return []
+            }
             if (sourceProfileFetchesRef.current.has(trimmed)) {
               return []
             }
@@ -316,6 +320,9 @@ export function useTwitchEventSub({
       )
         .then((users) => {
           rememberUsersAsSourceProfiles(users)
+          for (const id of missing) {
+            sourceProfilesResolvedRef.current.add(id)
+          }
         })
         .catch(() => undefined)
         .finally(() => {

@@ -108,16 +108,40 @@ function ThreadMessageLine({
     isSelectable && isSelected && "cursor-default"
   )
 
+  const selectIfIdleTarget = (target: EventTarget | null) => {
+    if (!onSelect) {
+      return false
+    }
+    if (
+      target instanceof Element &&
+      target.closest("a, button, input, textarea")
+    ) {
+      return false
+    }
+    onSelect()
+    return true
+  }
+
   if (isSelectable && onSelect && !isSelected) {
     return (
-      <button
-        type="button"
+      <div
         className={className}
-        onClick={onSelect}
+        tabIndex={0}
         aria-label={`Reply to ${displayName}`}
+        onClick={(event) => {
+          selectIfIdleTarget(event.target)
+        }}
+        onKeyDown={(event) => {
+          if (event.key !== "Enter" && event.key !== " ") {
+            return
+          }
+          if (selectIfIdleTarget(event.target)) {
+            event.preventDefault()
+          }
+        }}
       >
         {content}
-      </button>
+      </div>
     )
   }
 

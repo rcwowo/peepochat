@@ -1,4 +1,5 @@
 import type { ChatPresentationMetrics } from "@/lib/chat/chat-presentation-style"
+import { getReplyDisplayContent } from "@/lib/chat/strip-reply-mention"
 import type { MessageTimestampFormat } from "@/lib/peepochat/peepochat-config"
 import { getEmoteConsumedEnd, type TwitchEmote } from "@/lib/twitch/twitch-chat"
 import type { TwitchTimelineItem } from "@/lib/twitch/twitch-chat-types"
@@ -56,11 +57,16 @@ export function estimateTimelineItemSize(
   const separator = layout.messageSeparators ? 1 : 0
 
   switch (entry.kind) {
-    case "chat":
+    case "chat": {
+      const display = getReplyDisplayContent(
+        entry.message.text,
+        entry.message.emotes,
+        entry.message.reply
+      )
       return (
         estimateChatRowHeight({
-          text: entry.message.text,
-          emotes: entry.message.emotes,
+          text: display.text,
+          emotes: display.emotes,
           displayName: entry.message.displayName,
           badgeCount: layout.showTwitchBadges
             ? entry.message.badges.length + (entry.message.sourceRoomId ? 1 : 0)
@@ -70,6 +76,7 @@ export function estimateTimelineItemSize(
           layout,
         }) + separator
       )
+    }
     case "suspicious":
       return (
         estimateBannerRowHeight({

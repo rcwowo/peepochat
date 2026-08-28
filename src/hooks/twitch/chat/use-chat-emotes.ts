@@ -65,10 +65,64 @@ export function useChatEmotes({
   const roomEmotesLoadingRef = useLazyRef(() => new Map<string, boolean>())
   const roomEmotesSettledRef = useLazyRef(() => new Set<string>())
   const roomEmotesFailedAtRef = useLazyRef(() => new Map<string, number>())
+  const roomEmotesRetryTimeoutRef = useLazyRef(() => new Map<string, number>())
   const composerCatalogLoadingRef = useLazyRef(() => new Map<string, boolean>())
   const composerCatalogLoadedRef = useLazyRef(() => new Set<string>())
   const emoteLoadContextRef = React.useRef<TwitchChatEmoteLoadContext>({})
   const emoteCatalogGenerationRef = React.useRef(0)
+  const ensureRoomEmotesRef = React.useRef<
+    (login: string, roomId: string | null) => void
+  >(() => {})
+
+  const clearRoomEmoteRetry = React.useCallback(
+    (roomId: string) => {
+      const timeoutId = roomEmotesRetryTimeoutRef.current.get(roomId)
+      if (timeoutId === undefined) {
+        return
+      }
+      window.clearTimeout(timeoutId)
+      roomEmotesRetryTimeoutRef.current.delete(roomId)
+    },
+    [roomEmotesRetryTimeoutRef]
+  )
+
+  const clearAllRoomEmoteRetries = React.useCallback(() => {
+    for (const timeoutId of roomEmotesRetryTimeoutRef.current.values()) {
+      window.clearTimeout(timeoutId)
+    }
+    roomEmotesRetryTimeoutRef.current.clear()
+  }, [roomEmotesRetryTimeoutRef])
+
+  const scheduleRoomEmoteRetry = React.useCallback(
+    (login: string, roomId: string, generation: number) => {
+      clearRoomEmoteRetry(roomId)
+      const timeoutId = window.setTimeout(() => {
+        roomEmotesRetryTimeoutRef.current.delete(roomId)
+        if (generation !== emoteCatalogGenerationRef.current) {
+          return
+        }
+        roomEmotesFailedAtRef.current.delete(roomId)
+        ensureRoomEmotesRef.current(login, roomId)
+      }, EMOTE_LOAD_RETRY_MS)
+      roomEmotesRetryTimeoutRef.current.set(roomId, timeoutId)
+    },
+    [
+      clearRoomEmoteRetry,
+      emoteCatalogGenerationRef,
+      roomEmotesFailedAtRef,
+      roomEmotesRetryTimeoutRef,
+    ]
+  )
+
+  React.useEffect(() => {
+    const timeouts = roomEmotesRetryTimeoutRef.current
+    return () => {
+      for (const timeoutId of timeouts.values()) {
+        window.clearTimeout(timeoutId)
+      }
+      timeouts.clear()
+    }
+  }, [roomEmotesRetryTimeoutRef])
 
   const getTwitchHydration = React.useCallback(
     (roomId: string | null): TwitchEmoteHydration | null => {
@@ -259,6 +313,8 @@ export function useChatEmotes({
         roomEmotesFailedAtRef.current.delete(roomId)
       }
 
+      clearRoomEmoteRetry(roomId)
+
       roomEmotesLoadingRef.current.set(roomId, true)
       composerCatalogLoadingRef.current.set(roomId, true)
       setComposerCatalogLoading((current) => ({ ...current, [roomId]: true }))
@@ -360,7 +416,7 @@ export function useChatEmotes({
             }))
           }
 
-          roomEmotesSettledRef.current.add(roomId)
+          scheduleRoomEmoteRetry(login, roomId, generation)
           devFetchLogger.warn("emotes:error", { login, roomId })
           appendLog(`Emotes could not be loaded for #${login}.`)
         })
@@ -384,8 +440,14 @@ export function useChatEmotes({
       roomEmotesFailedAtRef,
       roomEmotesLoadingRef,
       roomEmotesSettledRef,
+      scheduleRoomEmoteRetry,
+      clearRoomEmoteRetry,
     ]
   )
+
+  React.useLayoutEffect(() => {
+    ensureRoomEmotesRef.current = ensureRoomEmotes
+  }, [ensureRoomEmotes])
 
   const setEmoteLoadContext = React.useCallback(
     (context: TwitchChatEmoteLoadContext) => {
@@ -407,6 +469,7 @@ export function useChatEmotes({
       clearRoomEmoteBundleCache()
       clearCheermoteCache()
       emoteCatalogGenerationRef.current += 1
+      clearAllRoomEmoteRetries()
       roomEmotesSettledRef.current.clear()
       roomEmotesFailedAtRef.current.clear()
       setComposerCatalogs({})
@@ -431,6 +494,7 @@ export function useChatEmotes({
       emoteCatalogGenerationRef,
       emoteLoadContextRef,
       ensureRoomEmotes,
+      clearAllRoomEmoteRetries,
       roomEmotesFailedAtRef,
       roomEmotesLoadingRef,
       roomEmotesSettledRef,
@@ -479,6 +543,8 @@ export function useChatEmotes({
       const normalized = normalizeChannelLogin(login)
       const roomId = roomsRef.current[normalized]?.roomId ?? null
       if (!roomId) return false
+
+      clearRoomEmoteRetry(roomId)
 
       clearThirdPartyEmoteCache(roomId)
       clearChannelTwitchEmoteCache(roomId)
@@ -583,7 +649,8 @@ export function useChatEmotes({
             }))
           }
 
-          roomEmotesSettledRef.current.add(roomId)
+          roomEmotesFailedAtRef.current.set(roomId, Date.now())
+          scheduleRoomEmoteRetry(normalized, roomId, generation)
         }
       } finally {
         roomEmotesLoadingRef.current.delete(roomId)
@@ -610,6 +677,8 @@ export function useChatEmotes({
       roomEmotesLoadingRef,
       roomEmotesSettledRef,
       roomsRef,
+      clearRoomEmoteRetry,
+      scheduleRoomEmoteRetry,
     ]
   )
 
@@ -620,6 +689,7 @@ export function useChatEmotes({
       }
 
       for (const roomId of roomIds) {
+        clearRoomEmoteRetry(roomId)
         emoteCatalogsRef.current.delete(roomId)
         composerCatalogsRef.current.delete(roomId)
         cheermoteCatalogsRef.current.delete(roomId)
@@ -653,6 +723,7 @@ export function useChatEmotes({
       composerCatalogsRef,
       emoteCatalogsRef,
       onRoomsClearedRef,
+      clearRoomEmoteRetry,
       roomEmotesFailedAtRef,
       roomEmotesLoadingRef,
       roomEmotesSettledRef,
@@ -666,6 +737,7 @@ export function useChatEmotes({
     }
 
     emoteCatalogGenerationRef.current += 1
+    clearAllRoomEmoteRetries()
     clearThirdPartyEmoteCache()
     clearTwitchEmoteSessionCache()
     clearBroadcasterProfileCache()
@@ -690,6 +762,7 @@ export function useChatEmotes({
     emoteCatalogGenerationRef,
     emoteCatalogsRef,
     onRoomsClearedRef,
+    clearAllRoomEmoteRetries,
     roomEmotesFailedAtRef,
     roomEmotesLoadingRef,
     roomEmotesSettledRef,
