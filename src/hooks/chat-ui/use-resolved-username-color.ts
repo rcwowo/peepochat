@@ -18,7 +18,8 @@ export function useResolvedUsernameColor({
   userName?: string | null
   color?: string | null
 }): string | undefined {
-  const login = normalizeLogin(userName)
+  const hasColor = Boolean(color)
+  const login = hasColor ? undefined : normalizeLogin(userName)
   const chatter = useChatterByLogin(channelLogin ?? undefined, login)
   return getReadableUsernameColor(color ?? chatter?.color ?? null)
 }

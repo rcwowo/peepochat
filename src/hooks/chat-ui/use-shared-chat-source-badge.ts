@@ -5,8 +5,14 @@ import {
   resolveMessageBadges,
   type ChatBadgeCatalog,
 } from "@/lib/chat/chat-badges"
+import {
+  getSharedChatSourceProfile,
+  subscribeToSharedChatSourceProfiles,
+} from "@/lib/chat/shared-chat-profiles"
 import { usePeepochatChat } from "@/lib/peepochat/peepochat-context"
 import type { TwitchBadge } from "@/lib/twitch/twitch-chat"
+
+const NOOP_SUBSCRIBE = () => () => {}
 
 export function useSharedChatMessageChrome({
   sourceRoomId,
@@ -20,10 +26,10 @@ export function useSharedChatMessageChrome({
   showTwitchBadges: boolean
 }) {
   const {
-    getBadgeCatalogByRoomId,
     loadBadgesForRoom,
-    getSharedChatSourceProfile,
     ensureSharedChatSourceProfiles,
+    subscribeToBadgeCatalogs,
+    getBadgeCatalogByRoomId,
   } = usePeepochatChat()
 
   React.useEffect(() => {
@@ -39,10 +45,32 @@ export function useSharedChatMessageChrome({
     sourceRoomId,
   ])
 
-  const sourceProfile = getSharedChatSourceProfile(sourceRoomId)
-  const resolvedCatalog = sourceRoomId
-    ? getBadgeCatalogByRoomId(sourceRoomId)
-    : badgeCatalog
+  const subscribeToSourceProfiles = sourceRoomId
+    ? subscribeToSharedChatSourceProfiles
+    : NOOP_SUBSCRIBE
+  const getSourceProfileSnapshot = React.useCallback(
+    () => getSharedChatSourceProfile(sourceRoomId),
+    [sourceRoomId]
+  )
+  const sourceProfile = React.useSyncExternalStore(
+    subscribeToSourceProfiles,
+    getSourceProfileSnapshot,
+    getSourceProfileSnapshot
+  )
+
+  const subscribeToSourceBadges = sourceRoomId
+    ? subscribeToBadgeCatalogs
+    : NOOP_SUBSCRIBE
+  const getSourceCatalogSnapshot = React.useCallback(
+    () => (sourceRoomId ? getBadgeCatalogByRoomId(sourceRoomId) : badgeCatalog),
+    [badgeCatalog, getBadgeCatalogByRoomId, sourceRoomId]
+  )
+  const sourceCatalog = React.useSyncExternalStore(
+    subscribeToSourceBadges,
+    getSourceCatalogSnapshot,
+    getSourceCatalogSnapshot
+  )
+  const resolvedCatalog = sourceRoomId ? sourceCatalog : badgeCatalog
 
   return {
     resolvedBadges: showTwitchBadges

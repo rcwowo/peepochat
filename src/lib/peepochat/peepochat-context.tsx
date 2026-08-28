@@ -39,7 +39,6 @@ import {
   formatLiveNotificationText,
 } from "@/lib/highlights/notification-center"
 import type { ChatBadgeCatalog } from "@/lib/chat/chat-badges"
-import type { SharedChatSourceProfile } from "@/lib/chat/shared-chat"
 import type { ResolvedMemberBadge } from "@/lib/chat/rcw-badges"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 import type {
@@ -168,10 +167,8 @@ export type PeepochatChatContextValue = {
   dismissComposerNotice: (notice: { channel: string; id: string }) => void
   getBadgeCatalog: (login: string) => ChatBadgeCatalog
   getBadgeCatalogByRoomId: (roomId: string | null) => ChatBadgeCatalog
+  subscribeToBadgeCatalogs: (listener: () => void) => () => void
   loadBadgesForRoom: (roomId: string | null) => void
-  getSharedChatSourceProfile: (
-    userId: string | null | undefined
-  ) => SharedChatSourceProfile | null
   ensureSharedChatSourceProfiles: (
     ids: Array<string | null | undefined>
   ) => void
@@ -350,7 +347,6 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     sendMessage,
     sendActionMessage,
     runChatCommand,
-    getSharedChatSourceProfile,
     ensureSharedChatSourceProfiles,
   } = useTwitchChat({
     account,
@@ -363,8 +359,12 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     blockUser: blockUserBase,
     unblockUser: unblockUserBase,
   } = useBlockedUsers(account)
-  const { getBadgeCatalog, loadBadgesForRoom, hasBadgeSupport } =
-    useChatBadges(account)
+  const {
+    getBadgeCatalog,
+    loadBadgesForRoom,
+    subscribeToBadgeCatalogs,
+    hasBadgeSupport,
+  } = useChatBadges(account)
   const { getMemberBadge } = useRcwBadges()
 
   const connectOptions = React.useMemo(
@@ -912,8 +912,8 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       dismissComposerNotice,
       getBadgeCatalog: getBadgeCatalogForChannel,
       getBadgeCatalogByRoomId: getBadgeCatalog,
+      subscribeToBadgeCatalogs,
       loadBadgesForRoom,
-      getSharedChatSourceProfile,
       ensureSharedChatSourceProfiles,
       getMemberBadge,
       getComposerEmoteCatalog,
@@ -955,8 +955,8 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       dismissComposerNotice,
       getBadgeCatalogForChannel,
       getBadgeCatalog,
+      subscribeToBadgeCatalogs,
       loadBadgesForRoom,
-      getSharedChatSourceProfile,
       ensureSharedChatSourceProfiles,
       getMemberBadge,
       getComposerEmoteCatalog,

@@ -40,10 +40,12 @@ import {
   formatMessageTimestamp,
   usePeepochatSettings,
 } from "@/lib/peepochat/peepochat-context"
-import { fetchTwitchUsersByLogin } from "@/lib/twitch/twitch-api"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
-
-const profileImageCache = new Map<string, string>()
+import {
+  fetchUserAvatarUrl,
+  getCachedUserAvatarUrl,
+  subscribeToUserAvatars,
+} from "@/lib/twitch/twitch-user-avatars"
 
 const notificationRelativeDateFormatter = new Intl.DateTimeFormat(undefined, {
   month: "short",
@@ -258,39 +260,23 @@ function PingUserAvatar({
 }) {
   const { account } = usePeepochatSettings()
   const cacheKey = userName.toLowerCase()
-  const [fetchedProfileImageUrl, setFetchedProfileImageUrl] = React.useState<
-    string | null
-  >(null)
-  const profileImageUrl =
-    profileImageCache.get(cacheKey) ?? fetchedProfileImageUrl
+  const getSnapshot = React.useCallback(
+    () => getCachedUserAvatarUrl(cacheKey) ?? null,
+    [cacheKey]
+  )
+  const profileImageUrl = React.useSyncExternalStore(
+    subscribeToUserAvatars,
+    getSnapshot,
+    getSnapshot
+  )
 
   React.useEffect(() => {
-    if (profileImageCache.has(cacheKey) || !account) {
+    if (!account) {
       return
     }
 
-    let cancelled = false
-    void fetchTwitchUsersByLogin(
-      [userName],
-      account.accessToken,
-      account.clientId
-    )
-      .then((users) => {
-        if (cancelled) {
-          return
-        }
-        const url = users[0]?.profileImageUrl
-        if (url) {
-          profileImageCache.set(cacheKey, url)
-          setFetchedProfileImageUrl(url)
-        }
-      })
-      .catch(() => {})
-
-    return () => {
-      cancelled = true
-    }
-  }, [account, cacheKey, userName])
+    void fetchUserAvatarUrl(userName, account.accessToken, account.clientId)
+  }, [account, userName])
 
   if (profileImageUrl) {
     return (

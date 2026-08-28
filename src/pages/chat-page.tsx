@@ -3,9 +3,9 @@ import * as React from "react"
 import { ChatPane, ChatViewActiveProvider } from "@/components/chat/chat-pane"
 import { ChatSplitLayout } from "@/components/chat/chat-split-layout"
 import { useChannelRoom } from "@/hooks/chat-ui/use-channel-room"
+import { useBadgeCatalog } from "@/hooks/chat-ui/use-badge-catalog"
 import type { TwitchSelfChatState } from "@/lib/twitch/twitch-chat-types"
 import type { CachedChatView } from "@/hooks/chat-ui/use-chat-layout"
-import type { ChatBadgeCatalog } from "@/lib/chat/chat-badges"
 import type { ResolvedMemberBadge } from "@/lib/chat/rcw-badges"
 import { useChatFontFamily } from "@/hooks/chat-ui/use-chat-font"
 import { getChatPresentationStyle } from "@/lib/chat/chat-presentation-style"
@@ -32,7 +32,6 @@ type ChatPaneBindings = {
   highlightPingedMessages: boolean
   channelMeta: Map<string, TwitchChannel>
   getSelfChatState: (login: string) => TwitchSelfChatState | null
-  getBadgeCatalog: (login: string) => ChatBadgeCatalog
   getMemberBadge: (userId: string | null) => ResolvedMemberBadge | null
   hasBadgeSupport: boolean
   showTwitchBadges: boolean
@@ -62,6 +61,7 @@ function SingleChannelPane({
 }) {
   const meta = bindings.channelMeta.get(login)
   const room = useChannelRoom(login)
+  const badgeCatalog = useBadgeCatalog(room?.roomId ?? null)
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
@@ -78,7 +78,7 @@ function SingleChannelPane({
         loginWithTwitch={bindings.loginWithTwitch}
         channelRoomId={room?.roomId ?? null}
         selfChatState={bindings.getSelfChatState(login)}
-        badgeCatalog={bindings.getBadgeCatalog(login)}
+        badgeCatalog={badgeCatalog}
         getMemberBadge={bindings.getMemberBadge}
         showBadgeFallback={!bindings.hasBadgeSupport}
         showTwitchBadges={bindings.showTwitchBadges}
@@ -100,6 +100,7 @@ function SplitChatPane({
 }) {
   const meta = bindings.channelMeta.get(login)
   const room = useChannelRoom(login)
+  const badgeCatalog = useBadgeCatalog(room?.roomId ?? null)
 
   return (
     <ChatPane
@@ -115,7 +116,7 @@ function SplitChatPane({
       loginWithTwitch={bindings.loginWithTwitch}
       channelRoomId={room?.roomId ?? null}
       selfChatState={bindings.getSelfChatState(login)}
-      badgeCatalog={bindings.getBadgeCatalog(login)}
+      badgeCatalog={badgeCatalog}
       getMemberBadge={bindings.getMemberBadge}
       showBadgeFallback={!bindings.hasBadgeSupport}
       showTwitchBadges={bindings.showTwitchBadges}
@@ -245,7 +246,7 @@ export function ChatPage() {
     moveSplitPane,
     resizeSplitPanePath,
   } = usePeepochatLayout()
-  const { getSelfChatState, getBadgeCatalog, getMemberBadge, hasBadgeSupport } =
+  const { getSelfChatState, getMemberBadge, hasBadgeSupport } =
     usePeepochatChat()
 
   const timestampFormat = config.chat.messageTimestampFormat
@@ -268,7 +269,6 @@ export function ChatPage() {
       highlightPingedMessages,
       channelMeta,
       getSelfChatState,
-      getBadgeCatalog,
       getMemberBadge,
       hasBadgeSupport,
       showTwitchBadges,
@@ -286,7 +286,6 @@ export function ChatPage() {
       highlightPingedMessages,
       channelMeta,
       getSelfChatState,
-      getBadgeCatalog,
       getMemberBadge,
       hasBadgeSupport,
       showTwitchBadges,

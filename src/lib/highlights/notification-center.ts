@@ -84,12 +84,6 @@ function removeMissedPingForMessage(channelLogin: string, messageId: string) {
   store.missedPingNotifications = next
 }
 
-function notifyListeners() {
-  for (const listener of store.listeners) {
-    listener()
-  }
-}
-
 function subscribe(onStoreChange: () => void) {
   store.listeners.add(onStoreChange)
   return () => {
@@ -513,108 +507,92 @@ export function formatLiveNotificationText(gameName: string, title: string) {
   return "Live now"
 }
 
-function getPingNotifications() {
-  return store.pingNotifications
+type NotificationCenterSnapshot = {
+  pingNotifications: PingNotification[]
+  liveNotifications: LiveNotification[]
+  missedPingNotifications: MissedPingNotification[]
+  pingCount: number
+  liveCount: number
+  missedCount: number
+  totalCount: number
 }
 
-function getLiveNotifications() {
-  return store.liveNotifications
+function buildSnapshot(): NotificationCenterSnapshot {
+  const pingCount = store.pingNotifications.filter(isPingUnread).length
+  const liveCount = store.liveNotifications.filter(isLiveUnread).length
+  const missedCount =
+    store.missedPingNotifications.filter(isMissedUnread).length
+
+  return {
+    pingNotifications: store.pingNotifications,
+    liveNotifications: store.liveNotifications,
+    missedPingNotifications: store.missedPingNotifications,
+    pingCount,
+    liveCount,
+    missedCount,
+    totalCount: pingCount + liveCount,
+  }
 }
 
-function getMissedPingNotifications() {
-  return store.missedPingNotifications
+let snapshot = buildSnapshot()
+
+function notifyListeners() {
+  snapshot = buildSnapshot()
+  for (const listener of store.listeners) {
+    listener()
+  }
 }
 
-function getPingUnreadCount() {
-  return store.pingNotifications.filter(isPingUnread).length
-}
-
-function getLiveUnreadCount() {
-  return store.liveNotifications.filter(isLiveUnread).length
-}
-
-function getMissedUnreadCount() {
-  return store.missedPingNotifications.filter(isMissedUnread).length
+function getSnapshot() {
+  return snapshot
 }
 
 function getTotalUnreadCount() {
-  return getPingUnreadCount() + getLiveUnreadCount()
+  return snapshot.totalCount
+}
+
+const notificationCenterActions = {
+  dismissPing: dismissPingNotification,
+  dismissLive: dismissLiveNotification,
+  dismissAllPings: dismissAllPingNotifications,
+  dismissAllLive: dismissAllLiveNotifications,
+  markPingRead: markPingNotificationRead,
+  markLiveRead: markLiveNotificationRead,
+  markPingUnread: markPingNotificationUnread,
+  markLiveUnread: markLiveNotificationUnread,
+  markMissedRead: markMissedPingNotificationRead,
+  markMissedUnread: markMissedPingNotificationUnread,
+  markAllPingsRead: markAllPingNotificationsRead,
+  markAllLiveRead: markAllLiveNotificationsRead,
+  markAllMissedRead: markAllMissedPingNotificationsRead,
+  markPingNotificationsReadForChannel,
+  markPingNotificationsReadForChannels,
+  markLiveNotificationsReadForChannel,
+  markLiveNotificationsReadForChannels,
+  dismissAllMissed: dismissAllMissedPingNotifications,
+  dismissMissed: dismissMissedPingNotification,
 }
 
 export function useNotificationCenter() {
-  const pingNotifications = React.useSyncExternalStore(
+  const current = React.useSyncExternalStore(
     subscribe,
-    getPingNotifications,
-    getPingNotifications
-  )
-  const liveNotifications = React.useSyncExternalStore(
-    subscribe,
-    getLiveNotifications,
-    getLiveNotifications
-  )
-  const missedPingNotifications = React.useSyncExternalStore(
-    subscribe,
-    getMissedPingNotifications,
-    getMissedPingNotifications
-  )
-  const pingUnreadCount = React.useSyncExternalStore(
-    subscribe,
-    getPingUnreadCount,
-    getPingUnreadCount
-  )
-  const liveUnreadCount = React.useSyncExternalStore(
-    subscribe,
-    getLiveUnreadCount,
-    getLiveUnreadCount
-  )
-  const missedUnreadCount = React.useSyncExternalStore(
-    subscribe,
-    getMissedUnreadCount,
-    getMissedUnreadCount
-  )
-  const totalUnreadCount = React.useSyncExternalStore(
-    subscribe,
-    getTotalUnreadCount,
-    getTotalUnreadCount
+    getSnapshot,
+    getSnapshot
   )
 
   return React.useMemo(
     () => ({
-      pingNotifications,
-      liveNotifications,
-      missedPingNotifications,
-      pingCount: pingUnreadCount,
-      liveCount: liveUnreadCount,
-      missedCount: missedUnreadCount,
-      totalCount: totalUnreadCount,
-      dismissPing: dismissPingNotification,
-      dismissLive: dismissLiveNotification,
-      dismissAllPings: dismissAllPingNotifications,
-      dismissAllLive: dismissAllLiveNotifications,
-      markPingRead: markPingNotificationRead,
-      markLiveRead: markLiveNotificationRead,
-      markPingUnread: markPingNotificationUnread,
-      markLiveUnread: markLiveNotificationUnread,
-      markMissedRead: markMissedPingNotificationRead,
-      markMissedUnread: markMissedPingNotificationUnread,
-      markAllPingsRead: markAllPingNotificationsRead,
-      markAllLiveRead: markAllLiveNotificationsRead,
-      markAllMissedRead: markAllMissedPingNotificationsRead,
-      markPingNotificationsReadForChannel,
-      markPingNotificationsReadForChannels,
-      markLiveNotificationsReadForChannel,
-      markLiveNotificationsReadForChannels,
-      dismissAllMissed: dismissAllMissedPingNotifications,
-      dismissMissed: dismissMissedPingNotification,
+      ...current,
+      ...notificationCenterActions,
     }),
-    [
-      liveNotifications,
-      liveUnreadCount,
-      missedPingNotifications,
-      missedUnreadCount,
-      pingNotifications,
-      pingUnreadCount,
-      totalUnreadCount,
-    ]
+    [current]
+  )
+}
+
+export function useNotificationUnreadCount() {
+  return React.useSyncExternalStore(
+    subscribe,
+    getTotalUnreadCount,
+    getTotalUnreadCount
   )
 }

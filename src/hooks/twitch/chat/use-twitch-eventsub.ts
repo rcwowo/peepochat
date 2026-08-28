@@ -38,6 +38,10 @@ import {
   type SharedChatSourceProfile,
 } from "@/lib/chat/shared-chat"
 import {
+  getSharedChatSourceProfile,
+  upsertSharedChatSourceProfiles,
+} from "@/lib/chat/shared-chat-profiles"
+import {
   createChannelUpdateSystemMessages,
   parseChannelUpdateEvent,
   type ChannelUpdateSnapshot,
@@ -185,12 +189,6 @@ export function useTwitchEventSub({
   const sharedChatStateRef = React.useRef(
     new Map<string, SharedChatSession | null>()
   )
-  const sourceProfilesRef = React.useRef<
-    Record<string, SharedChatSourceProfile>
-  >({})
-  const [sourceProfiles, setSourceProfiles] = React.useState<
-    Record<string, SharedChatSourceProfile>
-  >({})
   const sourceProfileFetchesRef = React.useRef(new Set<string>())
   const sourceProfilesResolvedRef = React.useRef(new Set<string>())
   const roomIdsKey = Object.keys(rooms)
@@ -224,41 +222,7 @@ export function useTwitchEventSub({
 
   const rememberSourceProfiles = React.useCallback(
     (profiles: SharedChatSourceProfile[]) => {
-      if (profiles.length === 0) {
-        return
-      }
-
-      setSourceProfiles((current) => {
-        let changed = false
-        const next = { ...current }
-        for (const profile of profiles) {
-          const existing = next[profile.userId]
-          if (
-            existing &&
-            existing.login === profile.login &&
-            existing.displayName === profile.displayName &&
-            existing.profileImageUrl === profile.profileImageUrl
-          ) {
-            continue
-          }
-
-          next[profile.userId] = {
-            userId: profile.userId,
-            login: profile.login,
-            displayName: profile.displayName,
-            profileImageUrl:
-              profile.profileImageUrl || existing?.profileImageUrl || "",
-          }
-          changed = true
-        }
-
-        if (!changed) {
-          return current
-        }
-
-        sourceProfilesRef.current = next
-        return next
-      })
+      upsertSharedChatSourceProfiles(profiles)
     },
     []
   )
@@ -291,7 +255,7 @@ export function useTwitchEventSub({
             if (!trimmed) {
               return []
             }
-            if (sourceProfilesRef.current[trimmed]?.profileImageUrl) {
+            if (getSharedChatSourceProfile(trimmed)?.profileImageUrl) {
               return []
             }
             if (sourceProfilesResolvedRef.current.has(trimmed)) {
@@ -350,7 +314,7 @@ export function useTwitchEventSub({
           session.participants.map((participant) => ({
             ...participant,
             profileImageUrl:
-              sourceProfilesRef.current[participant.userId]?.profileImageUrl ??
+              getSharedChatSourceProfile(participant.userId)?.profileImageUrl ??
               "",
           }))
         )
@@ -463,7 +427,7 @@ export function useTwitchEventSub({
             hostUserId: raw.hostBroadcasterId,
             participants: participantIds.map((id) => {
               const user = usersById.get(id)
-              const cached = sourceProfilesRef.current[id]
+              const cached = getSharedChatSourceProfile(id)
               return {
                 userId: id,
                 login: user?.login || cached?.login || "",
@@ -1310,24 +1274,12 @@ export function useTwitchEventSub({
     [loadSharedChatSession]
   )
 
-  const getSharedChatSourceProfile = React.useCallback(
-    (userId: string | null | undefined): SharedChatSourceProfile | null => {
-      const id = userId?.trim() ?? ""
-      if (!id) {
-        return null
-      }
-      return sourceProfiles[id] ?? null
-    },
-    [sourceProfiles]
-  )
-
   return {
     notifySelfStateChanged,
     notifyChannelsChanged,
     notifySuspiciousSettingChanged,
     notifyChannelUpdatesSettingChanged,
     notifyRoomReady,
-    getSharedChatSourceProfile,
     ensureSharedChatSourceProfiles,
   }
 }

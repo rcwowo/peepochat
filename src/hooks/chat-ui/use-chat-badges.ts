@@ -10,16 +10,28 @@ import {
 } from "@/lib/chat/chat-badges"
 import type { TwitchAccount } from "@/lib/peepochat/peepochat-config"
 
+const EMPTY_BADGE_CATALOG = createEmptyBadgeCatalog()
+
 export function useChatBadges(account: TwitchAccount | null) {
-  const [globalCatalog, setGlobalCatalog] = React.useState<ChatBadgeCatalog>(
-    () => createEmptyBadgeCatalog()
+  const globalCatalogRef = React.useRef<ChatBadgeCatalog>(EMPTY_BADGE_CATALOG)
+  const channelCatalogsRef = useLazyRef(
+    () => ({}) as Record<string, ChatBadgeCatalog>
   )
-  const [channelCatalogs, setChannelCatalogs] = React.useState<
-    Record<string, ChatBadgeCatalog>
-  >({})
+  const listenersRef = useLazyRef(() => new Set<() => void>())
   const globalLoadingRef = React.useRef(false)
   const channelLoadingRef = useLazyRef(() => new Set<string>())
   const loadedRoomIdsRef = useLazyRef(() => new Set<string>())
+  const accountRef = React.useRef(account)
+
+  React.useLayoutEffect(() => {
+    accountRef.current = account
+  }, [account])
+
+  const notifyBadgeCatalogs = React.useCallback(() => {
+    for (const listener of listenersRef.current) {
+      listener()
+    }
+  }, [listenersRef])
 
   React.useEffect(() => {
     if (!account || globalLoadingRef.current) {
@@ -30,19 +42,22 @@ export function useChatBadges(account: TwitchAccount | null) {
 
     void loadGlobalBadgeCatalog(account.accessToken, account.clientId)
       .then((nextCatalog) => {
-        setGlobalCatalog(nextCatalog)
+        globalCatalogRef.current = nextCatalog
+        notifyBadgeCatalogs()
       })
       .catch(() => {
-        setGlobalCatalog(createEmptyBadgeCatalog())
+        globalCatalogRef.current = EMPTY_BADGE_CATALOG
+        notifyBadgeCatalogs()
       })
       .finally(() => {
         globalLoadingRef.current = false
       })
-  }, [account])
+  }, [account, notifyBadgeCatalogs])
 
   const loadBadgesForRoom = React.useCallback(
     (roomId: string | null) => {
-      if (!roomId || !account) {
+      const currentAccount = accountRef.current
+      if (!roomId || !currentAccount) {
         return
       }
 
@@ -57,28 +72,29 @@ export function useChatBadges(account: TwitchAccount | null) {
 
       void loadChannelBadgeCatalog(
         roomId,
-        account.accessToken,
-        account.clientId
+        currentAccount.accessToken,
+        currentAccount.clientId
       )
         .then((nextCatalog) => {
           loadedRoomIdsRef.current.add(roomId)
-          setChannelCatalogs((current) => ({
-            ...current,
-            [roomId]: nextCatalog,
-          }))
+          channelCatalogsRef.current[roomId] = nextCatalog
+          notifyBadgeCatalogs()
         })
         .catch(() => {
           loadedRoomIdsRef.current.add(roomId)
-          setChannelCatalogs((current) => ({
-            ...current,
-            [roomId]: createEmptyBadgeCatalog(),
-          }))
+          channelCatalogsRef.current[roomId] = EMPTY_BADGE_CATALOG
+          notifyBadgeCatalogs()
         })
         .finally(() => {
           channelLoadingRef.current.delete(roomId)
         })
     },
-    [account, channelLoadingRef, loadedRoomIdsRef]
+    [
+      channelCatalogsRef,
+      channelLoadingRef,
+      loadedRoomIdsRef,
+      notifyBadgeCatalogs,
+    ]
   )
 
   type MergedEntry = {
@@ -90,15 +106,16 @@ export function useChatBadges(account: TwitchAccount | null) {
 
   const getBadgeCatalog = React.useCallback(
     (roomId: string | null): ChatBadgeCatalog => {
-      if (!account) {
-        return createEmptyBadgeCatalog()
+      if (!accountRef.current) {
+        return EMPTY_BADGE_CATALOG
       }
 
+      const globalCatalog = globalCatalogRef.current
       if (!roomId) {
         return globalCatalog
       }
 
-      const channelCatalog = channelCatalogs[roomId]
+      const channelCatalog = channelCatalogsRef.current[roomId]
       if (!channelCatalog) {
         return globalCatalog
       }
@@ -121,12 +138,23 @@ export function useChatBadges(account: TwitchAccount | null) {
       })
       return merged
     },
-    [account, channelCatalogs, globalCatalog, mergedCatalogsRef]
+    [channelCatalogsRef, mergedCatalogsRef]
+  )
+
+  const subscribeToBadgeCatalogs = React.useCallback(
+    (onStoreChange: () => void) => {
+      listenersRef.current.add(onStoreChange)
+      return () => {
+        listenersRef.current.delete(onStoreChange)
+      }
+    },
+    [listenersRef]
   )
 
   return {
     getBadgeCatalog,
     loadBadgesForRoom,
+    subscribeToBadgeCatalogs,
     hasBadgeSupport: Boolean(account),
   }
 }

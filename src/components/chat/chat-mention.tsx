@@ -1,9 +1,9 @@
 import * as React from "react"
 
 import { useChatterByLogin } from "@/hooks/chat-ui/use-chatter-by-login"
-import { useResolvedUsernameColor } from "@/hooks/chat-ui/use-resolved-username-color"
 import { useUserCardContext } from "@/hooks/twitch/use-user-card-context"
 import type { ChannelChatter } from "@/lib/chat/chatter-store"
+import { getReadableUsernameColor } from "@/lib/chat/chat-username"
 import {
   createEmptyUserCardFlags,
   type UserCardTarget,
@@ -57,11 +57,7 @@ export function ChatMention({
     channelLogin && login
       ? createMentionTarget(mention, login, chatter, channelLogin)
       : null
-  const readableColor = useResolvedUsernameColor({
-    channelLogin,
-    userName: login,
-    color: target?.color,
-  })
+  const readableColor = getReadableUsernameColor(target?.color ?? null)
 
   const handleTriggerClick = React.useCallback(
     (event: React.MouseEvent<HTMLButtonElement>) => {

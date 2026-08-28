@@ -443,7 +443,6 @@ export function useTwitchChat(options?: {
     sendMessage: send.sendMessage,
     sendActionMessage: send.sendActionMessage,
     runChatCommand: send.runChatCommand,
-    getSharedChatSourceProfile: eventSub.getSharedChatSourceProfile,
     ensureSharedChatSourceProfiles: eventSub.ensureSharedChatSourceProfiles,
   }
 }
