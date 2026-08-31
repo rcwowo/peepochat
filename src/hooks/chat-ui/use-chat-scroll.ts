@@ -40,6 +40,22 @@ function isVerticalScrollbarInteraction(event: PointerEvent, el: HTMLElement) {
   return event.clientX - el.getBoundingClientRect().left >= el.clientWidth
 }
 
+function remeasureMountedItems(
+  virtualizer: Virtualizer<HTMLDivElement, Element>
+) {
+  virtualizer.measure()
+  virtualizer.getVirtualItems()
+
+  for (const element of [...virtualizer.elementsCache.values()]) {
+    if (element.isConnected) {
+      virtualizer.resizeItem(
+        virtualizer.indexFromElement(element),
+        (element as HTMLElement).offsetHeight
+      )
+    }
+  }
+}
+
 export function useChatScroll<T extends TwitchTimelineItem>({
   timeline,
   channelLogin,
@@ -577,7 +593,14 @@ export function useChatScroll<T extends TwitchTimelineItem>({
     if (!active) {
       return
     }
-    virtualizer.measure()
+
+    const animationFrame = window.requestAnimationFrame(() => {
+      remeasureMountedItems(virtualizer)
+    })
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame)
+    }
   }, [
     active,
     layout.messageSeparators,
@@ -590,6 +613,38 @@ export function useChatScroll<T extends TwitchTimelineItem>({
     viewportWidth,
     virtualizer,
   ])
+
+  React.useEffect(() => {
+    if (!active) {
+      return
+    }
+
+    let animationFrame: number | null = null
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== "visible") {
+        return
+      }
+
+      if (animationFrame !== null) {
+        window.cancelAnimationFrame(animationFrame)
+      }
+      animationFrame = window.requestAnimationFrame(() => {
+        animationFrame = null
+        remeasureMountedItems(virtualizer)
+        syncListPadding()
+        stickToBottomIfPinned()
+      })
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+      if (animationFrame !== null) {
+        window.cancelAnimationFrame(animationFrame)
+      }
+    }
+  }, [active, stickToBottomIfPinned, syncListPadding, virtualizer])
 
   React.useLayoutEffect(() => {
     const chatContainer = chatContainerRef.current
