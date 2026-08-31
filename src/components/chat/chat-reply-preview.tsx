@@ -6,10 +6,12 @@ import { cn } from "@/lib/utils"
 
 export function ChatReplyPreview({
   reply,
+  channelLogin,
   onClick,
   className,
 }: {
   reply: TwitchChatReply
+  channelLogin: string
   onClick?: () => void
   className?: string
 }) {
@@ -24,6 +26,8 @@ export function ChatReplyPreview({
         <ChatUsername
           displayName={reply.parentDisplayName}
           color={reply.parentColor}
+          channelLogin={channelLogin}
+          userName={reply.parentUserName}
           className="font-semibold"
         />
         <span className="text-muted-foreground">: </span>

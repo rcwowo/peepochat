@@ -566,6 +566,18 @@ export function createChatterStore() {
     return index ? getList(index) : EMPTY_CHATTERS
   }
 
+  const getChatterByLogin = (
+    channelLogin: string,
+    chatterLogin: string
+  ): ChannelChatter | null => {
+    const index = channels.get(normalizeChannelLogin(channelLogin))
+    if (!index) {
+      return null
+    }
+
+    return index.byLogin.get(normalizeLogin(chatterLogin)) ?? null
+  }
+
   const searchChatters = (
     login: string,
     query: string,
@@ -621,6 +633,7 @@ export function createChatterStore() {
     clearAll,
     subscribe,
     getChatters,
+    getChatterByLogin,
     searchChatters,
     dispose,
   }

@@ -143,6 +143,10 @@ export type PeepochatChatContextValue = {
   getRoomId: (login: string) => string | null
   subscribeToChatters: (login: string, listener: () => void) => () => void
   getChatters: (login: string) => ChannelChatter[]
+  getChatterByLogin: (
+    channelLogin: string,
+    chatterLogin: string
+  ) => ChannelChatter | null
   searchChatters: (
     login: string,
     query: string,
@@ -162,6 +166,12 @@ export type PeepochatChatContextValue = {
   replayPendingComposerNotice: (channel: string) => void
   dismissComposerNotice: (notice: { channel: string; id: string }) => void
   getBadgeCatalog: (login: string) => ChatBadgeCatalog
+  getBadgeCatalogByRoomId: (roomId: string | null) => ChatBadgeCatalog
+  subscribeToBadgeCatalogs: (listener: () => void) => () => void
+  loadBadgesForRoom: (roomId: string | null) => void
+  ensureSharedChatSourceProfiles: (
+    ids: Array<string | null | undefined>
+  ) => void
   getMemberBadge: (userId: string | null) => ResolvedMemberBadge | null
   getComposerEmoteCatalog: (login: string) => ComposerEmoteCatalog
   ensureComposerEmotes: (login: string, roomId: string | null) => void
@@ -285,6 +295,12 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     | ((message: import("@/lib/twitch/twitch-chat").TwitchChatMessage) => void)
     | null
   >(null)
+  const onHistoricalMessagesRef = React.useRef<
+    | ((
+        messages: import("@/lib/twitch/twitch-chat").TwitchChatMessage[]
+      ) => void)
+    | null
+  >(null)
 
   const {
     connectionState,
@@ -297,6 +313,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     getRoomId,
     subscribeToChatters,
     getChatters,
+    getChatterByLogin,
     searchChatters,
     isRecentMessagesLoading,
     subscribeToRecentMessagesLoading,
@@ -330,18 +347,24 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     sendMessage,
     sendActionMessage,
     runChatCommand,
+    ensureSharedChatSourceProfiles,
   } = useTwitchChat({
     account,
     onAuthFailure: invalidateSession,
     onChatMessageRef,
+    onHistoricalMessagesRef,
   })
   const {
     isBlocked,
     blockUser: blockUserBase,
     unblockUser: unblockUserBase,
   } = useBlockedUsers(account)
-  const { getBadgeCatalog, loadBadgesForRoom, hasBadgeSupport } =
-    useChatBadges(account)
+  const {
+    getBadgeCatalog,
+    loadBadgesForRoom,
+    subscribeToBadgeCatalogs,
+    hasBadgeSupport,
+  } = useChatBadges(account)
   const { getMemberBadge } = useRcwBadges()
 
   const connectOptions = React.useMemo(
@@ -422,6 +445,10 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     onChatMessageRef.current = highlightActivity.handleIncomingMessage
   }, [highlightActivity.handleIncomingMessage])
+
+  React.useEffect(() => {
+    onHistoricalMessagesRef.current = highlightActivity.handleHistoricalMessages
+  }, [highlightActivity.handleHistoricalMessages])
 
   const { isLive: isChannelLive, getLiveStream } = useStreamLiveStatus({
     channelLogins,
@@ -874,6 +901,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       getRoomId,
       subscribeToChatters,
       getChatters,
+      getChatterByLogin,
       searchChatters,
       isRecentMessagesLoading,
       subscribeToRecentMessagesLoading,
@@ -883,6 +911,10 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       replayPendingComposerNotice,
       dismissComposerNotice,
       getBadgeCatalog: getBadgeCatalogForChannel,
+      getBadgeCatalogByRoomId: getBadgeCatalog,
+      subscribeToBadgeCatalogs,
+      loadBadgesForRoom,
+      ensureSharedChatSourceProfiles,
       getMemberBadge,
       getComposerEmoteCatalog,
       ensureComposerEmotes,
@@ -912,6 +944,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       getRoomId,
       subscribeToChatters,
       getChatters,
+      getChatterByLogin,
       searchChatters,
       isRecentMessagesLoading,
       subscribeToRecentMessagesLoading,
@@ -921,6 +954,10 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       replayPendingComposerNotice,
       dismissComposerNotice,
       getBadgeCatalogForChannel,
+      getBadgeCatalog,
+      subscribeToBadgeCatalogs,
+      loadBadgesForRoom,
+      ensureSharedChatSourceProfiles,
       getMemberBadge,
       getComposerEmoteCatalog,
       ensureComposerEmotes,

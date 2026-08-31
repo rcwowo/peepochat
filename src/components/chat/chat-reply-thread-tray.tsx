@@ -1,9 +1,15 @@
+import * as React from "react"
 import { XIcon } from "lucide-react"
 
-import { ChatBadgeList } from "@/components/chat/chat-badge"
+import {
+  ChatBadgeList,
+  type ChatSourceChannelBadge,
+} from "@/components/chat/chat-badge"
 import { ChatMessageBody } from "@/components/chat/chat-message-body"
 import { ChatUsername } from "@/components/chat/chat-username"
 import { Button } from "@/components/ui/button"
+import { useResolvedUsernameColor } from "@/hooks/chat-ui/use-resolved-username-color"
+import { useSharedChatMessageChrome } from "@/hooks/chat-ui/use-shared-chat-source-badge"
 import {
   resolveMessageBadges,
   type ChatBadgeCatalog,
@@ -13,7 +19,7 @@ import {
   type ReplyThread,
   type ReplyThreadRoot,
 } from "@/lib/chat/reply-threads"
-import { getReadableUsernameColor } from "@/lib/chat/chat-username"
+import { getReplyDisplayContent } from "@/lib/chat/strip-reply-mention"
 import type { ResolvedMemberBadge } from "@/lib/chat/rcw-badges"
 import type {
   TwitchChatMessage,
@@ -22,7 +28,9 @@ import type {
 import { cn } from "@/lib/utils"
 
 function ThreadMessageLine({
+  channelLogin,
   displayName,
+  userName,
   color,
   text,
   emotes,
@@ -30,12 +38,15 @@ function ThreadMessageLine({
   memberBadge = null,
   unresolvedBadges,
   showBadgeFallback = false,
+  sourceChannel = null,
   isAction = false,
   isSelected = false,
   isSelectable = false,
   onSelect,
 }: {
+  channelLogin: string
   displayName: string
+  userName: string
   color: string | null
   text: string
   emotes?: TwitchChatMessage["emotes"]
@@ -43,12 +54,17 @@ function ThreadMessageLine({
   memberBadge?: ResolvedMemberBadge | null
   unresolvedBadges?: TwitchChatMessage["badges"]
   showBadgeFallback?: boolean
+  sourceChannel?: ChatSourceChannelBadge | null
   isAction?: boolean
   isSelected?: boolean
   isSelectable?: boolean
   onSelect?: () => void
 }) {
-  const usernameColor = getReadableUsernameColor(color)
+  const usernameColor = useResolvedUsernameColor({
+    channelLogin,
+    userName,
+    color,
+  })
   const content = (
     <>
       <ChatBadgeList
@@ -56,10 +72,13 @@ function ThreadMessageLine({
         memberBadge={memberBadge}
         unresolved={unresolvedBadges}
         showFallback={showBadgeFallback}
+        sourceChannel={sourceChannel}
       />
       <ChatUsername
         displayName={displayName}
         color={color}
+        channelLogin={channelLogin}
+        userName={userName}
         className="font-semibold"
       />
       {isAction ? null : <span className="text-muted-foreground">: </span>}
@@ -68,7 +87,11 @@ function ThreadMessageLine({
         style={isAction && usernameColor ? { color: usernameColor } : undefined}
       >
         {emotes ? (
-          <ChatMessageBody text={text} emotes={emotes} />
+          <ChatMessageBody
+            text={text}
+            emotes={emotes}
+            channelLogin={channelLogin}
+          />
         ) : (
           <span className="chat-message-text">{text}</span>
         )}
@@ -85,16 +108,40 @@ function ThreadMessageLine({
     isSelectable && isSelected && "cursor-default"
   )
 
+  const selectIfIdleTarget = (target: EventTarget | null) => {
+    if (!onSelect) {
+      return false
+    }
+    if (
+      target instanceof Element &&
+      target.closest("a, button, input, textarea")
+    ) {
+      return false
+    }
+    onSelect()
+    return true
+  }
+
   if (isSelectable && onSelect && !isSelected) {
     return (
-      <button
-        type="button"
+      <div
         className={className}
-        onClick={onSelect}
+        tabIndex={0}
         aria-label={`Reply to ${displayName}`}
+        onClick={(event) => {
+          selectIfIdleTarget(event.target)
+        }}
+        onKeyDown={(event) => {
+          if (event.key !== "Enter" && event.key !== " ") {
+            return
+          }
+          if (selectIfIdleTarget(event.target)) {
+            event.preventDefault()
+          }
+        }}
       >
         {content}
-      </button>
+      </div>
     )
   }
 
@@ -120,20 +167,30 @@ function MessageFromChat({
   showBadgeFallback: boolean
   onSelect?: () => void
 }) {
+  const displayContent = React.useMemo(
+    () => getReplyDisplayContent(message.text, message.emotes, message.reply),
+    [message.emotes, message.reply, message.text]
+  )
+  const { resolvedBadges, sourceChannel } = useSharedChatMessageChrome({
+    sourceRoomId: message.sourceRoomId,
+    badges: message.badges,
+    badgeCatalog,
+    showTwitchBadges,
+  })
+
   return (
     <ThreadMessageLine
+      channelLogin={message.channel}
       displayName={message.displayName}
+      userName={message.userName}
       color={message.color}
-      text={message.text}
-      emotes={message.emotes}
-      badges={
-        showTwitchBadges
-          ? resolveMessageBadges(message.badges, badgeCatalog)
-          : []
-      }
+      text={displayContent.text}
+      emotes={displayContent.emotes}
+      badges={resolvedBadges}
       memberBadge={showMemberBadges ? getMemberBadge(message.userId) : null}
       unresolvedBadges={message.badges}
       showBadgeFallback={showTwitchBadges && showBadgeFallback}
+      sourceChannel={sourceChannel}
       isAction={message.flags.isAction}
       isSelected={isSelected}
       isSelectable
@@ -143,6 +200,7 @@ function MessageFromChat({
 }
 
 function ThreadRootLine({
+  channelLogin,
   root,
   isSelected,
   badgeCatalog,
@@ -152,6 +210,7 @@ function ThreadRootLine({
   showBadgeFallback,
   onSelect,
 }: {
+  channelLogin: string
   root: ReplyThreadRoot
   isSelected: boolean
   badgeCatalog: ChatBadgeCatalog
@@ -178,7 +237,9 @@ function ThreadRootLine({
 
   return (
     <ThreadMessageLine
+      channelLogin={channelLogin}
       displayName={root.displayName}
+      userName={root.userName}
       color={root.color}
       text={root.body}
       badges={[]}
@@ -203,7 +264,34 @@ function replyFromMessage(
   }
 }
 
+function resolveReplyTarget(thread: ReplyThread, selectedId: string) {
+  const selectedMessage = findMessageInThread(thread, selectedId)
+
+  if (selectedMessage) {
+    return {
+      displayName: selectedMessage.displayName,
+      userName: selectedMessage.userName,
+      color: selectedMessage.color,
+    }
+  }
+
+  if (thread.root.kind === "message") {
+    return {
+      displayName: thread.root.message.displayName,
+      userName: thread.root.message.userName,
+      color: thread.root.message.color,
+    }
+  }
+
+  return {
+    displayName: thread.root.displayName,
+    userName: thread.root.userName,
+    color: thread.root.color,
+  }
+}
+
 export function ChatReplyThreadTray({
+  channelLogin,
   thread,
   badgeCatalog,
   getMemberBadge,
@@ -213,6 +301,7 @@ export function ChatReplyThreadTray({
   onClose,
   onSelectReply,
 }: {
+  channelLogin: string
   thread: ReplyThread
   badgeCatalog: ChatBadgeCatalog
   getMemberBadge: (userId: string | null) => ResolvedMemberBadge | null
@@ -222,15 +311,7 @@ export function ChatReplyThreadTray({
   onClose: () => void
   onSelectReply: (reply: TwitchChatReply) => void
 }) {
-  const selectedMessage = findMessageInThread(thread, thread.selectedId)
-
-  const replyTargetName =
-    selectedMessage?.displayName ??
-    (thread.root.kind === "snapshot" && thread.root.id === thread.selectedId
-      ? thread.root.displayName
-      : thread.root.kind === "message"
-        ? thread.root.message.displayName
-        : thread.root.displayName)
+  const replyTarget = resolveReplyTarget(thread, thread.selectedId)
 
   const selectRoot = () => {
     if (thread.root.kind === "message") {
@@ -254,7 +335,13 @@ export function ChatReplyThreadTray({
         <div className="flex items-center justify-between gap-2 border-b border-border/50 px-2 py-1.5">
           <div className="min-w-0 text-[11px] font-medium text-muted-foreground">
             Replying to{" "}
-            <span className="text-foreground">@{replyTargetName}</span>
+            <ChatUsername
+              displayName={`@${replyTarget.displayName}`}
+              color={replyTarget.color}
+              channelLogin={channelLogin}
+              userName={replyTarget.userName}
+              className="inline font-medium"
+            />
           </div>
           <Button
             type="button"
@@ -270,6 +357,7 @@ export function ChatReplyThreadTray({
 
         <div className="max-h-[18.5rem] space-y-0.5 overflow-y-auto px-1.5 py-1.5">
           <ThreadRootLine
+            channelLogin={channelLogin}
             root={thread.root}
             isSelected={
               thread.root.kind === "message"

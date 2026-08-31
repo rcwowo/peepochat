@@ -42,6 +42,8 @@ type EmotePickerProps = {
   catalog: ComposerEmoteCatalog
   loading?: boolean
   disabled?: boolean
+  open: boolean
+  onOpenChange: (open: boolean) => void
   onSelect: (code: string) => void
 }
 
@@ -49,13 +51,28 @@ export function EmotePicker({
   catalog,
   loading = false,
   disabled = false,
+  open,
+  onOpenChange,
   onSelect,
 }: EmotePickerProps) {
-  const [open, setOpen] = React.useState(false)
   const [query, setQuery] = React.useState("")
   const [platformId, setPlatformId] =
     React.useState<EmotePickerPlatformId>("twitch")
   const [categoryId, setCategoryId] = React.useState("")
+  const [wasOpen, setWasOpen] = React.useState(open)
+
+  if (open !== wasOpen) {
+    setWasOpen(open)
+    if (!open) {
+      setQuery("")
+    } else {
+      const defaults = getDefaultPickerSelection(catalog)
+      if (defaults) {
+        setPlatformId(defaults.platformId)
+        setCategoryId(defaults.categoryId)
+      }
+    }
+  }
 
   const searchResults = React.useMemo(() => {
     const normalized = query.trim().toLowerCase()
@@ -72,22 +89,16 @@ export function EmotePicker({
   )
 
   const handleOpenChange = (next: boolean) => {
-    setOpen(next)
-    if (!next) {
-      setQuery("")
+    if (next && disabled) {
       return
     }
 
-    const defaults = getDefaultPickerSelection(catalog)
-    if (!defaults) return
-
-    setPlatformId(defaults.platformId)
-    setCategoryId(defaults.categoryId)
+    onOpenChange(next)
   }
 
   const handleSelect = (code: string) => {
     onSelect(code)
-    setOpen(false)
+    onOpenChange(false)
   }
 
   const handlePlatformChange = (value: string) => {
@@ -126,19 +137,24 @@ export function EmotePicker({
   )
 
   return (
-    <Popover open={open} onOpenChange={handleOpenChange}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          disabled={disabled}
-          aria-label="Open emote picker"
-          className="absolute right-1 bottom-1 text-muted-foreground hover:bg-muted/70 hover:text-foreground"
-        >
-          <SmileIcon className="size-4" />
-        </Button>
-      </PopoverTrigger>
+    <Popover open={open && !disabled} onOpenChange={handleOpenChange}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              disabled={disabled}
+              aria-label="Open emote picker"
+              className="absolute right-1 bottom-1 text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+            >
+              <SmileIcon className="size-4" />
+            </Button>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent>Emote picker</TooltipContent>
+      </Tooltip>
 
       <PopoverContent
         side="top"

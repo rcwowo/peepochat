@@ -1,12 +1,12 @@
 import type { PingMatchRange } from "@/lib/highlights/highlight-rules"
 import { findMessageUrls } from "@/lib/peepochat/peepochat-config"
+import { textHasChatMention } from "@/lib/chat/chat-mentions"
 import { isTimelineAppend } from "@/lib/chat/timeline-prefix"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 import type { TwitchChatMessage } from "@/lib/twitch/twitch-chat"
 import type { TwitchTimelineItem } from "@/lib/twitch/twitch-chat-types"
 
 const FILTER_KEYS = new Set(["in", "from", "role", "has"] as const)
-const MENTION_PATTERN = /@[A-Za-z0-9_]+/
 
 export const CHAT_SEARCH_FILTER_KEYS = ["in", "from", "role", "has"] as const
 
@@ -485,11 +485,6 @@ function messageMatchesRole(message: TwitchChatMessage, value: string) {
   }
 }
 
-function messageHasMention(text: string) {
-  MENTION_PATTERN.lastIndex = 0
-  return MENTION_PATTERN.test(text)
-}
-
 function messageMatchesHas(message: TwitchChatMessage, value: string) {
   switch (value.trim().toLowerCase()) {
     case "link":
@@ -501,7 +496,7 @@ function messageMatchesHas(message: TwitchChatMessage, value: string) {
       return message.emotes.length > 0
     case "mention":
     case "mentions":
-      return messageHasMention(message.text)
+      return textHasChatMention(message.text)
     default:
       return false
   }

@@ -1,5 +1,23 @@
 [
     {
+        "version": "1.1.3",
+        "date": "2026-08-31",
+        "items": [
+            "Added clickable '@' mentions to open user cards.",
+            "Added the user's color where applicable in chat panes.",
+            "Added keyboard hotkeys to quickly navigate through the client.",
+            "Added 'you may have missed' section to notifications for potential pings before connecting.",
+            "Added visual support for shared chats.",
+            "Minor touch ups to the appearance of chat notices.",
+            "Minor touch ups to the notification center.",
+            "Slight performance improvements to channel switching.",
+            "Enabled spellcheck in the chat composer.",
+            "Removed the initial mention from reply threads.",
+            "Fixed race condition when loading third-party emotes.",
+            "Fixed bad message height estimations in virtualizer (hopefully)."
+        ]
+    },
+    {
         "version": "1.1.2",
         "date": "2026-08-21",
         "items": [

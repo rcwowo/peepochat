@@ -47,6 +47,7 @@ import {
   type ChatSearchSuggestion,
   type ChatSearchUsername,
 } from "@/lib/search/chat-search"
+import { useHotkeyRegistry } from "@/hooks/use-hotkey-registry"
 import { shouldPreventSearchDismiss } from "@/lib/search/search-portaled-layers"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 import type { TwitchTimelineItem } from "@/lib/twitch/twitch-chat-types"
@@ -56,12 +57,6 @@ import {
   usePeepochatSettings,
 } from "@/lib/peepochat/peepochat-context"
 import { cn } from "@/lib/utils"
-
-const SEARCH_SHORTCUT_LABEL =
-  typeof navigator !== "undefined" &&
-  /Mac|iPhone|iPad|iPod/.test(navigator.platform)
-    ? "⌘F"
-    : "Ctrl+F"
 
 const EMPTY_TIMELINES: TwitchTimelineItem[][] = []
 const EMPTY_SEARCH_USERNAMES: ChatSearchUsername[] = []
@@ -327,6 +322,7 @@ export function ChannelSearch() {
   const [cursor, setCursor] = React.useState(0)
   const [suggestionIndex, setSuggestionIndex] = React.useState(0)
   const inputRef = React.useRef<HTMLInputElement>(null)
+  const { registerSearch } = useHotkeyRegistry()
   const { channels, account, loginWithTwitch, config, activeChannelLogin } =
     usePeepochatSettings()
   const { visibleChannelLogins, isSplitView } = usePeepochatLayout()
@@ -591,41 +587,16 @@ export function ChannelSearch() {
   )
 
   React.useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.repeat) {
-        return
-      }
-      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) {
-        return
-      }
-      if (event.key !== "f" && event.key !== "F") {
-        return
-      }
-      if (document.querySelector('[data-slot="sheet-content"]')) {
-        return
-      }
-
-      event.preventDefault()
-      event.stopPropagation()
-
-      if (open) {
-        focusInput(true)
-        return
-      }
-
-      const selection = window.getSelection()?.toString().trim() ?? ""
-      const prefill =
-        selection.length > 0 &&
-        selection.length <= 80 &&
-        !selection.includes("\n")
-          ? selection
-          : undefined
-      openSearch(prefill)
-    }
-
-    window.addEventListener("keydown", onKeyDown, true)
-    return () => window.removeEventListener("keydown", onKeyDown, true)
-  }, [focusInput, open, openSearch])
+    return registerSearch({
+      open: (prefill?: string) => {
+        openSearch(prefill)
+      },
+      close: () => {
+        setOpen(false)
+      },
+      isOpen: () => open,
+    })
+  }, [open, openSearch, registerSearch])
 
   const activeSuggestionIndex =
     suggestions.length === 0
@@ -694,27 +665,23 @@ export function ChannelSearch() {
               size="sm"
               className="flex h-7 cursor-pointer items-center gap-1.5 border border-border px-1.5 text-sm"
               aria-label="Search messages"
-              aria-keyshortcuts="Control+F Meta+F"
+              aria-keyshortcuts="Control+F Meta+F Alt+F"
             >
               <SearchIcon className="size-3.5" />
               <span className="hidden font-medium sm:inline">Search</span>
             </Button>
           </TooltipTrigger>
         </DialogTrigger>
-        <TooltipContent>
-          Search messages ({SEARCH_SHORTCUT_LABEL})
-        </TooltipContent>
+        <TooltipContent>Search messages</TooltipContent>
       </Tooltip>
 
       <DialogContent
+        data-hotkey-surface="search"
         showCloseButton={false}
         className="flex h-[calc(100dvh-1rem)] w-[calc(100%-1rem)] max-w-none flex-col gap-0 overflow-hidden p-0 sm:h-[min(36rem,70vh)] sm:w-[min(42rem,80vw)] sm:max-w-none"
         onOpenAutoFocus={(event) => {
           event.preventDefault()
           inputRef.current?.focus()
-        }}
-        onCloseAutoFocus={(event) => {
-          event.preventDefault()
         }}
         onInteractOutside={(event) => {
           if (shouldPreventSearchDismiss(event.target)) {

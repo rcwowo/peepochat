@@ -60,13 +60,71 @@ import {
   updateStableRowStripes,
   type RowStripeCache,
 } from "@/lib/chat/chat-row-stripes"
+import { getChatPresentationMetrics } from "@/lib/chat/chat-presentation-style"
 import { useChatScroll } from "@/hooks/chat-ui/use-chat-scroll"
+import { useHotkeyRegistry } from "@/hooks/use-hotkey-registry"
 import { cn } from "@/lib/utils"
 
 import { openExternalTool, CHATLOGS_URL } from "@/lib/chat/moderation-tools"
 import { maskReplyForBlockedUser } from "@/lib/twitch/blocked-users"
 
 const CHATVOICE_URL = "https://chatvoice.rcw.lol"
+
+const ChatViewActiveContext = React.createContext(true)
+
+export function ChatViewActiveProvider({
+  isActive,
+  children,
+}: {
+  isActive: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <ChatViewActiveContext.Provider value={isActive}>
+      {children}
+    </ChatViewActiveContext.Provider>
+  )
+}
+
+function useChatViewActive() {
+  return React.useContext(ChatViewActiveContext)
+}
+
+function ChatPaneHotkeyRegistration({
+  channelLogin,
+  toggleEmotePicker,
+  toggleViewerList,
+  focusComposer,
+}: {
+  channelLogin: string
+  toggleEmotePicker: () => boolean
+  toggleViewerList: () => boolean
+  focusComposer: () => void
+}) {
+  const isActive = React.useContext(ChatViewActiveContext)
+  const { registerPane } = useHotkeyRegistry()
+
+  React.useEffect(() => {
+    if (!isActive) {
+      return
+    }
+
+    return registerPane(channelLogin, {
+      toggleEmotePicker,
+      toggleViewerList,
+      focusComposer,
+    })
+  }, [
+    channelLogin,
+    focusComposer,
+    isActive,
+    registerPane,
+    toggleEmotePicker,
+    toggleViewerList,
+  ])
+
+  return null
+}
 
 function ChannelPaneAvatar({
   login,
@@ -111,7 +169,6 @@ type ChatPaneProps = {
   showTwitchBadges: boolean
   showMemberBadges: boolean
   joined?: boolean
-  isActive?: boolean
   showRemoveSplit?: boolean
   onRemoveSplit?: (channelLogin: string) => void
   dragHandleProps?: React.HTMLAttributes<HTMLDivElement>
@@ -137,7 +194,6 @@ function ChatPaneInner({
   showTwitchBadges,
   showMemberBadges,
   joined = true,
-  isActive = true,
   showRemoveSplit = false,
   onRemoveSplit,
   dragHandleProps,
@@ -166,6 +222,35 @@ function ChatPaneInner({
   )
   const [liveInfoExpanded, setLiveInfoExpanded] = React.useState(false)
   const [chattersOpen, setChattersOpen] = React.useState(false)
+  const [emotePickerOpen, setEmotePickerOpen] = React.useState(false)
+  const emotePickerOpenRef = React.useRef(false)
+  const chattersOpenRef = React.useRef(false)
+  const composerInputRef = React.useRef<HTMLTextAreaElement | null>(null)
+  const { rememberFocusedPane } = useHotkeyRegistry()
+  const isActive = useChatViewActive()
+
+  React.useEffect(() => {
+    emotePickerOpenRef.current = emotePickerOpen
+    chattersOpenRef.current = chattersOpen
+  }, [chattersOpen, emotePickerOpen])
+
+  const toggleEmotePicker = React.useCallback(() => {
+    const next = !emotePickerOpenRef.current
+    emotePickerOpenRef.current = next
+    setEmotePickerOpen(next)
+    return next
+  }, [])
+
+  const toggleViewerList = React.useCallback(() => {
+    const next = !chattersOpenRef.current
+    chattersOpenRef.current = next
+    setChattersOpen(next)
+    return next
+  }, [])
+
+  const focusComposer = React.useCallback(() => {
+    composerInputRef.current?.focus()
+  }, [])
 
   const label = displayName ?? channelLogin
   const isLive = isChannelLive(channelLogin)
@@ -200,6 +285,25 @@ function ChatPaneInner({
     return timeline
   }, [hideBlockedUsers, isUserBlocked, showSuspiciousActivity, timeline])
 
+  const scrollLayout = React.useMemo(
+    () => ({
+      metrics: getChatPresentationMetrics({
+        fontSizePx: config.chat.fontSizePx,
+        emoteScale: config.chat.emoteScale,
+      }),
+      timestampFormat,
+      messageSeparators: config.chat.messageSeparators,
+      showTwitchBadges,
+    }),
+    [
+      config.chat.emoteScale,
+      config.chat.fontSizePx,
+      config.chat.messageSeparators,
+      showTwitchBadges,
+      timestampFormat,
+    ]
+  )
+
   const {
     chatContainerRef,
     displayedTimeline,
@@ -210,22 +314,28 @@ function ChatPaneInner({
     notifyComposerResize,
   } = useChatScroll({
     timeline: visibleTimeline,
-    isActive,
     channelLogin,
+    layout: scrollLayout,
+    active: isActive,
   })
 
   const rowStripes = React.useMemo(
     () =>
-      updateStableRowStripes(
-        rowStripeTimelineCache,
-        rowStripeCache,
-        displayedTimeline
-      ),
-    [displayedTimeline, rowStripeCache, rowStripeTimelineCache]
+      isActive
+        ? updateStableRowStripes(
+            rowStripeTimelineCache,
+            rowStripeCache,
+            displayedTimeline
+          )
+        : rowStripeCache,
+    [displayedTimeline, isActive, rowStripeCache, rowStripeTimelineCache]
   )
   const recentMessagesByUser = React.useMemo(() => {
+    if (!isActive) {
+      return recentMessagesCache.buckets
+    }
     return updateRecentUserMessageBuckets(recentMessagesCache, visibleTimeline)
-  }, [recentMessagesCache, visibleTimeline])
+  }, [isActive, recentMessagesCache, visibleTimeline])
 
   const getRecentMessagesForUser = React.useCallback(
     (target: UserCardTarget) => {
@@ -254,6 +364,12 @@ function ChatPaneInner({
     >
       <EmoteCardProvider catalog={composerCatalog}>
         <ChatHoverTooltipProvider>
+          <ChatPaneHotkeyRegistration
+            channelLogin={channelLogin}
+            toggleEmotePicker={toggleEmotePicker}
+            toggleViewerList={toggleViewerList}
+            focusComposer={focusComposer}
+          />
           <div
             className={cn(
               "flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
@@ -410,115 +526,121 @@ function ChatPaneInner({
                       className="relative w-full"
                       style={{ height: virtualizer.getTotalSize() }}
                     >
-                      {virtualizer.getVirtualItems().map((virtualItem) => {
-                        const entry = displayedTimeline[virtualItem.index]
-                        if (!entry) {
-                          return null
-                        }
+                      {isActive
+                        ? virtualizer.getVirtualItems().map((virtualItem) => {
+                            const entry = displayedTimeline[virtualItem.index]
+                            if (!entry) {
+                              return null
+                            }
 
-                        const isAlternateRow =
-                          rowStripes.get(entry.message.id) ?? false
+                            const isAlternateRow =
+                              rowStripes.get(entry.message.id) ?? false
 
-                        let row: React.ReactNode
+                            let row: React.ReactNode
 
-                        if (entry.kind === "system") {
-                          row = (
-                            <ChatSystemMessage
-                              message={entry.message}
-                              timestampFormat={timestampFormat}
-                              badgeCatalog={badgeCatalog}
-                              showTwitchBadges={showTwitchBadges}
-                              showBadgeFallback={showBadgeFallback}
-                              isHistorical={entry.isHistorical}
-                              isAlternateRow={isAlternateRow}
-                            />
-                          )
-                        } else if (entry.kind === "automod") {
-                          row = (
-                            <ChatAutomodMessage
-                              message={entry.message}
-                              timestampFormat={timestampFormat}
-                              account={account}
-                              badgeCatalog={badgeCatalog}
-                              showTwitchBadges={showTwitchBadges}
-                              showBadgeFallback={showBadgeFallback}
-                              isHistorical={entry.isHistorical}
-                              isAlternateRow={isAlternateRow}
-                            />
-                          )
-                        } else if (entry.kind === "suspicious") {
-                          row = (
-                            <ChatSuspiciousMessage
-                              message={entry.message}
-                              timestampFormat={timestampFormat}
-                              deletedMessagesBehavior={deletedMessagesBehavior}
-                              badgeCatalog={badgeCatalog}
-                              showTwitchBadges={showTwitchBadges}
-                              showBadgeFallback={showBadgeFallback}
-                              isHistorical={entry.isHistorical}
-                              isAlternateRow={isAlternateRow}
-                            />
-                          )
-                        } else {
-                          const messageHighlight = messageHighlights.get(
-                            entry.message.id
-                          )
-                          const displayMessage =
-                            hideBlockedUsers &&
-                            entry.message.reply &&
-                            isUserBlocked(
-                              null,
-                              entry.message.reply.parentUserName
+                            if (entry.kind === "system") {
+                              row = (
+                                <ChatSystemMessage
+                                  message={entry.message}
+                                  timestampFormat={timestampFormat}
+                                  badgeCatalog={badgeCatalog}
+                                  showTwitchBadges={showTwitchBadges}
+                                  showBadgeFallback={showBadgeFallback}
+                                  isHistorical={entry.isHistorical}
+                                  isAlternateRow={isAlternateRow}
+                                />
+                              )
+                            } else if (entry.kind === "automod") {
+                              row = (
+                                <ChatAutomodMessage
+                                  message={entry.message}
+                                  timestampFormat={timestampFormat}
+                                  account={account}
+                                  badgeCatalog={badgeCatalog}
+                                  showTwitchBadges={showTwitchBadges}
+                                  showBadgeFallback={showBadgeFallback}
+                                  isHistorical={entry.isHistorical}
+                                  isAlternateRow={isAlternateRow}
+                                />
+                              )
+                            } else if (entry.kind === "suspicious") {
+                              row = (
+                                <ChatSuspiciousMessage
+                                  message={entry.message}
+                                  timestampFormat={timestampFormat}
+                                  deletedMessagesBehavior={
+                                    deletedMessagesBehavior
+                                  }
+                                  badgeCatalog={badgeCatalog}
+                                  showTwitchBadges={showTwitchBadges}
+                                  showBadgeFallback={showBadgeFallback}
+                                  isHistorical={entry.isHistorical}
+                                  isAlternateRow={isAlternateRow}
+                                />
+                              )
+                            } else {
+                              const messageHighlight = messageHighlights.get(
+                                entry.message.id
+                              )
+                              const displayMessage =
+                                hideBlockedUsers &&
+                                entry.message.reply &&
+                                isUserBlocked(
+                                  null,
+                                  entry.message.reply.parentUserName
+                                )
+                                  ? {
+                                      ...entry.message,
+                                      reply: maskReplyForBlockedUser(
+                                        entry.message.reply
+                                      ),
+                                    }
+                                  : entry.message
+
+                              row = (
+                                <ChatMessageRow
+                                  message={displayMessage}
+                                  timestampFormat={timestampFormat}
+                                  messageQuickActions={messageQuickActions}
+                                  deletedMessagesBehavior={
+                                    deletedMessagesBehavior
+                                  }
+                                  account={account}
+                                  channelRoomId={channelRoomId}
+                                  selfChatState={selfChatState}
+                                  badgeCatalog={badgeCatalog}
+                                  getMemberBadge={getMemberBadge}
+                                  showBadgeFallback={showBadgeFallback}
+                                  showTwitchBadges={showTwitchBadges}
+                                  showMemberBadges={showMemberBadges}
+                                  isHistorical={entry.isHistorical}
+                                  isAlternateRow={isAlternateRow}
+                                  pingHighlighted={
+                                    highlightPingedMessages &&
+                                    messageHighlight !== undefined
+                                  }
+                                  pingMatchRange={
+                                    messageHighlight?.matchRange ?? null
+                                  }
+                                />
+                              )
+                            }
+
+                            return (
+                              <div
+                                key={virtualItem.key}
+                                data-index={virtualItem.index}
+                                ref={virtualizer.measureElement}
+                                className="absolute top-0 left-0 w-full"
+                                style={{
+                                  transform: `translateY(${virtualItem.start}px)`,
+                                }}
+                              >
+                                {row}
+                              </div>
                             )
-                              ? {
-                                  ...entry.message,
-                                  reply: maskReplyForBlockedUser(
-                                    entry.message.reply
-                                  ),
-                                }
-                              : entry.message
-
-                          row = (
-                            <ChatMessageRow
-                              message={displayMessage}
-                              timestampFormat={timestampFormat}
-                              messageQuickActions={messageQuickActions}
-                              deletedMessagesBehavior={deletedMessagesBehavior}
-                              account={account}
-                              channelRoomId={channelRoomId}
-                              selfChatState={selfChatState}
-                              badgeCatalog={badgeCatalog}
-                              getMemberBadge={getMemberBadge}
-                              showBadgeFallback={showBadgeFallback}
-                              showTwitchBadges={showTwitchBadges}
-                              showMemberBadges={showMemberBadges}
-                              isHistorical={entry.isHistorical}
-                              isAlternateRow={isAlternateRow}
-                              pingHighlighted={
-                                highlightPingedMessages &&
-                                messageHighlight !== undefined
-                              }
-                              pingMatchRange={
-                                messageHighlight?.matchRange ?? null
-                              }
-                            />
-                          )
-                        }
-
-                        return (
-                          <div
-                            key={virtualItem.key}
-                            data-index={virtualItem.index}
-                            ref={virtualizer.measureElement}
-                            className="absolute top-0 left-0 w-full"
-                            style={{
-                              transform: `translateY(${virtualItem.start}px)`,
-                            }}
-                          >
-                            {row}
-                          </div>
-                        )
-                      })}
+                          })
+                        : null}
                     </div>
                   </div>
                 )}
@@ -541,6 +663,10 @@ function ChatPaneInner({
                 channelLogin={channelLogin}
                 joined={joined}
                 onLayoutChange={notifyComposerResize}
+                emotePickerOpen={emotePickerOpen}
+                onEmotePickerOpenChange={setEmotePickerOpen}
+                composerInputRef={composerInputRef}
+                onComposerFocus={() => rememberFocusedPane(channelLogin)}
               />
             </div>
             <ChatChattersPanel

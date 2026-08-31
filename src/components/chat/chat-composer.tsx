@@ -25,6 +25,7 @@ import {
   BLOCKED_USER_DISPLAY_NAME,
   maskReplyForBlockedUser,
 } from "@/lib/twitch/blocked-users"
+import { cn } from "@/lib/utils"
 import {
   applyEmoteSuggestion,
   createEmoteCompleterState,
@@ -77,12 +78,20 @@ type ChatComposerProps = {
   channelLogin: string
   joined?: boolean
   onLayoutChange?: () => void
+  emotePickerOpen: boolean
+  onEmotePickerOpenChange: (open: boolean) => void
+  composerInputRef?: React.RefObject<HTMLTextAreaElement | null>
+  onComposerFocus?: () => void
 }
 
 export function ChatComposer({
   channelLogin,
   joined = true,
   onLayoutChange,
+  emotePickerOpen,
+  onEmotePickerOpenChange,
+  composerInputRef,
+  onComposerFocus,
 }: ChatComposerProps) {
   const {
     account,
@@ -201,6 +210,15 @@ export function ChatComposer({
   })
 
   const inputRef = React.useRef<HTMLTextAreaElement>(null)
+  const setInputRef = React.useCallback(
+    (node: HTMLTextAreaElement | null) => {
+      inputRef.current = node
+      if (composerInputRef) {
+        composerInputRef.current = node
+      }
+    },
+    [composerInputRef]
+  )
   const historyRef = React.useRef<string[]>([])
   const historyIndexRef = React.useRef(-1)
   const commandSubmitRef = React.useRef(0)
@@ -965,6 +983,10 @@ export function ChatComposer({
   }, [replyThread])
 
   React.useLayoutEffect(() => {
+    onLayoutChangeRef.current?.()
+  }, [activeNotice])
+
+  React.useLayoutEffect(() => {
     const el = inputRef.current
     if (!el || typeof ResizeObserver === "undefined") return
 
@@ -1272,9 +1294,15 @@ export function ChatComposer({
   }
 
   return (
-    <div className="shrink-0">
+    <div
+      className="shrink-0"
+      data-chat-composer=""
+      data-channel-login={channelLogin}
+      onFocus={onComposerFocus}
+    >
       {replyThread ? (
         <ChatReplyThreadTray
+          channelLogin={channelLogin}
           thread={replyThread}
           badgeCatalog={badgeCatalog}
           getMemberBadge={getMemberBadge}
@@ -1322,7 +1350,7 @@ export function ChatComposer({
               completeSuggestion(suggestion, { reset: true })
             }
           />
-          <div className="overflow-hidden rounded-lg border border-border/50 bg-background/40 shadow-none backdrop-blur-sm focus-within:border-border/40 focus-within:ring-1 focus-within:ring-border/40 dark:bg-input/30">
+          <div className={cn("relative", activeNotice && "mt-8")}>
             {activeNotice ? (
               <ComposerNoticeBanner
                 key={`${activeNotice.id}:${activeNotice.message}`}
@@ -1333,18 +1361,18 @@ export function ChatComposer({
                 onDismiss={dismissFrontNotice}
               />
             ) : null}
-            <div className="relative">
+            <div className="relative z-10 overflow-hidden rounded-lg border border-border/50 bg-background/40 shadow-none backdrop-blur-sm focus-within:border-border/40 focus-within:ring-1 focus-within:ring-border/40 dark:bg-input/30">
               <Textarea
-                ref={inputRef}
+                ref={setInputRef}
                 value={value}
                 disabled={disabled}
                 maxLength={MESSAGE_LIMIT}
                 placeholder={placeholder}
                 autoCapitalize="off"
                 autoCorrect="off"
-                spellCheck={false}
+                spellCheck
                 rows={1}
-                className="field-sizing-fixed max-h-40 min-h-9 resize-none overflow-y-hidden rounded-none border-0 bg-transparent py-2 pr-10 text-sm leading-5 shadow-none focus-visible:border-transparent focus-visible:ring-0 dark:bg-transparent"
+                className="field-sizing-fixed max-h-40 min-h-9 resize-none overflow-y-hidden rounded-lg border-0 bg-transparent py-2 pr-10 text-sm leading-5 shadow-none focus-visible:border-transparent focus-visible:ring-0 dark:bg-transparent"
                 onChange={(event) => {
                   const nextValue = event.target.value
                   setValue(nextValue)
@@ -1369,6 +1397,8 @@ export function ChatComposer({
                 catalog={catalog}
                 loading={emotesLoading}
                 disabled={disabled}
+                open={emotePickerOpen}
+                onOpenChange={onEmotePickerOpenChange}
                 onSelect={(code) => {
                   setValue((current) => insertEmoteAtEnd(current, code))
                   setCompleter(createEmoteCompleterState())

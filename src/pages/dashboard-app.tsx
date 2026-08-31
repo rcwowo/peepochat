@@ -12,9 +12,12 @@ import {
   markVersionSeen,
 } from "@/lib/changelog"
 import { useChannelSidebarVisibility } from "@/hooks/use-channel-sidebar-visibility"
+import { useAppHotkeys } from "@/hooks/use-app-hotkeys"
+import { HotkeyRegistryProvider } from "@/lib/hotkeys/hotkey-registry"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { AppHeader } from "@/components/shell/app-header"
 import { ChannelSidebar } from "@/components/sidebar/channel-sidebar"
+import { AddChannelDialog } from "@/components/sidebar/add-channel-dialog"
 import { OnboardingDialog } from "@/components/onboarding/onboarding-dialog"
 import {
   SettingsDialog,
@@ -31,6 +34,54 @@ function DashboardLayout() {
   const [settingsInitialCategory, setSettingsInitialCategory] = React.useState<
     SettingsCategory | undefined
   >(undefined)
+  const [addChannelOpen, setAddChannelOpen] = React.useState(false)
+  const [notificationsOpen, setNotificationsOpen] = React.useState(false)
+
+  const openSettings = React.useCallback(() => {
+    setSettingsInitialCategory(undefined)
+    setNotificationsOpen(false)
+    setSettingsOpen(true)
+  }, [])
+  const toggleSettings = React.useCallback(() => {
+    setSettingsOpen((open) => {
+      if (!open) {
+        setSettingsInitialCategory(undefined)
+        setNotificationsOpen(false)
+      }
+      return !open
+    })
+  }, [])
+  const openAddChannel = React.useCallback(() => {
+    setAddChannelOpen(true)
+  }, [])
+  const toggleAddChannel = React.useCallback(() => {
+    setAddChannelOpen((open) => !open)
+  }, [])
+  const handleNotificationsOpenChange = React.useCallback((open: boolean) => {
+    if (open) {
+      setSettingsOpen(false)
+    }
+    setNotificationsOpen(open)
+  }, [])
+  const toggleNotifications = React.useCallback(() => {
+    setNotificationsOpen((open) => {
+      if (!open) {
+        setSettingsOpen(false)
+      }
+      return !open
+    })
+  }, [])
+
+  useAppHotkeys({
+    enabled: ready && !needsOnboarding,
+    settingsOpen,
+    addChannelOpen,
+    notificationsOpen,
+    toggleSettings,
+    toggleAddChannel,
+    toggleNotifications,
+    toggleSidebar: toggleChannelSidebar,
+  })
 
   React.useEffect(() => {
     if (!ready || needsOnboarding) return
@@ -43,6 +94,7 @@ function DashboardLayout() {
           label: "What's new",
           onClick: () => {
             setSettingsInitialCategory("changelog")
+            setNotificationsOpen(false)
             setSettingsOpen(true)
             markVersionSeen()
           },
@@ -77,15 +129,16 @@ function DashboardLayout() {
       className="relative flex h-svh w-full flex-row"
       style={{ "--sidebar-width-icon": "4.375rem" } as React.CSSProperties}
     >
-      {channelSidebarVisible ? <ChannelSidebar /> : null}
+      {channelSidebarVisible ? (
+        <ChannelSidebar onAddChannel={openAddChannel} />
+      ) : null}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <AppHeader
-          onSettingsClick={() => {
-            setSettingsInitialCategory(undefined)
-            setSettingsOpen(true)
-          }}
+          onSettingsClick={openSettings}
           channelSidebarVisible={channelSidebarVisible}
           onChannelSidebarToggle={toggleChannelSidebar}
+          notificationsOpen={notificationsOpen}
+          onNotificationsOpenChange={handleNotificationsOpenChange}
         />
         <SidebarInset className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
           <ChatPage />
@@ -110,6 +163,10 @@ function DashboardLayout() {
         onOpenChange={setSettingsOpen}
         initialCategory={settingsInitialCategory}
       />
+      <AddChannelDialog
+        open={addChannelOpen}
+        onOpenChange={setAddChannelOpen}
+      />
     </SidebarProvider>
   )
 }
@@ -117,7 +174,9 @@ function DashboardLayout() {
 export function DashboardApp() {
   return (
     <PeepochatProvider>
-      <DashboardLayout />
+      <HotkeyRegistryProvider>
+        <DashboardLayout />
+      </HotkeyRegistryProvider>
     </PeepochatProvider>
   )
 }

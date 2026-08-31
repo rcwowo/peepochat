@@ -13,6 +13,8 @@ import {
   emoteCardWidthPx,
   type EmoteRatioBucket,
 } from "@/lib/chat/emote-picker-layout"
+import { HotkeyRegistryContext } from "@/lib/hotkeys/hotkey-registry.shared"
+import { canRestoreComposerFocus } from "@/lib/hotkeys/match"
 
 const EMOTE_CARD_ESTIMATED_HEIGHT_PX = 300
 const EMOTE_CARD_VIEWPORT_MARGIN_PX = 8
@@ -65,6 +67,7 @@ export function EmoteCardProvider({
   const [ratioBucket, setRatioBucket] = React.useState<EmoteRatioBucket>(1)
   const activeTriggerRef = React.useRef<HTMLElement | null>(null)
   const panelRef = React.useRef<HTMLDivElement>(null)
+  const hotkeys = React.useContext(HotkeyRegistryContext)
   const anchorWidth = emoteCardWidthPx(EMOTE_CARD_ANCHOR_BUCKET)
 
   const card = useEmoteCard({
@@ -172,6 +175,9 @@ export function EmoteCardProvider({
         event.preventDefault()
         event.stopPropagation()
         onCloseEmoteCard()
+        if (canRestoreComposerFocus()) {
+          hotkeys?.restoreLastComposerFocus()
+        }
       }
     }
 
@@ -181,7 +187,7 @@ export function EmoteCardProvider({
       window.removeEventListener("pointerdown", handlePointerDown, true)
       window.removeEventListener("keydown", handleKeyDown, true)
     }
-  }, [open])
+  }, [hotkeys, open])
 
   const contextValue = React.useMemo<EmoteCardContextValue>(
     () => ({

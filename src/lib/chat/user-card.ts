@@ -33,7 +33,8 @@ export function createEmptyUserCardFlags(): TwitchChatMessage["flags"] {
 }
 
 export function createUserCardTargetFromNoticeActor(
-  actor: TwitchNoticeActor
+  actor: TwitchNoticeActor,
+  channelLogin?: string
 ): UserCardTarget {
   return {
     userId: actor.userId,
@@ -41,6 +42,7 @@ export function createUserCardTargetFromNoticeActor(
     displayName: actor.displayName,
     color: actor.color,
     flags: createEmptyUserCardFlags(),
+    channelLogin,
   }
 }
 

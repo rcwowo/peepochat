@@ -27,22 +27,61 @@ export type LiveNotification = {
   readAt: string | null
 }
 
+export type MissedPingNotification = {
+  id: string
+  channelLogin: string
+  messageId: string
+  userName: string
+  displayName: string
+  text: string
+  receivedAt: string
+  ruleId: string
+  matchPattern: string
+  readAt: string | null
+}
+
 type NotificationCenterStore = {
   pingNotifications: PingNotification[]
   liveNotifications: LiveNotification[]
+  missedPingNotifications: MissedPingNotification[]
+  dismissedMissedPingIds: Set<string>
   listeners: Set<() => void>
 }
 
 const store: NotificationCenterStore = {
   pingNotifications: [],
   liveNotifications: [],
+  missedPingNotifications: [],
+  dismissedMissedPingIds: new Set(),
   listeners: new Set(),
 }
 
-function notifyListeners() {
-  for (const listener of store.listeners) {
-    listener()
+function pingNotificationId(channelLogin: string, messageId: string) {
+  return `ping:${channelLogin}:${messageId}`
+}
+
+function missedPingNotificationId(channelLogin: string, messageId: string) {
+  return `missed:${channelLogin}:${messageId}`
+}
+
+function compareReceivedAtDesc(
+  left: { receivedAt: string },
+  right: { receivedAt: string }
+) {
+  return Date.parse(right.receivedAt) - Date.parse(left.receivedAt)
+}
+
+function removeMissedPingForMessage(channelLogin: string, messageId: string) {
+  const missedId = missedPingNotificationId(channelLogin, messageId)
+  const next = store.missedPingNotifications.filter(
+    (entry) => entry.id !== missedId
+  )
+  if (next.length === store.missedPingNotifications.length) {
+    return
   }
+
+  store.dismissedMissedPingIds.add(missedId)
+  store.missedPingNotifications = next
 }
 
 function subscribe(onStoreChange: () => void) {
@@ -67,17 +106,58 @@ function isLiveUnread(notification: LiveNotification) {
   return notification.readAt === null
 }
 
+function isMissedUnread(notification: MissedPingNotification) {
+  return notification.readAt === null
+}
+
+function markNotificationsRead<T extends { readAt: string | null }>(
+  items: T[],
+  shouldMark: (item: T) => boolean
+): T[] | null {
+  const readAt = new Date().toISOString()
+  let changed = false
+  const next = items.map((item) => {
+    if (item.readAt !== null || !shouldMark(item)) {
+      return item
+    }
+
+    changed = true
+    return { ...item, readAt }
+  })
+
+  return changed ? next : null
+}
+
+function markNotificationsUnread<T extends { readAt: string | null }>(
+  items: T[],
+  shouldUnmark: (item: T) => boolean
+): T[] | null {
+  let changed = false
+  const next = items.map((item) => {
+    if (item.readAt === null || !shouldUnmark(item)) {
+      return item
+    }
+
+    changed = true
+    return { ...item, readAt: null }
+  })
+
+  return changed ? next : null
+}
+
 export function addPingNotification(
   notification: Omit<PingNotification, "id" | "readAt"> & {
     readAt?: string | null
   }
 ): boolean {
   const channelLogin = normalizeChannelLogin(notification.channelLogin)
-  const id = `ping:${channelLogin}:${notification.messageId}`
+  const id = pingNotificationId(channelLogin, notification.messageId)
 
   if (store.pingNotifications.some((entry) => entry.id === id)) {
     return false
   }
+
+  removeMissedPingForMessage(channelLogin, notification.messageId)
 
   store.pingNotifications = capNotifications([
     {
@@ -117,6 +197,114 @@ export function addLiveNotification(
   return true
 }
 
+export function markPingNotificationRead(id: string) {
+  const next = markNotificationsRead(
+    store.pingNotifications,
+    (notification) => notification.id === id
+  )
+  if (!next) {
+    return
+  }
+
+  store.pingNotifications = next
+  notifyListeners()
+}
+
+export function markLiveNotificationRead(id: string) {
+  const next = markNotificationsRead(
+    store.liveNotifications,
+    (notification) => notification.id === id
+  )
+  if (!next) {
+    return
+  }
+
+  store.liveNotifications = next
+  notifyListeners()
+}
+
+export function markPingNotificationUnread(id: string) {
+  const next = markNotificationsUnread(
+    store.pingNotifications,
+    (notification) => notification.id === id
+  )
+  if (!next) {
+    return
+  }
+
+  store.pingNotifications = next
+  notifyListeners()
+}
+
+export function markLiveNotificationUnread(id: string) {
+  const next = markNotificationsUnread(
+    store.liveNotifications,
+    (notification) => notification.id === id
+  )
+  if (!next) {
+    return
+  }
+
+  store.liveNotifications = next
+  notifyListeners()
+}
+
+export function markAllPingNotificationsRead() {
+  const next = markNotificationsRead(store.pingNotifications, () => true)
+  if (!next) {
+    return
+  }
+
+  store.pingNotifications = next
+  notifyListeners()
+}
+
+export function markAllLiveNotificationsRead() {
+  const next = markNotificationsRead(store.liveNotifications, () => true)
+  if (!next) {
+    return
+  }
+
+  store.liveNotifications = next
+  notifyListeners()
+}
+
+export function markMissedPingNotificationRead(id: string) {
+  const next = markNotificationsRead(
+    store.missedPingNotifications,
+    (notification) => notification.id === id
+  )
+  if (!next) {
+    return
+  }
+
+  store.missedPingNotifications = next
+  notifyListeners()
+}
+
+export function markMissedPingNotificationUnread(id: string) {
+  const next = markNotificationsUnread(
+    store.missedPingNotifications,
+    (notification) => notification.id === id
+  )
+  if (!next) {
+    return
+  }
+
+  store.missedPingNotifications = next
+  notifyListeners()
+}
+
+export function markAllMissedPingNotificationsRead() {
+  const next = markNotificationsRead(store.missedPingNotifications, () => true)
+  if (!next) {
+    return
+  }
+
+  store.missedPingNotifications = next
+  notifyListeners()
+}
+
 export function markPingNotificationsReadForChannel(login: string) {
   markPingNotificationsReadForChannels([login])
 }
@@ -129,22 +317,10 @@ export function markPingNotificationsReadForChannels(logins: string[]) {
   const channelLogins = new Set(
     logins.map((login) => normalizeChannelLogin(login))
   )
-  const readAt = new Date().toISOString()
-  let changed = false
-
-  const next = store.pingNotifications.map((notification) => {
-    if (
-      !channelLogins.has(notification.channelLogin) ||
-      notification.readAt !== null
-    ) {
-      return notification
-    }
-
-    changed = true
-    return { ...notification, readAt }
-  })
-
-  if (!changed) {
+  const next = markNotificationsRead(store.pingNotifications, (notification) =>
+    channelLogins.has(notification.channelLogin)
+  )
+  if (!next) {
     return
   }
 
@@ -164,22 +340,10 @@ export function markLiveNotificationsReadForChannels(logins: string[]) {
   const channelLogins = new Set(
     logins.map((login) => normalizeChannelLogin(login))
   )
-  const readAt = new Date().toISOString()
-  let changed = false
-
-  const next = store.liveNotifications.map((notification) => {
-    if (
-      !channelLogins.has(notification.channelLogin) ||
-      notification.readAt !== null
-    ) {
-      return notification
-    }
-
-    changed = true
-    return { ...notification, readAt }
-  })
-
-  if (!changed) {
+  const next = markNotificationsRead(store.liveNotifications, (notification) =>
+    channelLogins.has(notification.channelLogin)
+  )
+  if (!next) {
     return
   }
 
@@ -239,6 +403,94 @@ export function dismissAllLiveNotifications() {
   notifyListeners()
 }
 
+export function addMissedPingNotifications(
+  notifications: Array<
+    Omit<MissedPingNotification, "id" | "readAt"> & { readAt?: string | null }
+  >
+): number {
+  if (notifications.length === 0) {
+    return 0
+  }
+
+  const existingIds = new Set(
+    store.missedPingNotifications.map((entry) => entry.id)
+  )
+  const liveIds = new Set(store.pingNotifications.map((entry) => entry.id))
+  const added: MissedPingNotification[] = []
+
+  for (const notification of notifications) {
+    const channelLogin = normalizeChannelLogin(notification.channelLogin)
+    const id = missedPingNotificationId(channelLogin, notification.messageId)
+    const liveId = pingNotificationId(channelLogin, notification.messageId)
+
+    if (
+      existingIds.has(id) ||
+      store.dismissedMissedPingIds.has(id) ||
+      liveIds.has(liveId)
+    ) {
+      continue
+    }
+
+    existingIds.add(id)
+    added.push({
+      ...notification,
+      id,
+      channelLogin,
+      readAt: notification.readAt ?? null,
+    })
+  }
+
+  if (added.length === 0) {
+    return 0
+  }
+
+  store.missedPingNotifications = capNotifications(
+    [...added, ...store.missedPingNotifications].sort(compareReceivedAtDesc)
+  )
+  notifyListeners()
+  return added.length
+}
+
+export function dismissMissedPingNotification(id: string) {
+  const notification = store.missedPingNotifications.find(
+    (entry) => entry.id === id
+  )
+  const next = store.missedPingNotifications.filter((entry) => entry.id !== id)
+  if (next.length === store.missedPingNotifications.length) {
+    return null
+  }
+
+  store.dismissedMissedPingIds.add(id)
+  store.missedPingNotifications = next
+  notifyListeners()
+
+  if (notification) {
+    removeChannelMessageHighlight(
+      notification.channelLogin,
+      notification.messageId
+    )
+  }
+
+  return notification ?? null
+}
+
+export function dismissAllMissedPingNotifications() {
+  if (store.missedPingNotifications.length === 0) {
+    return
+  }
+
+  for (const notification of store.missedPingNotifications) {
+    store.dismissedMissedPingIds.add(notification.id)
+    removeChannelMessageHighlight(
+      notification.channelLogin,
+      notification.messageId
+    )
+  }
+
+  store.missedPingNotifications = []
+  notifyListeners()
+}
+
 export function formatLiveNotificationText(gameName: string, title: string) {
   const game = gameName.trim()
   const streamTitle = title.trim()
@@ -255,75 +507,92 @@ export function formatLiveNotificationText(gameName: string, title: string) {
   return "Live now"
 }
 
-function getPingNotifications() {
-  return store.pingNotifications
+type NotificationCenterSnapshot = {
+  pingNotifications: PingNotification[]
+  liveNotifications: LiveNotification[]
+  missedPingNotifications: MissedPingNotification[]
+  pingCount: number
+  liveCount: number
+  missedCount: number
+  totalCount: number
 }
 
-function getLiveNotifications() {
-  return store.liveNotifications
+function buildSnapshot(): NotificationCenterSnapshot {
+  const pingCount = store.pingNotifications.filter(isPingUnread).length
+  const liveCount = store.liveNotifications.filter(isLiveUnread).length
+  const missedCount =
+    store.missedPingNotifications.filter(isMissedUnread).length
+
+  return {
+    pingNotifications: store.pingNotifications,
+    liveNotifications: store.liveNotifications,
+    missedPingNotifications: store.missedPingNotifications,
+    pingCount,
+    liveCount,
+    missedCount,
+    totalCount: pingCount + liveCount,
+  }
 }
 
-function getPingUnreadCount() {
-  return store.pingNotifications.filter(isPingUnread).length
+let snapshot = buildSnapshot()
+
+function notifyListeners() {
+  snapshot = buildSnapshot()
+  for (const listener of store.listeners) {
+    listener()
+  }
 }
 
-function getLiveUnreadCount() {
-  return store.liveNotifications.filter(isLiveUnread).length
+function getSnapshot() {
+  return snapshot
 }
 
 function getTotalUnreadCount() {
-  return getPingUnreadCount() + getLiveUnreadCount()
+  return snapshot.totalCount
+}
+
+const notificationCenterActions = {
+  dismissPing: dismissPingNotification,
+  dismissLive: dismissLiveNotification,
+  dismissAllPings: dismissAllPingNotifications,
+  dismissAllLive: dismissAllLiveNotifications,
+  markPingRead: markPingNotificationRead,
+  markLiveRead: markLiveNotificationRead,
+  markPingUnread: markPingNotificationUnread,
+  markLiveUnread: markLiveNotificationUnread,
+  markMissedRead: markMissedPingNotificationRead,
+  markMissedUnread: markMissedPingNotificationUnread,
+  markAllPingsRead: markAllPingNotificationsRead,
+  markAllLiveRead: markAllLiveNotificationsRead,
+  markAllMissedRead: markAllMissedPingNotificationsRead,
+  markPingNotificationsReadForChannel,
+  markPingNotificationsReadForChannels,
+  markLiveNotificationsReadForChannel,
+  markLiveNotificationsReadForChannels,
+  dismissAllMissed: dismissAllMissedPingNotifications,
+  dismissMissed: dismissMissedPingNotification,
 }
 
 export function useNotificationCenter() {
-  const pingNotifications = React.useSyncExternalStore(
+  const current = React.useSyncExternalStore(
     subscribe,
-    getPingNotifications,
-    getPingNotifications
-  )
-  const liveNotifications = React.useSyncExternalStore(
-    subscribe,
-    getLiveNotifications,
-    getLiveNotifications
-  )
-  const pingUnreadCount = React.useSyncExternalStore(
-    subscribe,
-    getPingUnreadCount,
-    getPingUnreadCount
-  )
-  const liveUnreadCount = React.useSyncExternalStore(
-    subscribe,
-    getLiveUnreadCount,
-    getLiveUnreadCount
-  )
-  const totalUnreadCount = React.useSyncExternalStore(
-    subscribe,
-    getTotalUnreadCount,
-    getTotalUnreadCount
+    getSnapshot,
+    getSnapshot
   )
 
   return React.useMemo(
     () => ({
-      pingNotifications,
-      liveNotifications,
-      pingCount: pingUnreadCount,
-      liveCount: liveUnreadCount,
-      totalCount: totalUnreadCount,
-      dismissPing: dismissPingNotification,
-      dismissLive: dismissLiveNotification,
-      dismissAllPings: dismissAllPingNotifications,
-      dismissAllLive: dismissAllLiveNotifications,
-      markPingNotificationsReadForChannel,
-      markPingNotificationsReadForChannels,
-      markLiveNotificationsReadForChannel,
-      markLiveNotificationsReadForChannels,
+      ...current,
+      ...notificationCenterActions,
     }),
-    [
-      liveNotifications,
-      liveUnreadCount,
-      pingNotifications,
-      pingUnreadCount,
-      totalUnreadCount,
-    ]
+    [current]
+  )
+}
+
+export function useNotificationUnreadCount() {
+  return React.useSyncExternalStore(
+    subscribe,
+    getTotalUnreadCount,
+    getTotalUnreadCount
   )
 }

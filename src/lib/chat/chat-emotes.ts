@@ -332,14 +332,31 @@ const PROVIDER_PRIORITY: Array<Exclude<TwitchEmoteProvider, "twitch">> = [
   "ffz",
 ]
 
+const THIRD_PARTY_EMOTE_FETCH_TIMEOUT_MS = 10_000
+
+const EMPTY_THIRD_PARTY_GLOBAL_EMOTES: ThirdPartyGlobalEmotes = {
+  bttv: [],
+  ffz: [],
+  "7tv": [],
+}
+
+const EMPTY_THIRD_PARTY_ROOM_EMOTES: ThirdPartyRoomEmotes = {
+  bttv: [],
+  ffz: [],
+  "7tv": [],
+}
+
 export function createEmptyEmoteCatalog(): ThirdPartyEmoteCatalog {
   return new Map()
 }
 
-function loadThirdPartyGlobalEmotes(): Promise<ThirdPartyGlobalEmotes> {
+function loadThirdPartyGlobalEmotes(
+  onPartial?: (global: ThirdPartyGlobalEmotes) => void
+): Promise<ThirdPartyGlobalEmotes> {
   const optionsKey = thirdPartyOptionsKey()
 
   if (globalEmotesCache && globalOptionsKey === optionsKey) {
+    onPartial?.(globalEmotesCache)
     return Promise.resolve(globalEmotesCache)
   }
 
@@ -351,19 +368,63 @@ function loadThirdPartyGlobalEmotes(): Promise<ThirdPartyGlobalEmotes> {
   const { bttvEnabled, ffzEnabled, seventvEnabled } =
     thirdPartyEmoteFetchOptions
 
-  globalEmotesInflight = Promise.allSettled([
-    bttvEnabled ? fetchBetterTtvGlobalEmotes() : Promise.resolve([]),
-    ffzEnabled ? fetchFrankerFaceZGlobalEmotes() : Promise.resolve([]),
-    seventvEnabled ? fetchSevenTvGlobalEmotes() : Promise.resolve([]),
-  ]).then(([bttv, ffz, sevenTv]) => {
-    const result: ThirdPartyGlobalEmotes = {
-      bttv: bttv.status === "fulfilled" ? bttv.value : [],
-      ffz: ffz.status === "fulfilled" ? ffz.value : [],
-      "7tv": sevenTv.status === "fulfilled" ? sevenTv.value : [],
+  const result: ThirdPartyGlobalEmotes = {
+    bttv: [],
+    ffz: [],
+    "7tv": [],
+  }
+
+  const emitPartial = () => {
+    onPartial?.({
+      bttv: result.bttv,
+      ffz: result.ffz,
+      "7tv": result["7tv"],
+    })
+  }
+
+  const providerTasks: Promise<void>[] = []
+
+  if (bttvEnabled) {
+    providerTasks.push(
+      fetchBetterTtvGlobalEmotes()
+        .then((emotes) => {
+          result.bttv = emotes
+          emitPartial()
+        })
+        .catch(() => undefined)
+    )
+  }
+
+  if (ffzEnabled) {
+    providerTasks.push(
+      fetchFrankerFaceZGlobalEmotes()
+        .then((emotes) => {
+          result.ffz = emotes
+          emitPartial()
+        })
+        .catch(() => undefined)
+    )
+  }
+
+  if (seventvEnabled) {
+    providerTasks.push(
+      fetchSevenTvGlobalEmotes()
+        .then((emotes) => {
+          result["7tv"] = emotes
+          emitPartial()
+        })
+        .catch(() => undefined)
+    )
+  }
+
+  globalEmotesInflight = Promise.allSettled(providerTasks).then(() => {
+    globalEmotesCache = {
+      bttv: result.bttv,
+      ffz: result.ffz,
+      "7tv": result["7tv"],
     }
-    globalEmotesCache = result
     globalEmotesInflight = null
-    return result
+    return globalEmotesCache
   })
 
   void globalEmotesInflight.catch(() => {
@@ -378,35 +439,83 @@ function loadThirdPartyGlobalEmotes(): Promise<ThirdPartyGlobalEmotes> {
 }
 
 async function fetchThirdPartyRoomEmotes(
-  roomId: string
+  roomId: string,
+  onPartial?: (room: ThirdPartyRoomEmotes) => void
 ): Promise<ThirdPartyRoomEmotes> {
   const { bttvEnabled, ffzEnabled, seventvEnabled } =
     thirdPartyEmoteFetchOptions
 
-  const [bttv, ffz, sevenTv] = await Promise.allSettled([
-    bttvEnabled ? fetchBetterTtvRoomEmotes(roomId) : Promise.resolve([]),
-    ffzEnabled ? fetchFrankerFaceZRoomEmotes(roomId) : Promise.resolve([]),
-    seventvEnabled ? fetchSevenTvRoomEmotes(roomId) : Promise.resolve([]),
-  ])
+  const result: ThirdPartyRoomEmotes = {
+    bttv: [],
+    ffz: [],
+    "7tv": [],
+  }
+
+  const emitPartial = () => {
+    onPartial?.({
+      bttv: result.bttv,
+      ffz: result.ffz,
+      "7tv": result["7tv"],
+    })
+  }
+
+  const providerTasks: Promise<void>[] = []
+
+  if (bttvEnabled) {
+    providerTasks.push(
+      fetchBetterTtvRoomEmotes(roomId)
+        .then((emotes) => {
+          result.bttv = emotes
+          emitPartial()
+        })
+        .catch(() => undefined)
+    )
+  }
+
+  if (ffzEnabled) {
+    providerTasks.push(
+      fetchFrankerFaceZRoomEmotes(roomId)
+        .then((emotes) => {
+          result.ffz = emotes
+          emitPartial()
+        })
+        .catch(() => undefined)
+    )
+  }
+
+  if (seventvEnabled) {
+    providerTasks.push(
+      fetchSevenTvRoomEmotes(roomId)
+        .then((emotes) => {
+          result["7tv"] = emotes
+          emitPartial()
+        })
+        .catch(() => undefined)
+    )
+  }
+
+  await Promise.allSettled(providerTasks)
 
   return {
-    bttv: bttv.status === "fulfilled" ? bttv.value : [],
-    ffz: ffz.status === "fulfilled" ? ffz.value : [],
-    "7tv": sevenTv.status === "fulfilled" ? sevenTv.value : [],
+    bttv: result.bttv,
+    ffz: result.ffz,
+    "7tv": result["7tv"],
   }
 }
 
 function loadThirdPartyRoomEmotes(
-  roomId: string
+  roomId: string,
+  onPartial?: (room: ThirdPartyRoomEmotes) => void
 ): Promise<ThirdPartyRoomEmotes> {
   const cached = roomChannelDataCache.get(roomId)
   if (cached) {
+    onPartial?.(cached)
     return Promise.resolve(cached)
   }
 
   let pending = roomChannelCache.get(roomId)
   if (!pending) {
-    pending = fetchThirdPartyRoomEmotes(roomId)
+    pending = fetchThirdPartyRoomEmotes(roomId, onPartial)
       .then((room) => {
         roomChannelDataCache.set(roomId, room)
         return room
@@ -434,12 +543,35 @@ function mergeThirdPartySets(
 
 /** Global emotes fetched once per session; room emotes once per broadcaster. */
 export function getThirdPartyEmoteSets(
-  roomId: string
+  roomId: string,
+  onPartial?: (sets: ThirdPartyEmoteSets) => void
 ): Promise<ThirdPartyEmoteSets> {
-  return Promise.all([
-    loadThirdPartyGlobalEmotes(),
-    loadThirdPartyRoomEmotes(roomId),
-  ]).then(([global, room]) => mergeThirdPartySets(global, room))
+  let global = EMPTY_THIRD_PARTY_GLOBAL_EMOTES
+  let room = EMPTY_THIRD_PARTY_ROOM_EMOTES
+
+  const emitPartial = () => {
+    onPartial?.(mergeThirdPartySets(global, room))
+  }
+
+  return Promise.allSettled([
+    loadThirdPartyGlobalEmotes((partialGlobal) => {
+      global = partialGlobal
+      emitPartial()
+    }),
+    loadThirdPartyRoomEmotes(roomId, (partialRoom) => {
+      room = partialRoom
+      emitPartial()
+    }),
+  ]).then(([globalResult, roomResult]) =>
+    mergeThirdPartySets(
+      globalResult.status === "fulfilled"
+        ? globalResult.value
+        : EMPTY_THIRD_PARTY_GLOBAL_EMOTES,
+      roomResult.status === "fulfilled"
+        ? roomResult.value
+        : EMPTY_THIRD_PARTY_ROOM_EMOTES
+    )
+  )
 }
 
 export function buildThirdPartyEmoteCatalog(
@@ -976,7 +1108,9 @@ function buildSevenTvImageUrl(host: SevenTvHost | undefined): string {
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
-  const response = await devLoggedFetch(url)
+  const response = await devLoggedFetch(url, {
+    signal: AbortSignal.timeout(THIRD_PARTY_EMOTE_FETCH_TIMEOUT_MS),
+  })
   if (!response.ok) {
     throw new Error(`Failed to fetch ${url}: ${response.status}`)
   }

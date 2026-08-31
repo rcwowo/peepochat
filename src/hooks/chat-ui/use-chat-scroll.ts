@@ -5,35 +5,31 @@ import {
   type Virtualizer,
 } from "@tanstack/react-virtual"
 
+import {
+  estimateTimelineItemSize,
+  type ChatListLayout,
+} from "@/lib/chat/chat-message-layout"
+import type { TwitchTimelineItem } from "@/lib/twitch/twitch-chat-types"
+
 const NEAR_BOTTOM_PX = 24
 const STICK_TO_END_PX = 1
 const LIST_EDGE_PADDING_PX = 4
-const DEFAULT_ESTIMATE_SIZE_PX = 72
 const USER_SCROLL_INTENT_PX = 2
 
-type TimelineEntry = {
-  kind: string
-  message: { id: string; reply?: unknown }
-}
+export type ChatScrollLayout = Omit<
+  ChatListLayout,
+  "viewportWidth" | "fontFamily"
+>
 
-function estimateTimelineItemSize(entry: TimelineEntry | undefined) {
-  if (!entry) {
-    return DEFAULT_ESTIMATE_SIZE_PX
+function readChatViewport(el: HTMLElement | null) {
+  if (!el) {
+    return { width: 0, fontFamily: "" }
   }
 
-  if (entry.kind === "automod" || entry.kind === "suspicious") {
-    return 128
+  return {
+    width: el.clientWidth,
+    fontFamily: getComputedStyle(el).fontFamily,
   }
-
-  if (entry.kind === "system") {
-    return 80
-  }
-
-  if (entry.kind === "chat" && entry.message.reply) {
-    return 96
-  }
-
-  return DEFAULT_ESTIMATE_SIZE_PX
 }
 
 function getDistanceFromBottom(el: HTMLElement) {
@@ -44,14 +40,32 @@ function isVerticalScrollbarInteraction(event: PointerEvent, el: HTMLElement) {
   return event.clientX - el.getBoundingClientRect().left >= el.clientWidth
 }
 
-export function useChatScroll<T extends TimelineEntry>({
+function remeasureMountedItems(
+  virtualizer: Virtualizer<HTMLDivElement, Element>
+) {
+  virtualizer.measure()
+  virtualizer.getVirtualItems()
+
+  for (const element of [...virtualizer.elementsCache.values()]) {
+    if (element.isConnected) {
+      virtualizer.resizeItem(
+        virtualizer.indexFromElement(element),
+        (element as HTMLElement).offsetHeight
+      )
+    }
+  }
+}
+
+export function useChatScroll<T extends TwitchTimelineItem>({
   timeline,
-  isActive,
   channelLogin,
+  layout,
+  active = true,
 }: {
   timeline: T[]
-  isActive: boolean
   channelLogin: string
+  layout: ChatScrollLayout
+  active?: boolean
 }) {
   const chatContainerRef = React.useRef<HTMLDivElement>(null)
   const isProgrammaticScrollRef = React.useRef(false)
@@ -74,6 +88,19 @@ export function useChatScroll<T extends TimelineEntry>({
   const [pausedForChannel, setPausedForChannel] = React.useState(channelLogin)
   const [listPaddingStart, setListPaddingStart] =
     React.useState(LIST_EDGE_PADDING_PX)
+  const [viewportWidth, setViewportWidth] = React.useState(0)
+  const [fontFamily, setFontFamily] = React.useState("")
+
+  const listLayout = React.useMemo<ChatListLayout>(
+    () => ({
+      ...layout,
+      viewportWidth,
+      fontFamily,
+    }),
+    [fontFamily, layout, viewportWidth]
+  )
+  const listLayoutRef = React.useRef(listLayout)
+  listLayoutRef.current = listLayout
 
   if (pausedForChannel !== channelLogin) {
     setPausedForChannel(channelLogin)
@@ -206,7 +233,8 @@ export function useChatScroll<T extends TimelineEntry>({
   )
 
   const estimateSize = React.useCallback(
-    (index: number) => estimateTimelineItemSize(displayedTimeline[index]),
+    (index: number) =>
+      estimateTimelineItemSize(displayedTimeline[index], listLayoutRef.current),
     [displayedTimeline]
   )
 
@@ -224,7 +252,7 @@ export function useChatScroll<T extends TimelineEntry>({
     overscan: 8,
     paddingStart: listPaddingStart,
     paddingEnd: LIST_EDGE_PADDING_PX,
-    enabled: isActive && displayedTimeline.length > 0,
+    enabled: active && displayedTimeline.length > 0,
   })
 
   const scrollToEnd = React.useCallback(
@@ -399,7 +427,7 @@ export function useChatScroll<T extends TimelineEntry>({
 
   React.useEffect(() => {
     const chatContainer = chatContainerRef.current
-    if (!chatContainer || !isActive) {
+    if (!chatContainer) {
       return
     }
 
@@ -489,12 +517,7 @@ export function useChatScroll<T extends TimelineEntry>({
       chatContainer.removeEventListener("pointerdown", onPointerDown)
       chatContainer.removeEventListener("scrollend", onScrollEnd)
     }
-  }, [
-    clearProgrammaticScroll,
-    finishResumeScroll,
-    isActive,
-    pauseForUserScroll,
-  ])
+  }, [clearProgrammaticScroll, finishResumeScroll, pauseForUserScroll])
 
   const timelineScrollKey = React.useMemo(() => {
     if (timeline.length === 0) {
@@ -507,7 +530,7 @@ export function useChatScroll<T extends TimelineEntry>({
 
   React.useLayoutEffect(() => {
     if (
-      !isActive ||
+      !active ||
       isScrollPaused ||
       !isPinnedRef.current ||
       displayedTimeline.length === 0
@@ -524,8 +547,8 @@ export function useChatScroll<T extends TimelineEntry>({
       schedulePinnedScrollSettle()
     }
   }, [
+    active,
     displayedTimeline.length,
-    isActive,
     isScrollPaused,
     schedulePinnedScrollSettle,
     scrollToEnd,
@@ -536,15 +559,15 @@ export function useChatScroll<T extends TimelineEntry>({
   const totalSize = virtualizer.getTotalSize()
 
   React.useLayoutEffect(() => {
-    if (!isActive || isScrollPaused || displayedTimeline.length === 0) {
+    if (!active || isScrollPaused || displayedTimeline.length === 0) {
       return
     }
 
     syncListPadding()
     stickToBottomIfPinned()
   }, [
+    active,
     displayedTimeline.length,
-    isActive,
     isScrollPaused,
     listPaddingStart,
     stickToBottomIfPinned,
@@ -553,9 +576,80 @@ export function useChatScroll<T extends TimelineEntry>({
   ])
 
   React.useLayoutEffect(() => {
+    if (!active) {
+      return
+    }
+
+    const viewport = readChatViewport(chatContainerRef.current)
+    setViewportWidth((current) =>
+      current === viewport.width ? current : viewport.width
+    )
+    setFontFamily((current) =>
+      current === viewport.fontFamily ? current : viewport.fontFamily
+    )
+  }, [active, displayedTimeline.length])
+
+  React.useLayoutEffect(() => {
+    if (!active) {
+      return
+    }
+
+    const animationFrame = window.requestAnimationFrame(() => {
+      remeasureMountedItems(virtualizer)
+    })
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame)
+    }
+  }, [
+    active,
+    layout.messageSeparators,
+    layout.metrics.emoteSizePx,
+    layout.metrics.fontSizePx,
+    layout.metrics.lineHeightPx,
+    layout.metrics.rowPaddingY,
+    layout.showTwitchBadges,
+    layout.timestampFormat,
+    viewportWidth,
+    virtualizer,
+  ])
+
+  React.useEffect(() => {
+    if (!active) {
+      return
+    }
+
+    let animationFrame: number | null = null
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== "visible") {
+        return
+      }
+
+      if (animationFrame !== null) {
+        window.cancelAnimationFrame(animationFrame)
+      }
+      animationFrame = window.requestAnimationFrame(() => {
+        animationFrame = null
+        remeasureMountedItems(virtualizer)
+        syncListPadding()
+        stickToBottomIfPinned()
+      })
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+      if (animationFrame !== null) {
+        window.cancelAnimationFrame(animationFrame)
+      }
+    }
+  }, [active, stickToBottomIfPinned, syncListPadding, virtualizer])
+
+  React.useLayoutEffect(() => {
     const chatContainer = chatContainerRef.current
     if (
-      !isActive ||
+      !active ||
       displayedTimeline.length === 0 ||
       !chatContainer ||
       typeof ResizeObserver === "undefined"
@@ -564,6 +658,13 @@ export function useChatScroll<T extends TimelineEntry>({
     }
 
     const observer = new ResizeObserver(() => {
+      const viewport = readChatViewport(chatContainer)
+      setViewportWidth((current) =>
+        current === viewport.width ? current : viewport.width
+      )
+      setFontFamily((current) =>
+        current === viewport.fontFamily ? current : viewport.fontFamily
+      )
       syncListPadding()
       stickToBottomIfPinned()
     })
@@ -573,12 +674,7 @@ export function useChatScroll<T extends TimelineEntry>({
     return () => {
       observer.disconnect()
     }
-  }, [
-    displayedTimeline.length,
-    isActive,
-    stickToBottomIfPinned,
-    syncListPadding,
-  ])
+  }, [active, displayedTimeline.length, stickToBottomIfPinned, syncListPadding])
 
   return {
     chatContainerRef,

@@ -1,8 +1,8 @@
 import * as React from "react"
 
+import { useResolvedUsernameColor } from "@/hooks/chat-ui/use-resolved-username-color"
 import { useUserCardContext } from "@/hooks/twitch/use-user-card-context"
 import type { UserCardTarget } from "@/lib/chat/user-card"
-import { getReadableUsernameColor } from "@/lib/chat/chat-username"
 
 type UserCardPopoverProps = {
   target: UserCardTarget
@@ -11,7 +11,11 @@ type UserCardPopoverProps = {
 export function UserCardPopover({ target }: UserCardPopoverProps) {
   const context = useUserCardContext()
   const triggerRef = React.useRef<HTMLButtonElement>(null)
-  const readableColor = getReadableUsernameColor(target.color)
+  const readableColor = useResolvedUsernameColor({
+    channelLogin: target.channelLogin,
+    userName: target.userName,
+    color: target.color,
+  })
 
   const handleTriggerClick = React.useCallback(() => {
     if (!context) {

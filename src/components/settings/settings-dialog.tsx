@@ -5,6 +5,7 @@ import {
   InfoIcon,
   PaintbrushIcon,
   ScrollTextIcon,
+  CircleHelpIcon,
   BellIcon,
   CodeIcon,
   XIcon,
@@ -28,6 +29,7 @@ import { AboutTab } from "@/components/settings/about-tab"
 import { AppearanceTab } from "@/components/settings/appearance-tab"
 import { BehaviorTab } from "@/components/settings/behavior-tab"
 import { ChangelogTab } from "@/components/settings/changelog-tab"
+import { HelpTab } from "@/components/settings/help-tab"
 import { DataManagementTab } from "@/components/settings/data-management-tab"
 import { HighlightsTab } from "@/components/settings/highlights-tab"
 import { IS_DEV } from "@/lib/dev/is-dev"
@@ -49,6 +51,7 @@ export type SettingsCategory =
   | "highlights"
   | "data"
   | "changelog"
+  | "help"
   | "about"
   | "developer"
 
@@ -70,6 +73,7 @@ const CORE_SETTINGS_CATEGORIES: SettingsCategoryEntry[] = [
 
 const META_SETTINGS_CATEGORIES: SettingsCategoryEntry[] = [
   { id: "changelog", label: "Changelog", icon: ScrollTextIcon },
+  { id: "help", label: "Help", icon: CircleHelpIcon },
   { id: "about", label: "About", icon: InfoIcon },
 ]
 
@@ -192,6 +196,7 @@ export function SettingsDialog({
         side="right"
         showCloseButton={false}
         showOverlay={false}
+        data-hotkey-surface="settings"
         className="h-svh gap-0 p-0 data-[side=right]:w-full max-sm:data-[side=right]:border-l-0 sm:max-w-md sm:data-[side=right]:border-l"
         onInteractOutside={(event) => {
           if (shouldPreventSettingsDismiss(event.target)) {
@@ -254,6 +259,7 @@ export function SettingsDialog({
               {activeCategory === "highlights" && <HighlightsTab />}
               {activeCategory === "data" && <DataManagementTab />}
               {activeCategory === "changelog" && <ChangelogTab />}
+              {activeCategory === "help" && <HelpTab />}
               {activeCategory === "about" && <AboutTab />}
               {IS_DEV && activeCategory === "developer" && DeveloperTab ? (
                 <React.Suspense fallback={null}>

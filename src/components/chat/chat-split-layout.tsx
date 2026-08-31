@@ -197,14 +197,19 @@ function SplitPaneDropFrame({
     [login, registerPane, setDragNodeRef, setDropNodeRef]
   )
 
-  const dragHandleProps = {
-    ...attributes,
-    ...listeners,
-    className: cn(
-      "cursor-grab touch-none select-none active:cursor-grabbing",
-      isDragging && "cursor-grabbing"
-    ),
-  } satisfies React.HTMLAttributes<HTMLDivElement>
+  const dragHandleClassName = cn(
+    "cursor-grab touch-none select-none active:cursor-grabbing",
+    isDragging && "cursor-grabbing"
+  )
+  const dragHandleProps = React.useMemo(
+    () =>
+      ({
+        ...attributes,
+        ...listeners,
+        className: dragHandleClassName,
+      }) satisfies React.HTMLAttributes<HTMLDivElement>,
+    [attributes, dragHandleClassName, listeners]
+  )
 
   return (
     <div
@@ -328,7 +333,7 @@ function SplitNodeView({
   )
 }
 
-export function ChatSplitLayout({
+export const ChatSplitLayout = React.memo(function ChatSplitLayout({
   splitId,
   channels,
   layout,
@@ -633,4 +638,4 @@ export function ChatSplitLayout({
       </DragOverlay>
     </DndContext>
   )
-}
+})

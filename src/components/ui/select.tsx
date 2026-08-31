@@ -4,6 +4,7 @@ import * as React from "react"
 import { Select as SelectPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
+import { useOverlayCloseAutoFocus } from "@/lib/hotkeys/restore-composer-on-close"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
 function Select({
@@ -62,8 +63,11 @@ function SelectContent({
   children,
   position = "item-aligned",
   align = "center",
+  onCloseAutoFocus,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Content>) {
+  const handleCloseAutoFocus = useOverlayCloseAutoFocus(onCloseAutoFocus)
+
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Content
@@ -77,6 +81,7 @@ function SelectContent({
         )}
         position={position}
         align={align}
+        onCloseAutoFocus={handleCloseAutoFocus}
         {...props}
       >
         <SelectScrollUpButton />

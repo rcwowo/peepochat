@@ -55,13 +55,22 @@ function ChatSuspiciousMessageInner({
     : []
   const userCardTarget = React.useMemo(
     () =>
-      createUserCardTargetFromNoticeActor({
-        userId: message.userId,
-        userName: message.userName,
-        displayName: message.displayName,
-        color: message.color,
-      }),
-    [message.color, message.displayName, message.userId, message.userName]
+      createUserCardTargetFromNoticeActor(
+        {
+          userId: message.userId,
+          userName: message.userName,
+          displayName: message.displayName,
+          color: message.color,
+        },
+        message.channel
+      ),
+    [
+      message.channel,
+      message.color,
+      message.displayName,
+      message.userId,
+      message.userName,
+    ]
   )
 
   return (

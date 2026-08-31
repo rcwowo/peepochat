@@ -262,7 +262,7 @@
     border-bottom: 1px solid var(--chat-row-separator);
   }
 
-  .chat-presentation--message-separators .chat-message:last-child {
+  .chat-presentation--message-separators > .chat-message:last-child {
     border-bottom-color: transparent;
   }
 
@@ -299,6 +299,15 @@
     height: var(--chat-badge-size);
   }
 
+  .chat-badge-source {
+    width: var(--chat-badge-size);
+    height: var(--chat-badge-size);
+    border-radius: 9999px;
+    object-fit: cover;
+    background-color: color-mix(in oklab, var(--muted) 80%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--foreground) 18%, transparent);
+  }
+
   .chat-badge-fallback {
     width: var(--chat-badge-size);
     height: var(--chat-badge-size);
@@ -311,17 +320,23 @@
 
   .chat-emote {
     display: inline-grid;
+    grid-template-rows: var(--chat-emote-size);
     vertical-align: middle;
+    height: var(--chat-emote-size);
+    min-height: var(--chat-emote-size);
     min-width: var(--chat-emote-size);
+    margin-block: var(--chat-emote-margin);
   }
 
   .chat-emote img {
     grid-area: 1 / 1;
+    box-sizing: border-box;
     height: var(--chat-emote-size);
     max-height: var(--chat-emote-size);
     width: auto;
+    min-height: 0;
+    min-width: 0;
     place-self: center;
-    margin-block: var(--chat-emote-margin);
     object-fit: contain;
   }
 

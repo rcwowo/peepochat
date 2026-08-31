@@ -14,18 +14,20 @@ import { ChatMessageBody } from "@/components/chat/chat-message-body"
 import { ChatReplyPreview } from "@/components/chat/chat-reply-preview"
 import { UserCardPopover } from "@/components/chat/user-card-popover"
 import { Button } from "@/components/ui/button"
+import { useResolvedUsernameColor } from "@/hooks/chat-ui/use-resolved-username-color"
+import { useSharedChatMessageChrome } from "@/hooks/chat-ui/use-shared-chat-source-badge"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import {
-  resolveMessageBadges,
-  type ChatBadgeCatalog,
-} from "@/lib/chat/chat-badges"
+import type { ChatBadgeCatalog } from "@/lib/chat/chat-badges"
 import { createComposerReplyFromMessage } from "@/lib/chat/reply-threads"
-import { getReadableUsernameColor } from "@/lib/chat/chat-username"
+import {
+  adjustHighlightRangesForReplyStrip,
+  getReplyDisplayContent,
+} from "@/lib/chat/strip-reply-mention"
 import {
   canDeleteMessageInChannel,
   canModerateTarget,
@@ -101,11 +103,18 @@ function ChatMessageRowInner({
   const { markChatMessageDeleted } = usePeepochatChat()
   const isDeleted = message.deletedAt !== null
   const timestamp = formatMessageTimestamp(message.receivedAt, timestampFormat)
-  const badges = showTwitchBadges
-    ? resolveMessageBadges(message.badges, badgeCatalog)
-    : []
+  const { resolvedBadges: badges, sourceChannel } = useSharedChatMessageChrome({
+    sourceRoomId: message.sourceRoomId,
+    badges: message.badges,
+    badgeCatalog,
+    showTwitchBadges,
+  })
   const memberBadge = showMemberBadges ? getMemberBadge(message.userId) : null
-  const usernameColor = getReadableUsernameColor(message.color)
+  const usernameColor = useResolvedUsernameColor({
+    channelLogin: message.channel,
+    userName: message.userName,
+    color: message.color,
+  })
   const moderationTarget = React.useMemo(
     () => ({
       userId: message.userId,
@@ -146,6 +155,35 @@ function ChatMessageRowInner({
     canDeleteMessage ||
     showTimeoutButton ||
     showBanButton
+  const displayContent = React.useMemo(
+    () => getReplyDisplayContent(message.text, message.emotes, message.reply),
+    [message.emotes, message.reply, message.text]
+  )
+  const displayPingMatchRange = React.useMemo(() => {
+    if (
+      !pingHighlighted ||
+      !pingMatchRange ||
+      displayContent.stripOffset === 0
+    ) {
+      return pingHighlighted ? pingMatchRange : null
+    }
+
+    return (
+      adjustHighlightRangesForReplyStrip(
+        [pingMatchRange],
+        displayContent.stripOffset
+      )?.[0] ?? null
+    )
+  }, [displayContent.stripOffset, pingHighlighted, pingMatchRange])
+  const displaySearchHighlightRanges = React.useMemo(
+    () =>
+      adjustHighlightRangesForReplyStrip(
+        searchHighlightRanges,
+        displayContent.stripOffset
+      ),
+    [displayContent.stripOffset, searchHighlightRanges]
+  )
+
   const userCardTarget = React.useMemo(
     () => ({
       userId: message.userId,
@@ -252,6 +290,7 @@ function ChatMessageRowInner({
         <div className="mb-0.5">
           <ChatReplyPreview
             reply={message.reply}
+            channelLogin={message.channel}
             onClick={showReplyButton ? startReply : undefined}
           />
         </div>
@@ -276,6 +315,7 @@ function ChatMessageRowInner({
           memberBadge={memberBadge}
           unresolved={message.badges}
           showFallback={showTwitchBadges && showBadgeFallback}
+          sourceChannel={sourceChannel}
         />
         <UserCardPopover target={userCardTarget} />
         {message.flags.isAction ? null : (
@@ -298,10 +338,11 @@ function ChatMessageRowInner({
               }
             >
               <ChatMessageBody
-                text={message.text}
-                emotes={message.emotes}
-                pingMatchRange={pingHighlighted ? pingMatchRange : null}
-                highlightRanges={searchHighlightRanges}
+                text={displayContent.text}
+                emotes={displayContent.emotes}
+                pingMatchRange={displayPingMatchRange}
+                highlightRanges={displaySearchHighlightRanges}
+                channelLogin={message.channel}
               />
             </span>
           </>
@@ -315,10 +356,11 @@ function ChatMessageRowInner({
             }
           >
             <ChatMessageBody
-              text={message.text}
-              emotes={message.emotes}
-              pingMatchRange={pingHighlighted ? pingMatchRange : null}
-              highlightRanges={searchHighlightRanges}
+              text={displayContent.text}
+              emotes={displayContent.emotes}
+              pingMatchRange={displayPingMatchRange}
+              highlightRanges={displaySearchHighlightRanges}
+              channelLogin={message.channel}
             />
           </span>
         )}

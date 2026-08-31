@@ -1,14 +1,14 @@
 import * as React from "react"
 
 import { APP_BRANDING } from "@/lib/branding"
-import { useNotificationCenter } from "@/lib/highlights/notification-center"
+import { useNotificationUnreadCount } from "@/lib/highlights/notification-center"
 
 function getFaviconLink() {
   return document.querySelector<HTMLLinkElement>('link[rel="icon"]')
 }
 
 export function useNotificationDocumentIndicators() {
-  const { totalCount } = useNotificationCenter()
+  const totalCount = useNotificationUnreadCount()
 
   React.useEffect(() => {
     document.title =

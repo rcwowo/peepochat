@@ -107,6 +107,39 @@ function ChatBadgeFallback({ badge }: { badge: TwitchBadge }) {
   )
 }
 
+export type ChatSourceChannelBadge = {
+  displayName: string
+  login: string
+  profileImageUrl: string
+}
+
+function SourceChannelBadge({ source }: { source: ChatSourceChannelBadge }) {
+  const title = source.displayName || source.login || "Shared chat"
+  const imageUrl = source.profileImageUrl.trim()
+
+  return (
+    <ChatHoverTooltipTarget
+      content={title}
+      tooltipClassName="px-2 py-1 text-xs"
+    >
+      {imageUrl ? (
+        <img
+          className="chat-badge-source inline-block align-middle"
+          src={imageUrl}
+          alt={title}
+          loading="eager"
+          decoding="async"
+        />
+      ) : (
+        <span
+          className="chat-badge-source inline-block align-middle"
+          aria-label={title}
+        />
+      )}
+    </ChatHoverTooltipTarget>
+  )
+}
+
 const EMPTY_TWITCH_BADGES: TwitchBadge[] = []
 
 export function ChatBadgeList({
@@ -114,23 +147,31 @@ export function ChatBadgeList({
   memberBadge = null,
   unresolved = EMPTY_TWITCH_BADGES,
   showFallback = false,
+  sourceChannel = null,
 }: {
   badges: ResolvedChatBadge[]
   memberBadge?: ResolvedMemberBadge | null
   unresolved?: TwitchBadge[]
   showFallback?: boolean
+  sourceChannel?: ChatSourceChannelBadge | null
 }) {
   const fallbackBadges =
     showFallback && badges.length === 0
       ? unresolved.filter((badge) => ROLE_BADGE_FALLBACK[badge.set])
       : []
 
-  if (badges.length === 0 && fallbackBadges.length === 0 && !memberBadge) {
+  if (
+    badges.length === 0 &&
+    fallbackBadges.length === 0 &&
+    !memberBadge &&
+    !sourceChannel
+  ) {
     return null
   }
 
   return (
     <span className="mr-1 inline-flex items-center gap-0.5 align-middle">
+      {sourceChannel ? <SourceChannelBadge source={sourceChannel} /> : null}
       {badges.map((badge) => (
         <ChatBadge key={badge.id} badge={badge} />
       ))}

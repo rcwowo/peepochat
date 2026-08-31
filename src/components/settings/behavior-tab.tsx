@@ -349,7 +349,7 @@ export function BehaviorTab() {
           <SettingsSwitchRow
             icon={LayersIcon}
             title="Keep chat views mounted"
-            description="Leaves channels loaded but hidden in the DOM. Switching channels is instant, but uses more memory on busy channels."
+            description="Leaves channel and split views loaded and laid out in the DOM. Switching is instant, but uses more memory on busy channels."
             checked={config.chat.keepChatViewsMounted}
             onCheckedChange={(checked) =>
               updateConfig((current) => ({

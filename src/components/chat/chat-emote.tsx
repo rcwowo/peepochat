@@ -1,6 +1,7 @@
 import * as React from "react"
 
 import { EmoteCardPopover } from "@/components/chat/emote-card-popover"
+import { CHAT_BASE_EMOTE_SIZE_PX } from "@/lib/chat/chat-presentation-style"
 import { getTwitchEmoteBaseUrl, toEmoteCardTarget } from "@/lib/chat/emote-card"
 import { buildTwitchEmoteCdnUrl } from "@/lib/twitch/twitch-api"
 import type { TwitchEmote } from "@/lib/twitch/twitch-chat"
@@ -53,6 +54,8 @@ export function ChatEmote({
           src={getTwitchEmoteSrc(emote)}
           srcSet={srcSet}
           alt={label}
+          width={CHAT_BASE_EMOTE_SIZE_PX}
+          height={CHAT_BASE_EMOTE_SIZE_PX}
           loading="eager"
           decoding="async"
           onError={(event) => {
@@ -70,6 +73,8 @@ export function ChatEmote({
             className="chat-emote-overlay"
             src={overlay.imageUrl}
             alt=""
+            width={CHAT_BASE_EMOTE_SIZE_PX}
+            height={CHAT_BASE_EMOTE_SIZE_PX}
             loading="eager"
             decoding="async"
           />

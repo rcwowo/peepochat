@@ -1,3 +1,5 @@
+import { CHAT_BASE_EMOTE_SIZE_PX } from "@/lib/chat/chat-presentation-style"
+
 function cheermoteStaticFallbackUrl(url: string) {
   if (!url.includes("/animated/")) {
     return null
@@ -22,6 +24,8 @@ export function ChatCheermote({
         <img
           src={imageUrl}
           alt={label}
+          width={CHAT_BASE_EMOTE_SIZE_PX}
+          height={CHAT_BASE_EMOTE_SIZE_PX}
           loading="eager"
           decoding="async"
           onError={(event) => {
