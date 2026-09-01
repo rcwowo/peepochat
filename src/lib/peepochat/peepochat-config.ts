@@ -26,6 +26,13 @@ export const CHAT_FONT_SIZE_DEFAULT = 13
 export const CHAT_EMOTE_SCALE_MIN = 10
 export const CHAT_EMOTE_SCALE_MAX = 24
 export const CHAT_EMOTE_SCALE_DEFAULT = 13
+export const PLAYER_DESKTOP_SIZE_MIN = 1
+export const PLAYER_DESKTOP_SIZE_MAX = 99
+export const PLAYER_DESKTOP_SIZE_DEFAULT = 70
+export const PLAYER_MOBILE_SIZE_MIN = 35
+export const PLAYER_MOBILE_SIZE_MAX = 75
+export const PLAYER_MOBILE_SIZE_DEFAULT = 55
+export const PLAYER_CHAT_MIN_WIDTH_PX = 340
 export const PEEPOCHAT_APP_VERSION: string = __APP_VERSION__
 
 const messageTimestampFormatSchema = z
@@ -117,6 +124,26 @@ const highlightsSchema = z.object({
   pings: z.array(highlightPingRuleSchema).default([]),
 })
 
+const playerSchema = z
+  .object({
+    backgroundPlaybackEnabled: z.boolean().default(true),
+    desktopSizePercent: z
+      .number()
+      .min(PLAYER_DESKTOP_SIZE_MIN)
+      .max(PLAYER_DESKTOP_SIZE_MAX)
+      .default(PLAYER_DESKTOP_SIZE_DEFAULT),
+    mobileSizePercent: z
+      .number()
+      .min(PLAYER_MOBILE_SIZE_MIN)
+      .max(PLAYER_MOBILE_SIZE_MAX)
+      .default(PLAYER_MOBILE_SIZE_DEFAULT),
+  })
+  .default({
+    backgroundPlaybackEnabled: true,
+    desktopSizePercent: PLAYER_DESKTOP_SIZE_DEFAULT,
+    mobileSizePercent: PLAYER_MOBILE_SIZE_DEFAULT,
+  })
+
 const chatSplitLayoutNodeSchema: z.ZodType<ChatSplitLayoutNode> = z.lazy(() =>
   z.discriminatedUnion("type", [
     z.object({
@@ -192,6 +219,7 @@ const appConfigSchema = z.object({
     liveSoundCustomId: null,
     pings: [],
   }),
+  player: playerSchema,
 })
 
 const backupEnvelopeSchema = z.object({
@@ -204,6 +232,7 @@ const backupEnvelopeSchema = z.object({
 
 export type HighlightPingRule = z.infer<typeof highlightPingRuleSchema>
 export type HighlightsConfig = z.infer<typeof highlightsSchema>
+export type PlayerConfig = z.infer<typeof playerSchema>
 export type MessageTimestampFormat = z.infer<
   typeof messageTimestampFormatSchema
 >
@@ -302,6 +331,11 @@ export function createDefaultConfig(): AppConfig {
       pingSoundCustomId: null,
       liveSoundCustomId: null,
       pings: [],
+    },
+    player: {
+      backgroundPlaybackEnabled: true,
+      desktopSizePercent: PLAYER_DESKTOP_SIZE_DEFAULT,
+      mobileSizePercent: PLAYER_MOBILE_SIZE_DEFAULT,
     },
   }
 }

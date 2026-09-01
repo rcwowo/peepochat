@@ -3,6 +3,7 @@ import {
   EllipsisIcon,
   ExternalLinkIcon,
   MessagesSquareIcon,
+  PlayIcon,
   RefreshCcwIcon,
   UsersIcon,
   XIcon,
@@ -46,6 +47,7 @@ import type {
   MessageTimestampFormat,
   TwitchAccount,
 } from "@/lib/peepochat/peepochat-config"
+import type { TwitchLiveStream } from "@/lib/twitch/twitch-api"
 import { useChannelMessageHighlights } from "@/hooks/chat-ui/use-highlight-activity"
 import {
   usePeepochatChat,
@@ -171,6 +173,10 @@ type ChatPaneProps = {
   joined?: boolean
   showRemoveSplit?: boolean
   onRemoveSplit?: (channelLogin: string) => void
+  onWatchPlayer?: (channelLogin: string) => void
+  onClosePlayer?: () => void
+  streamInfoMode?: "interactive" | "mobile"
+  liveStreamOverride?: TwitchLiveStream | null
   dragHandleProps?: React.HTMLAttributes<HTMLDivElement>
   className?: string
 }
@@ -196,6 +202,10 @@ function ChatPaneInner({
   joined = true,
   showRemoveSplit = false,
   onRemoveSplit,
+  onWatchPlayer,
+  onClosePlayer,
+  streamInfoMode = "interactive",
+  liveStreamOverride,
   dragHandleProps,
   className,
 }: ChatPaneProps) {
@@ -220,7 +230,9 @@ function ChatPaneInner({
   const [recentMessagesCache] = React.useState(
     createRecentUserMessageBucketCache
   )
-  const [liveInfoExpanded, setLiveInfoExpanded] = React.useState(false)
+  const [liveInfoExpanded, setLiveInfoExpanded] = React.useState(
+    streamInfoMode === "mobile"
+  )
   const [chattersOpen, setChattersOpen] = React.useState(false)
   const [emotePickerOpen, setEmotePickerOpen] = React.useState(false)
   const emotePickerOpenRef = React.useRef(false)
@@ -253,8 +265,16 @@ function ChatPaneInner({
   }, [])
 
   const label = displayName ?? channelLogin
-  const isLive = isChannelLive(channelLogin)
-  const liveStream = isLive ? getChannelLiveStream(channelLogin) : null
+  const isLive =
+    liveStreamOverride !== undefined
+      ? liveStreamOverride !== null
+      : isChannelLive(channelLogin)
+  const liveStream =
+    liveStreamOverride !== undefined
+      ? liveStreamOverride
+      : isLive
+        ? getChannelLiveStream(channelLogin)
+        : null
   const [prevIsLive, setPrevIsLive] = React.useState(isLive)
 
   if (isLive !== prevIsLive) {
@@ -392,6 +412,7 @@ function ChatPaneInner({
                 {isLive ? (
                   <ChatPaneLiveBadge
                     expanded={liveInfoExpanded}
+                    className={streamInfoMode === "mobile" ? "md:hidden" : ""}
                     onToggle={() =>
                       setLiveInfoExpanded((expanded) => !expanded)
                     }
@@ -423,6 +444,14 @@ function ChatPaneInner({
                   <DropdownMenuContent align="end" className="w-44">
                     <DropdownMenuLabel>Channel</DropdownMenuLabel>
                     <DropdownMenuGroup>
+                      {onWatchPlayer ? (
+                        <DropdownMenuItem
+                          onSelect={() => onWatchPlayer(channelLogin)}
+                        >
+                          Watch in Player
+                          <PlayIcon className="ml-auto size-3.5 text-muted-foreground" />
+                        </DropdownMenuItem>
+                      ) : null}
                       <DropdownMenuItem
                         data-chatters-trigger={channelLogin}
                         onSelect={() => {
@@ -495,11 +524,26 @@ function ChatPaneInner({
                     <XIcon className="size-3.5" />
                   </Button>
                 ) : null}
+                {onClosePlayer ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    className="text-muted-foreground hover:text-foreground"
+                    aria-label="Close player"
+                    onClick={onClosePlayer}
+                  >
+                    <XIcon className="size-3.5" />
+                  </Button>
+                ) : null}
               </div>
             </div>
 
             {liveInfoExpanded && liveStream ? (
-              <ChatPaneLiveInfoBar stream={liveStream} />
+              <ChatPaneLiveInfoBar
+                stream={liveStream}
+                className={streamInfoMode === "mobile" ? "md:hidden" : ""}
+              />
             ) : null}
 
             <div className="chat-panel flex min-h-0 flex-1 flex-col overflow-hidden">

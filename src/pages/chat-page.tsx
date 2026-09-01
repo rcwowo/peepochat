@@ -7,6 +7,7 @@ import { useBadgeCatalog } from "@/hooks/chat-ui/use-badge-catalog"
 import type { TwitchSelfChatState } from "@/lib/twitch/twitch-chat-types"
 import type { CachedChatView } from "@/hooks/chat-ui/use-chat-layout"
 import type { ResolvedMemberBadge } from "@/lib/chat/rcw-badges"
+import type { TwitchLiveStream } from "@/lib/twitch/twitch-api"
 import { useChatFontFamily } from "@/hooks/chat-ui/use-chat-font"
 import { getChatPresentationStyle } from "@/lib/chat/chat-presentation-style"
 import {
@@ -21,6 +22,7 @@ import {
 import {
   usePeepochatChat,
   usePeepochatLayout,
+  usePeepochatPlayer,
   usePeepochatSettings,
 } from "@/lib/peepochat/peepochat-context"
 import { cn } from "@/lib/utils"
@@ -50,14 +52,21 @@ type ChatPaneBindings = {
     path: number[],
     sizes: number[]
   ) => void
+  openPlayer: (login: string) => void
 }
 
 function SingleChannelPane({
   login,
   bindings,
+  onClosePlayer,
+  streamInfoMode,
+  liveStreamOverride,
 }: {
   login: string
   bindings: ChatPaneBindings
+  onClosePlayer?: () => void
+  streamInfoMode?: "interactive" | "mobile"
+  liveStreamOverride?: TwitchLiveStream | null
 }) {
   const meta = bindings.channelMeta.get(login)
   const room = useChannelRoom(login)
@@ -84,6 +93,10 @@ function SingleChannelPane({
         showTwitchBadges={bindings.showTwitchBadges}
         showMemberBadges={bindings.showMemberBadges}
         joined={room?.joined ?? false}
+        onWatchPlayer={bindings.openPlayer}
+        onClosePlayer={onClosePlayer}
+        streamInfoMode={streamInfoMode}
+        liveStreamOverride={liveStreamOverride}
       />
     </div>
   )
@@ -122,6 +135,7 @@ function SplitChatPane({
       showTwitchBadges={bindings.showTwitchBadges}
       showMemberBadges={bindings.showMemberBadges}
       joined={room?.joined ?? false}
+      onWatchPlayer={bindings.openPlayer}
       showRemoveSplit
       onRemoveSplit={bindings.removeSplitChannel}
       dragHandleProps={dragHandleProps}
@@ -230,7 +244,19 @@ function useChatPresentationProps(chat: ChatConfig) {
   return { style, className }
 }
 
-export function ChatPage() {
+export function ChatPage({
+  active = true,
+  channelOverride,
+  onClosePlayer,
+  streamInfoMode,
+  liveStreamOverride,
+}: {
+  active?: boolean
+  channelOverride?: string
+  onClosePlayer?: () => void
+  streamInfoMode?: "interactive" | "mobile"
+  liveStreamOverride?: TwitchLiveStream | null
+} = {}) {
   const { config, channels, activeChannelLogin, account, loginWithTwitch } =
     usePeepochatSettings()
   const {
@@ -248,6 +274,7 @@ export function ChatPage() {
   } = usePeepochatLayout()
   const { getSelfChatState, getMemberBadge, hasBadgeSupport } =
     usePeepochatChat()
+  const { openPlayer } = usePeepochatPlayer()
 
   const timestampFormat = config.chat.messageTimestampFormat
   const messageQuickActions = config.chat.messageQuickActions
@@ -278,6 +305,7 @@ export function ChatPage() {
       removeSplitChannel,
       moveSplitPane,
       resizeSplitPanePath,
+      openPlayer,
     }),
     [
       timestampFormat,
@@ -295,8 +323,28 @@ export function ChatPage() {
       removeSplitChannel,
       moveSplitPane,
       resizeSplitPanePath,
+      openPlayer,
     ]
   )
+
+  if (channelOverride) {
+    return (
+      <div
+        className={chatPresentation.className}
+        style={chatPresentation.style}
+      >
+        <ChatViewActiveProvider isActive={active}>
+          <SingleChannelPane
+            login={channelOverride}
+            bindings={bindings}
+            onClosePlayer={onClosePlayer}
+            streamInfoMode={streamInfoMode}
+            liveStreamOverride={liveStreamOverride}
+          />
+        </ChatViewActiveProvider>
+      </div>
+    )
+  }
 
   if (visibleChannelLogins.length === 0) {
     return (
@@ -322,7 +370,7 @@ export function ChatPage() {
           <CachedChatViewLayer
             key={view.key}
             view={view}
-            isActive={view.key === activeChatViewKey}
+            isActive={active && view.key === activeChatViewKey}
             bindings={bindings}
           />
         ))}
@@ -336,23 +384,27 @@ export function ChatPage() {
         className={chatPresentation.className}
         style={chatPresentation.style}
       >
-        <SplitChannelPanes
-          splitId={activeSplitId}
-          channels={splitChannels}
-          layout={activeSplitLayout}
-          bindings={bindings}
-        />
+        <ChatViewActiveProvider isActive={active}>
+          <SplitChannelPanes
+            splitId={activeSplitId}
+            channels={splitChannels}
+            layout={activeSplitLayout}
+            bindings={bindings}
+          />
+        </ChatViewActiveProvider>
       </div>
     )
   }
 
   return (
     <div className={chatPresentation.className} style={chatPresentation.style}>
-      <SingleChannelPane
-        key={activeChannelLogin}
-        login={activeChannelLogin}
-        bindings={bindings}
-      />
+      <ChatViewActiveProvider isActive={active}>
+        <SingleChannelPane
+          key={activeChannelLogin}
+          login={activeChannelLogin}
+          bindings={bindings}
+        />
+      </ChatViewActiveProvider>
     </div>
   )
 }
