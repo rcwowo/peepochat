@@ -1,14 +1,17 @@
 import * as React from "react"
 
-import { ChatPane, ChatViewActiveProvider } from "@/components/chat/chat-pane"
+import { ChatPane } from "@/components/chat/chat-pane"
+import { ChatViewActiveProvider } from "@/components/chat/chat-view-active"
 import { ChatSplitLayout } from "@/components/chat/chat-split-layout"
 import { useChannelRoom } from "@/hooks/chat-ui/use-channel-room"
 import { useBadgeCatalog } from "@/hooks/chat-ui/use-badge-catalog"
+import { useChatViewActive } from "@/hooks/chat-ui/use-chat-view-active"
 import type { TwitchSelfChatState } from "@/lib/twitch/twitch-chat-types"
 import type { CachedChatView } from "@/hooks/chat-ui/use-chat-layout"
 import type { ResolvedMemberBadge } from "@/lib/chat/rcw-badges"
 import type { TwitchLiveStream } from "@/lib/twitch/twitch-api"
 import { useChatFontFamily } from "@/hooks/chat-ui/use-chat-font"
+import { useResizeActivity } from "@/hooks/use-resize-session"
 import { getChatPresentationStyle } from "@/lib/chat/chat-presentation-style"
 import {
   type ChatConfig,
@@ -38,6 +41,10 @@ type ChatPaneBindings = {
   hasBadgeSupport: boolean
   showTwitchBadges: boolean
   showMemberBadges: boolean
+  showSuspiciousActivity: boolean
+  fontSizePx: number
+  emoteScale: number
+  messageSeparators: boolean
   account: ReturnType<typeof usePeepochatSettings>["account"]
   loginWithTwitch: ReturnType<typeof usePeepochatSettings>["loginWithTwitch"]
   removeSplitChannel: (login: string) => void
@@ -58,18 +65,21 @@ type ChatPaneBindings = {
 function SingleChannelPane({
   login,
   bindings,
+  active = true,
   onClosePlayer,
   streamInfoMode,
   liveStreamOverride,
 }: {
   login: string
   bindings: ChatPaneBindings
+  active?: boolean
   onClosePlayer?: () => void
   streamInfoMode?: "interactive" | "mobile"
   liveStreamOverride?: TwitchLiveStream | null
 }) {
+  const resizeActive = useResizeActivity()
   const meta = bindings.channelMeta.get(login)
-  const room = useChannelRoom(login)
+  const room = useChannelRoom(login, active && !resizeActive, !resizeActive)
   const badgeCatalog = useBadgeCatalog(room?.roomId ?? null)
 
   return (
@@ -92,6 +102,11 @@ function SingleChannelPane({
         showBadgeFallback={!bindings.hasBadgeSupport}
         showTwitchBadges={bindings.showTwitchBadges}
         showMemberBadges={bindings.showMemberBadges}
+        showSuspiciousActivity={bindings.showSuspiciousActivity}
+        fontSizePx={bindings.fontSizePx}
+        emoteScale={bindings.emoteScale}
+        messageSeparators={bindings.messageSeparators}
+        chatModes={room?.chatModes}
         joined={room?.joined ?? false}
         onWatchPlayer={bindings.openPlayer}
         onClosePlayer={onClosePlayer}
@@ -111,8 +126,10 @@ function SplitChatPane({
   bindings: ChatPaneBindings
   dragHandleProps: React.HTMLAttributes<HTMLDivElement>
 }) {
+  const isActive = useChatViewActive()
+  const resizeActive = useResizeActivity()
   const meta = bindings.channelMeta.get(login)
-  const room = useChannelRoom(login)
+  const room = useChannelRoom(login, isActive && !resizeActive, !resizeActive)
   const badgeCatalog = useBadgeCatalog(room?.roomId ?? null)
 
   return (
@@ -134,6 +151,11 @@ function SplitChatPane({
       showBadgeFallback={!bindings.hasBadgeSupport}
       showTwitchBadges={bindings.showTwitchBadges}
       showMemberBadges={bindings.showMemberBadges}
+      showSuspiciousActivity={bindings.showSuspiciousActivity}
+      fontSizePx={bindings.fontSizePx}
+      emoteScale={bindings.emoteScale}
+      messageSeparators={bindings.messageSeparators}
+      chatModes={room?.chatModes}
       joined={room?.joined ?? false}
       onWatchPlayer={bindings.openPlayer}
       showRemoveSplit
@@ -202,14 +224,18 @@ const CachedChatViewLayer = React.memo(function CachedChatViewLayer({
     <div
       className={cn(
         "absolute inset-0 flex min-h-0 min-w-0 contain-content",
-        isActive ? "z-10" : "pointer-events-none invisible"
+        isActive ? "z-10" : "pointer-events-none z-0 opacity-0"
       )}
       aria-hidden={!isActive}
       inert={!isActive}
     >
       <ChatViewActiveProvider isActive={isActive}>
         {view.kind === "channel" ? (
-          <SingleChannelPane login={view.login} bindings={bindings} />
+          <SingleChannelPane
+            login={view.login}
+            bindings={bindings}
+            active={isActive}
+          />
         ) : (
           <SplitChannelPanes
             splitId={view.splitId}
@@ -282,6 +308,10 @@ export function ChatPage({
   const highlightPingedMessages = config.highlights.highlightPingedMessages
   const showTwitchBadges = config.chat.badges.twitchEnabled
   const showMemberBadges = config.chat.badges.owoMemberEnabled
+  const showSuspiciousActivity = config.chat.showSuspiciousActivity
+  const fontSizePx = config.chat.fontSizePx
+  const emoteScale = config.chat.emoteScale
+  const messageSeparators = config.chat.messageSeparators
   const chatPresentation = useChatPresentationProps(config.chat)
 
   const channelMeta = React.useMemo(() => {
@@ -300,6 +330,10 @@ export function ChatPage({
       hasBadgeSupport,
       showTwitchBadges,
       showMemberBadges,
+      showSuspiciousActivity,
+      fontSizePx,
+      emoteScale,
+      messageSeparators,
       account,
       loginWithTwitch,
       removeSplitChannel,
@@ -318,6 +352,10 @@ export function ChatPage({
       hasBadgeSupport,
       showTwitchBadges,
       showMemberBadges,
+      showSuspiciousActivity,
+      fontSizePx,
+      emoteScale,
+      messageSeparators,
       account,
       loginWithTwitch,
       removeSplitChannel,
@@ -337,6 +375,7 @@ export function ChatPage({
           <SingleChannelPane
             login={channelOverride}
             bindings={bindings}
+            active={active}
             onClosePlayer={onClosePlayer}
             streamInfoMode={streamInfoMode}
             liveStreamOverride={liveStreamOverride}
@@ -403,6 +442,7 @@ export function ChatPage({
           key={activeChannelLogin}
           login={activeChannelLogin}
           bindings={bindings}
+          active={active}
         />
       </ChatViewActiveProvider>
     </div>

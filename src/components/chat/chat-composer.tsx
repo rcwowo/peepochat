@@ -8,10 +8,12 @@ import { ComposerNoticeBanner } from "@/components/chat/composer-notice-banner"
 import { EmotePicker } from "@/components/chat/emote-picker"
 import { ChatReplyThreadTray } from "@/components/chat/chat-reply-thread-tray"
 import { useChannelRoom } from "@/hooks/chat-ui/use-channel-room"
+import { useResizeActivity } from "@/hooks/use-resize-session"
 import { useUserCardContext } from "@/hooks/twitch/use-user-card-context"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { usePeepochat } from "@/lib/peepochat/peepochat-context"
+import { usePeepochatChat } from "@/lib/peepochat/peepochat-context"
+import type { TwitchAccount } from "@/lib/peepochat/peepochat-config"
 import { buildReplyThread } from "@/lib/chat/reply-threads"
 import { CHAT_RATE_LIMIT_MESSAGES } from "@/lib/chat/chat-send"
 import {
@@ -80,6 +82,10 @@ type ChatComposerProps = {
   onLayoutChange?: () => void
   emotePickerOpen: boolean
   onEmotePickerOpenChange: (open: boolean) => void
+  account: TwitchAccount | null
+  active: boolean
+  showTwitchBadges: boolean
+  showMemberBadges: boolean
   composerInputRef?: React.RefObject<HTMLTextAreaElement | null>
   onComposerFocus?: () => void
 }
@@ -90,11 +96,16 @@ export function ChatComposer({
   onLayoutChange,
   emotePickerOpen,
   onEmotePickerOpenChange,
+  account,
+  active,
+  showTwitchBadges,
+  showMemberBadges,
   composerInputRef,
   onComposerFocus,
 }: ChatComposerProps) {
+  const resizeActive = useResizeActivity()
+
   const {
-    account,
     canSendChat,
     getComposerEmoteCatalog,
     ensureComposerEmotes,
@@ -111,21 +122,14 @@ export function ChatComposer({
     hideBlockedUsers,
     isUserBlocked,
     searchChatters,
-    visibleChannelLogins,
     getBadgeCatalog,
     getMemberBadge,
     hasBadgeSupport,
-    config,
-  } = usePeepochat()
-  const showTwitchBadges = config.chat.badges.twitchEnabled
-  const showMemberBadges = config.chat.badges.owoMemberEnabled
+  } = usePeepochatChat()
   const badgeCatalog = getBadgeCatalog(channelLogin)
 
   const userCardContext = useUserCardContext()
-  const chatVisible = visibleChannelLogins.some(
-    (login) =>
-      normalizeChannelLogin(login) === normalizeChannelLogin(channelLogin)
-  )
+  const chatVisible = active
 
   const [value, setValue] = React.useState("")
   const [notices, setNotices] = React.useState<ComposerNotice[]>([])
@@ -160,7 +164,10 @@ export function ChatComposer({
   }, [])
 
   const [reply, setReply] = React.useState<TwitchChatReply | null>(null)
-  const room = useChannelRoom(channelLogin)
+  const room = useChannelRoom(
+    channelLogin,
+    active && !resizeActive && reply !== null
+  )
   const replyThread = React.useMemo(() => {
     if (!reply) {
       return null
@@ -958,10 +965,13 @@ export function ChatComposer({
   }, [onLayoutChange])
 
   const resizeTextarea = React.useCallback(() => {
+    if (resizeActive) {
+      return
+    }
+
     const el = inputRef.current
     if (!el) return
     const max = 160
-    onLayoutChangeRef.current?.()
     el.style.height = "0px"
     const next = el.scrollHeight
     if (next > max) {
@@ -972,7 +982,7 @@ export function ChatComposer({
       el.style.height = `${Math.max(next, 36)}px`
     }
     onLayoutChangeRef.current?.()
-  }, [])
+  }, [resizeActive])
 
   React.useLayoutEffect(() => {
     resizeTextarea()
@@ -991,7 +1001,6 @@ export function ChatComposer({
     if (!el || typeof ResizeObserver === "undefined") return
 
     let observedWidth = el.getBoundingClientRect().width
-    resizeTextarea()
 
     const observer = new ResizeObserver(([entry]) => {
       const nextWidth =

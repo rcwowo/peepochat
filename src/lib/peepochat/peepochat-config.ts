@@ -29,11 +29,9 @@ export const CHAT_EMOTE_SCALE_DEFAULT = 13
 export const PLAYER_DESKTOP_SIZE_MIN = 1
 export const PLAYER_DESKTOP_SIZE_MAX = 99
 export const PLAYER_DESKTOP_SIZE_DEFAULT = 70
-export const PLAYER_MOBILE_SIZE_MIN = 35
-export const PLAYER_MOBILE_SIZE_MAX = 75
-export const PLAYER_MOBILE_SIZE_DEFAULT = 55
 export const PLAYER_CHAT_MIN_WIDTH_PX = 340
-export const PEEPOCHAT_APP_VERSION: string = __APP_VERSION__
+export const PEEPOCHAT_APP_VERSION: string =
+  typeof __APP_VERSION__ === "undefined" ? "" : __APP_VERSION__
 
 const messageTimestampFormatSchema = z
   .enum(["24-hour", "12-hour", "12-hour-meridiem", "none"])
@@ -132,16 +130,10 @@ const playerSchema = z
       .min(PLAYER_DESKTOP_SIZE_MIN)
       .max(PLAYER_DESKTOP_SIZE_MAX)
       .default(PLAYER_DESKTOP_SIZE_DEFAULT),
-    mobileSizePercent: z
-      .number()
-      .min(PLAYER_MOBILE_SIZE_MIN)
-      .max(PLAYER_MOBILE_SIZE_MAX)
-      .default(PLAYER_MOBILE_SIZE_DEFAULT),
   })
   .default({
     backgroundPlaybackEnabled: true,
     desktopSizePercent: PLAYER_DESKTOP_SIZE_DEFAULT,
-    mobileSizePercent: PLAYER_MOBILE_SIZE_DEFAULT,
   })
 
 const chatSplitLayoutNodeSchema: z.ZodType<ChatSplitLayoutNode> = z.lazy(() =>
@@ -335,7 +327,6 @@ export function createDefaultConfig(): AppConfig {
     player: {
       backgroundPlaybackEnabled: true,
       desktopSizePercent: PLAYER_DESKTOP_SIZE_DEFAULT,
-      mobileSizePercent: PLAYER_MOBILE_SIZE_DEFAULT,
     },
   }
 }

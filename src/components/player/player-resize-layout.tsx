@@ -4,34 +4,25 @@ import { useIsMobile } from "@/hooks/use-mobile"
 import {
   PLAYER_CHAT_MIN_WIDTH_PX,
   PLAYER_DESKTOP_SIZE_DEFAULT,
+  PLAYER_DESKTOP_SIZE_MIN,
 } from "@/lib/peepochat/peepochat-config"
+import {
+  ResizeActivityProvider,
+  ResizeSeparator,
+} from "@/components/resize-session"
+import { usePointerResizeSession } from "@/hooks/use-resize-session"
+import {
+  clampPlayerPercent,
+  getPersistedPlayerPercent,
+  getPlayerMaxPercent,
+} from "@/lib/player-resize"
 import { cn } from "@/lib/utils"
-
-const DIVIDER_HIT_AREA_PX = 11
 
 type PlayerResizeLayoutProps = {
   player: React.ReactNode
   chat: React.ReactNode
   desktopSizePercent: number
   onDesktopSizeChange: (size: number) => void
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value))
-}
-
-function clampPlayerPercent(percent: number, containerWidth: number) {
-  if (containerWidth <= 0) {
-    return percent
-  }
-
-  const maxPercent =
-    ((containerWidth - PLAYER_CHAT_MIN_WIDTH_PX) / containerWidth) * 100
-  if (maxPercent <= 0) {
-    return 0
-  }
-
-  return clamp(percent, 0, maxPercent)
 }
 
 export function PlayerResizeLayout({
@@ -42,13 +33,16 @@ export function PlayerResizeLayout({
 }: PlayerResizeLayoutProps) {
   const isMobile = useIsMobile()
   const containerRef = React.useRef<HTMLDivElement | null>(null)
-  const frameRef = React.useRef<number | null>(null)
+  const playerRef = React.useRef<HTMLDivElement | null>(null)
+  const playerContentRef = React.useRef<HTMLDivElement | null>(null)
+  const chatRef = React.useRef<HTMLDivElement | null>(null)
+  const releasePlayerFreezeRef = React.useRef<(() => void) | null>(null)
   const [containerWidth, setContainerWidth] = React.useState(0)
-  const [transientSize, setTransientSize] = React.useState<number | null>(null)
-  const size = clampPlayerPercent(
-    transientSize ?? desktopSizePercent,
-    containerWidth
-  )
+  const resizeSession = usePointerResizeSession<number>()
+  const size = clampPlayerPercent(desktopSizePercent, containerWidth)
+  const maxPercent = getPlayerMaxPercent(containerWidth)
+  const persistedMax = Math.floor(maxPercent)
+  const canResize = persistedMax >= PLAYER_DESKTOP_SIZE_MIN
 
   React.useEffect(() => {
     const node = containerRef.current
@@ -62,15 +56,57 @@ export function PlayerResizeLayout({
     return () => observer.disconnect()
   }, [])
 
+  const applyPreview = React.useCallback((next: number) => {
+    const nextSize = clampPlayerPercent(
+      next,
+      containerRef.current?.clientWidth ?? 0
+    )
+    if (playerRef.current) {
+      playerRef.current.style.flexBasis = `${nextSize}%`
+      playerRef.current.style.flexGrow = String(nextSize)
+    }
+    if (chatRef.current) {
+      chatRef.current.style.flexBasis = `${100 - nextSize}%`
+      chatRef.current.style.flexGrow = String(100 - nextSize)
+    }
+  }, [])
+
+  const freezePlayerContent = React.useCallback(() => {
+    releasePlayerFreezeRef.current?.()
+    const content = playerContentRef.current
+    if (!content) {
+      return
+    }
+
+    const rect = content.getBoundingClientRect()
+    const previousWidth = content.style.width
+    const previousHeight = content.style.height
+    const previousFlex = content.style.flex
+    content.style.width = `${rect.width}px`
+    content.style.height = `${rect.height}px`
+    content.style.flex = "none"
+    releasePlayerFreezeRef.current = () => {
+      content.style.width = previousWidth
+      content.style.height = previousHeight
+      content.style.flex = previousFlex
+      releasePlayerFreezeRef.current = null
+    }
+  }, [])
+
   const commitSize = React.useCallback(
     (next: number) => {
-      const normalized = Math.round(
-        clampPlayerPercent(next, containerRef.current?.clientWidth ?? 0)
-      )
-      setTransientSize(null)
+      releasePlayerFreezeRef.current?.()
+      const width = containerRef.current?.clientWidth ?? 0
+      const normalized = getPersistedPlayerPercent(next, width)
+      if (normalized === null) {
+        applyPreview(clampPlayerPercent(desktopSizePercent, width))
+        return
+      }
+
+      applyPreview(normalized)
       onDesktopSizeChange(normalized)
     },
-    [onDesktopSizeChange]
+    [applyPreview, desktopSizePercent, onDesktopSizeChange]
   )
 
   const handlePointerDown = React.useCallback(
@@ -79,52 +115,28 @@ export function PlayerResizeLayout({
       if (!container) return
 
       event.currentTarget.focus()
-      event.preventDefault()
       const rect = container.getBoundingClientRect()
       const startPosition = event.clientX
       const startSize = size
-      let latestSize = startSize
-
-      const handlePointerMove = (moveEvent: PointerEvent) => {
-        latestSize = clampPlayerPercent(
-          startSize + ((moveEvent.clientX - startPosition) / rect.width) * 100,
-          rect.width
-        )
-
-        if (frameRef.current !== null) {
-          window.cancelAnimationFrame(frameRef.current)
-        }
-        frameRef.current = window.requestAnimationFrame(() => {
-          frameRef.current = null
-          setTransientSize(latestSize)
-        })
-      }
-
-      const finish = () => {
-        window.removeEventListener("pointermove", handlePointerMove)
-        window.removeEventListener("pointerup", finish)
-        window.removeEventListener("pointercancel", finish)
-        if (frameRef.current !== null) {
-          window.cancelAnimationFrame(frameRef.current)
-          frameRef.current = null
-        }
-        commitSize(latestSize)
-      }
-
-      window.addEventListener("pointermove", handlePointerMove)
-      window.addEventListener("pointerup", finish, { once: true })
-      window.addEventListener("pointercancel", finish, { once: true })
+      freezePlayerContent()
+      resizeSession.start({
+        event,
+        initialValue: startSize,
+        getValue: (moveEvent) =>
+          clampPlayerPercent(
+            startSize +
+              ((moveEvent.clientX - startPosition) / rect.width) * 100,
+            rect.width
+          ),
+        onPreview: applyPreview,
+        onCommit: commitSize,
+        onCancel: () => {
+          applyPreview(startSize)
+          releasePlayerFreezeRef.current?.()
+        },
+      })
     },
-    [commitSize, size]
-  )
-
-  React.useEffect(
-    () => () => {
-      if (frameRef.current !== null) {
-        window.cancelAnimationFrame(frameRef.current)
-      }
-    },
-    []
+    [applyPreview, commitSize, freezePlayerContent, resizeSession, size]
   )
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
@@ -136,65 +148,67 @@ export function PlayerResizeLayout({
     commitSize(size + (increase ? 2 : -2))
   }
 
-  const maxPercent =
-    containerWidth > PLAYER_CHAT_MIN_WIDTH_PX
-      ? ((containerWidth - PLAYER_CHAT_MIN_WIDTH_PX) / containerWidth) * 100
-      : 100
-
   return (
-    <div
-      ref={containerRef}
-      className={cn(
-        "relative isolate flex h-full min-h-0 min-w-0 flex-1 overflow-hidden",
-        isMobile && "flex-col"
-      )}
-    >
+    <ResizeActivityProvider active={resizeSession.active}>
       <div
+        ref={containerRef}
         className={cn(
-          "relative z-0 flex min-h-0 min-w-0 overflow-hidden",
-          isMobile && "w-full shrink-0"
+          "relative isolate flex h-full min-h-0 min-w-0 flex-1 overflow-hidden",
+          isMobile && "flex-col"
         )}
-        style={isMobile ? undefined : { flexBasis: `${size}%`, flexGrow: size }}
       >
-        {player}
-      </div>
-      {isMobile ? null : (
         <div
-          role="separator"
-          tabIndex={0}
-          aria-label="Resize player and chat"
-          aria-orientation="vertical"
-          aria-valuemin={0}
-          aria-valuemax={Math.round(maxPercent)}
-          aria-valuenow={Math.round(size)}
-          className="group relative z-20 h-full w-px shrink-0 cursor-col-resize touch-none bg-border transition-colors outline-none hover:bg-primary/60 focus-visible:bg-primary/60"
-          onPointerDown={handlePointerDown}
-          onKeyDown={handleKeyDown}
-          onDoubleClick={() => commitSize(PLAYER_DESKTOP_SIZE_DEFAULT)}
+          ref={playerRef}
+          className={cn(
+            "relative z-0 flex min-h-0 min-w-0 overflow-hidden",
+            isMobile && "w-full shrink-0"
+          )}
+          style={
+            isMobile ? undefined : { flexBasis: `${size}%`, flexGrow: size }
+          }
         >
           <div
-            className="absolute inset-y-0 left-1/2 -translate-x-1/2 bg-transparent"
-            style={{ width: DIVIDER_HIT_AREA_PX }}
-          />
+            ref={playerContentRef}
+            className={cn(
+              isMobile
+                ? "contents"
+                : "flex h-full min-h-0 w-full min-w-0 flex-none overflow-hidden"
+            )}
+          >
+            {player}
+          </div>
         </div>
-      )}
-      <div
-        className={cn(
-          "relative z-0 flex min-h-0 min-w-0 overflow-hidden",
-          isMobile && "flex-1"
-        )}
-        style={
-          isMobile
-            ? undefined
-            : {
-                flexBasis: `${100 - size}%`,
-                flexGrow: 100 - size,
-                minWidth: PLAYER_CHAT_MIN_WIDTH_PX,
-              }
-        }
-      >
-        {chat}
+        {!isMobile && canResize ? (
+          <ResizeSeparator
+            direction="row"
+            label="Resize player and chat"
+            valueMin={PLAYER_DESKTOP_SIZE_MIN}
+            valueMax={persistedMax}
+            valueNow={Math.round(size)}
+            onPointerDown={handlePointerDown}
+            onKeyDown={handleKeyDown}
+            onDoubleClick={() => commitSize(PLAYER_DESKTOP_SIZE_DEFAULT)}
+          />
+        ) : null}
+        <div
+          ref={chatRef}
+          className={cn(
+            "relative z-0 flex min-h-0 min-w-0 overflow-hidden",
+            isMobile && "flex-1"
+          )}
+          style={
+            isMobile
+              ? undefined
+              : {
+                  flexBasis: `${100 - size}%`,
+                  flexGrow: 100 - size,
+                  minWidth: PLAYER_CHAT_MIN_WIDTH_PX,
+                }
+          }
+        >
+          {chat}
+        </div>
       </div>
-    </div>
+    </ResizeActivityProvider>
   )
 }

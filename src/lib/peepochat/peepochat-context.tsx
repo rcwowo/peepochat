@@ -240,14 +240,13 @@ export function usePeepochatSettings() {
 }
 
 export function usePeepochatLayout() {
-  const config = React.useContext(PeepochatConfigContext)
   const layout = React.useContext(PeepochatLayoutContext)
-  if (!config || !layout) {
+  if (!layout) {
     throw new Error(
       "usePeepochatLayout must be used within a PeepochatProvider"
     )
   }
-  return { ...config, ...layout }
+  return layout
 }
 
 export function usePeepochatSidebarHighlights() {

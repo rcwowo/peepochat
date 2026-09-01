@@ -9,6 +9,31 @@ import type {
 
 const EMPTY_TIMELINE: TwitchTimelineItem[] = []
 
+export function applyEnsureRooms(
+  current: Record<string, TwitchChatRoomState>,
+  channelLogins: string[]
+): Record<string, TwitchChatRoomState> {
+  let next: Record<string, TwitchChatRoomState> | null = null
+  for (const login of channelLogins) {
+    const existing = current[login]
+    if (!existing) {
+      next ??= { ...current }
+      next[login] = createEmptyRoom(login)
+      continue
+    }
+
+    const joining = !existing.joined
+    if (existing.joining === joining) {
+      continue
+    }
+
+    next ??= { ...current }
+    next[login] = { ...existing, joining }
+  }
+
+  return next ?? current
+}
+
 export function useRoomStore() {
   const [rooms, setRooms] = React.useState<Record<string, TwitchChatRoomState>>(
     {}
@@ -52,6 +77,25 @@ export function useRoomStore() {
     [notifyRoomSubscribers]
   )
 
+  const lastNotifiedRoomsRef = React.useRef(rooms)
+  const notifyScheduledRef = React.useRef(false)
+
+  const flushRoomSubscriberNotifications = React.useCallback(() => {
+    notifyScheduledRef.current = false
+    const current = lastNotifiedRoomsRef.current
+    const next = roomsRef.current
+    lastNotifiedRoomsRef.current = next
+    notifyChangedRoomSubscribers(current, next)
+  }, [notifyChangedRoomSubscribers])
+
+  const scheduleRoomSubscriberNotifications = React.useCallback(() => {
+    if (notifyScheduledRef.current) {
+      return
+    }
+    notifyScheduledRef.current = true
+    queueMicrotask(flushRoomSubscriberNotifications)
+  }, [flushRoomSubscriberNotifications])
+
   const commitRooms = React.useCallback(
     (
       updater: (
@@ -65,11 +109,11 @@ export function useRoomStore() {
         }
 
         roomsRef.current = next
-        notifyChangedRoomSubscribers(current, next)
+        scheduleRoomSubscriberNotifications()
         return next
       })
     },
-    [notifyChangedRoomSubscribers]
+    [scheduleRoomSubscriberNotifications]
   )
 
   const subscribeToRoom = React.useCallback(
@@ -108,17 +152,7 @@ export function useRoomStore() {
 
   const ensureRooms = React.useCallback(
     (channelLogins: string[]) => {
-      commitRooms((current) => {
-        const next = { ...current }
-        for (const login of channelLogins) {
-          if (!next[login]) {
-            next[login] = createEmptyRoom(login)
-          } else {
-            next[login] = { ...next[login], joining: !next[login].joined }
-          }
-        }
-        return next
-      })
+      commitRooms((current) => applyEnsureRooms(current, channelLogins))
     },
     [commitRooms]
   )

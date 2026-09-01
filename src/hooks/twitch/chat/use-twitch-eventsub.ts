@@ -1222,6 +1222,7 @@ export function useTwitchEventSub({
   ])
 
   React.useEffect(() => {
+    client.retain()
     const channelUpdateState = channelUpdateStateRef.current
     const channelUpdatePending = channelUpdatePendingRef.current
     const sharedChatState = sharedChatStateRef.current
@@ -1231,8 +1232,7 @@ export function useTwitchEventSub({
       channelUpdateState.clear()
       channelUpdatePending.clear()
       sharedChatState.clear()
-      client.setDesiredSubscriptions([])
-      client.setAuth(null)
+      client.release()
     }
   }, [client])
 

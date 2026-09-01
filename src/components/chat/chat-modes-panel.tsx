@@ -31,7 +31,6 @@ import {
   actorCanModerate,
   hasModerationScope,
 } from "@/lib/chat/moderation-permissions"
-import { useChannelRoom } from "@/hooks/chat-ui/use-channel-room"
 import type { TwitchAccount } from "@/lib/peepochat/peepochat-config"
 import type { TwitchSelfChatState } from "@/lib/twitch/twitch-chat-types"
 import { updateTwitchChatSettings } from "@/lib/twitch/twitch-api"
@@ -42,6 +41,7 @@ type ChatModesMenuProps = {
   channelRoomId: string | null
   account: TwitchAccount | null
   selfChatState: TwitchSelfChatState | null
+  modes?: TwitchChatModes
 }
 
 type ModeKey =
@@ -173,9 +173,8 @@ export function ChatModesMenu({
   channelRoomId,
   account,
   selfChatState,
+  modes,
 }: ChatModesMenuProps) {
-  const room = useChannelRoom(channelLogin)
-  const modes = room?.chatModes
   const [open, setOpen] = React.useState(false)
   const [pending, setPending] = React.useState(false)
   const [preferredFollowersDuration, setPreferredFollowersDuration] =

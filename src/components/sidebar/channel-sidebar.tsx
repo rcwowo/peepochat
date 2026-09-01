@@ -490,7 +490,14 @@ function SplitContextMenu({
 }
 
 export function ChannelSidebar({ onAddChannel }: { onAddChannel: () => void }) {
-  const { config, updateConfig } = usePeepochatSettings()
+  const {
+    config,
+    updateConfig,
+    channels,
+    activeChannelLogin,
+    setActiveChannel,
+    removeChannel,
+  } = usePeepochatSettings()
   const {
     hasUnreadForChannel,
     hasUnreadForSplit,
@@ -502,10 +509,6 @@ export function ChannelSidebar({ onAddChannel }: { onAddChannel: () => void }) {
     isSplitLive,
   } = usePeepochatSidebarHighlights()
   const {
-    channels,
-    activeChannelLogin,
-    setActiveChannel,
-    removeChannel,
     isSplitView,
     activeSplitId,
     savedSplits,

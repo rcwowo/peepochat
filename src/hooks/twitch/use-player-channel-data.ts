@@ -12,87 +12,174 @@ import {
 
 const PLAYER_STREAM_POLL_INTERVAL_MS = 45_000
 
+type PlayerChannelData = {
+  user: TwitchUser | null
+  channel: TwitchChannelInformation | null
+  stream: TwitchLiveStream | null
+  loading: boolean
+  error: boolean
+}
+
+const EMPTY_PLAYER_CHANNEL_DATA: PlayerChannelData = {
+  user: null,
+  channel: null,
+  stream: null,
+  loading: false,
+  error: false,
+}
+
+class PlayerChannelDataEntry {
+  private snapshot: PlayerChannelData = {
+    ...EMPTY_PLAYER_CHANNEL_DATA,
+    loading: true,
+  }
+  private readonly listeners = new Set<() => void>()
+  private intervalId: number | null = null
+  private generation = 0
+  private profileError = false
+  private streamError = false
+  private readonly channelLogin: string
+  private readonly account: TwitchAccount
+
+  constructor(channelLogin: string, account: TwitchAccount) {
+    this.channelLogin = channelLogin
+    this.account = account
+  }
+
+  getSnapshot = () => this.snapshot
+
+  subscribe = (listener: () => void) => {
+    this.listeners.add(listener)
+    if (this.listeners.size === 1) {
+      this.start()
+    }
+
+    return () => {
+      this.listeners.delete(listener)
+      if (this.listeners.size === 0) {
+        this.stop()
+      }
+    }
+  }
+
+  private publish(next: Partial<PlayerChannelData>) {
+    this.snapshot = {
+      ...this.snapshot,
+      ...next,
+      error: this.profileError || this.streamError,
+    }
+    this.listeners.forEach((listener) => listener())
+  }
+
+  private start() {
+    const generation = ++this.generation
+    this.publish({ loading: true })
+    void this.loadProfile(generation)
+    void this.loadStream(generation)
+    this.intervalId = window.setInterval(
+      () => void this.loadStream(generation),
+      PLAYER_STREAM_POLL_INTERVAL_MS
+    )
+  }
+
+  private stop() {
+    this.generation += 1
+    if (this.intervalId !== null) {
+      window.clearInterval(this.intervalId)
+      this.intervalId = null
+    }
+  }
+
+  private async loadProfile(generation: number) {
+    try {
+      const [user] = await fetchTwitchUsersByLogin(
+        [this.channelLogin],
+        this.account.accessToken,
+        this.account.clientId
+      )
+      if (generation !== this.generation) {
+        return
+      }
+
+      if (!user) {
+        this.profileError = true
+        this.publish({ user: null, channel: null, loading: false })
+        return
+      }
+
+      const [channel] = await fetchChannelsByBroadcasterId(
+        [user.id],
+        this.account.accessToken,
+        this.account.clientId
+      )
+      if (generation !== this.generation) {
+        return
+      }
+
+      this.profileError = false
+      this.publish({ user, channel: channel ?? null, loading: false })
+    } catch {
+      if (generation === this.generation) {
+        this.profileError = true
+        this.publish({ loading: false })
+      }
+    }
+  }
+
+  private async loadStream(generation: number) {
+    try {
+      const [stream] = await fetchLiveStreamsByLogin(
+        [this.channelLogin],
+        this.account.accessToken,
+        this.account.clientId
+      )
+      if (generation === this.generation) {
+        this.streamError = false
+        this.publish({ stream: stream ?? null })
+      }
+    } catch {
+      if (generation === this.generation) {
+        this.streamError = true
+        this.publish({})
+      }
+    }
+  }
+}
+
+const playerChannelDataEntries = new Map<string, PlayerChannelDataEntry>()
+
 export function usePlayerChannelData(
   channelLogin: string,
   account: TwitchAccount | null
 ) {
-  const [user, setUser] = React.useState<TwitchUser | null>(null)
-  const [channel, setChannel] = React.useState<TwitchChannelInformation | null>(
-    null
-  )
-  const [stream, setStream] = React.useState<TwitchLiveStream | null>(null)
-  const [loading, setLoading] = React.useState(true)
-  const [error, setError] = React.useState(false)
-
-  React.useEffect(() => {
+  const entry = React.useMemo(() => {
     if (!account) {
-      return
+      return null
     }
 
-    let cancelled = false
-
-    const loadProfile = async () => {
-      try {
-        const [nextUser] = await fetchTwitchUsersByLogin(
-          [channelLogin],
-          account.accessToken,
-          account.clientId
-        )
-        if (cancelled) return
-
-        setUser(nextUser ?? null)
-        if (!nextUser) {
-          setError(true)
-          return
-        }
-
-        const [nextChannel] = await fetchChannelsByBroadcasterId(
-          [nextUser.id],
-          account.accessToken,
-          account.clientId
-        )
-        if (cancelled) return
-        setChannel(nextChannel ?? null)
-      } catch {
-        if (!cancelled) {
-          setError(true)
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false)
-        }
-      }
+    const key = [
+      account.id,
+      account.clientId,
+      account.accessToken,
+      channelLogin,
+    ].join(":")
+    const existing = playerChannelDataEntries.get(key)
+    if (existing) {
+      return existing
     }
 
-    const loadStream = async () => {
-      try {
-        const [nextStream] = await fetchLiveStreamsByLogin(
-          [channelLogin],
-          account.accessToken,
-          account.clientId
-        )
-        if (!cancelled) {
-          setStream(nextStream ?? null)
-        }
-      } catch {
-        if (!cancelled) {
-          setError(true)
-        }
-      }
-    }
-
-    void loadProfile()
-    void loadStream()
-    const interval = window.setInterval(
-      () => void loadStream(),
-      PLAYER_STREAM_POLL_INTERVAL_MS
-    )
-
-    return () => {
-      cancelled = true
-      window.clearInterval(interval)
-    }
+    const created = new PlayerChannelDataEntry(channelLogin, account)
+    playerChannelDataEntries.set(key, created)
+    return created
   }, [account, channelLogin])
+  const subscribe = React.useCallback(
+    (listener: () => void) => entry?.subscribe(listener) ?? (() => undefined),
+    [entry]
+  )
+  const getSnapshot = React.useCallback(
+    () => entry?.getSnapshot() ?? EMPTY_PLAYER_CHANNEL_DATA,
+    [entry]
+  )
 
-  return { user, channel, stream, loading, error }
+  return React.useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
 }

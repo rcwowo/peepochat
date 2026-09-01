@@ -185,6 +185,7 @@
   }
 
   .chat-presentation {
+    background: var(--chat-background);
     --chat-badge-size: calc(var(--chat-font-size, 13px) * 18 / 13);
   }
 

@@ -144,7 +144,7 @@ function DashboardLayout() {
           notificationsOpen={notificationsOpen}
           onNotificationsOpenChange={handleNotificationsOpenChange}
         />
-        <SidebarInset className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
+        <SidebarInset className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--chat-background)]">
           <div
             className={cn(
               "absolute inset-0 flex min-h-0 min-w-0",

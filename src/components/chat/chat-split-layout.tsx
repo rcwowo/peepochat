@@ -19,6 +19,11 @@ import {
   type ChatSplitLayoutNode,
   type SplitLayoutEdge,
 } from "@/lib/chat/chat-split-layout"
+import {
+  ResizeActivityProvider,
+  ResizeSeparator,
+} from "@/components/resize-session"
+import { usePointerResizeSession } from "@/hooks/use-resize-session"
 import { cn } from "@/lib/utils"
 
 type ChatSplitLayoutProps = {
@@ -42,12 +47,6 @@ type ChatSplitLayoutProps = {
   onResizePath: (splitId: string, path: number[], sizes: number[]) => void
 }
 
-type ResizeState = {
-  key: string
-  path: number[]
-  sizes: number[]
-}
-
 type DragOverlayPreviewProps = {
   login: string
   label: string
@@ -55,7 +54,6 @@ type DragOverlayPreviewProps = {
 }
 
 const DROP_EDGES: SplitLayoutEdge[] = ["top", "right", "bottom", "left"]
-const DIVIDER_HIT_AREA_PX = 11
 
 function pathKey(path: number[]) {
   return path.join(".")
@@ -92,45 +90,6 @@ function distanceToRect(point: { x: number; y: number }, rect: DOMRect) {
         : 0
 
   return Math.hypot(dx, dy)
-}
-
-function ResizeHandle({
-  direction,
-  onPointerDown,
-  onDoubleClick,
-}: {
-  direction: "row" | "column"
-  onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => void
-  onDoubleClick: (event: React.MouseEvent<HTMLDivElement>) => void
-}) {
-  return (
-    <div
-      role="separator"
-      aria-orientation={direction === "row" ? "vertical" : "horizontal"}
-      className={cn(
-        "group relative z-10 shrink-0 touch-none bg-border transition-colors hover:bg-primary/60",
-        direction === "row"
-          ? "h-full w-px cursor-col-resize"
-          : "h-px w-full cursor-row-resize"
-      )}
-      onPointerDown={onPointerDown}
-      onDoubleClick={onDoubleClick}
-    >
-      <div
-        className={cn(
-          "absolute bg-transparent",
-          direction === "row"
-            ? "inset-y-0 left-1/2 -translate-x-1/2"
-            : "inset-x-0 top-1/2 -translate-y-1/2"
-        )}
-        style={
-          direction === "row"
-            ? { width: DIVIDER_HIT_AREA_PX }
-            : { height: DIVIDER_HIT_AREA_PX }
-        }
-      />
-    </div>
-  )
 }
 
 function DragOverlayPreview({
@@ -239,22 +198,27 @@ function SplitPaneDropFrame({
 function SplitNodeView({
   node,
   path,
-  transientSizes,
   activeChannel,
   overChannel,
   dropEdge,
   registerPane,
+  registerResizeChild,
   renderPane,
   onResizeStart,
   onResizeReset,
+  onResizeKeyDown,
 }: {
   node: ChatSplitLayoutNode
   path: number[]
-  transientSizes: Record<string, number[]>
   activeChannel: string | null
   overChannel: string | null
   dropEdge: SplitLayoutEdge | null
   registerPane: (login: string, node: HTMLElement | null) => void
+  registerResizeChild: (
+    path: number[],
+    index: number,
+    node: HTMLElement | null
+  ) => void
   renderPane: (
     login: string,
     dragHandleProps: React.HTMLAttributes<HTMLDivElement>
@@ -267,6 +231,12 @@ function SplitNodeView({
     sizes: number[]
   ) => void
   onResizeReset: (path: number[], count: number) => void
+  onResizeKeyDown: (
+    event: React.KeyboardEvent<HTMLDivElement>,
+    path: number[],
+    index: number,
+    sizes: number[]
+  ) => void
 }) {
   if (node.type === "pane") {
     return (
@@ -281,8 +251,7 @@ function SplitNodeView({
     )
   }
 
-  const key = pathKey(path)
-  const sizes = transientSizes[key] ?? node.children.map((entry) => entry.size)
+  const sizes = node.children.map((entry) => entry.size)
 
   return (
     <div
@@ -294,6 +263,7 @@ function SplitNodeView({
       {node.children.map((entry, index) => (
         <React.Fragment key={`${pathKey([...path, index])}:${index}`}>
           <div
+            ref={(element) => registerResizeChild(path, index, element)}
             className="flex min-h-0 min-w-0 overflow-hidden"
             style={{
               flexBasis: `${sizes[index]}%`,
@@ -304,22 +274,26 @@ function SplitNodeView({
             <SplitNodeView
               node={entry.node}
               path={[...path, index]}
-              transientSizes={transientSizes}
               activeChannel={activeChannel}
               overChannel={overChannel}
               dropEdge={dropEdge}
               registerPane={registerPane}
+              registerResizeChild={registerResizeChild}
               renderPane={renderPane}
               onResizeStart={onResizeStart}
               onResizeReset={onResizeReset}
+              onResizeKeyDown={onResizeKeyDown}
             />
           </div>
           {index < node.children.length - 1 ? (
-            <ResizeHandle
+            <ResizeSeparator
               direction={node.direction}
+              label="Resize chat panes"
+              valueNow={Math.round(sizes[index] ?? 0)}
               onPointerDown={(event) =>
                 onResizeStart(event, path, index, node.direction, sizes)
               }
+              onKeyDown={(event) => onResizeKeyDown(event, path, index, sizes)}
               onDoubleClick={(event) => {
                 event.preventDefault()
                 event.stopPropagation()
@@ -350,27 +324,13 @@ export const ChatSplitLayout = React.memo(function ChatSplitLayout({
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   )
   const paneElementsRef = useLazyRef(() => new Map<string, HTMLElement>())
-  const pointerRef = React.useRef<{ x: number; y: number } | null>(null)
-  const frameRef = React.useRef<number | null>(null)
-  const resizeRef = React.useRef<ResizeState | null>(null)
+  const resizeElementsRef = useLazyRef(() => new Map<string, HTMLElement>())
+  const resizeSession = usePointerResizeSession<number[]>()
   const overChannelRef = React.useRef<string | null>(null)
   const dropEdgeRef = React.useRef<SplitLayoutEdge | null>(null)
   const [activeChannel, setActiveChannel] = React.useState<string | null>(null)
   const [overChannel, setOverChannel] = React.useState<string | null>(null)
   const [dropEdge, setDropEdge] = React.useState<SplitLayoutEdge | null>(null)
-  const [transientSizes, setTransientSizes] = React.useState<
-    Record<string, number[]>
-  >({})
-
-  React.useEffect(() => {
-    const frameRefBinding = frameRef
-    return () => {
-      const frameId = frameRefBinding.current
-      if (frameId !== null) {
-        cancelAnimationFrame(frameId)
-      }
-    }
-  }, [frameRef])
 
   const registerPane = React.useCallback(
     (login: string, node: HTMLElement | null) => {
@@ -385,6 +345,9 @@ export const ChatSplitLayout = React.memo(function ChatSplitLayout({
 
   const setDropTarget = React.useCallback(
     (target: string | null, edge: SplitLayoutEdge | null) => {
+      if (overChannelRef.current === target && dropEdgeRef.current === edge) {
+        return
+      }
       overChannelRef.current = target
       dropEdgeRef.current = edge
       setOverChannel(target)
@@ -441,7 +404,6 @@ export const ChatSplitLayout = React.memo(function ChatSplitLayout({
       const activatorEvent = event.activatorEvent
       if (activatorEvent instanceof PointerEvent) {
         const point = { x: activatorEvent.clientX, y: activatorEvent.clientY }
-        pointerRef.current = point
         updateDropTargetFromPoint(point, String(event.active.id))
       }
     },
@@ -455,7 +417,6 @@ export const ChatSplitLayout = React.memo(function ChatSplitLayout({
           x: event.activatorEvent.clientX + event.delta.x,
           y: event.activatorEvent.clientY + event.delta.y,
         }
-        pointerRef.current = point
         updateDropTargetFromPoint(point, String(event.active.id))
         return
       }
@@ -466,7 +427,6 @@ export const ChatSplitLayout = React.memo(function ChatSplitLayout({
           x: rect.left + rect.width / 2,
           y: rect.top + rect.height / 2,
         }
-        pointerRef.current = point
         updateDropTargetFromPoint(point, String(event.active.id))
       }
     },
@@ -483,7 +443,6 @@ export const ChatSplitLayout = React.memo(function ChatSplitLayout({
       }
       setActiveChannel(null)
       setDropTarget(null, null)
-      pointerRef.current = null
     },
     [onMovePane, setDropTarget, splitId]
   )
@@ -491,29 +450,35 @@ export const ChatSplitLayout = React.memo(function ChatSplitLayout({
   const handleDragCancel = React.useCallback(() => {
     setActiveChannel(null)
     setDropTarget(null, null)
-    pointerRef.current = null
   }, [setDropTarget])
 
-  const onUpdateDropTargetFromPoint = React.useEffectEvent(
-    (point: { x: number; y: number }, active: string) => {
-      updateDropTargetFromPoint(point, active)
-    }
+  const registerResizeChild = React.useCallback(
+    (path: number[], index: number, node: HTMLElement | null) => {
+      const key = `${pathKey(path)}:${index}`
+      if (node) {
+        resizeElementsRef.current.set(key, node)
+      } else {
+        resizeElementsRef.current.delete(key)
+      }
+    },
+    [resizeElementsRef]
   )
 
-  React.useEffect(() => {
-    if (!activeChannel) {
-      return
-    }
-
-    const handlePointerMove = (event: PointerEvent) => {
-      const point = { x: event.clientX, y: event.clientY }
-      pointerRef.current = point
-      onUpdateDropTargetFromPoint(point, activeChannel)
-    }
-
-    window.addEventListener("pointermove", handlePointerMove, { passive: true })
-    return () => window.removeEventListener("pointermove", handlePointerMove)
-  }, [activeChannel])
+  const applyResizePreview = React.useCallback(
+    (path: number[], sizes: number[]) => {
+      sizes.forEach((size, index) => {
+        const element = resizeElementsRef.current.get(
+          `${pathKey(path)}:${index}`
+        )
+        if (!element) {
+          return
+        }
+        element.style.flexBasis = `${size}%`
+        element.style.flexGrow = String(size)
+      })
+    },
+    [resizeElementsRef]
+  )
 
   const handleResizeStart = React.useCallback(
     (
@@ -531,7 +496,6 @@ export const ChatSplitLayout = React.memo(function ChatSplitLayout({
         return
       }
 
-      const key = pathKey(path)
       const rect = container.getBoundingClientRect()
       const axisSize = direction === "row" ? rect.width : rect.height
       if (axisSize <= 0) {
@@ -541,46 +505,24 @@ export const ChatSplitLayout = React.memo(function ChatSplitLayout({
       const startCoordinate =
         direction === "row" ? event.clientX : event.clientY
       const startSizes = [...sizes]
-
-      const commitResize = () => {
-        const state = resizeRef.current
-        resizeRef.current = null
-        setTransientSizes((current) => {
-          const { [key]: _removed, ...rest } = current
-          return rest
-        })
-        if (state) {
-          onResizePath(splitId, state.path, state.sizes)
-        }
-        window.removeEventListener("pointermove", handlePointerMove)
-        window.removeEventListener("pointerup", commitResize)
-      }
-
-      const handlePointerMove = (moveEvent: PointerEvent) => {
-        const coordinate =
-          direction === "row" ? moveEvent.clientX : moveEvent.clientY
-        const deltaPercent = ((coordinate - startCoordinate) / axisSize) * 100
-        const nextSizes = [...startSizes]
-        nextSizes[index] += deltaPercent
-        nextSizes[index + 1] -= deltaPercent
-        const clamped = clampAdjacentSplitSizes(nextSizes, index)
-        resizeRef.current = { key, path, sizes: clamped }
-
-        if (frameRef.current !== null) {
-          cancelAnimationFrame(frameRef.current)
-        }
-
-        frameRef.current = requestAnimationFrame(() => {
-          setTransientSizes((current) => ({ ...current, [key]: clamped }))
-          frameRef.current = null
-        })
-      }
-
-      resizeRef.current = { key, path, sizes: startSizes }
-      window.addEventListener("pointermove", handlePointerMove)
-      window.addEventListener("pointerup", commitResize, { once: true })
+      resizeSession.start({
+        event,
+        initialValue: startSizes,
+        getValue: (moveEvent) => {
+          const coordinate =
+            direction === "row" ? moveEvent.clientX : moveEvent.clientY
+          const deltaPercent = ((coordinate - startCoordinate) / axisSize) * 100
+          const nextSizes = [...startSizes]
+          nextSizes[index] += deltaPercent
+          nextSizes[index + 1] -= deltaPercent
+          return clampAdjacentSplitSizes(nextSizes, index)
+        },
+        onPreview: (nextSizes) => applyResizePreview(path, nextSizes),
+        onCommit: (nextSizes) => onResizePath(splitId, path, nextSizes),
+        onCancel: () => applyResizePreview(path, startSizes),
+      })
     },
-    [onResizePath, splitId]
+    [applyResizePreview, onResizePath, resizeSession, splitId]
   )
 
   const handleResizeReset = React.useCallback(
@@ -597,6 +539,28 @@ export const ChatSplitLayout = React.memo(function ChatSplitLayout({
     [onResizePath, splitId]
   )
 
+  const handleResizeKeyDown = React.useCallback(
+    (
+      event: React.KeyboardEvent<HTMLDivElement>,
+      path: number[],
+      index: number,
+      sizes: number[]
+    ) => {
+      const decrease = event.key === "ArrowLeft" || event.key === "ArrowUp"
+      const increase = event.key === "ArrowRight" || event.key === "ArrowDown"
+      if (!decrease && !increase) {
+        return
+      }
+
+      event.preventDefault()
+      const nextSizes = [...sizes]
+      nextSizes[index] += increase ? 2 : -2
+      nextSizes[index + 1] -= increase ? 2 : -2
+      onResizePath(splitId, path, clampAdjacentSplitSizes(nextSizes, index))
+    },
+    [onResizePath, splitId]
+  )
+
   if (!normalizedLayout) {
     return null
   }
@@ -608,34 +572,37 @@ export const ChatSplitLayout = React.memo(function ChatSplitLayout({
     : null
 
   return (
-    <DndContext
-      sensors={sensors}
-      onDragStart={handleDragStart}
-      onDragMove={handleDragMove}
-      onDragEnd={handleDragEnd}
-      onDragCancel={handleDragCancel}
-    >
-      <SplitNodeView
-        node={normalizedLayout}
-        path={[]}
-        transientSizes={transientSizes}
-        activeChannel={activeChannel}
-        overChannel={overChannel}
-        dropEdge={dropEdge}
-        registerPane={registerPane}
-        renderPane={renderPane}
-        onResizeStart={handleResizeStart}
-        onResizeReset={handleResizeReset}
-      />
-      <DragOverlay dropAnimation={null}>
-        {activeChannel && activePreview ? (
-          <DragOverlayPreview
-            login={activeChannel}
-            label={activePreview.label}
-            profileImageUrl={activePreview.profileImageUrl}
-          />
-        ) : null}
-      </DragOverlay>
-    </DndContext>
+    <ResizeActivityProvider active={resizeSession.active}>
+      <DndContext
+        sensors={sensors}
+        onDragStart={handleDragStart}
+        onDragMove={handleDragMove}
+        onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
+      >
+        <SplitNodeView
+          node={normalizedLayout}
+          path={[]}
+          activeChannel={activeChannel}
+          overChannel={overChannel}
+          dropEdge={dropEdge}
+          registerPane={registerPane}
+          registerResizeChild={registerResizeChild}
+          renderPane={renderPane}
+          onResizeStart={handleResizeStart}
+          onResizeReset={handleResizeReset}
+          onResizeKeyDown={handleResizeKeyDown}
+        />
+        <DragOverlay dropAnimation={null}>
+          {activeChannel && activePreview ? (
+            <DragOverlayPreview
+              login={activeChannel}
+              label={activePreview.label}
+              profileImageUrl={activePreview.profileImageUrl}
+            />
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+    </ResizeActivityProvider>
   )
 })
