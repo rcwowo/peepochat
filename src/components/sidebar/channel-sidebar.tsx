@@ -3,6 +3,7 @@ import {
   CheckCheckIcon,
   CirclePlusIcon,
   ClockIcon,
+  PlusIcon,
   Columns2Icon,
   EyeIcon,
   PlayIcon,
@@ -721,7 +722,7 @@ export function ChannelSidebar({ onAddChannel }: { onAddChannel: () => void }) {
       className="size-11 shrink-0 rounded-full"
       onClick={onAddChannel}
     >
-      <CirclePlusIcon className="size-5 shrink-0" strokeWidth={2.5} />
+      <PlusIcon className="size-5 shrink-0" strokeWidth={2.5} />
       <span className="sr-only">Add channel</span>
     </Button>
   )
