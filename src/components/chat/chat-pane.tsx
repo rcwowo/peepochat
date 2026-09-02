@@ -29,12 +29,15 @@ import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  MenuPanelActions,
+  MenuPanelItem,
+  MenuPanelProvider,
+  MenuPanelSeparator,
+  menuPanelContentClassName,
+} from "@/components/ui/menu-panel"
 import { EmptyState } from "@/components/chat/empty-state"
 import type {
   TwitchSelfChatState,
@@ -53,6 +56,7 @@ import type { TwitchLiveStream } from "@/lib/twitch/twitch-api"
 import { useChannelMessageHighlights } from "@/hooks/chat-ui/use-highlight-activity"
 import {
   usePeepochatChat,
+  usePeepochatPlayer,
   usePeepochatSidebarHighlights,
 } from "@/lib/peepochat/peepochat-context"
 import {
@@ -211,6 +215,8 @@ function ChatPaneInner({
   } = usePeepochatChat()
   const { isChannelLive, getChannelLiveStream } =
     usePeepochatSidebarHighlights()
+  const { playerChannelLogin } = usePeepochatPlayer()
+  const isWatching = playerChannelLogin === channelLogin
   const messageHighlights = useChannelMessageHighlights(channelLogin)
   const composerCatalog = getComposerEmoteCatalog(channelLogin)
   const [rowStripeCache] = React.useState(() => new Map<string, boolean>())
@@ -441,69 +447,69 @@ function ChatPaneInner({
                       <EllipsisIcon className="size-3.5" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-44">
-                    <DropdownMenuLabel>Channel</DropdownMenuLabel>
-                    <DropdownMenuGroup>
-                      {onWatchPlayer ? (
-                        <DropdownMenuItem
-                          onSelect={() => onWatchPlayer(channelLogin)}
-                        >
-                          Watch in Player
-                          <PlayIcon className="ml-auto size-3.5 text-muted-foreground" />
-                        </DropdownMenuItem>
-                      ) : null}
-                      <DropdownMenuItem
-                        data-chatters-trigger={channelLogin}
-                        onSelect={() => {
-                          window.requestAnimationFrame(() => {
-                            setChattersOpen(true)
-                          })
-                        }}
-                      >
-                        View Chatters
-                        <UsersIcon className="ml-auto size-3.5 text-muted-foreground" />
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
+                  <DropdownMenuContent
+                    align="end"
+                    className={menuPanelContentClassName()}
+                  >
+                    <MenuPanelProvider kind="dropdown">
+                      <MenuPanelActions
+                        actions={[
+                          {
+                            icon: UsersIcon,
+                            label: "Chatters",
+                            onSelect: () => {
+                              window.requestAnimationFrame(() => {
+                                setChattersOpen(true)
+                              })
+                            },
+                          },
+                          ...(onWatchPlayer
+                            ? [
+                                {
+                                  icon: PlayIcon,
+                                  label: "Watch",
+                                  disabled: isWatching,
+                                  onSelect: () => onWatchPlayer(channelLogin),
+                                },
+                              ]
+                            : []),
+                        ]}
+                      />
+                      <MenuPanelSeparator />
+                      <MenuPanelItem
+                        icon={RefreshCcwIcon}
+                        label="Reload emotes"
                         onSelect={() => void refreshEmotes(channelLogin)}
-                      >
-                        Refresh Emotes
-                        <RefreshCcwIcon className="ml-auto size-3.5 text-muted-foreground" />
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
+                      />
+                      <MenuPanelSeparator />
+                      <MenuPanelItem
+                        icon={ExternalLinkIcon}
+                        label="Open channel page"
                         onSelect={() =>
                           openExternalTool(
                             `https://www.twitch.tv/${channelLogin}`
                           )
                         }
-                      >
-                        View Channel
-                        <ExternalLinkIcon className="ml-auto size-3.5 text-muted-foreground" />
-                      </DropdownMenuItem>
-                    </DropdownMenuGroup>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuLabel>Tools</DropdownMenuLabel>
-                    <DropdownMenuGroup>
-                      <DropdownMenuItem
-                        onSelect={() =>
-                          openExternalTool(
-                            `${CHATVOICE_URL}/?channel=${encodeURIComponent(channelLogin)}`
-                          )
-                        }
-                      >
-                        Open in Chatvoice
-                        <ExternalLinkIcon className="ml-auto size-3.5 text-muted-foreground" />
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
+                      />
+                      <MenuPanelItem
+                        icon={ExternalLinkIcon}
+                        label="Open chatlogs"
                         onSelect={() =>
                           openExternalTool(
                             `${CHATLOGS_URL}?c=${encodeURIComponent(channelLogin)}`
                           )
                         }
-                      >
-                        View Chatlogs
-                        <ExternalLinkIcon className="ml-auto size-3.5 text-muted-foreground" />
-                      </DropdownMenuItem>
-                    </DropdownMenuGroup>
+                      />
+                      <MenuPanelItem
+                        icon={ExternalLinkIcon}
+                        label="Open in Chatvoice"
+                        onSelect={() =>
+                          openExternalTool(
+                            `${CHATVOICE_URL}/?channel=${encodeURIComponent(channelLogin)}`
+                          )
+                        }
+                      />
+                    </MenuPanelProvider>
                   </DropdownMenuContent>
                 </DropdownMenu>
                 <ChatModesMenu

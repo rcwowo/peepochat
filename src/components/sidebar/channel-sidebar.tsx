@@ -1,13 +1,14 @@
 import * as React from "react"
 import {
   CheckCheckIcon,
+  CirclePlusIcon,
   ClockIcon,
   Columns2Icon,
   EyeIcon,
   PlayIcon,
-  PlusIcon,
   Trash2Icon,
   UngroupIcon,
+  XIcon,
 } from "lucide-react"
 
 import { useStreamUptime } from "@/hooks/twitch/use-stream-uptime"
@@ -28,6 +29,8 @@ import {
 import {
   isUnreadIndicatorEnabledForChannel,
   isUnreadIndicatorEnabledForSplit,
+  isLiveNotificationsEnabledForChannel,
+  isLiveNotificationsEnabledForSplit,
 } from "@/lib/peepochat/peepochat-config"
 import { getSidebarEntries } from "@/lib/sidebar/sidebar-entries"
 import { usePlayerChannelData } from "@/hooks/twitch/use-player-channel-data"
@@ -35,12 +38,18 @@ import { formatViewerCount } from "@/lib/twitch/stream-display"
 import { Button } from "@/components/ui/button"
 import {
   ContextMenu,
-  ContextMenuCheckboxItem,
   ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
+import {
+  MenuPanelActions,
+  MenuPanelCheckboxGroup,
+  MenuPanelCheckboxItem,
+  MenuPanelItem,
+  MenuPanelProvider,
+  MenuPanelSeparator,
+  menuPanelContentClassName,
+} from "@/components/ui/menu-panel"
 import {
   Sidebar,
   SidebarContent,
@@ -134,7 +143,7 @@ function PlayerTooltipContent({
       </div>
       {viewerCount !== null ? (
         <div className="flex items-center gap-2.5 tabular-nums">
-          <span className="flex items-center gap-1">
+          <span className="flex items-center gap-1 text-red-500">
             <EyeIcon className="size-3" aria-hidden />
             {formatViewerCount(viewerCount)}
           </span>
@@ -156,45 +165,81 @@ function PlayerSidebarButton({
   login,
   isActive,
   onSelect,
+  onClose,
 }: {
   login: string
   isActive: boolean
   onSelect: () => void
+  onClose: () => void
 }) {
   const { account, channels } = usePeepochatSettings()
   const { user, stream } = usePlayerChannelData(login, account)
   const savedChannel = channels.find((channel) => channel.login === login)
+  const [tooltipOpen, setTooltipOpen] = React.useState(false)
+  const suppressTooltipUntilLeaveRef = React.useRef(false)
+
+  const handleTooltipOpenChange = React.useCallback((open: boolean) => {
+    if (open && suppressTooltipUntilLeaveRef.current) {
+      return
+    }
+    setTooltipOpen(open)
+  }, [])
+
+  const suppressTooltip = React.useCallback(() => {
+    suppressTooltipUntilLeaveRef.current = true
+    setTooltipOpen(false)
+  }, [])
+
+  const handlePointerLeave = React.useCallback(() => {
+    suppressTooltipUntilLeaveRef.current = false
+    setTooltipOpen(false)
+  }, [])
 
   return (
     <SidebarChannelRow isActive={isActive} showUnread={false}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            type="button"
-            size="icon"
-            aria-current={isActive ? "true" : undefined}
-            aria-label="Open Peepochat Player"
-            className="size-11 shrink-0 rounded-full shine border-2 bg-transparent hover:bg-transparent hover:brightness-110"
-            onClick={onSelect}
+      <ContextMenu onOpenChange={suppressTooltip}>
+        <Tooltip open={tooltipOpen} onOpenChange={handleTooltipOpenChange}>
+          <ContextMenuTrigger asChild>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                size="icon"
+                aria-current={isActive ? "true" : undefined}
+                aria-label="Open Peepochat Player"
+                className="size-11 shrink-0 rounded-full shine border-2 bg-transparent hover:bg-transparent hover:brightness-110"
+                onClick={onSelect}
+                onContextMenu={suppressTooltip}
+                onPointerLeave={handlePointerLeave}
+              >
+                <PlayIcon className="size-5 fill-current" />
+              </Button>
+            </TooltipTrigger>
+          </ContextMenuTrigger>
+          <TooltipContent
+            side="right"
+            className="flex flex-col items-stretch px-2.5 py-2"
           >
-            <PlayIcon className="size-5 fill-current" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent
-          side="right"
-          className="flex flex-col items-stretch px-2.5 py-2"
-        >
-          <PlayerTooltipContent
-            login={login}
-            displayName={user?.displayName || savedChannel?.displayName}
-            profileImageUrl={
-              user?.profileImageUrl || savedChannel?.profileImageUrl
-            }
-            viewerCount={stream?.viewerCount ?? null}
-            startedAt={stream?.startedAt}
-          />
-        </TooltipContent>
-      </Tooltip>
+            <PlayerTooltipContent
+              login={login}
+              displayName={user?.displayName || savedChannel?.displayName}
+              profileImageUrl={
+                user?.profileImageUrl || savedChannel?.profileImageUrl
+              }
+              viewerCount={stream?.viewerCount ?? null}
+              startedAt={stream?.startedAt}
+            />
+          </TooltipContent>
+        </Tooltip>
+        <ContextMenuContent className={menuPanelContentClassName()}>
+          <MenuPanelProvider kind="context">
+            <MenuPanelItem
+              icon={XIcon}
+              label="Close player"
+              onSelect={onClose}
+            />
+          </MenuPanelProvider>
+        </ContextMenuContent>
+      </ContextMenu>
     </SidebarChannelRow>
   )
 }
@@ -313,11 +358,12 @@ function ChannelContextMenu({
   profileImageUrl,
   isActive,
   activeChannelLogin,
-  activeChannelDisplayName,
   unreadEnabled,
+  liveNotificationsEnabled,
   showUnread,
   showPing,
   showLive,
+  isWatching,
   canAddToActiveSplit,
   onSelect,
   onRemove,
@@ -325,17 +371,19 @@ function ChannelContextMenu({
   onWatch,
   onMarkRead,
   onUnreadEnabledChange,
+  onLiveNotificationsChange,
 }: {
   login: string
   displayName?: string
   profileImageUrl?: string
   isActive: boolean
   activeChannelLogin: string
-  activeChannelDisplayName?: string
   unreadEnabled: boolean
+  liveNotificationsEnabled: boolean
   showUnread: boolean
   showPing: boolean
   showLive: boolean
+  isWatching: boolean
   canAddToActiveSplit: boolean
   onSelect: () => void
   onRemove: () => void
@@ -343,16 +391,15 @@ function ChannelContextMenu({
   onWatch: () => void
   onMarkRead: () => void
   onUnreadEnabledChange: (enabled: boolean) => void
+  onLiveNotificationsChange: (enabled: boolean) => void
 }) {
   const label = channelLabel(login, displayName)
-  const activeLabel = channelLabel(activeChannelLogin, activeChannelDisplayName)
   const hasNewMessages = showUnread || showPing
   const canSplit =
     canAddToActiveSplit ||
     (Boolean(activeChannelLogin) && activeChannelLogin !== login)
-  const splitActionLabel = canAddToActiveSplit
-    ? "Add to current split"
-    : `Split with ${activeLabel}`
+  const SplitIcon = canAddToActiveSplit ? CirclePlusIcon : Columns2Icon
+  const splitActionLabel = canAddToActiveSplit ? "Add to Split" : "Split"
 
   return (
     <SidebarIconContextMenu
@@ -361,34 +408,57 @@ function ChannelContextMenu({
       showUnread={showUnread}
       onSelect={onSelect}
       menu={
-        <ContextMenuContent>
-          <ContextMenuItem onSelect={onWatch}>
-            <PlayIcon />
-            Watch in Player
-          </ContextMenuItem>
-          <ContextMenuSeparator />
-          <ContextMenuItem disabled={!hasNewMessages} onSelect={onMarkRead}>
-            <CheckCheckIcon />
-            Mark as read
-          </ContextMenuItem>
-          <ContextMenuCheckboxItem
-            checked={unreadEnabled}
-            onCheckedChange={onUnreadEnabledChange}
-          >
-            Enable unread indicator
-          </ContextMenuCheckboxItem>
-          <ContextMenuSeparator />
-          {canSplit ? (
-            <ContextMenuItem onSelect={onSplit}>
-              <Columns2Icon />
-              {splitActionLabel}
-            </ContextMenuItem>
-          ) : null}
-          {canSplit ? <ContextMenuSeparator /> : null}
-          <ContextMenuItem variant="destructive" onSelect={onRemove}>
-            <Trash2Icon />
-            Remove {label}
-          </ContextMenuItem>
+        <ContextMenuContent className={menuPanelContentClassName()}>
+          <MenuPanelProvider kind="context">
+            <MenuPanelItem
+              icon={CheckCheckIcon}
+              label="Mark as read"
+              disabled={!hasNewMessages}
+              onSelect={onMarkRead}
+            />
+            <MenuPanelSeparator />
+            <MenuPanelActions
+              actions={[
+                ...(canSplit
+                  ? [
+                      {
+                        icon: SplitIcon,
+                        label: splitActionLabel,
+                        onSelect: onSplit,
+                      },
+                    ]
+                  : []),
+                {
+                  icon: PlayIcon,
+                  label: "Watch",
+                  disabled: isWatching,
+                  onSelect: onWatch,
+                },
+              ]}
+            />
+            <MenuPanelSeparator />
+            <MenuPanelCheckboxGroup>
+              <MenuPanelCheckboxItem
+                checked={unreadEnabled}
+                onCheckedChange={onUnreadEnabledChange}
+              >
+                Unread indicator
+              </MenuPanelCheckboxItem>
+              <MenuPanelCheckboxItem
+                checked={liveNotificationsEnabled}
+                onCheckedChange={onLiveNotificationsChange}
+              >
+                Live notifications
+              </MenuPanelCheckboxItem>
+            </MenuPanelCheckboxGroup>
+            <MenuPanelSeparator />
+            <MenuPanelItem
+              icon={Trash2Icon}
+              label={`Remove ${label}`}
+              variant="destructive"
+              onSelect={onRemove}
+            />
+          </MenuPanelProvider>
         </ContextMenuContent>
       }
     >
@@ -407,6 +477,7 @@ function SplitContextMenu({
   channels,
   isActive,
   unreadEnabled,
+  liveNotificationsEnabled,
   showUnread,
   showPing,
   showLive,
@@ -417,6 +488,7 @@ function SplitContextMenu({
   onDelete,
   onMarkRead,
   onUnreadEnabledChange,
+  onLiveNotificationsChange,
 }: {
   channels: Array<{
     login: string
@@ -425,6 +497,7 @@ function SplitContextMenu({
   }>
   isActive: boolean
   unreadEnabled: boolean
+  liveNotificationsEnabled: boolean
   showUnread: boolean
   showPing: boolean
   showLive: boolean
@@ -435,6 +508,7 @@ function SplitContextMenu({
   onDelete: () => void
   onMarkRead: () => void
   onUnreadEnabledChange: (enabled: boolean) => void
+  onLiveNotificationsChange: (enabled: boolean) => void
 }) {
   const label = splitGroupLabel(channels)
   const hasNewMessages = showUnread || showPing
@@ -453,27 +527,42 @@ function SplitContextMenu({
       showUnread={showUnread}
       onSelect={onSelect}
       menu={
-        <ContextMenuContent>
-          <ContextMenuItem disabled={!hasNewMessages} onSelect={onMarkRead}>
-            <CheckCheckIcon />
-            Mark as read
-          </ContextMenuItem>
-          <ContextMenuCheckboxItem
-            checked={unreadEnabled}
-            onCheckedChange={onUnreadEnabledChange}
-          >
-            Enable unread indicator
-          </ContextMenuCheckboxItem>
-          <ContextMenuSeparator />
-          <ContextMenuItem onSelect={onUngroup}>
-            <UngroupIcon />
-            Ungroup split
-          </ContextMenuItem>
-          <ContextMenuSeparator />
-          <ContextMenuItem variant="destructive" onSelect={onDelete}>
-            <Trash2Icon />
-            Delete split
-          </ContextMenuItem>
+        <ContextMenuContent className={menuPanelContentClassName()}>
+          <MenuPanelProvider kind="context">
+            <MenuPanelItem
+              icon={CheckCheckIcon}
+              label="Mark as read"
+              disabled={!hasNewMessages}
+              onSelect={onMarkRead}
+            />
+            <MenuPanelSeparator />
+            <MenuPanelCheckboxGroup>
+              <MenuPanelCheckboxItem
+                checked={unreadEnabled}
+                onCheckedChange={onUnreadEnabledChange}
+              >
+                Unread indicator
+              </MenuPanelCheckboxItem>
+              <MenuPanelCheckboxItem
+                checked={liveNotificationsEnabled}
+                onCheckedChange={onLiveNotificationsChange}
+              >
+                Live notifications
+              </MenuPanelCheckboxItem>
+            </MenuPanelCheckboxGroup>
+            <MenuPanelSeparator />
+            <MenuPanelItem
+              icon={UngroupIcon}
+              label="Ungroup split"
+              onSelect={onUngroup}
+            />
+            <MenuPanelItem
+              icon={Trash2Icon}
+              label="Delete split"
+              variant="destructive"
+              onSelect={onDelete}
+            />
+          </MenuPanelProvider>
         </ContextMenuContent>
       }
     >
@@ -520,18 +609,19 @@ export function ChannelSidebar({ onAddChannel }: { onAddChannel: () => void }) {
     unsplit,
     reorderSidebar,
   } = usePeepochatLayout()
-  const { playerChannelLogin, playerViewActive, openPlayer, selectPlayer } =
-    usePeepochatPlayer()
+  const {
+    playerChannelLogin,
+    playerViewActive,
+    openPlayer,
+    selectPlayer,
+    closePlayer,
+  } = usePeepochatPlayer()
 
   const splitById = React.useMemo(
     () => new Map(savedSplits.map((split) => [split.id, split])),
     [savedSplits]
   )
 
-  const channelByLogin = React.useMemo(
-    () => new Map(channels.map((channel) => [channel.login, channel])),
-    [channels]
-  )
   const activeSplit = activeSplitId ? splitById.get(activeSplitId) : undefined
   const activeSplitChannelSet = React.useMemo(
     () => new Set(activeSplit?.channels ?? []),
@@ -584,6 +674,40 @@ export function ChannelSidebar({ onAddChannel }: { onAddChannel: () => void }) {
     }))
   }
 
+  const setChannelLiveNotificationsEnabled = (
+    login: string,
+    enabled: boolean
+  ) => {
+    updateConfig((current) => ({
+      ...current,
+      twitch: {
+        ...current.twitch,
+        channels: current.twitch.channels.map((channel) =>
+          channel.login === login
+            ? { ...channel, liveNotificationsEnabled: enabled }
+            : channel
+        ),
+      },
+    }))
+  }
+
+  const setSplitLiveNotificationsEnabled = (
+    splitId: string,
+    enabled: boolean
+  ) => {
+    updateConfig((current) => ({
+      ...current,
+      layout: {
+        ...current.layout,
+        splits: current.layout.splits.map((split) =>
+          split.id === splitId
+            ? { ...split, liveNotificationsEnabled: enabled }
+            : split
+        ),
+      },
+    }))
+  }
+
   const handleDeleteSplit = (splitChannels: string[]) => {
     for (const login of splitChannels) {
       removeChannel(login)
@@ -597,7 +721,7 @@ export function ChannelSidebar({ onAddChannel }: { onAddChannel: () => void }) {
       className="size-11 shrink-0 rounded-full"
       onClick={onAddChannel}
     >
-      <PlusIcon className="size-5 shrink-0" strokeWidth={2.5} />
+      <CirclePlusIcon className="size-5 shrink-0" strokeWidth={2.5} />
       <span className="sr-only">Add channel</span>
     </Button>
   )
@@ -607,6 +731,7 @@ export function ChannelSidebar({ onAddChannel }: { onAddChannel: () => void }) {
       login={playerChannelLogin}
       isActive={playerViewActive}
       onSelect={selectPlayer}
+      onClose={closePlayer}
     />
   ) : null
 
@@ -666,6 +791,10 @@ export function ChannelSidebar({ onAddChannel }: { onAddChannel: () => void }) {
                           config,
                           entry.split.id
                         )}
+                        liveNotificationsEnabled={isLiveNotificationsEnabledForSplit(
+                          config,
+                          entry.split.id
+                        )}
                         showUnread={showUnread}
                         showPing={showPing}
                         showLive={isSplitLive(entry.split.channels)}
@@ -674,6 +803,12 @@ export function ChannelSidebar({ onAddChannel }: { onAddChannel: () => void }) {
                         onSelect={() => selectSplit(entry.split.id)}
                         onUnreadEnabledChange={(enabled) =>
                           setSplitUnreadEnabled(entry.split.id, enabled)
+                        }
+                        onLiveNotificationsChange={(enabled) =>
+                          setSplitLiveNotificationsEnabled(
+                            entry.split.id,
+                            enabled
+                          )
                         }
                         onMarkRead={() => markSplitRead(entry.split.id)}
                         onUngroup={() => unsplit(entry.split.id)}
@@ -696,16 +831,18 @@ export function ChannelSidebar({ onAddChannel }: { onAddChannel: () => void }) {
                         entry.channel.login === activeChannelLogin
                       }
                       activeChannelLogin={activeChannelLogin}
-                      activeChannelDisplayName={
-                        channelByLogin.get(activeChannelLogin)?.displayName
-                      }
                       unreadEnabled={isUnreadIndicatorEnabledForChannel(
+                        config,
+                        entry.channel.login
+                      )}
+                      liveNotificationsEnabled={isLiveNotificationsEnabledForChannel(
                         config,
                         entry.channel.login
                       )}
                       showUnread={showUnread}
                       showPing={showPing}
                       showLive={isChannelLive(entry.channel.login)}
+                      isWatching={playerChannelLogin === entry.channel.login}
                       canAddToActiveSplit={
                         isSplitView &&
                         Boolean(activeSplitId) &&
@@ -714,6 +851,12 @@ export function ChannelSidebar({ onAddChannel }: { onAddChannel: () => void }) {
                       onSelect={() => setActiveChannel(entry.channel.login)}
                       onUnreadEnabledChange={(enabled) =>
                         setChannelUnreadEnabled(entry.channel.login, enabled)
+                      }
+                      onLiveNotificationsChange={(enabled) =>
+                        setChannelLiveNotificationsEnabled(
+                          entry.channel.login,
+                          enabled
+                        )
                       }
                       onMarkRead={() => markChannelRead(entry.channel.login)}
                       onRemove={() => removeChannel(entry.channel.login)}

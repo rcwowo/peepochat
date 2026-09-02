@@ -50,7 +50,10 @@ import type {
   TwitchAccount,
   TwitchChannel,
 } from "@/lib/peepochat/peepochat-config"
-import { findSplitContainingChannel } from "@/lib/peepochat/peepochat-config"
+import {
+  findSplitContainingChannel,
+  isLiveNotificationsEnabledForChannel,
+} from "@/lib/peepochat/peepochat-config"
 import {
   setSeventvEmoteRenderOptions,
   setThirdPartyEmoteFetchOptions,
@@ -492,7 +495,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     accessToken: account?.accessToken,
     clientId: account?.clientId,
     onChannelWentLive: (login, title, gameName) => {
-      if (!config.highlights.livePushNotificationsEnabled) return
+      if (!isLiveNotificationsEnabledForChannel(config, login)) return
 
       const normalizedLogin = normalizeChannelLogin(login)
       const isVisible = visibleChannelLoginsRef.current.some(
