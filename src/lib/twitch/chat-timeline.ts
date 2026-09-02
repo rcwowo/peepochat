@@ -213,23 +213,18 @@ export function trimTimeline(
     return timeline
   }
 
-  const { historical, live } = partitionTimeline(timeline)
-  let excess = historical.length + live.length - limit
-
-  if (excess <= 0) {
-    return timeline
+  let historicalCount = 0
+  while (
+    historicalCount < timeline.length &&
+    timeline[historicalCount].isHistorical
+  ) {
+    historicalCount += 1
   }
 
-  let trimmedHistorical = historical
-  if (trimmedHistorical.length > 0) {
-    const removeCount = Math.min(excess, trimmedHistorical.length)
-    trimmedHistorical = trimmedHistorical.slice(removeCount)
-    excess -= removeCount
-  }
-
-  const trimmedLive = excess > 0 ? live.slice(excess) : live
-
-  return [...trimmedHistorical, ...trimmedLive]
+  const excess = timeline.length - limit
+  const dropHistorical = Math.min(excess, historicalCount)
+  const dropLive = excess - dropHistorical
+  return timeline.slice(dropHistorical + dropLive)
 }
 
 export function getTimelineMessageIds(timeline: TwitchTimelineItem[]) {

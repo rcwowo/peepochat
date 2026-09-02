@@ -1,13 +1,12 @@
 import * as React from "react"
 
-import { ChatEmote } from "@/components/chat/chat-emote"
 import { ChatCheermote } from "@/components/chat/chat-cheermote"
+import { ChatEmote } from "@/components/chat/chat-emote"
 import { ChatMention } from "@/components/chat/chat-mention"
-import { matchChatMentions } from "@/lib/chat/chat-mentions"
+import { getMessageBodyTokens } from "@/lib/chat/chat-message-body-tokens"
 import type { PingMatchRange } from "@/lib/highlights/highlight-rules"
 import { PingMatchMark } from "@/lib/highlights/ping-match-mark"
-import { findMessageUrls } from "@/lib/peepochat/peepochat-config"
-import { getEmoteConsumedEnd, type TwitchEmote } from "@/lib/twitch/twitch-chat"
+import type { TwitchEmote } from "@/lib/twitch/twitch-chat"
 
 const EMPTY_HIGHLIGHT_RANGES: PingMatchRange[] = []
 
@@ -106,156 +105,7 @@ function pushHighlightedText(
   }
 }
 
-function renderPlainText(
-  text: string,
-  keyPrefix: string,
-  segmentStart = 0,
-  highlightRanges: PingMatchRange[] = EMPTY_HIGHLIGHT_RANGES,
-  channelLogin?: string
-) {
-  const parts: React.ReactNode[] = []
-  let lastIndex = 0
-  let mentionIndex = 0
-
-  for (const match of matchChatMentions(text)) {
-    const index = match.index ?? -1
-    if (index < 0) {
-      continue
-    }
-
-    if (index > lastIndex) {
-      pushHighlightedText(
-        parts,
-        text.slice(lastIndex, index),
-        `${keyPrefix}-text-${lastIndex}`,
-        segmentStart + lastIndex,
-        highlightRanges,
-        "chat-message-text"
-      )
-    }
-
-    const mentionParts: React.ReactNode[] = []
-    pushHighlightedText(
-      mentionParts,
-      match[0],
-      `${keyPrefix}-mention-inner-${mentionIndex}`,
-      segmentStart + index,
-      highlightRanges
-    )
-    parts.push(
-      <ChatMention
-        key={`${keyPrefix}-mention-${mentionIndex}`}
-        mention={match[0]}
-        channelLogin={channelLogin}
-      >
-        {mentionParts}
-      </ChatMention>
-    )
-
-    lastIndex = index + match[0].length
-    mentionIndex += 1
-  }
-
-  if (lastIndex < text.length) {
-    pushHighlightedText(
-      parts,
-      text.slice(lastIndex),
-      `${keyPrefix}-text-${lastIndex}`,
-      segmentStart + lastIndex,
-      highlightRanges,
-      "chat-message-text"
-    )
-  }
-
-  if (parts.length === 0) {
-    pushHighlightedText(
-      parts,
-      text,
-      keyPrefix,
-      segmentStart,
-      highlightRanges,
-      "chat-message-text"
-    )
-  }
-
-  return parts
-}
-
-function renderTextWithLinks(
-  text: string,
-  keyPrefix: string,
-  segmentStart = 0,
-  highlightRanges: PingMatchRange[] = EMPTY_HIGHLIGHT_RANGES,
-  channelLogin?: string
-) {
-  const urls = findMessageUrls(text)
-
-  if (urls.length === 0) {
-    return renderPlainText(
-      text,
-      keyPrefix,
-      segmentStart,
-      highlightRanges,
-      channelLogin
-    )
-  }
-
-  const parts: React.ReactNode[] = []
-  let lastIdx = 0
-
-  for (const match of urls) {
-    if (match.start > lastIdx) {
-      parts.push(
-        ...renderPlainText(
-          text.slice(lastIdx, match.start),
-          `${keyPrefix}-t-${lastIdx}`,
-          segmentStart + lastIdx,
-          highlightRanges,
-          channelLogin
-        )
-      )
-    }
-
-    const linkParts: React.ReactNode[] = []
-    pushHighlightedText(
-      linkParts,
-      match.url,
-      `${keyPrefix}-l-inner-${match.start}`,
-      segmentStart + match.start,
-      highlightRanges
-    )
-
-    parts.push(
-      <a
-        key={`${keyPrefix}-l-${match.start}-${match.url}`}
-        href={match.url}
-        target="_blank"
-        rel="noreferrer noopener"
-        className="chat-link break-all"
-      >
-        {linkParts.length > 0 ? linkParts : match.url}
-      </a>
-    )
-
-    lastIdx = match.end
-  }
-
-  if (lastIdx < text.length) {
-    parts.push(
-      ...renderPlainText(
-        text.slice(lastIdx),
-        `${keyPrefix}-t-${lastIdx}`,
-        segmentStart + lastIdx,
-        highlightRanges,
-        channelLogin
-      )
-    )
-  }
-
-  return parts
-}
-
-export function ChatMessageBody({
+function ChatMessageBodyInner({
   text,
   emotes,
   pingMatchRange = null,
@@ -275,38 +125,26 @@ export function ChatMessageBody({
         ? [pingMatchRange]
         : EMPTY_HIGHLIGHT_RANGES
 
-  if (emotes.length === 0) {
-    return <>{renderTextWithLinks(text, "message", 0, ranges, channelLogin)}</>
-  }
-
+  const tokens = getMessageBodyTokens(text, emotes)
   const parts: React.ReactNode[] = []
-  let lastIdx = 0
 
-  for (const emote of emotes) {
-    if (emote.start > lastIdx) {
-      parts.push(
-        ...renderTextWithLinks(
-          text.slice(lastIdx, emote.start),
-          `t-${lastIdx}`,
-          lastIdx,
-          ranges,
-          channelLogin
+  for (const token of tokens) {
+    if (token.kind === "emote") {
+      const emote = token.emote
+      const emoteName = text.slice(emote.start, emote.end + 1)
+      if (emote.cheermote) {
+        parts.push(
+          <ChatCheermote
+            key={`c-${emote.start}-${emote.cheermote.amount}`}
+            imageUrl={emote.imageUrl}
+            amount={emote.cheermote.amount}
+            color={emote.cheermote.color}
+            label={emoteName}
+          />
         )
-      )
-    }
+        continue
+      }
 
-    const emoteName = text.slice(emote.start, emote.end + 1)
-    if (emote.cheermote) {
-      parts.push(
-        <ChatCheermote
-          key={`c-${emote.start}-${emote.cheermote.amount}`}
-          imageUrl={emote.imageUrl}
-          amount={emote.cheermote.amount}
-          color={emote.cheermote.color}
-          label={emoteName}
-        />
-      )
-    } else {
       parts.push(
         <ChatEmote
           key={`e-${emote.provider}-${emote.id}-${emote.start}`}
@@ -314,21 +152,65 @@ export function ChatMessageBody({
           label={emoteName}
         />
       )
+      continue
     }
-    lastIdx = getEmoteConsumedEnd(emote)
-  }
 
-  if (lastIdx < text.length) {
-    parts.push(
-      ...renderTextWithLinks(
-        text.slice(lastIdx),
-        `t-${lastIdx}`,
-        lastIdx,
-        ranges,
-        channelLogin
+    const slice = text.slice(token.start, token.end)
+    if (token.kind === "mention") {
+      const mentionParts: React.ReactNode[] = []
+      pushHighlightedText(
+        mentionParts,
+        slice,
+        `mention-inner-${token.start}`,
+        token.start,
+        ranges
       )
+      parts.push(
+        <ChatMention
+          key={`mention-${token.start}`}
+          mention={slice}
+          channelLogin={channelLogin}
+        >
+          {mentionParts}
+        </ChatMention>
+      )
+      continue
+    }
+
+    if (token.kind === "url") {
+      const linkParts: React.ReactNode[] = []
+      pushHighlightedText(
+        linkParts,
+        token.url,
+        `l-inner-${token.start}`,
+        token.start,
+        ranges
+      )
+      parts.push(
+        <a
+          key={`l-${token.start}-${token.url}`}
+          href={token.url}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="chat-link break-all"
+        >
+          {linkParts.length > 0 ? linkParts : token.url}
+        </a>
+      )
+      continue
+    }
+
+    pushHighlightedText(
+      parts,
+      slice,
+      `t-${token.start}`,
+      token.start,
+      ranges,
+      "chat-message-text"
     )
   }
 
   return <>{parts}</>
 }
+
+export const ChatMessageBody = React.memo(ChatMessageBodyInner)

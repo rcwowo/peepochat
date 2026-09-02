@@ -90,7 +90,7 @@ type ChatComposerProps = {
   onComposerFocus?: () => void
 }
 
-export function ChatComposer({
+function ChatComposerInner({
   channelLogin,
   joined = true,
   onLayoutChange,
@@ -1434,3 +1434,5 @@ export function ChatComposer({
     </div>
   )
 }
+
+export const ChatComposer = React.memo(ChatComposerInner)

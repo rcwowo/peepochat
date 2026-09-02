@@ -292,24 +292,26 @@ function ChatPaneInner({
         ? getChannelLiveStream(channelLogin)
         : null
   const visibleTimeline = React.useMemo(() => {
-    if (hideBlockedUsers || !showSuspiciousActivity) {
-      return timeline.filter((entry) => {
-        if (entry.kind === "suspicious" && !showSuspiciousActivity) {
-          return false
-        }
-
-        if (
-          hideBlockedUsers &&
-          (entry.kind === "chat" || entry.kind === "suspicious")
-        ) {
-          return !isUserBlocked(entry.message.userId, entry.message.userName)
-        }
-
-        return true
-      })
+    if (!hideBlockedUsers && showSuspiciousActivity) {
+      return timeline
     }
 
-    return timeline
+    const filtered = timeline.filter((entry) => {
+      if (entry.kind === "suspicious" && !showSuspiciousActivity) {
+        return false
+      }
+
+      if (
+        hideBlockedUsers &&
+        (entry.kind === "chat" || entry.kind === "suspicious")
+      ) {
+        return !isUserBlocked(entry.message.userId, entry.message.userName)
+      }
+
+      return true
+    })
+
+    return filtered.length === timeline.length ? timeline : filtered
   }, [hideBlockedUsers, isUserBlocked, showSuspiciousActivity, timeline])
 
   const scrollLayout = React.useMemo(

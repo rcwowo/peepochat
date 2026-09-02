@@ -135,6 +135,8 @@ export function useChatScroll<T extends TwitchTimelineItem>({
     pausedForChannel === channelLogin
       ? pausedTimeline
       : timeline
+  const displayedTimelineRef = React.useRef(displayedTimeline)
+  displayedTimelineRef.current = displayedTimeline
 
   const clearProgrammaticScroll = React.useCallback(() => {
     if (programmaticScrollClearRef.current !== null) {
@@ -228,15 +230,17 @@ export function useChatScroll<T extends TwitchTimelineItem>({
     [markProgrammaticScroll]
   )
 
-  const getItemKey = React.useCallback(
-    (index: number) => displayedTimeline[index]?.message.id ?? index,
-    [displayedTimeline]
-  )
+  const getItemKey = React.useCallback((index: number) => {
+    return displayedTimelineRef.current[index]?.message.id ?? index
+  }, [])
 
   const estimateSize = React.useCallback(
     (index: number) =>
-      estimateTimelineItemSize(displayedTimeline[index], listLayoutRef.current),
-    [displayedTimeline]
+      estimateTimelineItemSize(
+        displayedTimelineRef.current[index],
+        listLayoutRef.current
+      ),
+    []
   )
 
   /* React will skip memoizing this hook because of the useVirtualizer hook */
@@ -337,9 +341,12 @@ export function useChatScroll<T extends TwitchTimelineItem>({
     }
   }, [schedulePinnedScrollSettle, scrollToEnd])
 
+  const stickToBottomIfPinnedRef = React.useRef(stickToBottomIfPinned)
+  stickToBottomIfPinnedRef.current = stickToBottomIfPinned
+
   const notifyComposerResize = React.useCallback(() => {
-    stickToBottomIfPinned()
-  }, [stickToBottomIfPinned])
+    stickToBottomIfPinnedRef.current()
+  }, [])
 
   React.useEffect(() => {
     return () => {

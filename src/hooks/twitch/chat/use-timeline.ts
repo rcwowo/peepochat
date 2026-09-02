@@ -70,8 +70,79 @@ export function useTimeline({
       updateRoom(login, (room) => {
         const nextRoomId =
           options?.roomId && !room.roomId ? options.roomId : room.roomId
-        const { historical, live } = partitionTimeline(room.timeline)
-        const knownIds = getTimelineMessageIds(room.timeline)
+
+        const liveItems: TwitchTimelineItem[] = []
+        for (const item of items) {
+          if (!item.isHistorical) {
+            liveItems.push(item)
+          }
+        }
+
+        if (liveItems.length === 0 && nextRoomId === room.roomId) {
+          return room
+        }
+
+        const timeline = room.timeline
+        let historicalCount = 0
+        while (
+          historicalCount < timeline.length &&
+          timeline[historicalCount].isHistorical
+        ) {
+          historicalCount += 1
+        }
+
+        if (historicalCount === 0) {
+          const knownIds = getTimelineMessageIds(timeline)
+          const toAdd: TwitchTimelineItem[] = []
+          for (const item of liveItems) {
+            const messageId = item.message.id
+            if (knownIds.has(messageId)) {
+              continue
+            }
+            knownIds.add(messageId)
+            toAdd.push(item)
+          }
+
+          if (toAdd.length === 0) {
+            if (nextRoomId === room.roomId) {
+              return room
+            }
+
+            return {
+              ...room,
+              roomId: nextRoomId,
+            }
+          }
+
+          const combinedLength = timeline.length + toAdd.length
+          const limit = liveMessageLimitRef.current
+          const nextTimeline =
+            combinedLength <= limit
+              ? timeline.concat(toAdd)
+              : timeline.slice(combinedLength - limit).concat(toAdd)
+
+          devChatLogger.debugLazy(() => [
+            "timeline:append-live",
+            {
+              login,
+              added: toAdd.length,
+              total: nextTimeline.length,
+            },
+          ])
+
+          if (nextRoomId === room.roomId) {
+            return { ...room, timeline: nextTimeline }
+          }
+
+          return {
+            ...room,
+            roomId: nextRoomId,
+            timeline: nextTimeline,
+          }
+        }
+
+        const { historical, live, knownIds } =
+          partitionTimelineWithKnownIds(timeline)
         const nextHistorical = [...historical]
         const nextLive = [...live]
         const historicalIndexByMessageId = new Map<string, number>()
@@ -82,11 +153,7 @@ export function useTimeline({
           )
         }
 
-        for (const item of items) {
-          if (item.isHistorical) {
-            continue
-          }
-
+        for (const item of liveItems) {
           const messageId = item.message.id
           const historicalIndex = historicalIndexByMessageId.get(messageId)
           if (historicalIndex !== undefined) {
@@ -126,7 +193,11 @@ export function useTimeline({
         }
 
         const addedCount = nextLive.length - live.length
-        if (addedCount === 0 && nextRoomId === room.roomId) {
+        if (
+          addedCount === 0 &&
+          nextHistorical.length === historical.length &&
+          nextRoomId === room.roomId
+        ) {
           return room
         }
 
