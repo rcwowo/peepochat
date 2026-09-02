@@ -8,6 +8,7 @@ import {
   HistoryIcon,
   LayersIcon,
   Layers2Icon,
+  PlayIcon,
   RadioIcon,
   RefreshCwIcon,
   ShieldAlertIcon,
@@ -338,6 +339,28 @@ export function BehaviorTab() {
           </SettingsGroup>
         </SettingsSection>
       ) : null}
+
+      <SettingsDivider />
+
+      <SettingsSection
+        title="Player"
+        description="Playback behavior for the Peepochat Player."
+      >
+        <SettingsGroup>
+          <SettingsSwitchRow
+            icon={PlayIcon}
+            title="Continue playback in background"
+            description="Keep the stream playing when you switch back to a channel or split."
+            checked={config.player.backgroundPlaybackEnabled}
+            onCheckedChange={(backgroundPlaybackEnabled) =>
+              updateConfig((current) => ({
+                ...current,
+                player: { ...current.player, backgroundPlaybackEnabled },
+              }))
+            }
+          />
+        </SettingsGroup>
+      </SettingsSection>
 
       <SettingsDivider />
 

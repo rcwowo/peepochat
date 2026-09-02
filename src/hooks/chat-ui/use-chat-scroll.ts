@@ -5,6 +5,7 @@ import {
   type Virtualizer,
 } from "@tanstack/react-virtual"
 
+import { useResizeActivity } from "@/hooks/use-resize-session"
 import {
   estimateTimelineItemSize,
   type ChatListLayout,
@@ -60,14 +61,14 @@ export function useChatScroll<T extends TwitchTimelineItem>({
   timeline,
   channelLogin,
   layout,
-  active = true,
 }: {
   timeline: T[]
   channelLogin: string
   layout: ChatScrollLayout
-  active?: boolean
 }) {
+  const resizeActive = useResizeActivity()
   const chatContainerRef = React.useRef<HTMLDivElement>(null)
+  const resizeDirtyRef = React.useRef(false)
   const isProgrammaticScrollRef = React.useRef(false)
   const ignoreScrollRef = React.useRef(false)
   const isPinnedRef = React.useRef(true)
@@ -134,6 +135,8 @@ export function useChatScroll<T extends TwitchTimelineItem>({
     pausedForChannel === channelLogin
       ? pausedTimeline
       : timeline
+  const displayedTimelineRef = React.useRef(displayedTimeline)
+  displayedTimelineRef.current = displayedTimeline
 
   const clearProgrammaticScroll = React.useCallback(() => {
     if (programmaticScrollClearRef.current !== null) {
@@ -227,15 +230,17 @@ export function useChatScroll<T extends TwitchTimelineItem>({
     [markProgrammaticScroll]
   )
 
-  const getItemKey = React.useCallback(
-    (index: number) => displayedTimeline[index]?.message.id ?? index,
-    [displayedTimeline]
-  )
+  const getItemKey = React.useCallback((index: number) => {
+    return displayedTimelineRef.current[index]?.message.id ?? index
+  }, [])
 
   const estimateSize = React.useCallback(
     (index: number) =>
-      estimateTimelineItemSize(displayedTimeline[index], listLayoutRef.current),
-    [displayedTimeline]
+      estimateTimelineItemSize(
+        displayedTimelineRef.current[index],
+        listLayoutRef.current
+      ),
+    []
   )
 
   /* React will skip memoizing this hook because of the useVirtualizer hook */
@@ -252,7 +257,7 @@ export function useChatScroll<T extends TwitchTimelineItem>({
     overscan: 8,
     paddingStart: listPaddingStart,
     paddingEnd: LIST_EDGE_PADDING_PX,
-    enabled: active && displayedTimeline.length > 0,
+    enabled: displayedTimeline.length > 0,
   })
 
   const scrollToEnd = React.useCallback(
@@ -336,9 +341,12 @@ export function useChatScroll<T extends TwitchTimelineItem>({
     }
   }, [schedulePinnedScrollSettle, scrollToEnd])
 
+  const stickToBottomIfPinnedRef = React.useRef(stickToBottomIfPinned)
+  stickToBottomIfPinnedRef.current = stickToBottomIfPinned
+
   const notifyComposerResize = React.useCallback(() => {
-    stickToBottomIfPinned()
-  }, [stickToBottomIfPinned])
+    stickToBottomIfPinnedRef.current()
+  }, [])
 
   React.useEffect(() => {
     return () => {
@@ -530,7 +538,6 @@ export function useChatScroll<T extends TwitchTimelineItem>({
 
   React.useLayoutEffect(() => {
     if (
-      !active ||
       isScrollPaused ||
       !isPinnedRef.current ||
       displayedTimeline.length === 0
@@ -547,7 +554,6 @@ export function useChatScroll<T extends TwitchTimelineItem>({
       schedulePinnedScrollSettle()
     }
   }, [
-    active,
     displayedTimeline.length,
     isScrollPaused,
     schedulePinnedScrollSettle,
@@ -559,14 +565,13 @@ export function useChatScroll<T extends TwitchTimelineItem>({
   const totalSize = virtualizer.getTotalSize()
 
   React.useLayoutEffect(() => {
-    if (!active || isScrollPaused || displayedTimeline.length === 0) {
+    if (isScrollPaused || displayedTimeline.length === 0) {
       return
     }
 
     syncListPadding()
     stickToBottomIfPinned()
   }, [
-    active,
     displayedTimeline.length,
     isScrollPaused,
     listPaddingStart,
@@ -576,10 +581,6 @@ export function useChatScroll<T extends TwitchTimelineItem>({
   ])
 
   React.useLayoutEffect(() => {
-    if (!active) {
-      return
-    }
-
     const viewport = readChatViewport(chatContainerRef.current)
     setViewportWidth((current) =>
       current === viewport.width ? current : viewport.width
@@ -587,13 +588,9 @@ export function useChatScroll<T extends TwitchTimelineItem>({
     setFontFamily((current) =>
       current === viewport.fontFamily ? current : viewport.fontFamily
     )
-  }, [active, displayedTimeline.length])
+  }, [displayedTimeline.length])
 
   React.useLayoutEffect(() => {
-    if (!active) {
-      return
-    }
-
     const animationFrame = window.requestAnimationFrame(() => {
       remeasureMountedItems(virtualizer)
     })
@@ -602,7 +599,6 @@ export function useChatScroll<T extends TwitchTimelineItem>({
       window.cancelAnimationFrame(animationFrame)
     }
   }, [
-    active,
     layout.messageSeparators,
     layout.metrics.emoteSizePx,
     layout.metrics.fontSizePx,
@@ -614,11 +610,28 @@ export function useChatScroll<T extends TwitchTimelineItem>({
     virtualizer,
   ])
 
-  React.useEffect(() => {
-    if (!active) {
+  React.useLayoutEffect(() => {
+    if (resizeActive || !resizeDirtyRef.current) {
       return
     }
 
+    resizeDirtyRef.current = false
+    const viewport = readChatViewport(chatContainerRef.current)
+    setViewportWidth((current) =>
+      current === viewport.width ? current : viewport.width
+    )
+    setFontFamily((current) =>
+      current === viewport.fontFamily ? current : viewport.fontFamily
+    )
+
+    const animationFrame = window.requestAnimationFrame(() => {
+      syncListPadding()
+      stickToBottomIfPinned()
+    })
+    return () => window.cancelAnimationFrame(animationFrame)
+  }, [resizeActive, stickToBottomIfPinned, syncListPadding])
+
+  React.useEffect(() => {
     let animationFrame: number | null = null
     const handleVisibilityChange = () => {
       if (document.visibilityState !== "visible") {
@@ -644,20 +657,15 @@ export function useChatScroll<T extends TwitchTimelineItem>({
         window.cancelAnimationFrame(animationFrame)
       }
     }
-  }, [active, stickToBottomIfPinned, syncListPadding, virtualizer])
+  }, [stickToBottomIfPinned, syncListPadding, virtualizer])
 
-  React.useLayoutEffect(() => {
-    const chatContainer = chatContainerRef.current
-    if (
-      !active ||
-      displayedTimeline.length === 0 ||
-      !chatContainer ||
-      typeof ResizeObserver === "undefined"
-    ) {
-      return
-    }
+  const onChatContainerResize = React.useEffectEvent(
+    (chatContainer: HTMLDivElement) => {
+      if (resizeActive) {
+        resizeDirtyRef.current = true
+        return
+      }
 
-    const observer = new ResizeObserver(() => {
       const viewport = readChatViewport(chatContainer)
       setViewportWidth((current) =>
         current === viewport.width ? current : viewport.width
@@ -667,6 +675,21 @@ export function useChatScroll<T extends TwitchTimelineItem>({
       )
       syncListPadding()
       stickToBottomIfPinned()
+    }
+  )
+
+  React.useLayoutEffect(() => {
+    const chatContainer = chatContainerRef.current
+    if (
+      displayedTimeline.length === 0 ||
+      !chatContainer ||
+      typeof ResizeObserver === "undefined"
+    ) {
+      return
+    }
+
+    const observer = new ResizeObserver(() => {
+      onChatContainerResize(chatContainer)
     })
 
     observer.observe(chatContainer)
@@ -674,7 +697,7 @@ export function useChatScroll<T extends TwitchTimelineItem>({
     return () => {
       observer.disconnect()
     }
-  }, [active, displayedTimeline.length, stickToBottomIfPinned, syncListPadding])
+  }, [displayedTimeline.length])
 
   return {
     chatContainerRef,

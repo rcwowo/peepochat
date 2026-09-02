@@ -50,7 +50,10 @@ import type {
   TwitchAccount,
   TwitchChannel,
 } from "@/lib/peepochat/peepochat-config"
-import { findSplitContainingChannel } from "@/lib/peepochat/peepochat-config"
+import {
+  findSplitContainingChannel,
+  isLiveNotificationsEnabledForChannel,
+} from "@/lib/peepochat/peepochat-config"
 import {
   setSeventvEmoteRenderOptions,
   setThirdPartyEmoteFetchOptions,
@@ -131,6 +134,14 @@ export type PeepochatSidebarHighlightsContextValue = {
   ) => import("@/lib/twitch/twitch-api").TwitchLiveStream | null
   isSplitLive: (channelLogins: string[]) => boolean
   liveIndicatorsEnabled: boolean
+}
+
+export type PeepochatPlayerContextValue = {
+  playerChannelLogin: string | null
+  playerViewActive: boolean
+  openPlayer: (login: string) => void
+  selectPlayer: () => void
+  closePlayer: () => void
 }
 
 export type PeepochatChatContextValue = {
@@ -218,6 +229,8 @@ const PeepochatChatContext =
   React.createContext<PeepochatChatContextValue | null>(null)
 const PeepochatSidebarHighlightsContext =
   React.createContext<PeepochatSidebarHighlightsContextValue | null>(null)
+const PeepochatPlayerContext =
+  React.createContext<PeepochatPlayerContextValue | null>(null)
 
 export function usePeepochatSettings() {
   const context = React.useContext(PeepochatConfigContext)
@@ -230,14 +243,13 @@ export function usePeepochatSettings() {
 }
 
 export function usePeepochatLayout() {
-  const config = React.useContext(PeepochatConfigContext)
   const layout = React.useContext(PeepochatLayoutContext)
-  if (!config || !layout) {
+  if (!layout) {
     throw new Error(
       "usePeepochatLayout must be used within a PeepochatProvider"
     )
   }
-  return { ...config, ...layout }
+  return layout
 }
 
 export function usePeepochatSidebarHighlights() {
@@ -245,6 +257,16 @@ export function usePeepochatSidebarHighlights() {
   if (!context) {
     throw new Error(
       "usePeepochatSidebarHighlights must be used within a PeepochatProvider"
+    )
+  }
+  return context
+}
+
+export function usePeepochatPlayer() {
+  const context = React.useContext(PeepochatPlayerContext)
+  if (!context) {
+    throw new Error(
+      "usePeepochatPlayer must be used within a PeepochatProvider"
     )
   }
   return context
@@ -279,6 +301,10 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     updateConfig,
     restoreBackup,
   } = usePeepochatConfig()
+  const [playerChannelLogin, setPlayerChannelLogin] = React.useState<
+    string | null
+  >(null)
+  const [playerViewActive, setPlayerViewActive] = React.useState(false)
   const {
     account,
     oauthBusy,
@@ -409,8 +435,8 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     channels,
     activeChannelLogin,
     setActiveChannel: setActiveChannelBase,
-    addChannel,
-    removeChannel,
+    addChannel: addChannelBase,
+    removeChannel: removeChannelBase,
   } = useTwitchChannels({
     config,
     updateConfig,
@@ -420,22 +446,35 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     () => channels.map((channel) => channel.login),
     [channels]
   )
+  const activePlayerChannelLogin =
+    playerChannelLogin && channelLogins.includes(playerChannelLogin)
+      ? playerChannelLogin
+      : null
+  const isPlayerViewActive =
+    playerViewActive && activePlayerChannelLogin !== null
 
   const focusChannelRef = React.useRef<(login: string) => void>((login) => {
     setActiveChannelBase(login)
   })
 
-  const visibleChannelLoginsRef = React.useRef(visibleChannelLogins)
+  const effectiveVisibleChannelLogins = React.useMemo(
+    () =>
+      isPlayerViewActive && activePlayerChannelLogin
+        ? [activePlayerChannelLogin]
+        : visibleChannelLogins,
+    [activePlayerChannelLogin, isPlayerViewActive, visibleChannelLogins]
+  )
+  const visibleChannelLoginsRef = React.useRef(effectiveVisibleChannelLogins)
   React.useEffect(() => {
-    visibleChannelLoginsRef.current = visibleChannelLogins
-  }, [visibleChannelLogins])
+    visibleChannelLoginsRef.current = effectiveVisibleChannelLogins
+  }, [effectiveVisibleChannelLogins])
 
   const highlightActivity = useHighlightActivity({
     config,
     accountLogin: account?.login ?? null,
-    visibleChannelLogins,
-    isSplitView,
-    activeSplitId,
+    visibleChannelLogins: effectiveVisibleChannelLogins,
+    isSplitView: isPlayerViewActive ? false : isSplitView,
+    activeSplitId: isPlayerViewActive ? null : activeSplitId,
     splits: savedSplits,
     onFocusChannel: (login) => {
       focusChannelRef.current(login)
@@ -456,7 +495,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     accessToken: account?.accessToken,
     clientId: account?.clientId,
     onChannelWentLive: (login, title, gameName) => {
-      if (!config.highlights.livePushNotificationsEnabled) return
+      if (!isLiveNotificationsEnabledForChannel(config, login)) return
 
       const normalizedLogin = normalizeChannelLogin(login)
       const isVisible = visibleChannelLoginsRef.current.some(
@@ -499,6 +538,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
 
   const setActiveChannel = React.useCallback(
     (login: string) => {
+      setPlayerViewActive(false)
       const normalized = normalizeChannelLogin(login)
       const split = findSplitContainingChannel(savedSplits, normalized)
 
@@ -527,11 +567,54 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
 
   const selectSplitWithRead = React.useCallback(
     (splitId: string) => {
+      setPlayerViewActive(false)
       highlightActivity.markSplitRead(splitId)
       selectSplit(splitId)
     },
     [highlightActivity, selectSplit]
   )
+
+  const addChannel = React.useCallback(
+    async (login: string) => {
+      setPlayerViewActive(false)
+      return addChannelBase(login)
+    },
+    [addChannelBase]
+  )
+
+  const removeChannel = React.useCallback(
+    (login: string) => {
+      const normalized = normalizeChannelLogin(login)
+      if (normalized === playerChannelLogin) {
+        setPlayerChannelLogin(null)
+        setPlayerViewActive(false)
+      }
+      removeChannelBase(normalized)
+    },
+    [playerChannelLogin, removeChannelBase]
+  )
+
+  const openPlayer = React.useCallback(
+    (login: string) => {
+      const normalized = normalizeChannelLogin(login)
+      if (!normalized) return
+      highlightActivity.markChannelRead(normalized)
+      setPlayerChannelLogin(normalized)
+      setPlayerViewActive(true)
+    },
+    [highlightActivity]
+  )
+
+  const selectPlayer = React.useCallback(() => {
+    if (!playerChannelLogin) return
+    highlightActivity.markChannelRead(playerChannelLogin)
+    setPlayerViewActive(true)
+  }, [highlightActivity, playerChannelLogin])
+
+  const closePlayer = React.useCallback(() => {
+    setPlayerChannelLogin(null)
+    setPlayerViewActive(false)
+  }, [])
 
   React.useEffect(() => {
     setRecentMessagesEnabled(config.chat.recentMessagesEnabled)
@@ -620,11 +703,20 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     })
   }, [channelLogins, hasAccountValue, needsOnboarding, ready, syncAllChannels])
 
+  const effectiveMountedChannelLogins = React.useMemo(
+    () =>
+      activePlayerChannelLogin &&
+      !mountedChannelLogins.includes(activePlayerChannelLogin)
+        ? [...mountedChannelLogins, activePlayerChannelLogin]
+        : mountedChannelLogins,
+    [activePlayerChannelLogin, mountedChannelLogins]
+  )
+
   React.useEffect(() => {
-    for (const login of mountedChannelLogins) {
+    for (const login of effectiveMountedChannelLogins) {
       loadBadgesForRoom(getRoomId(login))
     }
-  }, [getRoomId, loadBadgesForRoom, mountedChannelLogins])
+  }, [effectiveMountedChannelLogins, getRoomId, loadBadgesForRoom])
 
   const channelHints = React.useMemo(
     () =>
@@ -752,6 +844,8 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
   )
 
   const handleLogout = React.useCallback(() => {
+    setPlayerChannelLogin(null)
+    setPlayerViewActive(false)
     void syncChannels([])
     logout()
     requireOnboarding()
@@ -890,6 +984,23 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       ]
     )
 
+  const playerValue = React.useMemo<PeepochatPlayerContextValue>(
+    () => ({
+      playerChannelLogin: activePlayerChannelLogin,
+      playerViewActive: isPlayerViewActive,
+      openPlayer,
+      selectPlayer,
+      closePlayer,
+    }),
+    [
+      closePlayer,
+      openPlayer,
+      activePlayerChannelLogin,
+      isPlayerViewActive,
+      selectPlayer,
+    ]
+  )
+
   const chatValue = React.useMemo<PeepochatChatContextValue>(
     () => ({
       connectionState,
@@ -985,9 +1096,11 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
         <PeepochatSidebarHighlightsContext.Provider
           value={sidebarHighlightsValue}
         >
-          <PeepochatChatContext.Provider value={chatValue}>
-            {children}
-          </PeepochatChatContext.Provider>
+          <PeepochatPlayerContext.Provider value={playerValue}>
+            <PeepochatChatContext.Provider value={chatValue}>
+              {children}
+            </PeepochatChatContext.Provider>
+          </PeepochatPlayerContext.Provider>
         </PeepochatSidebarHighlightsContext.Provider>
       </PeepochatLayoutContext.Provider>
     </PeepochatConfigContext.Provider>

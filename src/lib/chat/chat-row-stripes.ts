@@ -1,4 +1,4 @@
-import { isTimelineAppend } from "@/lib/chat/timeline-prefix"
+import { getTimelineWindowShift } from "@/lib/chat/timeline-prefix"
 
 type TimelineEntryWithId = { message: { id: string } }
 
@@ -83,11 +83,16 @@ export function updateStableRowStripes<T extends TimelineEntryWithId>(
 ) {
   const previousTimeline = cache.timeline
 
-  if (previousTimeline && isTimelineAppend(previousTimeline, timeline)) {
-    pruneRowStripes(rowStripes, timeline)
-    appendRowStripes(rowStripes, timeline, previousTimeline.length)
-    cache.timeline = timeline
-    return rowStripes
+  if (previousTimeline) {
+    const shift = getTimelineWindowShift(previousTimeline, timeline)
+    if (shift) {
+      for (let index = 0; index < shift.dropped; index += 1) {
+        rowStripes.delete(previousTimeline[index].message.id)
+      }
+      appendRowStripes(rowStripes, timeline, shift.addedFrom)
+      cache.timeline = timeline
+      return rowStripes
+    }
   }
 
   cache.timeline = timeline

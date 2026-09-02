@@ -4,6 +4,7 @@ import { SparklesIcon } from "lucide-react"
 
 import {
   PeepochatProvider,
+  usePeepochatPlayer,
   usePeepochatSettings,
 } from "@/lib/peepochat/peepochat-context"
 import {
@@ -25,9 +26,12 @@ import {
 } from "@/components/settings/settings-dialog"
 import { shouldPreventSettingsDismiss } from "@/lib/settings/settings-portaled-layers"
 import { ChatPage } from "@/pages/chat-page"
+import { PlayerPage } from "@/pages/player-page"
+import { cn } from "@/lib/utils"
 
 function DashboardLayout() {
   const { ready, needsOnboarding, completeOnboarding } = usePeepochatSettings()
+  const { playerChannelLogin, playerViewActive } = usePeepochatPlayer()
   const { channelSidebarVisible, toggleChannelSidebar } =
     useChannelSidebarVisibility()
   const [settingsOpen, setSettingsOpen] = React.useState(false)
@@ -140,8 +144,33 @@ function DashboardLayout() {
           notificationsOpen={notificationsOpen}
           onNotificationsOpenChange={handleNotificationsOpenChange}
         />
-        <SidebarInset className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
-          <ChatPage />
+        <SidebarInset className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--chat-background)]">
+          <div
+            className={cn(
+              "absolute inset-0 flex min-h-0 min-w-0",
+              playerViewActive
+                ? "pointer-events-none z-0 opacity-0"
+                : "z-10 opacity-100"
+            )}
+            aria-hidden={playerViewActive}
+            inert={playerViewActive}
+          >
+            <ChatPage active={!playerViewActive} />
+          </div>
+          {playerChannelLogin ? (
+            <div
+              className={cn(
+                "absolute inset-0 flex min-h-0 min-w-0",
+                playerViewActive
+                  ? "z-10 opacity-100"
+                  : "pointer-events-none z-0 opacity-0"
+              )}
+              aria-hidden={!playerViewActive}
+              inert={!playerViewActive}
+            >
+              <PlayerPage />
+            </div>
+          ) : null}
         </SidebarInset>
       </div>
       {settingsOpen && (

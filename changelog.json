@@ -1,5 +1,15 @@
 [
     {
+    	"version": "1.1.4",
+	"date": "2026-09-31",
+	"items": [
+	    "Added the player to watch streams from within the client.",
+	    "Minor redesign to context/dropdown menus.",
+	    "Fixed a performance issue with resizing chat panes.",
+	    "Fixed a few performance issues with rendering/processing new messages."
+	]
+    },
+    {
         "version": "1.1.3",
         "date": "2026-08-31",
         "items": [

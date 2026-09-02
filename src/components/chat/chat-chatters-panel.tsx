@@ -190,22 +190,54 @@ function buildChatterRows(
   return rows
 }
 
-export function ChatChattersPanel({
+type ChatChattersPanelProps = {
+  channelLogin: string
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}
+
+export function ChatChattersPanel(props: ChatChattersPanelProps) {
+  const [query, setQuery] = React.useState("")
+  const [sort, setSort] = React.useState<ChatterListSort>("alpha")
+
+  if (!props.open) {
+    return null
+  }
+
+  return (
+    <ChatChattersPanelContent
+      channelLogin={props.channelLogin}
+      open={props.open}
+      onOpenChange={props.onOpenChange}
+      query={query}
+      onQueryChange={setQuery}
+      sort={sort}
+      onSortChange={setSort}
+    />
+  )
+}
+
+function ChatChattersPanelContent({
   channelLogin,
   open,
   onOpenChange,
+  query,
+  onQueryChange,
+  sort,
+  onSortChange,
 }: {
   channelLogin: string
-  channelDisplayName?: string
   open: boolean
   onOpenChange: (open: boolean) => void
+  query: string
+  onQueryChange: (query: string) => void
+  sort: ChatterListSort
+  onSortChange: React.Dispatch<React.SetStateAction<ChatterListSort>>
 }) {
   const liveChatters = useChannelChatters(channelLogin)
   const chattersLoading = useChannelChattersLoading(channelLogin)
   const { hideBlockedUsers, isUserBlocked } = usePeepochatChat()
   const userCard = useUserCardContext()
-  const [query, setQuery] = React.useState("")
-  const [sort, setSort] = React.useState<ChatterListSort>("alpha")
   const [scrollElement, setScrollElement] =
     React.useState<HTMLDivElement | null>(null)
 
@@ -319,7 +351,7 @@ export function ChatChattersPanel({
           <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-3">
             <Input
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => onQueryChange(event.target.value)}
               placeholder="Search for chatters..."
               aria-label="Search for chatters"
               className="h-8 min-w-0 flex-1 text-sm"
@@ -333,7 +365,7 @@ export function ChatChattersPanel({
                 sort === "recency" ? "Sort alphabetically" : "Sort by recent"
               }
               onClick={() =>
-                setSort((current) =>
+                onSortChange((current) =>
                   current === "recency" ? "alpha" : "recency"
                 )
               }

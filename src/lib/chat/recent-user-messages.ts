@@ -1,4 +1,4 @@
-import { isTimelineAppend } from "@/lib/chat/timeline-prefix"
+import { getTimelineWindowShift } from "@/lib/chat/timeline-prefix"
 import type { TwitchChatMessage } from "@/lib/twitch/twitch-chat"
 import type {
   TwitchSuspiciousUserMessage,
@@ -71,6 +71,54 @@ function rememberRecentUserMessage(
   buckets.set(key, bucket)
 }
 
+function forgetRecentUserMessage(
+  buckets: Map<string, TwitchChatMessage[]>,
+  key: string | null | undefined,
+  messageId: string
+) {
+  if (!key) {
+    return false
+  }
+
+  const existing = buckets.get(key)
+  if (!existing) {
+    return false
+  }
+
+  const next = existing.filter((message) => message.id !== messageId)
+  if (next.length === existing.length) {
+    return false
+  }
+
+  if (next.length === 0) {
+    buckets.delete(key)
+  } else {
+    buckets.set(key, next)
+  }
+  return true
+}
+
+function forgetTimelineEntry(
+  buckets: Map<string, TwitchChatMessage[]>,
+  entry: TimelineEntry
+) {
+  if (entry.kind !== "chat" && entry.kind !== "suspicious") {
+    return false
+  }
+
+  const message = entry.message
+  const loginChanged = forgetRecentUserMessage(
+    buckets,
+    `login:${message.userName.toLowerCase()}`,
+    message.id
+  )
+  const idChanged = forgetRecentUserMessage(
+    buckets,
+    message.userId ? `id:${message.userId}` : null,
+    message.id
+  )
+  return loginChanged || idChanged
+}
 function rememberTimelineEntry(
   buckets: Map<string, TwitchChatMessage[]>,
   entry: TimelineEntry,
@@ -141,20 +189,29 @@ export function updateRecentUserMessageBuckets(
 ): Map<string, TwitchChatMessage[]> {
   const previousTimeline = cache.timeline
 
-  if (previousTimeline && isTimelineAppend(previousTimeline, timeline)) {
-    const buckets = new Map(cache.buckets)
+  if (previousTimeline) {
+    const shift = getTimelineWindowShift(previousTimeline, timeline)
+    if (shift) {
+      const buckets = new Map(cache.buckets)
+      let lostRecent = false
 
-    for (
-      let index = previousTimeline.length;
-      index < timeline.length;
-      index += 1
-    ) {
-      rememberTimelineEntry(buckets, timeline[index], limit)
+      for (let index = 0; index < shift.dropped; index += 1) {
+        if (forgetTimelineEntry(buckets, previousTimeline[index])) {
+          lostRecent = true
+          break
+        }
+      }
+
+      if (!lostRecent) {
+        for (let index = shift.addedFrom; index < timeline.length; index += 1) {
+          rememberTimelineEntry(buckets, timeline[index], limit)
+        }
+
+        cache.timeline = timeline
+        cache.buckets = buckets
+        return buckets
+      }
     }
-
-    cache.timeline = timeline
-    cache.buckets = buckets
-    return buckets
   }
 
   const rebuilt = getRecentUserMessageBuckets(timeline, limit)

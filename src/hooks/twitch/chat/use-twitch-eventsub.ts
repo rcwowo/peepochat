@@ -5,6 +5,7 @@ import type { TwitchAccount } from "@/lib/peepochat/peepochat-config"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 import type {
   TwitchAutomodHeldStatus,
+  TwitchChatRoomState,
   TwitchSelfChatState,
   TwitchTimelineItem,
 } from "@/lib/twitch/twitch-chat-types"
@@ -118,7 +119,7 @@ function buildSyncKey({
 }: {
   account: TwitchAccount
   syncedChannels: readonly string[]
-  rooms: RoomStore["rooms"]
+  rooms: Record<string, TwitchChatRoomState>
   selfStates: Map<string, TwitchSelfChatState>
   showSuspiciousActivity: boolean
   showChannelUpdates: boolean
@@ -156,7 +157,7 @@ export function useTwitchEventSub({
   hideBlockedUsersRef,
   isUserBlockedRef,
 }: UseTwitchEventSubOptions) {
-  const { rooms, roomsRef, updateRoom } = roomStore
+  const { roomsRef, updateRoom, subscribeToRoomIds, getRoomIdsKey } = roomStore
   const client = React.useMemo(() => getTwitchEventSubClient(), [])
   const accountRef = React.useRef(account)
   const onAuthFailureRef = React.useRef(onAuthFailure)
@@ -191,10 +192,11 @@ export function useTwitchEventSub({
   )
   const sourceProfileFetchesRef = React.useRef(new Set<string>())
   const sourceProfilesResolvedRef = React.useRef(new Set<string>())
-  const roomIdsKey = Object.keys(rooms)
-    .sort()
-    .map((login) => `${login}:${rooms[login]?.roomId?.trim() ?? ""}`)
-    .join("|")
+  const roomIdsKey = React.useSyncExternalStore(
+    subscribeToRoomIds,
+    getRoomIdsKey,
+    getRoomIdsKey
+  )
 
   React.useLayoutEffect(() => {
     accountRef.current = account
@@ -1222,6 +1224,7 @@ export function useTwitchEventSub({
   ])
 
   React.useEffect(() => {
+    client.retain()
     const channelUpdateState = channelUpdateStateRef.current
     const channelUpdatePending = channelUpdatePendingRef.current
     const sharedChatState = sharedChatStateRef.current
@@ -1231,8 +1234,7 @@ export function useTwitchEventSub({
       channelUpdateState.clear()
       channelUpdatePending.clear()
       sharedChatState.clear()
-      client.setDesiredSubscriptions([])
-      client.setAuth(null)
+      client.release()
     }
   }, [client])
 

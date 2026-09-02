@@ -7,16 +7,61 @@ import type {
   TwitchTimelineItem,
 } from "@/lib/twitch/twitch-chat-types"
 
+const EMPTY_ROOMS: Record<string, TwitchChatRoomState> = {}
 const EMPTY_TIMELINE: TwitchTimelineItem[] = []
 
+export function applyEnsureRooms(
+  current: Record<string, TwitchChatRoomState>,
+  channelLogins: string[]
+): Record<string, TwitchChatRoomState> {
+  let next: Record<string, TwitchChatRoomState> | null = null
+  for (const login of channelLogins) {
+    const existing = current[login]
+    if (!existing) {
+      next ??= { ...current }
+      next[login] = createEmptyRoom(login)
+      continue
+    }
+
+    const joining = !existing.joined
+    if (existing.joining === joining) {
+      continue
+    }
+
+    next ??= { ...current }
+    next[login] = { ...existing, joining }
+  }
+
+  return next ?? current
+}
+
+export function applyRoomUpdate(
+  current: Record<string, TwitchChatRoomState>,
+  login: string,
+  updater: (room: TwitchChatRoomState) => TwitchChatRoomState
+): Record<string, TwitchChatRoomState> {
+  const existing = current[login]
+  const room = existing ?? createEmptyRoom(login)
+  const nextRoom = updater(room)
+  if (nextRoom === room && existing) {
+    return current
+  }
+
+  return { ...current, [login]: nextRoom }
+}
+
+export function computeRoomIdsKey(
+  rooms: Record<string, TwitchChatRoomState>
+): string {
+  return Object.keys(rooms)
+    .sort()
+    .map((login) => `${login}:${rooms[login]?.roomId?.trim() ?? ""}`)
+    .join("|")
+}
+
 export function useRoomStore() {
-  const [rooms, setRooms] = React.useState<Record<string, TwitchChatRoomState>>(
-    {}
-  )
-  const roomsRef = React.useRef(rooms)
-  React.useEffect(() => {
-    roomsRef.current = rooms
-  }, [rooms])
+  const roomsRef =
+    React.useRef<Record<string, TwitchChatRoomState>>(EMPTY_ROOMS)
 
   const roomSubscribersRef = React.useRef<Map<string, Set<() => void>> | null>(
     null
@@ -52,24 +97,54 @@ export function useRoomStore() {
     [notifyRoomSubscribers]
   )
 
+  const lastNotifiedRoomsRef = React.useRef(EMPTY_ROOMS)
+  const notifyScheduledRef = React.useRef(false)
+  const roomIdListenersRef = React.useRef<Set<() => void> | null>(null)
+  if (roomIdListenersRef.current === null) {
+    roomIdListenersRef.current = new Set()
+  }
+  const roomIdsKeyRef = React.useRef("")
+
+  const flushRoomSubscriberNotifications = React.useCallback(() => {
+    notifyScheduledRef.current = false
+    const current = lastNotifiedRoomsRef.current
+    const next = roomsRef.current
+    lastNotifiedRoomsRef.current = next
+    notifyChangedRoomSubscribers(current, next)
+  }, [notifyChangedRoomSubscribers])
+
+  const scheduleRoomSubscriberNotifications = React.useCallback(() => {
+    if (notifyScheduledRef.current) {
+      return
+    }
+    notifyScheduledRef.current = true
+    queueMicrotask(flushRoomSubscriberNotifications)
+  }, [flushRoomSubscriberNotifications])
+
   const commitRooms = React.useCallback(
     (
       updater: (
         current: Record<string, TwitchChatRoomState>
       ) => Record<string, TwitchChatRoomState>
     ) => {
-      setRooms((current) => {
-        const next = updater(current)
-        if (next === current) {
-          return current
-        }
+      const current = roomsRef.current
+      const next = updater(current)
+      if (next === current) {
+        return
+      }
 
-        roomsRef.current = next
-        notifyChangedRoomSubscribers(current, next)
-        return next
-      })
+      roomsRef.current = next
+      scheduleRoomSubscriberNotifications()
+
+      const nextRoomIdsKey = computeRoomIdsKey(next)
+      if (nextRoomIdsKey !== roomIdsKeyRef.current) {
+        roomIdsKeyRef.current = nextRoomIdsKey
+        for (const listener of roomIdListenersRef.current!) {
+          listener()
+        }
+      }
     },
-    [notifyChangedRoomSubscribers]
+    [scheduleRoomSubscriberNotifications]
   )
 
   const subscribeToRoom = React.useCallback(
@@ -92,33 +167,33 @@ export function useRoomStore() {
     []
   )
 
+  const subscribeToRoomIds = React.useCallback((listener: () => void) => {
+    const listeners = roomIdListenersRef.current!
+    listeners.add(listener)
+    return () => {
+      listeners.delete(listener)
+    }
+  }, [])
+
+  const getRoomIdsKey = React.useCallback(() => {
+    return roomIdsKeyRef.current
+  }, [])
+
   const updateRoom = React.useCallback(
     (
       login: string,
       updater: (room: TwitchChatRoomState) => TwitchChatRoomState
     ) => {
-      const normalized = normalizeChannelLogin(login)
-      commitRooms((current) => {
-        const existing = current[normalized] ?? createEmptyRoom(normalized)
-        return { ...current, [normalized]: updater(existing) }
-      })
+      commitRooms((current) =>
+        applyRoomUpdate(current, normalizeChannelLogin(login), updater)
+      )
     },
     [commitRooms]
   )
 
   const ensureRooms = React.useCallback(
     (channelLogins: string[]) => {
-      commitRooms((current) => {
-        const next = { ...current }
-        for (const login of channelLogins) {
-          if (!next[login]) {
-            next[login] = createEmptyRoom(login)
-          } else {
-            next[login] = { ...next[login], joining: !next[login].joined }
-          }
-        }
-        return next
-      })
+      commitRooms((current) => applyEnsureRooms(current, channelLogins))
     },
     [commitRooms]
   )
@@ -145,7 +220,9 @@ export function useRoomStore() {
   )
 
   const clearAllRooms = React.useCallback(() => {
-    commitRooms(() => ({}))
+    commitRooms((current) =>
+      Object.keys(current).length === 0 ? current : EMPTY_ROOMS
+    )
   }, [commitRooms])
 
   const getRoom = React.useCallback(
@@ -171,11 +248,12 @@ export function useRoomStore() {
   )
 
   return {
-    rooms,
     roomsRef,
     commitRooms,
     updateRoom,
     subscribeToRoom,
+    subscribeToRoomIds,
+    getRoomIdsKey,
     ensureRooms,
     removeRooms,
     clearAllRooms,

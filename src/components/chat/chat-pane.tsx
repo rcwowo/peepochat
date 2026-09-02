@@ -3,6 +3,7 @@ import {
   EllipsisIcon,
   ExternalLinkIcon,
   MessagesSquareIcon,
+  PlayIcon,
   RefreshCcwIcon,
   UsersIcon,
   XIcon,
@@ -12,6 +13,7 @@ import { ChatComposer } from "@/components/chat/chat-composer"
 import { ChatChattersPanel } from "@/components/chat/chat-chatters-panel"
 import { ChatModesMenu } from "@/components/chat/chat-modes-panel"
 import { ChatHoverTooltipProvider } from "@/components/chat/chat-hover-tooltip"
+import { useChatViewActive } from "@/hooks/chat-ui/use-chat-view-active"
 import { EmoteCardProvider } from "@/components/chat/emote-card-context"
 import { UserCardProvider } from "@/components/chat/user-card-context"
 import type { UserCardTarget } from "@/lib/chat/user-card"
@@ -27,18 +29,22 @@ import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  MenuPanelActions,
+  MenuPanelItem,
+  MenuPanelProvider,
+  MenuPanelSeparator,
+  menuPanelContentClassName,
+} from "@/components/ui/menu-panel"
 import { EmptyState } from "@/components/chat/empty-state"
 import type {
   TwitchSelfChatState,
   TwitchTimelineItem,
 } from "@/lib/twitch/twitch-chat-types"
 import type { ChatBadgeCatalog } from "@/lib/chat/chat-badges"
+import type { TwitchChatModes } from "@/lib/chat/chat-modes"
 import type { ResolvedMemberBadge } from "@/lib/chat/rcw-badges"
 import type {
   DeletedMessagesBehavior,
@@ -46,10 +52,11 @@ import type {
   MessageTimestampFormat,
   TwitchAccount,
 } from "@/lib/peepochat/peepochat-config"
+import type { TwitchLiveStream } from "@/lib/twitch/twitch-api"
 import { useChannelMessageHighlights } from "@/hooks/chat-ui/use-highlight-activity"
 import {
   usePeepochatChat,
-  usePeepochatSettings,
+  usePeepochatPlayer,
   usePeepochatSidebarHighlights,
 } from "@/lib/peepochat/peepochat-context"
 import {
@@ -63,32 +70,13 @@ import {
 import { getChatPresentationMetrics } from "@/lib/chat/chat-presentation-style"
 import { useChatScroll } from "@/hooks/chat-ui/use-chat-scroll"
 import { useHotkeyRegistry } from "@/hooks/use-hotkey-registry"
+import { useResizeActivity } from "@/hooks/use-resize-session"
 import { cn } from "@/lib/utils"
 
 import { openExternalTool, CHATLOGS_URL } from "@/lib/chat/moderation-tools"
 import { maskReplyForBlockedUser } from "@/lib/twitch/blocked-users"
 
 const CHATVOICE_URL = "https://chatvoice.rcw.lol"
-
-const ChatViewActiveContext = React.createContext(true)
-
-export function ChatViewActiveProvider({
-  isActive,
-  children,
-}: {
-  isActive: boolean
-  children: React.ReactNode
-}) {
-  return (
-    <ChatViewActiveContext.Provider value={isActive}>
-      {children}
-    </ChatViewActiveContext.Provider>
-  )
-}
-
-function useChatViewActive() {
-  return React.useContext(ChatViewActiveContext)
-}
 
 function ChatPaneHotkeyRegistration({
   channelLogin,
@@ -101,7 +89,7 @@ function ChatPaneHotkeyRegistration({
   toggleViewerList: () => boolean
   focusComposer: () => void
 }) {
-  const isActive = React.useContext(ChatViewActiveContext)
+  const isActive = useChatViewActive()
   const { registerPane } = useHotkeyRegistry()
 
   React.useEffect(() => {
@@ -168,9 +156,18 @@ type ChatPaneProps = {
   showBadgeFallback: boolean
   showTwitchBadges: boolean
   showMemberBadges: boolean
+  showSuspiciousActivity: boolean
+  fontSizePx: number
+  emoteScale: number
+  messageSeparators: boolean
+  chatModes?: TwitchChatModes
   joined?: boolean
   showRemoveSplit?: boolean
   onRemoveSplit?: (channelLogin: string) => void
+  onWatchPlayer?: (channelLogin: string) => void
+  onClosePlayer?: () => void
+  streamInfoMode?: "interactive" | "mobile"
+  liveStreamOverride?: TwitchLiveStream | null
   dragHandleProps?: React.HTMLAttributes<HTMLDivElement>
   className?: string
 }
@@ -193,9 +190,18 @@ function ChatPaneInner({
   showBadgeFallback,
   showTwitchBadges,
   showMemberBadges,
+  showSuspiciousActivity,
+  fontSizePx,
+  emoteScale,
+  messageSeparators,
+  chatModes,
   joined = true,
   showRemoveSplit = false,
   onRemoveSplit,
+  onWatchPlayer,
+  onClosePlayer,
+  streamInfoMode = "interactive",
+  liveStreamOverride,
   dragHandleProps,
   className,
 }: ChatPaneProps) {
@@ -207,10 +213,10 @@ function ChatPaneInner({
     blockUser,
     unblockUser,
   } = usePeepochatChat()
-  const { config } = usePeepochatSettings()
-  const showSuspiciousActivity = config.chat.showSuspiciousActivity
   const { isChannelLive, getChannelLiveStream } =
     usePeepochatSidebarHighlights()
+  const { playerChannelLogin } = usePeepochatPlayer()
+  const isWatching = playerChannelLogin === channelLogin
   const messageHighlights = useChannelMessageHighlights(channelLogin)
   const composerCatalog = getComposerEmoteCatalog(channelLogin)
   const [rowStripeCache] = React.useState(() => new Map<string, boolean>())
@@ -220,14 +226,36 @@ function ChatPaneInner({
   const [recentMessagesCache] = React.useState(
     createRecentUserMessageBucketCache
   )
-  const [liveInfoExpanded, setLiveInfoExpanded] = React.useState(false)
+  const [liveInfoExpanded, setLiveInfoExpanded] = React.useState(
+    streamInfoMode === "mobile"
+  )
   const [chattersOpen, setChattersOpen] = React.useState(false)
   const [emotePickerOpen, setEmotePickerOpen] = React.useState(false)
   const emotePickerOpenRef = React.useRef(false)
   const chattersOpenRef = React.useRef(false)
   const composerInputRef = React.useRef<HTMLTextAreaElement | null>(null)
+  const chatMessagesRef = React.useRef<HTMLDivElement | null>(null)
   const { rememberFocusedPane } = useHotkeyRegistry()
   const isActive = useChatViewActive()
+  const resizeActive = useResizeActivity()
+
+  React.useLayoutEffect(() => {
+    const panel = chatMessagesRef.current
+    if (!panel || !resizeActive) {
+      return
+    }
+
+    const rect = panel.getBoundingClientRect()
+    panel.style.width = `${rect.width}px`
+    panel.style.height = `${rect.height}px`
+    panel.style.flex = "none"
+
+    return () => {
+      panel.style.removeProperty("width")
+      panel.style.removeProperty("height")
+      panel.style.removeProperty("flex")
+    }
+  }, [resizeActive])
 
   React.useEffect(() => {
     emotePickerOpenRef.current = emotePickerOpen
@@ -253,52 +281,53 @@ function ChatPaneInner({
   }, [])
 
   const label = displayName ?? channelLogin
-  const isLive = isChannelLive(channelLogin)
-  const liveStream = isLive ? getChannelLiveStream(channelLogin) : null
-  const [prevIsLive, setPrevIsLive] = React.useState(isLive)
-
-  if (isLive !== prevIsLive) {
-    setPrevIsLive(isLive)
-    if (!isLive) {
-      setLiveInfoExpanded(false)
-    }
-  }
-
+  const isLive =
+    liveStreamOverride !== undefined
+      ? liveStreamOverride !== null
+      : isChannelLive(channelLogin)
+  const liveStream =
+    liveStreamOverride !== undefined
+      ? liveStreamOverride
+      : isLive
+        ? getChannelLiveStream(channelLogin)
+        : null
   const visibleTimeline = React.useMemo(() => {
-    if (hideBlockedUsers || !showSuspiciousActivity) {
-      return timeline.filter((entry) => {
-        if (entry.kind === "suspicious" && !showSuspiciousActivity) {
-          return false
-        }
-
-        if (
-          hideBlockedUsers &&
-          (entry.kind === "chat" || entry.kind === "suspicious")
-        ) {
-          return !isUserBlocked(entry.message.userId, entry.message.userName)
-        }
-
-        return true
-      })
+    if (!hideBlockedUsers && showSuspiciousActivity) {
+      return timeline
     }
 
-    return timeline
+    const filtered = timeline.filter((entry) => {
+      if (entry.kind === "suspicious" && !showSuspiciousActivity) {
+        return false
+      }
+
+      if (
+        hideBlockedUsers &&
+        (entry.kind === "chat" || entry.kind === "suspicious")
+      ) {
+        return !isUserBlocked(entry.message.userId, entry.message.userName)
+      }
+
+      return true
+    })
+
+    return filtered.length === timeline.length ? timeline : filtered
   }, [hideBlockedUsers, isUserBlocked, showSuspiciousActivity, timeline])
 
   const scrollLayout = React.useMemo(
     () => ({
       metrics: getChatPresentationMetrics({
-        fontSizePx: config.chat.fontSizePx,
-        emoteScale: config.chat.emoteScale,
+        fontSizePx,
+        emoteScale,
       }),
       timestampFormat,
-      messageSeparators: config.chat.messageSeparators,
+      messageSeparators,
       showTwitchBadges,
     }),
     [
-      config.chat.emoteScale,
-      config.chat.fontSizePx,
-      config.chat.messageSeparators,
+      emoteScale,
+      fontSizePx,
+      messageSeparators,
       showTwitchBadges,
       timestampFormat,
     ]
@@ -316,7 +345,6 @@ function ChatPaneInner({
     timeline: visibleTimeline,
     channelLogin,
     layout: scrollLayout,
-    active: isActive,
   })
 
   const rowStripes = React.useMemo(
@@ -392,6 +420,7 @@ function ChatPaneInner({
                 {isLive ? (
                   <ChatPaneLiveBadge
                     expanded={liveInfoExpanded}
+                    className={streamInfoMode === "mobile" ? "md:hidden" : ""}
                     onToggle={() =>
                       setLiveInfoExpanded((expanded) => !expanded)
                     }
@@ -420,61 +449,69 @@ function ChatPaneInner({
                       <EllipsisIcon className="size-3.5" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-44">
-                    <DropdownMenuLabel>Channel</DropdownMenuLabel>
-                    <DropdownMenuGroup>
-                      <DropdownMenuItem
-                        data-chatters-trigger={channelLogin}
-                        onSelect={() => {
-                          window.requestAnimationFrame(() => {
-                            setChattersOpen(true)
-                          })
-                        }}
-                      >
-                        View Chatters
-                        <UsersIcon className="ml-auto size-3.5 text-muted-foreground" />
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
+                  <DropdownMenuContent
+                    align="end"
+                    className={menuPanelContentClassName()}
+                  >
+                    <MenuPanelProvider kind="dropdown">
+                      <MenuPanelActions
+                        actions={[
+                          {
+                            icon: UsersIcon,
+                            label: "Chatters",
+                            onSelect: () => {
+                              window.requestAnimationFrame(() => {
+                                setChattersOpen(true)
+                              })
+                            },
+                          },
+                          ...(onWatchPlayer
+                            ? [
+                                {
+                                  icon: PlayIcon,
+                                  label: "Watch",
+                                  disabled: isWatching,
+                                  onSelect: () => onWatchPlayer(channelLogin),
+                                },
+                              ]
+                            : []),
+                        ]}
+                      />
+                      <MenuPanelSeparator />
+                      <MenuPanelItem
+                        icon={RefreshCcwIcon}
+                        label="Reload emotes"
                         onSelect={() => void refreshEmotes(channelLogin)}
-                      >
-                        Refresh Emotes
-                        <RefreshCcwIcon className="ml-auto size-3.5 text-muted-foreground" />
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
+                      />
+                      <MenuPanelSeparator />
+                      <MenuPanelItem
+                        icon={ExternalLinkIcon}
+                        label="Open channel page"
                         onSelect={() =>
                           openExternalTool(
                             `https://www.twitch.tv/${channelLogin}`
                           )
                         }
-                      >
-                        View Channel
-                        <ExternalLinkIcon className="ml-auto size-3.5 text-muted-foreground" />
-                      </DropdownMenuItem>
-                    </DropdownMenuGroup>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuLabel>Tools</DropdownMenuLabel>
-                    <DropdownMenuGroup>
-                      <DropdownMenuItem
-                        onSelect={() =>
-                          openExternalTool(
-                            `${CHATVOICE_URL}/?channel=${encodeURIComponent(channelLogin)}`
-                          )
-                        }
-                      >
-                        Open in Chatvoice
-                        <ExternalLinkIcon className="ml-auto size-3.5 text-muted-foreground" />
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
+                      />
+                      <MenuPanelItem
+                        icon={ExternalLinkIcon}
+                        label="Open chatlogs"
                         onSelect={() =>
                           openExternalTool(
                             `${CHATLOGS_URL}?c=${encodeURIComponent(channelLogin)}`
                           )
                         }
-                      >
-                        View Chatlogs
-                        <ExternalLinkIcon className="ml-auto size-3.5 text-muted-foreground" />
-                      </DropdownMenuItem>
-                    </DropdownMenuGroup>
+                      />
+                      <MenuPanelItem
+                        icon={ExternalLinkIcon}
+                        label="Open in Chatvoice"
+                        onSelect={() =>
+                          openExternalTool(
+                            `${CHATVOICE_URL}/?channel=${encodeURIComponent(channelLogin)}`
+                          )
+                        }
+                      />
+                    </MenuPanelProvider>
                   </DropdownMenuContent>
                 </DropdownMenu>
                 <ChatModesMenu
@@ -482,6 +519,7 @@ function ChatPaneInner({
                   channelRoomId={channelRoomId}
                   account={account}
                   selfChatState={selfChatState}
+                  modes={chatModes}
                 />
                 {showRemoveSplit && onRemoveSplit ? (
                   <Button
@@ -495,15 +533,33 @@ function ChatPaneInner({
                     <XIcon className="size-3.5" />
                   </Button>
                 ) : null}
+                {onClosePlayer ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    className="text-muted-foreground hover:text-foreground"
+                    aria-label="Close player"
+                    onClick={onClosePlayer}
+                  >
+                    <XIcon className="size-3.5" />
+                  </Button>
+                ) : null}
               </div>
             </div>
 
             {liveInfoExpanded && liveStream ? (
-              <ChatPaneLiveInfoBar stream={liveStream} />
+              <ChatPaneLiveInfoBar
+                stream={liveStream}
+                className={streamInfoMode === "mobile" ? "md:hidden" : ""}
+              />
             ) : null}
 
             <div className="chat-panel flex min-h-0 flex-1 flex-col overflow-hidden">
-              <div className="relative min-h-0 flex-1 overflow-hidden">
+              <div
+                ref={chatMessagesRef}
+                className="relative min-h-0 flex-1 overflow-hidden"
+              >
                 {displayedTimeline.length === 0 ? (
                   <div className="flex h-full items-center justify-center p-4">
                     <EmptyState
@@ -526,121 +582,115 @@ function ChatPaneInner({
                       className="relative w-full"
                       style={{ height: virtualizer.getTotalSize() }}
                     >
-                      {isActive
-                        ? virtualizer.getVirtualItems().map((virtualItem) => {
-                            const entry = displayedTimeline[virtualItem.index]
-                            if (!entry) {
-                              return null
-                            }
+                      {virtualizer.getVirtualItems().map((virtualItem) => {
+                        const entry = displayedTimeline[virtualItem.index]
+                        if (!entry) {
+                          return null
+                        }
 
-                            const isAlternateRow =
-                              rowStripes.get(entry.message.id) ?? false
+                        const isAlternateRow =
+                          rowStripes.get(entry.message.id) ?? false
 
-                            let row: React.ReactNode
+                        let row: React.ReactNode
 
-                            if (entry.kind === "system") {
-                              row = (
-                                <ChatSystemMessage
-                                  message={entry.message}
-                                  timestampFormat={timestampFormat}
-                                  badgeCatalog={badgeCatalog}
-                                  showTwitchBadges={showTwitchBadges}
-                                  showBadgeFallback={showBadgeFallback}
-                                  isHistorical={entry.isHistorical}
-                                  isAlternateRow={isAlternateRow}
-                                />
-                              )
-                            } else if (entry.kind === "automod") {
-                              row = (
-                                <ChatAutomodMessage
-                                  message={entry.message}
-                                  timestampFormat={timestampFormat}
-                                  account={account}
-                                  badgeCatalog={badgeCatalog}
-                                  showTwitchBadges={showTwitchBadges}
-                                  showBadgeFallback={showBadgeFallback}
-                                  isHistorical={entry.isHistorical}
-                                  isAlternateRow={isAlternateRow}
-                                />
-                              )
-                            } else if (entry.kind === "suspicious") {
-                              row = (
-                                <ChatSuspiciousMessage
-                                  message={entry.message}
-                                  timestampFormat={timestampFormat}
-                                  deletedMessagesBehavior={
-                                    deletedMessagesBehavior
-                                  }
-                                  badgeCatalog={badgeCatalog}
-                                  showTwitchBadges={showTwitchBadges}
-                                  showBadgeFallback={showBadgeFallback}
-                                  isHistorical={entry.isHistorical}
-                                  isAlternateRow={isAlternateRow}
-                                />
-                              )
-                            } else {
-                              const messageHighlight = messageHighlights.get(
-                                entry.message.id
-                              )
-                              const displayMessage =
-                                hideBlockedUsers &&
-                                entry.message.reply &&
-                                isUserBlocked(
-                                  null,
-                                  entry.message.reply.parentUserName
-                                )
-                                  ? {
-                                      ...entry.message,
-                                      reply: maskReplyForBlockedUser(
-                                        entry.message.reply
-                                      ),
-                                    }
-                                  : entry.message
-
-                              row = (
-                                <ChatMessageRow
-                                  message={displayMessage}
-                                  timestampFormat={timestampFormat}
-                                  messageQuickActions={messageQuickActions}
-                                  deletedMessagesBehavior={
-                                    deletedMessagesBehavior
-                                  }
-                                  account={account}
-                                  channelRoomId={channelRoomId}
-                                  selfChatState={selfChatState}
-                                  badgeCatalog={badgeCatalog}
-                                  getMemberBadge={getMemberBadge}
-                                  showBadgeFallback={showBadgeFallback}
-                                  showTwitchBadges={showTwitchBadges}
-                                  showMemberBadges={showMemberBadges}
-                                  isHistorical={entry.isHistorical}
-                                  isAlternateRow={isAlternateRow}
-                                  pingHighlighted={
-                                    highlightPingedMessages &&
-                                    messageHighlight !== undefined
-                                  }
-                                  pingMatchRange={
-                                    messageHighlight?.matchRange ?? null
-                                  }
-                                />
-                              )
-                            }
-
-                            return (
-                              <div
-                                key={virtualItem.key}
-                                data-index={virtualItem.index}
-                                ref={virtualizer.measureElement}
-                                className="absolute top-0 left-0 w-full"
-                                style={{
-                                  transform: `translateY(${virtualItem.start}px)`,
-                                }}
-                              >
-                                {row}
-                              </div>
+                        if (entry.kind === "system") {
+                          row = (
+                            <ChatSystemMessage
+                              message={entry.message}
+                              timestampFormat={timestampFormat}
+                              badgeCatalog={badgeCatalog}
+                              showTwitchBadges={showTwitchBadges}
+                              showBadgeFallback={showBadgeFallback}
+                              isHistorical={entry.isHistorical}
+                              isAlternateRow={isAlternateRow}
+                            />
+                          )
+                        } else if (entry.kind === "automod") {
+                          row = (
+                            <ChatAutomodMessage
+                              message={entry.message}
+                              timestampFormat={timestampFormat}
+                              account={account}
+                              badgeCatalog={badgeCatalog}
+                              showTwitchBadges={showTwitchBadges}
+                              showBadgeFallback={showBadgeFallback}
+                              isHistorical={entry.isHistorical}
+                              isAlternateRow={isAlternateRow}
+                            />
+                          )
+                        } else if (entry.kind === "suspicious") {
+                          row = (
+                            <ChatSuspiciousMessage
+                              message={entry.message}
+                              timestampFormat={timestampFormat}
+                              deletedMessagesBehavior={deletedMessagesBehavior}
+                              badgeCatalog={badgeCatalog}
+                              showTwitchBadges={showTwitchBadges}
+                              showBadgeFallback={showBadgeFallback}
+                              isHistorical={entry.isHistorical}
+                              isAlternateRow={isAlternateRow}
+                            />
+                          )
+                        } else {
+                          const messageHighlight = messageHighlights.get(
+                            entry.message.id
+                          )
+                          const displayMessage =
+                            hideBlockedUsers &&
+                            entry.message.reply &&
+                            isUserBlocked(
+                              null,
+                              entry.message.reply.parentUserName
                             )
-                          })
-                        : null}
+                              ? {
+                                  ...entry.message,
+                                  reply: maskReplyForBlockedUser(
+                                    entry.message.reply
+                                  ),
+                                }
+                              : entry.message
+
+                          row = (
+                            <ChatMessageRow
+                              message={displayMessage}
+                              timestampFormat={timestampFormat}
+                              messageQuickActions={messageQuickActions}
+                              deletedMessagesBehavior={deletedMessagesBehavior}
+                              account={account}
+                              channelRoomId={channelRoomId}
+                              selfChatState={selfChatState}
+                              badgeCatalog={badgeCatalog}
+                              getMemberBadge={getMemberBadge}
+                              showBadgeFallback={showBadgeFallback}
+                              showTwitchBadges={showTwitchBadges}
+                              showMemberBadges={showMemberBadges}
+                              isHistorical={entry.isHistorical}
+                              isAlternateRow={isAlternateRow}
+                              pingHighlighted={
+                                highlightPingedMessages &&
+                                messageHighlight !== undefined
+                              }
+                              pingMatchRange={
+                                messageHighlight?.matchRange ?? null
+                              }
+                            />
+                          )
+                        }
+
+                        return (
+                          <div
+                            key={virtualItem.key}
+                            data-index={virtualItem.index}
+                            ref={virtualizer.measureElement}
+                            className="absolute top-0 left-0 w-full"
+                            style={{
+                              transform: `translateY(${virtualItem.start}px)`,
+                            }}
+                          >
+                            {row}
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
                 )}
@@ -665,14 +715,17 @@ function ChatPaneInner({
                 onLayoutChange={notifyComposerResize}
                 emotePickerOpen={emotePickerOpen}
                 onEmotePickerOpenChange={setEmotePickerOpen}
+                account={account}
+                active={isActive}
+                showTwitchBadges={showTwitchBadges}
+                showMemberBadges={showMemberBadges}
                 composerInputRef={composerInputRef}
                 onComposerFocus={() => rememberFocusedPane(channelLogin)}
               />
             </div>
             <ChatChattersPanel
               channelLogin={channelLogin}
-              channelDisplayName={label}
-              open={chattersOpen}
+              open={isActive && chattersOpen}
               onOpenChange={setChattersOpen}
             />
           </div>

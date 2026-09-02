@@ -667,23 +667,7 @@ export function hydrateMessageEmotes<
     twitchCatalog?.cheermotes ?? DEFAULT_CHEERMOTE_CATALOG
   const hydrated = hydrateCheermotes(message, cheermoteCatalog)
 
-  const nativeEmotes = upgradeTwitchEmoteImages(
-    hydrated.emotes.filter((emote) => emote.provider === "twitch"),
-    twitchCatalog
-  )
-
-  let emotes = hydrated.emotes.map((emote) => {
-    if (emote.provider !== "twitch" || emote.cheermote) {
-      return emote
-    }
-
-    const upgraded = nativeEmotes.find(
-      (candidate) =>
-        candidate.start === emote.start && candidate.end === emote.end
-    )
-
-    return upgraded ?? emote
-  })
+  let emotes = upgradeTwitchEmoteImages(hydrated.emotes, twitchCatalog)
 
   if (catalog) {
     emotes = mergeEmotesFromCodeCatalog(hydrated.text, emotes, catalog)
@@ -736,23 +720,31 @@ function upgradeTwitchEmoteImages(
     return emotes
   }
 
-  return emotes.map((emote) => {
-    if (emote.cheermote) {
+  let changed = false
+  const next = emotes.map((emote) => {
+    if (emote.provider !== "twitch" || emote.cheermote) {
       return emote
     }
 
     const fromCatalog =
       twitchCatalog.byId.get(emote.id) ?? twitchCatalog.byCode.get(emote.code)
 
-    if (!fromCatalog || fromCatalog.provider !== "twitch") {
+    if (
+      !fromCatalog ||
+      fromCatalog.provider !== "twitch" ||
+      fromCatalog.imageUrl === emote.imageUrl
+    ) {
       return emote
     }
 
+    changed = true
     return {
       ...emote,
       imageUrl: fromCatalog.imageUrl,
     }
   })
+
+  return changed ? next : emotes
 }
 
 function mergeEmotesFromCodeCatalog(
@@ -765,14 +757,30 @@ function mergeEmotesFromCodeCatalog(
     return existing
   }
 
-  const result: TwitchEmote[] = existing.map((emote) => ({
-    ...emote,
-    overlays: emote.overlays ? [...emote.overlays] : undefined,
-  }))
+  let result = existing
+  let copied = false
+  const ensureCopy = () => {
+    if (copied) {
+      return
+    }
+    result = existing.map((emote) => ({
+      ...emote,
+      overlays: emote.overlays ? [...emote.overlays] : undefined,
+    }))
+    copied = true
+  }
+
+  const existingByRange = new Map<string, number>()
+  for (let index = 0; index < existing.length; index += 1) {
+    const emote = existing[index]!
+    existingByRange.set(`${emote.start}:${emote.end}`, index)
+  }
+
   let occupied = normalizeRanges(
     existing.map((emote) => ({ start: emote.start, end: emote.end }))
   )
   let lastEmoteIndex: number | null = null
+  let changed = false
 
   const tokenPattern = /\S+/g
   for (const match of text.matchAll(tokenPattern)) {
@@ -783,11 +791,9 @@ function mergeEmotesFromCodeCatalog(
     }
 
     const end = start + code.length - 1
-    const existingEmoteIndex = result.findIndex(
-      (emote) => emote.start === start && emote.end === end
-    )
+    const existingEmoteIndex = existingByRange.get(`${start}:${end}`)
 
-    if (existingEmoteIndex >= 0) {
+    if (existingEmoteIndex !== undefined) {
       lastEmoteIndex = existingEmoteIndex
       continue
     }
@@ -810,18 +816,27 @@ function mergeEmotesFromCodeCatalog(
       seventvEmoteRenderOptions.zeroWidthEnabled &&
       lastEmoteIndex !== null
     ) {
+      ensureCopy()
       const target = result[lastEmoteIndex]!
       target.overlays = [
         ...(target.overlays ?? []),
         catalogEntryToEmote(entry, start, end),
       ]
       occupied = normalizeRanges([...occupied, { start, end }])
+      changed = true
       continue
     }
 
+    ensureCopy()
     result.push(catalogEntryToEmote(entry, start, end))
+    existingByRange.set(`${start}:${end}`, result.length - 1)
     occupied = normalizeRanges([...occupied, { start, end }])
     lastEmoteIndex = result.length - 1
+    changed = true
+  }
+
+  if (!changed) {
+    return existing
   }
 
   return result.sort((left, right) => left.start - right.start)

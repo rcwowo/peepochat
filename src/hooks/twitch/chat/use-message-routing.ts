@@ -107,7 +107,6 @@ export function useMessageRouting({
         : null
 
       const hydrated = hydrateRoomMessage(message, catalog)
-      onTimelineItemsRef.current?.(login, [{ kind: "chat", message: hydrated }])
       devChatLogger.debugLazy(() => [
         "route:message",
         {
@@ -134,6 +133,9 @@ export function useMessageRouting({
         hideBlockedUsersRef.current &&
         isUserBlockedRef.current(message.userId, message.userName)
       ) {
+        onTimelineItemsRef.current?.(login, [
+          { kind: "chat", message: hydrated },
+        ])
         return
       }
 

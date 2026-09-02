@@ -26,7 +26,12 @@ export const CHAT_FONT_SIZE_DEFAULT = 13
 export const CHAT_EMOTE_SCALE_MIN = 10
 export const CHAT_EMOTE_SCALE_MAX = 24
 export const CHAT_EMOTE_SCALE_DEFAULT = 13
-export const PEEPOCHAT_APP_VERSION: string = __APP_VERSION__
+export const PLAYER_DESKTOP_SIZE_MIN = 1
+export const PLAYER_DESKTOP_SIZE_MAX = 99
+export const PLAYER_DESKTOP_SIZE_DEFAULT = 70
+export const PLAYER_CHAT_MIN_WIDTH_PX = 340
+export const PEEPOCHAT_APP_VERSION: string =
+  typeof __APP_VERSION__ === "undefined" ? "" : __APP_VERSION__
 
 const messageTimestampFormatSchema = z
   .enum(["24-hour", "12-hour", "12-hour-meridiem", "none"])
@@ -117,6 +122,20 @@ const highlightsSchema = z.object({
   pings: z.array(highlightPingRuleSchema).default([]),
 })
 
+const playerSchema = z
+  .object({
+    backgroundPlaybackEnabled: z.boolean().default(true),
+    desktopSizePercent: z
+      .number()
+      .min(PLAYER_DESKTOP_SIZE_MIN)
+      .max(PLAYER_DESKTOP_SIZE_MAX)
+      .default(PLAYER_DESKTOP_SIZE_DEFAULT),
+  })
+  .default({
+    backgroundPlaybackEnabled: true,
+    desktopSizePercent: PLAYER_DESKTOP_SIZE_DEFAULT,
+  })
+
 const chatSplitLayoutNodeSchema: z.ZodType<ChatSplitLayoutNode> = z.lazy(() =>
   z.discriminatedUnion("type", [
     z.object({
@@ -140,6 +159,7 @@ const chatSplitSchema = z.object({
   id: z.string().min(1),
   channels: z.array(z.string()),
   unreadIndicatorEnabled: z.boolean().nullable().default(null),
+  liveNotificationsEnabled: z.boolean().nullable().default(null),
   layout: chatSplitLayoutNodeSchema.optional(),
 })
 
@@ -165,6 +185,7 @@ export const twitchChannelSchema = z.object({
   displayName: z.string().optional(),
   profileImageUrl: z.string().optional(),
   unreadIndicatorEnabled: z.boolean().nullable().default(null),
+  liveNotificationsEnabled: z.boolean().nullable().default(null),
 })
 
 const twitchSchema = z.object({
@@ -192,6 +213,7 @@ const appConfigSchema = z.object({
     liveSoundCustomId: null,
     pings: [],
   }),
+  player: playerSchema,
 })
 
 const backupEnvelopeSchema = z.object({
@@ -204,6 +226,7 @@ const backupEnvelopeSchema = z.object({
 
 export type HighlightPingRule = z.infer<typeof highlightPingRuleSchema>
 export type HighlightsConfig = z.infer<typeof highlightsSchema>
+export type PlayerConfig = z.infer<typeof playerSchema>
 export type MessageTimestampFormat = z.infer<
   typeof messageTimestampFormatSchema
 >
@@ -303,6 +326,10 @@ export function createDefaultConfig(): AppConfig {
       liveSoundCustomId: null,
       pings: [],
     },
+    player: {
+      backgroundPlaybackEnabled: true,
+      desktopSizePercent: PLAYER_DESKTOP_SIZE_DEFAULT,
+    },
   }
 }
 
@@ -336,6 +363,46 @@ export function isUnreadIndicatorEnabledForSplit(
   return globalEnabled
 }
 
+export function isLiveNotificationsEnabledForChannel(
+  config: AppConfig,
+  login: string
+): boolean {
+  const channel = config.twitch.channels.find((c) => c.login === login)
+  if (
+    channel?.liveNotificationsEnabled !== null &&
+    channel?.liveNotificationsEnabled !== undefined
+  ) {
+    return channel.liveNotificationsEnabled
+  }
+
+  const split = config.layout.splits.find((entry) =>
+    entry.channels.includes(login)
+  )
+  if (
+    split?.liveNotificationsEnabled !== null &&
+    split?.liveNotificationsEnabled !== undefined
+  ) {
+    return split.liveNotificationsEnabled
+  }
+
+  return config.highlights.livePushNotificationsEnabled
+}
+
+export function isLiveNotificationsEnabledForSplit(
+  config: AppConfig,
+  splitId: string
+): boolean {
+  const globalEnabled = config.highlights.livePushNotificationsEnabled
+  const split = config.layout.splits.find((s) => s.id === splitId)
+  if (
+    split?.liveNotificationsEnabled !== null &&
+    split?.liveNotificationsEnabled !== undefined
+  ) {
+    return split.liveNotificationsEnabled
+  }
+  return globalEnabled
+}
+
 export function getChatLayout(config: AppConfig): ChatLayoutConfig {
   return config.layout
 }
@@ -354,11 +421,15 @@ export function createSplitId() {
 
 export function createTwitchChannel(
   login: string,
-  partial?: Omit<TwitchChannel, "login" | "unreadIndicatorEnabled">
+  partial?: Omit<
+    TwitchChannel,
+    "login" | "unreadIndicatorEnabled" | "liveNotificationsEnabled"
+  >
 ): TwitchChannel {
   return {
     login: login.trim().replace(/^#/, "").toLowerCase(),
     unreadIndicatorEnabled: null,
+    liveNotificationsEnabled: null,
     ...partial,
   }
 }
@@ -372,6 +443,7 @@ export function createChatSplit(
     id,
     channels: normalizedChannels,
     unreadIndicatorEnabled: null,
+    liveNotificationsEnabled: null,
     layout: createDefaultSplitLayout(normalizedChannels),
   }
 }
@@ -771,6 +843,11 @@ function normalizeConfig(config: AppConfig): AppConfig {
         channel.unreadIndicatorEnabled === false
           ? channel.unreadIndicatorEnabled
           : null,
+      liveNotificationsEnabled:
+        channel.liveNotificationsEnabled === true ||
+        channel.liveNotificationsEnabled === false
+          ? channel.liveNotificationsEnabled
+          : null,
     })),
     account: config.twitch.account
       ? {
@@ -802,6 +879,11 @@ function normalizeConfig(config: AppConfig): AppConfig {
         split.unreadIndicatorEnabled === true ||
         split.unreadIndicatorEnabled === false
           ? split.unreadIndicatorEnabled
+          : null,
+      liveNotificationsEnabled:
+        split.liveNotificationsEnabled === true ||
+        split.liveNotificationsEnabled === false
+          ? split.liveNotificationsEnabled
           : null,
       layout: normalizeSplitLayout(split.layout, split.channels),
     }

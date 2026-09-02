@@ -40,11 +40,17 @@ export type TwitchBlockedUser = {
 
 export class TwitchApiError extends Error {
   status: number
+  retryAfterMs: number | null
 
-  constructor(message: string, status: number) {
+  constructor(
+    message: string,
+    status: number,
+    retryAfterMs: number | null = null
+  ) {
     super(message)
     this.name = "TwitchApiError"
     this.status = status
+    this.retryAfterMs = retryAfterMs
   }
 }
 
@@ -1113,6 +1119,25 @@ export type TwitchStreamMarker = {
   description: string
 }
 
+function retryAfterMs(response: Response): number | null {
+  const raw = response.headers.get("Retry-After")
+  if (!raw) {
+    return null
+  }
+
+  const seconds = Number(raw)
+  if (Number.isFinite(seconds) && seconds >= 0) {
+    return seconds * 1000
+  }
+
+  const date = Date.parse(raw)
+  if (Number.isNaN(date)) {
+    return null
+  }
+
+  return Math.max(0, date - Date.now())
+}
+
 async function throwTwitchApiError(
   response: Response,
   fallback: string
@@ -1126,7 +1151,7 @@ async function throwTwitchApiError(
   } catch {
     // ignore parse errors
   }
-  throw new TwitchApiError(message, response.status)
+  throw new TwitchApiError(message, response.status, retryAfterMs(response))
 }
 
 export async function deleteTwitchChatMessage({

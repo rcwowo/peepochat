@@ -9,6 +9,10 @@ const RECONNECT_MIN_MS = 1_000
 const RECONNECT_MAX_MS = 60_000
 const SEEN_MESSAGE_IDS_LIMIT = 500
 const SUBSCRIBE_TIMEOUT_MS = 10_000
+const CREATE_CONCURRENCY = 3
+const CREATE_RETRY_MAX = 5
+const CREATE_RETRY_FALLBACK_MS = 1_000
+const OWNER_TEARDOWN_MS = 0
 
 export type TwitchEventSubAuth = {
   accessToken: string
@@ -117,6 +121,12 @@ function eventSubSubscriptionKey(
   return `${type}|${version}|${conditionKey(condition)}`
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms)
+  })
+}
+
 function desiredSignature(
   subscriptions: Iterable<TwitchEventSubDesiredSubscription>
 ): string {
@@ -154,6 +164,32 @@ export class TwitchEventSubClient {
   private seenMessageIdOrder: string[] = []
   private migratingFromSocket: WebSocket | null = null
   private permissionDeniedKeys = new Set<string>()
+  private ownerCount = 0
+  private ownerTeardownTimer: ReturnType<typeof setTimeout> | null = null
+
+  retain() {
+    this.ownerCount += 1
+    if (this.ownerTeardownTimer) {
+      clearTimeout(this.ownerTeardownTimer)
+      this.ownerTeardownTimer = null
+    }
+  }
+
+  release() {
+    this.ownerCount = Math.max(0, this.ownerCount - 1)
+    if (this.ownerCount > 0 || this.ownerTeardownTimer) {
+      return
+    }
+
+    this.ownerTeardownTimer = setTimeout(() => {
+      this.ownerTeardownTimer = null
+      if (this.ownerCount > 0) {
+        return
+      }
+      this.setDesiredSubscriptions([])
+      this.setAuth(null)
+    }, OWNER_TEARDOWN_MS)
+  }
 
   setHandlers(handlers: TwitchEventSubHandlers) {
     this.handlers = handlers
@@ -577,29 +613,32 @@ export class TwitchEventSubClient {
     }
 
     let authFailureReported = false
-    await Promise.all(
-      toCreate.map(async (desired) => {
+    let cursor = 0
+    const workerCount = Math.min(CREATE_CONCURRENCY, toCreate.length)
+    const workers = Array.from({ length: workerCount }, async () => {
+      while (cursor < toCreate.length) {
+        const desired = toCreate[cursor]
+        cursor += 1
+        if (!desired) {
+          continue
+        }
+
         const key = eventSubSubscriptionKey(
           desired.type,
           desired.version,
           desired.condition
         )
         const pending = this.active.get(key)
-        if (!pending || pending.status !== "pending") return
+        if (!pending || pending.status !== "pending") {
+          continue
+        }
 
         try {
-          const created = await createTwitchEventSubSubscription({
-            accessToken: auth.accessToken,
-            clientId: auth.clientId,
-            subscription: {
-              type: desired.type,
-              version: desired.version,
-              condition: desired.condition,
-              transport: {
-                method: "websocket",
-                session_id: sessionId,
-              },
-            },
+          const created = await this.createSubscriptionWithRetry({
+            auth,
+            desired,
+            sessionId,
+            generation,
           })
           if (
             generation !== this.syncGeneration ||
@@ -610,16 +649,15 @@ export class TwitchEventSubClient {
           pending.helixId = created.id
           pending.status = created.status === "enabled" ? "enabled" : "pending"
           if (pending.status === "pending") {
-            // Twitch accepted the create; treat as live for websocket transport.
             pending.status = "enabled"
           }
         } catch (error) {
-          if (generation !== this.syncGeneration) return
-          if (error instanceof TwitchApiError && error.status === 409) {
-            // Already bound to this session (or a racing create). Treat as live;
-            // helixId is filled in from the next notification when available.
-            pending.status = "enabled"
+          if (generation !== this.syncGeneration) {
             return
+          }
+          if (error instanceof TwitchApiError && error.status === 409) {
+            pending.status = "enabled"
+            continue
           }
           pending.status = "failed"
           if (!authFailureReported && error instanceof TwitchApiError) {
@@ -632,8 +670,60 @@ export class TwitchEventSubClient {
             }
           }
         }
-      })
-    )
+      }
+    })
+    await Promise.all(workers)
+  }
+
+  private async createSubscriptionWithRetry({
+    auth,
+    desired,
+    sessionId,
+    generation,
+  }: {
+    auth: TwitchEventSubAuth
+    desired: TwitchEventSubDesiredSubscription
+    sessionId: string
+    generation: number
+  }) {
+    let attempt = 0
+    while (true) {
+      try {
+        return await createTwitchEventSubSubscription({
+          accessToken: auth.accessToken,
+          clientId: auth.clientId,
+          subscription: {
+            type: desired.type,
+            version: desired.version,
+            condition: desired.condition,
+            transport: {
+              method: "websocket",
+              session_id: sessionId,
+            },
+          },
+        })
+      } catch (error) {
+        if (
+          generation !== this.syncGeneration ||
+          this.sessionId !== sessionId
+        ) {
+          throw error
+        }
+        if (
+          !(error instanceof TwitchApiError) ||
+          error.status !== 429 ||
+          attempt >= CREATE_RETRY_MAX
+        ) {
+          throw error
+        }
+        attempt += 1
+        const delay =
+          error.retryAfterMs && error.retryAfterMs > 0
+            ? error.retryAfterMs
+            : CREATE_RETRY_FALLBACK_MS * 2 ** (attempt - 1)
+        await sleep(delay)
+      }
+    }
   }
 
   private armKeepaliveWatch() {
