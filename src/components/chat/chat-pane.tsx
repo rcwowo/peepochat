@@ -234,13 +234,13 @@ function ChatPaneInner({
   const emotePickerOpenRef = React.useRef(false)
   const chattersOpenRef = React.useRef(false)
   const composerInputRef = React.useRef<HTMLTextAreaElement | null>(null)
-  const chatPanelRef = React.useRef<HTMLDivElement | null>(null)
+  const chatMessagesRef = React.useRef<HTMLDivElement | null>(null)
   const { rememberFocusedPane } = useHotkeyRegistry()
   const isActive = useChatViewActive()
   const resizeActive = useResizeActivity()
 
   React.useLayoutEffect(() => {
-    const panel = chatPanelRef.current
+    const panel = chatMessagesRef.current
     if (!panel || !resizeActive) {
       return
     }
@@ -555,11 +555,11 @@ function ChatPaneInner({
               />
             ) : null}
 
-            <div
-              ref={chatPanelRef}
-              className="chat-panel flex min-h-0 flex-1 flex-col overflow-hidden"
-            >
-              <div className="relative min-h-0 flex-1 overflow-hidden">
+            <div className="chat-panel flex min-h-0 flex-1 flex-col overflow-hidden">
+              <div
+                ref={chatMessagesRef}
+                className="relative min-h-0 flex-1 overflow-hidden"
+              >
                 {displayedTimeline.length === 0 ? (
                   <div className="flex h-full items-center justify-center p-4">
                     <EmptyState

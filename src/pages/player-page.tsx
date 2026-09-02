@@ -38,7 +38,7 @@ function PlayerDetails({
   const uptime = useStreamUptime(startedAt)
 
   return (
-    <div className="hidden min-h-0 flex-col gap-4 p-5 md:flex">
+    <div className="hidden px-5 pt-5 md:block">
       <div className="flex min-w-0 items-start justify-between gap-5">
         <div className="min-w-0">
           <h1 className="truncate text-base font-semibold">
@@ -64,7 +64,7 @@ function PlayerDetails({
         </div>
       </div>
 
-      <section className="flex min-w-0 items-start gap-3 rounded-xl bg-sidebar p-4">
+      <section className="mt-4 mb-5 flex min-w-0 items-start gap-3 rounded-xl bg-sidebar p-4">
         {profileImageUrl ? (
           <img
             src={profileImageUrl}
@@ -149,7 +149,7 @@ function PlayerPageContent({
   const gameName = stream?.gameName || channel?.gameName || ""
 
   const player = (
-    <div className="flex min-h-0 w-full min-w-0 flex-col overflow-y-auto bg-background md:h-full">
+    <div className="h-full min-h-0 w-full overflow-y-auto overscroll-contain bg-background">
       <div className="aspect-video w-full shrink-0 overflow-hidden bg-black">
         {iframeMounted && playerUrl ? (
           <iframe
