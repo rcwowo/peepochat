@@ -1380,7 +1380,7 @@ function ChatComposerInner({
               completeSuggestion(suggestion, { reset: true })
             }
           />
-          <div className={cn("relative", activeNotice && "mt-8")}>
+          <div className={cn("relative", activeNotice && "mt-[22px]")}>
             {activeNotice ? (
               <ComposerNoticeBanner
                 key={`${activeNotice.id}:${activeNotice.message}`}

@@ -1,5 +1,5 @@
 import * as React from "react"
-import { SwordsIcon } from "lucide-react"
+import { SwordIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -321,7 +321,7 @@ export function ChatModesMenu({
               className="text-muted-foreground hover:bg-muted/70 hover:text-foreground data-[state=open]:text-foreground"
               aria-label="Chat modes"
             >
-              <SwordsIcon className="size-4" />
+              <SwordIcon className="size-4" />
             </Button>
           </PopoverTrigger>
         </TooltipTrigger>
