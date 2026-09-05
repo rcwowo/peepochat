@@ -54,6 +54,19 @@ export function mergeChatModes(
   }
 }
 
+export function shouldShowChatModesMenu(
+  visibility: "always" | "when-permitted" | "hidden",
+  canManage: boolean
+): boolean {
+  if (visibility === "hidden") {
+    return false
+  }
+  if (visibility === "when-permitted") {
+    return canManage
+  }
+  return true
+}
+
 export function hasAnyChatModeEnabled(modes: TwitchChatModes): boolean {
   return (
     modes.emoteOnly ||
@@ -62,10 +75,6 @@ export function hasAnyChatModeEnabled(modes: TwitchChatModes): boolean {
     modes.slowMode ||
     modes.uniqueMode
   )
-}
-
-export function chatModesNoticeId(channelLogin: string): string {
-  return `chat-modes:${channelLogin}`
 }
 
 function formatMinutes(minutes: number): string {

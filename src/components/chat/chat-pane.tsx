@@ -11,7 +11,6 @@ import {
 
 import { ChatComposer } from "@/components/chat/chat-composer"
 import { ChatChattersPanel } from "@/components/chat/chat-chatters-panel"
-import { ChatModesMenu } from "@/components/chat/chat-modes-panel"
 import { ChatHoverTooltipProvider } from "@/components/chat/chat-hover-tooltip"
 import { useChatViewActive } from "@/hooks/chat-ui/use-chat-view-active"
 import { EmoteCardProvider } from "@/components/chat/emote-card-context"
@@ -514,13 +513,6 @@ function ChatPaneInner({
                     </MenuPanelProvider>
                   </DropdownMenuContent>
                 </DropdownMenu>
-                <ChatModesMenu
-                  channelLogin={channelLogin}
-                  channelRoomId={channelRoomId}
-                  account={account}
-                  selfChatState={selfChatState}
-                  modes={chatModes}
-                />
                 {showRemoveSplit && onRemoveSplit ? (
                   <Button
                     type="button"
@@ -717,6 +709,9 @@ function ChatPaneInner({
                 onEmotePickerOpenChange={setEmotePickerOpen}
                 account={account}
                 active={isActive}
+                channelRoomId={channelRoomId}
+                selfChatState={selfChatState}
+                chatModes={chatModes}
                 showTwitchBadges={showTwitchBadges}
                 showMemberBadges={showMemberBadges}
                 composerInputRef={composerInputRef}

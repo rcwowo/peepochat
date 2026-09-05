@@ -10,6 +10,11 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -18,6 +23,7 @@ import {
 } from "@/components/ui/select"
 import { CHAT_COMMAND_SCOPES } from "@/lib/chat/chat-command-scopes"
 import {
+  DEFAULT_CHAT_MODES,
   DEFAULT_FOLLOWERS_ONLY_MINUTES,
   DEFAULT_SLOW_MODE_SECONDS,
   durationOptionsWithCurrent,
@@ -183,6 +189,7 @@ export function ChatModesMenu({
     DEFAULT_SLOW_MODE_SECONDS
   )
 
+  const resolvedModes = modes ?? DEFAULT_CHAT_MODES
   const canManage = actorCanModerate(
     account,
     channelRoomId,
@@ -190,18 +197,22 @@ export function ChatModesMenu({
     channelLogin
   )
   const hasScope = hasModerationScope(account, CHAT_COMMAND_SCOPES.chatSettings)
+  const readOnly = !canManage
 
-  const followersDuration = modes?.followersOnly
-    ? modes.followersOnlyMinutes
+  const followersDuration = resolvedModes.followersOnly
+    ? resolvedModes.followersOnlyMinutes
     : preferredFollowersDuration
-  const slowDuration = modes?.slowMode
-    ? modes.slowModeSeconds || DEFAULT_SLOW_MODE_SECONDS
+  const slowDuration = resolvedModes.slowMode
+    ? resolvedModes.slowModeSeconds || DEFAULT_SLOW_MODE_SECONDS
     : preferredSlowDuration
 
   const applySettings = React.useCallback(
     async (
       settings: Parameters<typeof updateTwitchChatSettings>[0]["settings"]
     ) => {
+      if (readOnly) {
+        return
+      }
       if (!account || !channelRoomId) {
         toast.error("Channel is still connecting.")
         return
@@ -232,7 +243,7 @@ export function ChatModesMenu({
         setPending(false)
       }
     },
-    [account, channelRoomId, hasScope]
+    [account, channelRoomId, hasScope, readOnly]
   )
 
   const onToggleMode = React.useCallback(
@@ -275,54 +286,56 @@ export function ChatModesMenu({
   const onFollowersDurationChange = React.useCallback(
     (minutes: number) => {
       setPreferredFollowersDuration(minutes)
-      if (modes?.followersOnly) {
+      if (resolvedModes.followersOnly) {
         void applySettings({
           followerMode: true,
           followerModeDuration: minutes,
         })
       }
     },
-    [applySettings, modes?.followersOnly]
+    [applySettings, resolvedModes.followersOnly]
   )
 
   const onSlowDurationChange = React.useCallback(
     (seconds: number) => {
       setPreferredSlowDuration(seconds)
-      if (modes?.slowMode) {
+      if (resolvedModes.slowMode) {
         void applySettings({
           slowMode: true,
           slowModeWaitTime: seconds,
         })
       }
     },
-    [applySettings, modes?.slowMode]
+    [applySettings, resolvedModes.slowMode]
   )
-
-  if (!canManage || !modes) {
-    return null
-  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          className="text-muted-foreground hover:text-foreground data-[state=open]:text-foreground"
-          aria-label="Chat modes"
-        >
-          <SwordsIcon className="size-3.5" />
-        </Button>
-      </PopoverTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="text-muted-foreground hover:bg-muted/70 hover:text-foreground data-[state=open]:text-foreground"
+              aria-label="Chat modes"
+            >
+              <SwordsIcon className="size-4" />
+            </Button>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent>Chat modes</TooltipContent>
+      </Tooltip>
       <PopoverContent
+        side="top"
         align="end"
-        sideOffset={4}
+        sideOffset={6}
         className="relative w-44 border-0 bg-popover/70 p-1 shadow-md ring-1 ring-foreground/10 before:pointer-events-none before:absolute before:inset-0 before:-z-1 before:rounded-[inherit] before:backdrop-blur-2xl before:backdrop-saturate-150"
       >
         <ChatModesPanel
-          modes={modes}
-          disabled={!channelRoomId}
+          modes={resolvedModes}
+          disabled={readOnly || !channelRoomId}
           pending={pending}
           followersDuration={followersDuration}
           slowDuration={slowDuration}

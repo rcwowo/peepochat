@@ -65,6 +65,10 @@ const deletedMessagesBehaviorSchema = z
   .enum(["remove", "strikethrough", "show-on-hover"])
   .default("strikethrough")
 
+const chatModesVisibilitySchema = z
+  .enum(["always", "when-permitted", "hidden"])
+  .default("always")
+
 const chatSchema = z.object({
   messageTimestampFormat: messageTimestampFormatSchema,
   recentMessagesEnabled: z.boolean().default(true),
@@ -93,6 +97,7 @@ const chatSchema = z.object({
     .default(LIVE_MESSAGES_PER_CHANNEL_DEFAULT),
   messageQuickActions: messageQuickActionsSchema,
   deletedMessagesBehavior: deletedMessagesBehaviorSchema,
+  chatModesVisibility: chatModesVisibilitySchema,
   clearChatWhenInstructed: z.boolean().default(true),
   hideBlockedUsers: z.boolean().default(true),
   showSuspiciousActivity: z.boolean().default(true),
@@ -239,6 +244,7 @@ export type MessageQuickActionsConfig = z.infer<
 export type DeletedMessagesBehavior = z.infer<
   typeof deletedMessagesBehaviorSchema
 >
+export type ChatModesVisibility = z.infer<typeof chatModesVisibilitySchema>
 export type ChatSplit = z.infer<typeof chatSplitSchema>
 export type {
   ChatSplitLayoutChild,
@@ -291,6 +297,7 @@ export function createDefaultConfig(): AppConfig {
         banEnabled: false,
       },
       deletedMessagesBehavior: "strikethrough",
+      chatModesVisibility: "always",
       clearChatWhenInstructed: true,
       hideBlockedUsers: true,
       showSuspiciousActivity: true,

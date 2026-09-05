@@ -14,7 +14,6 @@ import type { RoomStore } from "@/hooks/twitch/chat/use-room-store"
 import type { TimelineApi } from "@/hooks/twitch/chat/use-timeline"
 import { useLazyRef } from "@/hooks/use-lazy-ref"
 import {
-  chatModesNoticeId,
   formatChatModesNotice,
   hasAnyChatModeEnabled,
   mergeChatModes,
@@ -28,6 +27,7 @@ import {
 } from "@/lib/twitch/chat-timeline"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 import {
+  createChatModesSystemMessage,
   TwitchChatClient,
   type TwitchChatConnectOptions,
   type TwitchChatMessage,
@@ -63,10 +63,7 @@ type UseChatConnectionOptions = {
     RecentMessagesApi,
     "clearHistoryForLogins" | "clearAllHistoryState"
   >
-  send: Pick<
-    ChatSendApi,
-    "clearAllSendBlocks" | "resetRateLimiter" | "pushComposerNotice"
-  >
+  send: Pick<ChatSendApi, "clearAllSendBlocks" | "resetRateLimiter">
   readHandlersRef: React.MutableRefObject<ReadClientHandlers>
   sendHandlersRef: React.MutableRefObject<SendClientHandlers>
   syncedChannelsRef: React.MutableRefObject<string[]>
@@ -107,7 +104,7 @@ export function useChatConnection({
   const { flushPendingForLogins, flushAllPending } = timeline
   const { clearEmotesForRoomIds, clearAllEmoteState } = emotes
   const { clearHistoryForLogins, clearAllHistoryState } = recentMessages
-  const { clearAllSendBlocks, resetRateLimiter, pushComposerNotice } = send
+  const { clearAllSendBlocks, resetRateLimiter } = send
 
   const readClientRef = React.useRef<TwitchChatClient | null>(null)
   const pendingConnectRef = React.useRef<PendingReadConnect | null>(null)
@@ -414,11 +411,13 @@ export function useChatConnection({
             if (hasAnyChatModeEnabled(nextModes)) {
               const message = formatChatModesNotice(nextModes)
               if (message) {
-                pushComposerNotice({
-                  channel: login,
-                  message,
-                  id: chatModesNoticeId(login),
-                })
+                handlers.onSystem(
+                  createChatModesSystemMessage({
+                    channel: login,
+                    roomId: roomId ?? null,
+                    text: message,
+                  })
+                )
                 pendingChatModesNoticeRef.current.delete(login)
                 if (roomId) {
                   handlers.onRoomReady?.(login, roomId)
@@ -484,7 +483,6 @@ export function useChatConnection({
     markConnectionSyncedIfReady,
     pendingConnectRef,
     pendingChatModesNoticeRef,
-    pushComposerNotice,
     readClientRef,
     readHandlersRef,
     readJoinedChannelsRef,

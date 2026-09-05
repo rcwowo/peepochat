@@ -993,6 +993,30 @@ function parseClearChat(tagged: IrcTaggedLine): TwitchClearChatEvent | null {
   }
 }
 
+export function createChatModesSystemMessage(input: {
+  channel: string
+  roomId: string | null
+  text: string
+  receivedAt?: string
+}): TwitchSystemMessage {
+  const channel = normalizeChannelLogin(input.channel)
+  const text = input.text
+
+  return {
+    id: stableSystemMessageId(channel, "notice", text),
+    channel,
+    roomId: input.roomId,
+    text,
+    headline: text,
+    details: null,
+    receivedAt: input.receivedAt ?? new Date().toISOString(),
+    event: "notice",
+    level: "warning",
+    accentColor: null,
+    ...EMPTY_SYSTEM_MESSAGE_META,
+  }
+}
+
 export function createClearChatModActionMessage(
   event: TwitchClearChatEvent,
   receivedAt = new Date().toISOString()

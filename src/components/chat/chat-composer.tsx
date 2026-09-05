@@ -5,6 +5,7 @@ import { ChatSuggestions } from "@/components/chat/chat-suggestions"
 import { ChatterSuggestions } from "@/components/chat/chatter-suggestions"
 import { CommandSuggestions } from "@/components/chat/command-suggestions"
 import { ComposerNoticeBanner } from "@/components/chat/composer-notice-banner"
+import { ChatModesMenu } from "@/components/chat/chat-modes-panel"
 import { EmotePicker } from "@/components/chat/emote-picker"
 import { ChatReplyThreadTray } from "@/components/chat/chat-reply-thread-tray"
 import { useChannelRoom } from "@/hooks/chat-ui/use-channel-room"
@@ -12,8 +13,17 @@ import { useResizeActivity } from "@/hooks/use-resize-session"
 import { useUserCardContext } from "@/hooks/twitch/use-user-card-context"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { usePeepochatChat } from "@/lib/peepochat/peepochat-context"
+import {
+  usePeepochatChat,
+  usePeepochatSettings,
+} from "@/lib/peepochat/peepochat-context"
 import type { TwitchAccount } from "@/lib/peepochat/peepochat-config"
+import {
+  shouldShowChatModesMenu,
+  type TwitchChatModes,
+} from "@/lib/chat/chat-modes"
+import { actorCanModerate } from "@/lib/chat/moderation-permissions"
+import type { TwitchSelfChatState } from "@/lib/twitch/twitch-chat-types"
 import { buildReplyThread } from "@/lib/chat/reply-threads"
 import { CHAT_RATE_LIMIT_MESSAGES } from "@/lib/chat/chat-send"
 import {
@@ -84,6 +94,9 @@ type ChatComposerProps = {
   onEmotePickerOpenChange: (open: boolean) => void
   account: TwitchAccount | null
   active: boolean
+  channelRoomId: string | null
+  selfChatState: TwitchSelfChatState | null
+  chatModes?: TwitchChatModes
   showTwitchBadges: boolean
   showMemberBadges: boolean
   composerInputRef?: React.RefObject<HTMLTextAreaElement | null>
@@ -98,6 +111,9 @@ function ChatComposerInner({
   onEmotePickerOpenChange,
   account,
   active,
+  channelRoomId,
+  selfChatState,
+  chatModes,
   showTwitchBadges,
   showMemberBadges,
   composerInputRef,
@@ -126,6 +142,11 @@ function ChatComposerInner({
     getMemberBadge,
     hasBadgeSupport,
   } = usePeepochatChat()
+  const { config } = usePeepochatSettings()
+  const showChatModesMenu = shouldShowChatModesMenu(
+    config.chat.chatModesVisibility,
+    actorCanModerate(account, channelRoomId, selfChatState, channelLogin)
+  )
   const badgeCatalog = getBadgeCatalog(channelLogin)
 
   const userCardContext = useUserCardContext()
@@ -1381,7 +1402,10 @@ function ChatComposerInner({
                 autoCorrect="off"
                 spellCheck
                 rows={1}
-                className="field-sizing-fixed max-h-40 min-h-9 resize-none overflow-y-hidden rounded-lg border-0 bg-transparent py-2 pr-10 text-sm leading-5 shadow-none focus-visible:border-transparent focus-visible:ring-0 dark:bg-transparent"
+                className={cn(
+                  "field-sizing-fixed max-h-40 min-h-9 resize-none overflow-y-hidden rounded-lg border-0 bg-transparent py-2 text-sm leading-5 shadow-none focus-visible:border-transparent focus-visible:ring-0 dark:bg-transparent",
+                  showChatModesMenu ? "pr-16" : "pr-10"
+                )}
                 onChange={(event) => {
                   const nextValue = event.target.value
                   setValue(nextValue)
@@ -1402,20 +1426,31 @@ function ChatComposerInner({
                 }}
               />
 
-              <EmotePicker
-                catalog={catalog}
-                loading={emotesLoading}
-                disabled={disabled}
-                open={emotePickerOpen}
-                onOpenChange={onEmotePickerOpenChange}
-                onSelect={(code) => {
-                  setValue((current) => insertEmoteAtEnd(current, code))
-                  setCompleter(createEmoteCompleterState())
-                  setCommandCompleter(createCommandCompleterState())
-                  setChatterCompleter(createChatterCompleterState())
-                  inputRef.current?.focus()
-                }}
-              />
+              <div className="absolute right-1 bottom-1 flex items-center">
+                {showChatModesMenu ? (
+                  <ChatModesMenu
+                    channelLogin={channelLogin}
+                    channelRoomId={channelRoomId}
+                    account={account}
+                    selfChatState={selfChatState}
+                    modes={chatModes}
+                  />
+                ) : null}
+                <EmotePicker
+                  catalog={catalog}
+                  loading={emotesLoading}
+                  disabled={disabled}
+                  open={emotePickerOpen}
+                  onOpenChange={onEmotePickerOpenChange}
+                  onSelect={(code) => {
+                    setValue((current) => insertEmoteAtEnd(current, code))
+                    setCompleter(createEmoteCompleterState())
+                    setCommandCompleter(createCommandCompleterState())
+                    setChatterCompleter(createChatterCompleterState())
+                    inputRef.current?.focus()
+                  }}
+                />
+              </div>
             </div>
           </div>
         </div>

@@ -187,7 +187,7 @@ export function AppearanceTab() {
   return (
     <SettingsTab
       title="Appearance"
-      description="Theme, typography, badges, and timestamps."
+      description="Theme, typography, badges, timestamps, and composer."
     >
       <SettingsDivider className="mt-4 mb-4" />
 
@@ -265,6 +265,33 @@ export function AppearanceTab() {
               { value: "remove", label: "Remove from list" },
               { value: "strikethrough", label: "Strikethrough" },
               { value: "show-on-hover", label: "Show on hover" },
+            ]}
+          />
+        </SettingsGroup>
+      </SettingsSection>
+
+      <SettingsSection
+        title="Composer"
+        description="Controls that appear next to the message box."
+      >
+        <SettingsGroup>
+          <SettingsSelectRow
+            title="Chat modes button"
+            description="When the chat modes button appears next to the emote picker."
+            value={config.chat.chatModesVisibility}
+            onChange={(chatModesVisibility) =>
+              updateConfig((current) => ({
+                ...current,
+                chat: { ...current.chat, chatModesVisibility },
+              }))
+            }
+            options={[
+              { value: "always", label: "Always visible" },
+              {
+                value: "when-permitted",
+                label: "When permissions allow changes",
+              },
+              { value: "hidden", label: "Hidden" },
             ]}
           />
         </SettingsGroup>
