@@ -59,7 +59,7 @@ const HOTKEY_ACTION_HELP: Record<
   },
   "sidebar.select": {
     title: "Switch sidebar slot",
-    description: "Jump to a channel or split.",
+    description: "Jump to a position in the sidebar.",
   },
 }
 

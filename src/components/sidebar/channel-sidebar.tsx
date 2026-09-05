@@ -366,6 +366,7 @@ function ChannelContextMenu({
   showLive,
   isWatching,
   canAddToActiveSplit,
+  isPlayerActive,
   onSelect,
   onRemove,
   onSplit,
@@ -386,6 +387,7 @@ function ChannelContextMenu({
   showLive: boolean
   isWatching: boolean
   canAddToActiveSplit: boolean
+  isPlayerActive: boolean
   onSelect: () => void
   onRemove: () => void
   onSplit: () => void
@@ -401,6 +403,7 @@ function ChannelContextMenu({
     (Boolean(activeChannelLogin) && activeChannelLogin !== login)
   const SplitIcon = canAddToActiveSplit ? CirclePlusIcon : Columns2Icon
   const splitActionLabel = canAddToActiveSplit ? "Add to Split" : "Split"
+  const splitDisabled = isPlayerActive
 
   return (
     <SidebarIconContextMenu
@@ -420,11 +423,12 @@ function ChannelContextMenu({
             <MenuPanelSeparator />
             <MenuPanelActions
               actions={[
-                ...(canSplit
+                ...(canSplit || splitDisabled
                   ? [
                       {
                         icon: SplitIcon,
                         label: splitActionLabel,
+                        disabled: splitDisabled,
                         onSelect: onSplit,
                       },
                     ]
@@ -635,6 +639,10 @@ export function ChannelSidebar({ onAddChannel }: { onAddChannel: () => void }) {
   )
 
   const handleSplitWith = (login: string) => {
+    if (playerViewActive) {
+      return
+    }
+
     if (isSplitView) {
       addSplitChannel(login)
       return
@@ -849,6 +857,7 @@ export function ChannelSidebar({ onAddChannel }: { onAddChannel: () => void }) {
                         Boolean(activeSplitId) &&
                         !activeSplitChannelSet.has(entry.channel.login)
                       }
+                      isPlayerActive={playerViewActive}
                       onSelect={() => setActiveChannel(entry.channel.login)}
                       onUnreadEnabledChange={(enabled) =>
                         setChannelUnreadEnabled(entry.channel.login, enabled)

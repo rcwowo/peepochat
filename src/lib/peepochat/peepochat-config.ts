@@ -28,7 +28,7 @@ export const CHAT_EMOTE_SCALE_MAX = 24
 export const CHAT_EMOTE_SCALE_DEFAULT = 13
 export const PLAYER_DESKTOP_SIZE_MIN = 1
 export const PLAYER_DESKTOP_SIZE_MAX = 99
-export const PLAYER_DESKTOP_SIZE_DEFAULT = 70
+export const PLAYER_DESKTOP_SIZE_DEFAULT = PLAYER_DESKTOP_SIZE_MAX
 export const PLAYER_CHAT_MIN_WIDTH_PX = 340
 export const PEEPOCHAT_APP_VERSION: string =
   typeof __APP_VERSION__ === "undefined" ? "" : __APP_VERSION__

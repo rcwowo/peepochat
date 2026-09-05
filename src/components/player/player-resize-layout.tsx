@@ -3,7 +3,7 @@ import * as React from "react"
 import { useIsMobile } from "@/hooks/use-mobile"
 import {
   PLAYER_CHAT_MIN_WIDTH_PX,
-  PLAYER_DESKTOP_SIZE_DEFAULT,
+  PLAYER_DESKTOP_SIZE_MAX,
   PLAYER_DESKTOP_SIZE_MIN,
 } from "@/lib/peepochat/peepochat-config"
 import {
@@ -185,7 +185,7 @@ export function PlayerResizeLayout({
             valueNow={Math.round(size)}
             onPointerDown={handlePointerDown}
             onKeyDown={handleKeyDown}
-            onDoubleClick={() => commitSize(PLAYER_DESKTOP_SIZE_DEFAULT)}
+            onDoubleClick={() => commitSize(PLAYER_DESKTOP_SIZE_MAX)}
           />
         ) : null}
         <div
