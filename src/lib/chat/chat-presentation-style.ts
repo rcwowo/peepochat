@@ -7,6 +7,7 @@ import {
 } from "@/lib/peepochat/peepochat-config"
 
 export const CHAT_BASE_EMOTE_SIZE_PX = 28
+export const CHAT_BASE_GIF_MAX_HEIGHT_PX = 140
 const CHAT_LINE_HEIGHT_MULTIPLIER = 1.25
 const CHAT_EMOTE_MARGIN_REM = -0.35
 const CHAT_ROOT_FONT_SIZE_PX = 16
@@ -20,6 +21,7 @@ export type ChatPresentationMetrics = {
   fontSizePx: number
   lineHeightPx: number
   emoteSizePx: number
+  gifMaxHeightPx: number
   emoteMarginPx: number
   extraRowPaddingPx: number
   rowPaddingY: number
@@ -58,6 +60,9 @@ export function getChatPresentationMetrics(
   const emoteScaleRatio = chat.emoteScale / CHAT_EMOTE_SCALE_DEFAULT
   const lineHeightPx = chat.fontSizePx * CHAT_LINE_HEIGHT_MULTIPLIER
   const emoteSizePx = Math.round(CHAT_BASE_EMOTE_SIZE_PX * emoteScaleRatio)
+  const gifMaxHeightPx = Math.round(
+    CHAT_BASE_GIF_MAX_HEIGHT_PX * emoteScaleRatio
+  )
   const overflowPx = emoteSizePx - lineHeightPx
   const extraRowPaddingPx = Math.max(
     0,
@@ -74,6 +79,7 @@ export function getChatPresentationMetrics(
     fontSizePx: chat.fontSizePx,
     lineHeightPx,
     emoteSizePx,
+    gifMaxHeightPx,
     emoteMarginPx,
     extraRowPaddingPx,
     rowPaddingY: 2 * (CHAT_ROW_PADDING_BLOCK_BASE_PX + extraRowPaddingPx),
@@ -91,6 +97,7 @@ export function getChatPresentationStyle(
     "--chat-font-size": `${metrics.fontSizePx}px`,
     "--chat-line-height": `${metrics.lineHeightPx}px`,
     "--chat-emote-size": `${metrics.emoteSizePx}px`,
+    "--chat-gif-max-height": `${metrics.gifMaxHeightPx}px`,
     "--chat-emote-margin": `${metrics.emoteMarginPx.toFixed(2)}px`,
     "--chat-message-extra-padding-block": `${metrics.extraRowPaddingPx}px`,
     ...(cssFontFamily ? { fontFamily: cssFontFamily } : {}),

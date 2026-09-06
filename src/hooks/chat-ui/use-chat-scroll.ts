@@ -604,6 +604,8 @@ export function useChatScroll<T extends TwitchTimelineItem>({
     layout.metrics.fontSizePx,
     layout.metrics.lineHeightPx,
     layout.metrics.rowPaddingY,
+    layout.gifAppearance,
+    layout.metrics.gifMaxHeightPx,
     layout.showTwitchBadges,
     layout.timestampFormat,
     viewportWidth,

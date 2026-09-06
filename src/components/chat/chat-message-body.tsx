@@ -2,11 +2,13 @@ import * as React from "react"
 
 import { ChatCheermote } from "@/components/chat/chat-cheermote"
 import { ChatEmote } from "@/components/chat/chat-emote"
+import { ChatGif } from "@/components/chat/chat-gif"
 import { ChatMention } from "@/components/chat/chat-mention"
 import { getMessageBodyTokens } from "@/lib/chat/chat-message-body-tokens"
 import type { PingMatchRange } from "@/lib/highlights/highlight-rules"
 import { PingMatchMark } from "@/lib/highlights/ping-match-mark"
-import type { TwitchEmote } from "@/lib/twitch/twitch-chat"
+import { usePeepochatSettings } from "@/lib/peepochat/peepochat-context"
+import type { TwitchChatGif, TwitchEmote } from "@/lib/twitch/twitch-chat"
 
 const EMPTY_HIGHLIGHT_RANGES: PingMatchRange[] = []
 
@@ -105,19 +107,25 @@ function pushHighlightedText(
   }
 }
 
+const EMPTY_GIFS: TwitchChatGif[] = []
+
 function ChatMessageBodyInner({
   text,
   emotes,
+  gifs = EMPTY_GIFS,
   pingMatchRange = null,
   highlightRanges,
   channelLogin,
 }: {
   text: string
   emotes: TwitchEmote[]
+  gifs?: TwitchChatGif[]
   pingMatchRange?: PingMatchRange | null
   highlightRanges?: PingMatchRange[] | null
   channelLogin?: string
 }) {
+  const { config } = usePeepochatSettings()
+  const gifAppearance = config.chat.gifMessageAppearance
   const ranges =
     highlightRanges != null
       ? highlightRanges
@@ -125,10 +133,48 @@ function ChatMessageBodyInner({
         ? [pingMatchRange]
         : EMPTY_HIGHLIGHT_RANGES
 
-  const tokens = getMessageBodyTokens(text, emotes)
+  const tokens = getMessageBodyTokens(text, emotes, gifs)
   const parts: React.ReactNode[] = []
 
   for (const token of tokens) {
+    if (token.kind === "gif") {
+      if (gifAppearance === "disabled") {
+        continue
+      }
+
+      if (gifAppearance === "links") {
+        const linkParts: React.ReactNode[] = []
+        pushHighlightedText(
+          linkParts,
+          token.gif.url,
+          `g-inner-${token.gif.start}`,
+          token.gif.start,
+          ranges
+        )
+        parts.push(
+          <a
+            key={`g-${token.gif.id}-${token.gif.start}`}
+            href={token.gif.url}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="chat-link break-all"
+          >
+            {linkParts.length > 0 ? linkParts : token.gif.url}
+          </a>
+        )
+        continue
+      }
+
+      parts.push(
+        <ChatGif
+          key={`g-${token.gif.id}-${token.gif.start}`}
+          gif={token.gif}
+          label={text.slice(token.gif.start, token.gif.end + 1)}
+        />
+      )
+      continue
+    }
+
     if (token.kind === "emote") {
       const emote = token.emote
       const emoteName = text.slice(emote.start, emote.end + 1)

@@ -1,5 +1,9 @@
 import type { PingMatchRange } from "@/lib/highlights/highlight-rules"
-import type { TwitchChatReply, TwitchEmote } from "@/lib/twitch/twitch-chat"
+import type {
+  TwitchChatGif,
+  TwitchChatReply,
+  TwitchEmote,
+} from "@/lib/twitch/twitch-chat"
 
 function getLeadingReplyMentionStripOffset(
   text: string,
@@ -55,6 +59,28 @@ function adjustEmotes(emotes: TwitchEmote[], offset: number): TwitchEmote[] {
     .filter((emote): emote is TwitchEmote => emote !== null)
 }
 
+function adjustGif(gif: TwitchChatGif, offset: number): TwitchChatGif | null {
+  if (gif.start < offset) {
+    return null
+  }
+
+  return {
+    ...gif,
+    start: gif.start - offset,
+    end: gif.end - offset,
+  }
+}
+
+function adjustGifs(gifs: TwitchChatGif[], offset: number): TwitchChatGif[] {
+  if (offset === 0) {
+    return gifs
+  }
+
+  return gifs
+    .map((gif) => adjustGif(gif, offset))
+    .filter((gif): gif is TwitchChatGif => gif !== null)
+}
+
 export function adjustHighlightRangesForReplyStrip(
   ranges: PingMatchRange[] | null | undefined,
   offset: number
@@ -81,20 +107,27 @@ export function adjustHighlightRangesForReplyStrip(
 export function getReplyDisplayContent(
   text: string,
   emotes: TwitchEmote[],
-  reply: TwitchChatReply | null
-): { text: string; emotes: TwitchEmote[]; stripOffset: number } {
+  reply: TwitchChatReply | null,
+  gifs: TwitchChatGif[] = []
+): {
+  text: string
+  emotes: TwitchEmote[]
+  gifs: TwitchChatGif[]
+  stripOffset: number
+} {
   if (!reply) {
-    return { text, emotes, stripOffset: 0 }
+    return { text, emotes, gifs, stripOffset: 0 }
   }
 
   const stripOffset = getLeadingReplyMentionStripOffset(text, reply)
   if (stripOffset === 0) {
-    return { text, emotes, stripOffset: 0 }
+    return { text, emotes, gifs, stripOffset: 0 }
   }
 
   return {
     text: text.slice(stripOffset),
     emotes: adjustEmotes(emotes, stripOffset),
+    gifs: adjustGifs(gifs, stripOffset),
     stripOffset,
   }
 }

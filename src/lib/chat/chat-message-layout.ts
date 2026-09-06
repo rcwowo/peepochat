@@ -1,7 +1,15 @@
 import type { ChatPresentationMetrics } from "@/lib/chat/chat-presentation-style"
 import { getReplyDisplayContent } from "@/lib/chat/strip-reply-mention"
-import type { MessageTimestampFormat } from "@/lib/peepochat/peepochat-config"
-import { getEmoteConsumedEnd, type TwitchEmote } from "@/lib/twitch/twitch-chat"
+import type {
+  GifMessageAppearance,
+  MessageTimestampFormat,
+} from "@/lib/peepochat/peepochat-config"
+import {
+  getEmoteConsumedEnd,
+  getGifConsumedEnd,
+  type TwitchChatGif,
+  type TwitchEmote,
+} from "@/lib/twitch/twitch-chat"
 import type { TwitchTimelineItem } from "@/lib/twitch/twitch-chat-types"
 
 const MESSAGE_PADDING_X_PX = 24
@@ -30,6 +38,7 @@ export type ChatListLayout = {
   timestampFormat: MessageTimestampFormat
   messageSeparators: boolean
   showTwitchBadges: boolean
+  gifAppearance: GifMessageAppearance
 }
 
 export function getTimelineItemLineHeight(
@@ -61,12 +70,14 @@ export function estimateTimelineItemSize(
       const display = getReplyDisplayContent(
         entry.message.text,
         entry.message.emotes,
-        entry.message.reply
+        entry.message.reply,
+        entry.message.gifs
       )
       return (
         estimateChatRowHeight({
           text: display.text,
           emotes: display.emotes,
+          gifs: display.gifs,
           displayName: entry.message.displayName,
           badgeCount: layout.showTwitchBadges
             ? entry.message.badges.length + (entry.message.sourceRoomId ? 1 : 0)
@@ -114,6 +125,7 @@ function fallbackRowHeight(
 function estimateChatRowHeight({
   text,
   emotes,
+  gifs = [],
   displayName,
   badgeCount,
   hasReply,
@@ -122,6 +134,7 @@ function estimateChatRowHeight({
 }: {
   text: string
   emotes: TwitchEmote[]
+  gifs?: TwitchChatGif[]
   displayName: string
   badgeCount: number
   hasReply: boolean
@@ -135,11 +148,16 @@ function estimateChatRowHeight({
   const lines = estimateMessageLines({
     text,
     emotes,
+    gifs,
     displayName,
     badgeCount,
     layout,
   })
   let height = layout.metrics.rowPaddingY + lines * lineHeight
+
+  if (layout.gifAppearance === "display" && gifs.length > 0) {
+    height += gifs.length * layout.metrics.gifMaxHeightPx
+  }
 
   if (hasReply) {
     height += REPLY_BLOCK_PX
@@ -155,12 +173,14 @@ function estimateChatRowHeight({
 function estimateBannerRowHeight({
   text,
   emotes,
+  gifs = [],
   displayName,
   badgeCount,
   layout,
 }: {
   text: string
   emotes: TwitchEmote[]
+  gifs?: TwitchChatGif[]
   displayName: string
   badgeCount: number
   layout: ChatListLayout
@@ -172,17 +192,22 @@ function estimateBannerRowHeight({
   const lines = estimateMessageLines({
     text,
     emotes,
+    gifs,
     displayName,
     badgeCount,
     layout,
   })
-
-  return Math.ceil(
+  let height =
     layout.metrics.rowPaddingY +
-      ANNOUNCEMENT_HEADER_PX +
-      ANNOUNCEMENT_BODY_PADDING_Y_PX +
-      lines * lineHeight
-  )
+    ANNOUNCEMENT_HEADER_PX +
+    ANNOUNCEMENT_BODY_PADDING_Y_PX +
+    lines * lineHeight
+
+  if (layout.gifAppearance === "display" && gifs.length > 0) {
+    height += gifs.length * layout.metrics.gifMaxHeightPx
+  }
+
+  return Math.ceil(height)
 }
 
 function estimateSystemRowHeight(
@@ -200,6 +225,7 @@ function estimateSystemRowHeight(
     const lines = estimateMessageLines({
       text: message.details || message.headline,
       emotes: detailsEmotes,
+      gifs: [],
       displayName: message.actor?.displayName ?? "",
       badgeCount: layout.showTwitchBadges ? message.badges.length : 0,
       layout,
@@ -224,6 +250,7 @@ function estimateSystemRowHeight(
       ? estimateMessageLines({
           text: message.details,
           emotes: detailsEmotes,
+          gifs: [],
           displayName: "",
           badgeCount: 0,
           layout,
@@ -242,6 +269,7 @@ function estimateSystemRowHeight(
   return estimateChatRowHeight({
     text: message.text,
     emotes: detailsEmotes,
+    gifs: [],
     displayName: message.actor?.displayName ?? "",
     badgeCount: 0,
     hasReply: false,
@@ -253,12 +281,14 @@ function estimateSystemRowHeight(
 function estimateMessageLines({
   text,
   emotes,
+  gifs = [],
   displayName,
   badgeCount,
   layout,
 }: {
   text: string
   emotes: TwitchEmote[]
+  gifs?: TwitchChatGif[]
   displayName: string
   badgeCount: number
   layout: ChatListLayout
@@ -268,7 +298,7 @@ function estimateMessageLines({
     badgeListWidth(badgeCount, layout.metrics) +
     estimateTextWidth(displayName, layout, USERNAME_CHAR_WIDTH_RATIO) +
     COLON_WIDTH_PX
-  const bodyWidth = estimateBodyWidth(text, emotes, layout)
+  const bodyWidth = estimateBodyWidth(text, emotes, gifs, layout)
   return estimateWrappedLines(prefixWidth + bodyWidth, layout)
 }
 
@@ -312,33 +342,62 @@ function badgeListWidth(badgeCount: number, metrics: ChatPresentationMetrics) {
 function estimateBodyWidth(
   text: string,
   emotes: TwitchEmote[],
+  gifs: TwitchChatGif[],
   layout: ChatListLayout
 ) {
-  if (emotes.length === 0) {
+  const spans: Array<
+    | { kind: "emote"; start: number; consumedEnd: number; emote: TwitchEmote }
+    | { kind: "gif"; start: number; consumedEnd: number; gif: TwitchChatGif }
+  > = [
+    ...gifs.map((gif) => ({
+      kind: "gif" as const,
+      start: gif.start,
+      consumedEnd: getGifConsumedEnd(gif),
+      gif,
+    })),
+    ...emotes.map((emote) => ({
+      kind: "emote" as const,
+      start: emote.start,
+      consumedEnd: getEmoteConsumedEnd(emote),
+      emote,
+    })),
+  ].sort((left, right) => left.start - right.start)
+
+  if (spans.length === 0) {
     return estimateTextWidth(text, layout, BODY_CHAR_WIDTH_RATIO)
   }
 
   let width = 0
   let cursor = 0
-  for (const emote of emotes) {
-    if (emote.start > cursor) {
+  for (const span of spans) {
+    if (span.start < cursor) {
+      continue
+    }
+
+    if (span.start > cursor) {
       width += estimateTextWidth(
-        text.slice(cursor, emote.start),
+        text.slice(cursor, span.start),
         layout,
         BODY_CHAR_WIDTH_RATIO
       )
     }
 
-    width += layout.metrics.emoteSizePx
-    if (emote.cheermote) {
-      width += estimateTextWidth(
-        String(emote.cheermote.amount),
-        layout,
-        USERNAME_CHAR_WIDTH_RATIO
-      )
+    if (span.kind === "gif") {
+      if (layout.gifAppearance === "links") {
+        width += estimateTextWidth(span.gif.url, layout, BODY_CHAR_WIDTH_RATIO)
+      }
+    } else {
+      width += layout.metrics.emoteSizePx
+      if (span.emote.cheermote) {
+        width += estimateTextWidth(
+          String(span.emote.cheermote.amount),
+          layout,
+          USERNAME_CHAR_WIDTH_RATIO
+        )
+      }
     }
 
-    cursor = getEmoteConsumedEnd(emote)
+    cursor = span.consumedEnd
   }
 
   if (cursor < text.length) {

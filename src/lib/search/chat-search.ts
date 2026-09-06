@@ -126,6 +126,12 @@ const HAS_SUGGESTIONS: ChatSearchSuggestion[] = [
     description: "Contains an emote",
   },
   {
+    id: "has:gif",
+    insert: "has:gif",
+    label: "has:gif",
+    description: "Contains a GIF message",
+  },
+  {
     id: "has:mention",
     insert: "has:mention",
     label: "has:mention",
@@ -494,6 +500,9 @@ function messageMatchesHas(message: TwitchChatMessage, value: string) {
     case "emote":
     case "emotes":
       return message.emotes.length > 0
+    case "gif":
+    case "gifs":
+      return message.gifs.length > 0
     case "mention":
     case "mentions":
       return textHasChatMention(message.text)

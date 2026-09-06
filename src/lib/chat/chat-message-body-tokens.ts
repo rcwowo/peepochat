@@ -1,17 +1,73 @@
 import { matchChatMentions } from "@/lib/chat/chat-mentions"
 import { findMessageUrls } from "@/lib/peepochat/peepochat-config"
-import { getEmoteConsumedEnd, type TwitchEmote } from "@/lib/twitch/twitch-chat"
+import {
+  getEmoteConsumedEnd,
+  getGifConsumedEnd,
+  type TwitchChatGif,
+  type TwitchEmote,
+} from "@/lib/twitch/twitch-chat"
 
 export type MessageBodyToken =
   | { kind: "text"; start: number; end: number }
   | { kind: "mention"; start: number; end: number }
   | { kind: "url"; start: number; end: number; url: string }
   | { kind: "emote"; emote: TwitchEmote }
+  | { kind: "gif"; gif: TwitchChatGif }
+
+const EMPTY_GIFS: TwitchChatGif[] = []
 
 const tokenCache = new WeakMap<
-  TwitchEmote[],
-  { text: string; tokens: MessageBodyToken[] }
+  TwitchEmote[] | TwitchChatGif[],
+  { text: string; gifs: TwitchChatGif[]; tokens: MessageBodyToken[] }
 >()
+
+type MessageBodySpan =
+  | {
+      kind: "emote"
+      start: number
+      consumedEnd: number
+      emote: TwitchEmote
+    }
+  | {
+      kind: "gif"
+      start: number
+      consumedEnd: number
+      gif: TwitchChatGif
+    }
+
+function collectMessageBodySpans(
+  emotes: TwitchEmote[],
+  gifs: TwitchChatGif[]
+): MessageBodySpan[] {
+  const spans: MessageBodySpan[] = [
+    ...gifs.map((gif) => ({
+      kind: "gif" as const,
+      start: gif.start,
+      consumedEnd: getGifConsumedEnd(gif),
+      gif,
+    })),
+    ...emotes.map((emote) => ({
+      kind: "emote" as const,
+      start: emote.start,
+      consumedEnd: getEmoteConsumedEnd(emote),
+      emote,
+    })),
+  ]
+
+  spans.sort((left, right) => left.start - right.start)
+
+  const visible: MessageBodySpan[] = []
+  let lastEnd = 0
+  for (const span of spans) {
+    if (span.start < lastEnd) {
+      continue
+    }
+    visible.push(span)
+    lastEnd = span.consumedEnd
+  }
+
+  return visible
+}
 
 function pushPlainTextTokens(
   tokens: MessageBodyToken[],
@@ -92,22 +148,28 @@ function pushTextTokens(
 
 export function tokenizeMessageBody(
   text: string,
-  emotes: TwitchEmote[]
+  emotes: TwitchEmote[],
+  gifs: TwitchChatGif[] = EMPTY_GIFS
 ): MessageBodyToken[] {
   const tokens: MessageBodyToken[] = []
+  const spans = collectMessageBodySpans(emotes, gifs)
 
-  if (emotes.length === 0) {
+  if (spans.length === 0) {
     pushTextTokens(tokens, text, 0)
     return tokens
   }
 
   let lastIdx = 0
-  for (const emote of emotes) {
-    if (emote.start > lastIdx) {
-      pushTextTokens(tokens, text.slice(lastIdx, emote.start), lastIdx)
+  for (const span of spans) {
+    if (span.start > lastIdx) {
+      pushTextTokens(tokens, text.slice(lastIdx, span.start), lastIdx)
     }
-    tokens.push({ kind: "emote", emote })
-    lastIdx = getEmoteConsumedEnd(emote)
+    if (span.kind === "gif") {
+      tokens.push({ kind: "gif", gif: span.gif })
+    } else {
+      tokens.push({ kind: "emote", emote: span.emote })
+    }
+    lastIdx = span.consumedEnd
   }
 
   if (lastIdx < text.length) {
@@ -119,18 +181,20 @@ export function tokenizeMessageBody(
 
 export function getMessageBodyTokens(
   text: string,
-  emotes: TwitchEmote[]
+  emotes: TwitchEmote[],
+  gifs: TwitchChatGif[] = EMPTY_GIFS
 ): MessageBodyToken[] {
-  if (emotes.length === 0) {
-    return tokenizeMessageBody(text, emotes)
+  if (emotes.length === 0 && gifs.length === 0) {
+    return tokenizeMessageBody(text, emotes, gifs)
   }
 
-  const cached = tokenCache.get(emotes)
-  if (cached && cached.text === text) {
+  const cacheKey = emotes.length > 0 ? emotes : gifs
+  const cached = tokenCache.get(cacheKey)
+  if (cached && cached.text === text && cached.gifs === gifs) {
     return cached.tokens
   }
 
-  const tokens = tokenizeMessageBody(text, emotes)
-  tokenCache.set(emotes, { text, tokens })
+  const tokens = tokenizeMessageBody(text, emotes, gifs)
+  tokenCache.set(cacheKey, { text, gifs, tokens })
   return tokens
 }

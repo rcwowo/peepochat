@@ -24,6 +24,7 @@ function suspiciousAsChatMessage(
     badges: [],
     badgeInfo: [],
     emotes: message.emotes,
+    gifs: [],
     reply: null,
     bits: null,
     deletedAt: message.deletedAt,

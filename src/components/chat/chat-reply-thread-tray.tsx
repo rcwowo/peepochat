@@ -34,6 +34,7 @@ function ThreadMessageLine({
   color,
   text,
   emotes,
+  gifs,
   badges,
   memberBadge = null,
   unresolvedBadges,
@@ -50,6 +51,7 @@ function ThreadMessageLine({
   color: string | null
   text: string
   emotes?: TwitchChatMessage["emotes"]
+  gifs?: TwitchChatMessage["gifs"]
   badges: ReturnType<typeof resolveMessageBadges>
   memberBadge?: ResolvedMemberBadge | null
   unresolvedBadges?: TwitchChatMessage["badges"]
@@ -86,10 +88,11 @@ function ThreadMessageLine({
         className={isAction ? "chat-action italic" : "inline"}
         style={isAction && usernameColor ? { color: usernameColor } : undefined}
       >
-        {emotes ? (
+        {emotes || gifs ? (
           <ChatMessageBody
             text={text}
-            emotes={emotes}
+            emotes={emotes ?? []}
+            gifs={gifs}
             channelLogin={channelLogin}
           />
         ) : (
@@ -168,8 +171,14 @@ function MessageFromChat({
   onSelect?: () => void
 }) {
   const displayContent = React.useMemo(
-    () => getReplyDisplayContent(message.text, message.emotes, message.reply),
-    [message.emotes, message.reply, message.text]
+    () =>
+      getReplyDisplayContent(
+        message.text,
+        message.emotes,
+        message.reply,
+        message.gifs
+      ),
+    [message.emotes, message.gifs, message.reply, message.text]
   )
   const { resolvedBadges, sourceChannel } = useSharedChatMessageChrome({
     sourceRoomId: message.sourceRoomId,
@@ -186,6 +195,7 @@ function MessageFromChat({
       color={message.color}
       text={displayContent.text}
       emotes={displayContent.emotes}
+      gifs={displayContent.gifs}
       badges={resolvedBadges}
       memberBadge={showMemberBadges ? getMemberBadge(message.userId) : null}
       unresolvedBadges={message.badges}

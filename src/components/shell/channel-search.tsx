@@ -47,6 +47,7 @@ import {
   type ChatSearchSuggestion,
   type ChatSearchUsername,
 } from "@/lib/search/chat-search"
+import { messageHasChatGifs } from "@/lib/twitch/twitch-chat"
 import { useHotkeyRegistry } from "@/hooks/use-hotkey-registry"
 import { shouldPreventSearchDismiss } from "@/lib/search/search-portaled-layers"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
@@ -392,12 +393,15 @@ export function ChannelSearch() {
         timelines,
         includeDeleted: config.chat.deletedMessagesBehavior !== "remove",
         hideBlockedUsers,
-        isHidden: hideBlockedUsers
-          ? (message) => isUserBlocked(message.userId, message.userName)
-          : undefined,
+        isHidden: (message) =>
+          (hideBlockedUsers &&
+            isUserBlocked(message.userId, message.userName)) ||
+          (config.chat.gifMessageAppearance === "disabled" &&
+            messageHasChatGifs(message)),
       }),
     [
       config.chat.deletedMessagesBehavior,
+      config.chat.gifMessageAppearance,
       hideBlockedUsers,
       isUserBlocked,
       open,

@@ -60,6 +60,13 @@ export type TwitchEmote = {
   overlays?: TwitchEmote[]
 }
 
+export type TwitchChatGif = {
+  id: string
+  url: string
+  start: number
+  end: number
+}
+
 /** Index after the last character consumed by an emote and its zero-width overlays. */
 export function getEmoteConsumedEnd(emote: TwitchEmote): number {
   let end = emote.end
@@ -67,6 +74,14 @@ export function getEmoteConsumedEnd(emote: TwitchEmote): number {
     end = Math.max(end, overlay.end)
   }
   return end + 1
+}
+
+export function getGifConsumedEnd(gif: TwitchChatGif): number {
+  return gif.end + 1
+}
+
+export function messageHasChatGifs(message: { gifs: TwitchChatGif[] }) {
+  return message.gifs.length > 0
 }
 
 export type TwitchChatReply = {
@@ -110,6 +125,7 @@ export type TwitchChatMessage = {
   badges: TwitchBadge[]
   badgeInfo: TwitchBadge[]
   emotes: TwitchEmote[]
+  gifs: TwitchChatGif[]
   reply: TwitchChatReply | null
   bits: number | null
   /** ISO timestamp when the message was deleted; null while still visible. */
@@ -906,6 +922,7 @@ function parsePrivmsg(tagged: IrcTaggedLine): TwitchChatMessage | null {
   const roomId = tags.get("room-id") || null
   const source = resolveSharedChatSource(tags, roomId)
   const parsedEmotes = parseEmotesTag(tags.get("emotes") ?? "", messageText)
+  const parsedGifs = parseGifsTag(tags.get("gifs") ?? "", messageText)
 
   const displayName = decodeTagValue(tags.get("display-name") || "") || userName
   const color = tags.get("color") || null
@@ -930,6 +947,7 @@ function parsePrivmsg(tagged: IrcTaggedLine): TwitchChatMessage | null {
     badges: source.badges,
     badgeInfo: source.badgeInfo,
     emotes: parsedEmotes,
+    gifs: parsedGifs,
     reply,
     bits: parseOptionalInt(tags.get("bits")),
     deletedAt: null,
@@ -1430,6 +1448,56 @@ function parseEmotesTag(raw: string, text: string): TwitchEmote[] {
     }
   }
   return emotes.sort((a, b) => a.start - b.start)
+}
+
+function decodeGifsTagValue(raw: string): string {
+  const unescaped = decodeTagValue(raw)
+  if (!/%7[Cc]/.test(unescaped)) {
+    return unescaped
+  }
+
+  try {
+    return decodeURIComponent(unescaped)
+  } catch {
+    return unescaped
+  }
+}
+
+export function parseGifsTag(raw: string, text: string): TwitchChatGif[] {
+  if (!raw) return []
+
+  const decoded = decodeGifsTagValue(raw)
+  const gifs: TwitchChatGif[] = []
+  const pattern = /(\d+)-(\d+)\|([^|,]+)\|(https?:\/\/[^,]*)/g
+
+  for (const match of decoded.matchAll(pattern)) {
+    const parsedStart = Number.parseInt(match[1]!, 10)
+    const parsedEnd = Number.parseInt(match[2]!, 10)
+    const id = match[3]?.trim() ?? ""
+    const url = match[4]?.trim() ?? ""
+    if (
+      !id ||
+      !url ||
+      !Number.isFinite(parsedStart) ||
+      !Number.isFinite(parsedEnd)
+    ) {
+      continue
+    }
+
+    const range = codePointRangeToUtf16Indices(text, parsedStart, parsedEnd)
+    if (!range) {
+      continue
+    }
+
+    gifs.push({
+      id,
+      url,
+      start: range.start,
+      end: range.end,
+    })
+  }
+
+  return gifs.sort((a, b) => a.start - b.start)
 }
 
 function parseMessageReceivedAt(tags: Map<string, string>): string {

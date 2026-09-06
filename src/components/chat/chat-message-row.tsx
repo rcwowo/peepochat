@@ -156,8 +156,14 @@ function ChatMessageRowInner({
     showTimeoutButton ||
     showBanButton
   const displayContent = React.useMemo(
-    () => getReplyDisplayContent(message.text, message.emotes, message.reply),
-    [message.emotes, message.reply, message.text]
+    () =>
+      getReplyDisplayContent(
+        message.text,
+        message.emotes,
+        message.reply,
+        message.gifs
+      ),
+    [message.emotes, message.gifs, message.reply, message.text]
   )
   const displayPingMatchRange = React.useMemo(() => {
     if (
@@ -340,6 +346,7 @@ function ChatMessageRowInner({
               <ChatMessageBody
                 text={displayContent.text}
                 emotes={displayContent.emotes}
+                gifs={displayContent.gifs}
                 pingMatchRange={displayPingMatchRange}
                 highlightRanges={displaySearchHighlightRanges}
                 channelLogin={message.channel}
@@ -358,6 +365,7 @@ function ChatMessageRowInner({
             <ChatMessageBody
               text={displayContent.text}
               emotes={displayContent.emotes}
+              gifs={displayContent.gifs}
               pingMatchRange={displayPingMatchRange}
               highlightRanges={displaySearchHighlightRanges}
               channelLogin={message.channel}

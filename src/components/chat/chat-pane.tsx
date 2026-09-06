@@ -56,8 +56,10 @@ import { useChannelMessageHighlights } from "@/hooks/chat-ui/use-highlight-activ
 import {
   usePeepochatChat,
   usePeepochatPlayer,
+  usePeepochatSettings,
   usePeepochatSidebarHighlights,
 } from "@/lib/peepochat/peepochat-context"
+import { messageHasChatGifs } from "@/lib/twitch/twitch-chat"
 import {
   createRecentUserMessageBucketCache,
   updateRecentUserMessageBuckets,
@@ -212,6 +214,8 @@ function ChatPaneInner({
     blockUser,
     unblockUser,
   } = usePeepochatChat()
+  const { config } = usePeepochatSettings()
+  const gifMessageAppearance = config.chat.gifMessageAppearance
   const { isChannelLive, getChannelLiveStream } =
     usePeepochatSidebarHighlights()
   const { playerChannelLogin } = usePeepochatPlayer()
@@ -291,12 +295,21 @@ function ChatPaneInner({
         ? getChannelLiveStream(channelLogin)
         : null
   const visibleTimeline = React.useMemo(() => {
-    if (!hideBlockedUsers && showSuspiciousActivity) {
+    const hideGifs = gifMessageAppearance === "disabled"
+    if (!hideBlockedUsers && showSuspiciousActivity && !hideGifs) {
       return timeline
     }
 
     const filtered = timeline.filter((entry) => {
       if (entry.kind === "suspicious" && !showSuspiciousActivity) {
+        return false
+      }
+
+      if (
+        hideGifs &&
+        entry.kind === "chat" &&
+        messageHasChatGifs(entry.message)
+      ) {
         return false
       }
 
@@ -311,7 +324,13 @@ function ChatPaneInner({
     })
 
     return filtered.length === timeline.length ? timeline : filtered
-  }, [hideBlockedUsers, isUserBlocked, showSuspiciousActivity, timeline])
+  }, [
+    gifMessageAppearance,
+    hideBlockedUsers,
+    isUserBlocked,
+    showSuspiciousActivity,
+    timeline,
+  ])
 
   const scrollLayout = React.useMemo(
     () => ({
@@ -322,10 +341,12 @@ function ChatPaneInner({
       timestampFormat,
       messageSeparators,
       showTwitchBadges,
+      gifAppearance: gifMessageAppearance,
     }),
     [
       emoteScale,
       fontSizePx,
+      gifMessageAppearance,
       messageSeparators,
       showTwitchBadges,
       timestampFormat,

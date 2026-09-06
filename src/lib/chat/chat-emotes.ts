@@ -7,6 +7,7 @@ import {
   type CheermoteCatalog,
 } from "@/lib/twitch/twitch-cheermotes"
 import type {
+  TwitchChatGif,
   TwitchEmote,
   TwitchEmoteProvider,
   TwitchSystemMessage,
@@ -657,6 +658,7 @@ export function hydrateMessageEmotes<
     text: string
     emotes: TwitchEmote[]
     bits?: number | null
+    gifs?: TwitchChatGif[]
   },
 >(
   message: T,
@@ -666,11 +668,21 @@ export function hydrateMessageEmotes<
   const cheermoteCatalog =
     twitchCatalog?.cheermotes ?? DEFAULT_CHEERMOTE_CATALOG
   const hydrated = hydrateCheermotes(message, cheermoteCatalog)
+  const reservedRanges = (message.gifs ?? []).map((gif) => ({
+    start: gif.start,
+    end: gif.end,
+  }))
 
   let emotes = upgradeTwitchEmoteImages(hydrated.emotes, twitchCatalog)
 
   if (catalog) {
-    emotes = mergeEmotesFromCodeCatalog(hydrated.text, emotes, catalog)
+    emotes = mergeEmotesFromCodeCatalog(
+      hydrated.text,
+      emotes,
+      catalog,
+      undefined,
+      reservedRanges
+    )
   }
 
   if (twitchCatalog) {
@@ -678,7 +690,8 @@ export function hydrateMessageEmotes<
       hydrated.text,
       emotes,
       twitchCatalog.byCode,
-      (entry) => entry.provider === "twitch"
+      (entry) => entry.provider === "twitch",
+      reservedRanges
     )
   }
 
@@ -751,7 +764,8 @@ function mergeEmotesFromCodeCatalog(
   text: string,
   existing: TwitchEmote[],
   catalog: Map<string, EmoteCatalogEntry>,
-  accept?: (entry: EmoteCatalogEntry) => boolean
+  accept?: (entry: EmoteCatalogEntry) => boolean,
+  reservedRanges: TextRange[] = []
 ): TwitchEmote[] {
   if (catalog.size === 0) {
     return existing
@@ -776,9 +790,10 @@ function mergeEmotesFromCodeCatalog(
     existingByRange.set(`${emote.start}:${emote.end}`, index)
   }
 
-  let occupied = normalizeRanges(
-    existing.map((emote) => ({ start: emote.start, end: emote.end }))
-  )
+  let occupied = normalizeRanges([
+    ...existing.map((emote) => ({ start: emote.start, end: emote.end })),
+    ...reservedRanges,
+  ])
   let lastEmoteIndex: number | null = null
   let changed = false
 

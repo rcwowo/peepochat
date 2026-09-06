@@ -65,6 +65,10 @@ const deletedMessagesBehaviorSchema = z
   .enum(["remove", "strikethrough", "show-on-hover"])
   .default("strikethrough")
 
+const gifMessageAppearanceSchema = z
+  .enum(["display", "links", "disabled"])
+  .default("display")
+
 const chatModesVisibilitySchema = z
   .enum(["always", "when-permitted", "hidden"])
   .default("always")
@@ -97,6 +101,7 @@ const chatSchema = z.object({
     .default(LIVE_MESSAGES_PER_CHANNEL_DEFAULT),
   messageQuickActions: messageQuickActionsSchema,
   deletedMessagesBehavior: deletedMessagesBehaviorSchema,
+  gifMessageAppearance: gifMessageAppearanceSchema,
   chatModesVisibility: chatModesVisibilitySchema,
   clearChatWhenInstructed: z.boolean().default(true),
   hideBlockedUsers: z.boolean().default(true),
@@ -244,6 +249,7 @@ export type MessageQuickActionsConfig = z.infer<
 export type DeletedMessagesBehavior = z.infer<
   typeof deletedMessagesBehaviorSchema
 >
+export type GifMessageAppearance = z.infer<typeof gifMessageAppearanceSchema>
 export type ChatModesVisibility = z.infer<typeof chatModesVisibilitySchema>
 export type ChatSplit = z.infer<typeof chatSplitSchema>
 export type {
@@ -297,6 +303,7 @@ export function createDefaultConfig(): AppConfig {
         banEnabled: false,
       },
       deletedMessagesBehavior: "strikethrough",
+      gifMessageAppearance: "display",
       chatModesVisibility: "always",
       clearChatWhenInstructed: true,
       hideBlockedUsers: true,

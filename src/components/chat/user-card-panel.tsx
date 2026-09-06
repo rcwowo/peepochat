@@ -812,6 +812,7 @@ export function UserCardPanel({
                           <ChatMessageBody
                             text={message.text}
                             emotes={message.emotes}
+                            gifs={message.gifs}
                           />
                         </div>
                       )

@@ -19,6 +19,7 @@ export type FakeMessageKind =
   | "reply_thread"
   | "deleted"
   | "cheer"
+  | "gif"
   | "subscription"
   | "gift_sub"
   | "raid"
@@ -43,6 +44,7 @@ export const FAKE_MESSAGE_KIND_OPTIONS: {
   { value: "reply_thread", label: "Reply thread" },
   { value: "deleted", label: "Deleted message" },
   { value: "cheer", label: "Bits cheer" },
+  { value: "gif", label: "GIF message" },
   { value: "subscription", label: "Subscription" },
   { value: "gift_sub", label: "Gift sub" },
   { value: "raid", label: "Raid" },
@@ -209,6 +211,8 @@ function defaultTextForKind(kind: FakeMessageKind): string {
       return "This message should appear deleted"
     case "cheer":
       return "Cheer300 Please take my money."
+    case "gif":
+      return "[Flourish Mihoyo GIF by Xbox]"
     case "subscription":
       return "Thanks for the great stream!"
     case "gift_sub":
@@ -272,8 +276,53 @@ function buildCheerMessage(options: FakeMessageOptions): TwitchChatMessage {
         end: cheerEnd,
       },
     ],
+    gifs: [],
     reply: null,
     bits: 300,
+    deletedAt: null,
+    flags,
+  }
+}
+
+const SAMPLE_CHAT_GIF = {
+  id: "Upx2eug0MscplOlmWK",
+  url: "https://media1.giphy.com/media/Upx2eug0MscplOlmWK/giphy.gif?cid=095d7a5d1b1m4z4k22gi9eb7m4l1c2md9vtldh1taudoxbz7&ep=v1_gifs_search&rid=giphy.gif&ct=g",
+} as const
+
+function buildGifMessage(options: FakeMessageOptions): TwitchChatMessage {
+  const channel = normalizeChannelLogin(options.channelLogin)
+  const { displayName, userName } = normalizeActorName(
+    options.displayName ?? "FakeUser",
+    options.userName ?? ""
+  )
+  const role = options.role ?? "subscriber"
+  const { badges, flags } = badgesForRole(role)
+  const text = options.text?.trim() || defaultTextForKind("gif")
+
+  return {
+    id: nextFakeId("gif"),
+    channel,
+    roomId: options.roomId ?? null,
+    sourceRoomId: null,
+    userId: `dev-${userName}`,
+    userName,
+    displayName,
+    text,
+    color: options.color ?? "#ff7f50",
+    receivedAt: new Date().toISOString(),
+    badges,
+    badgeInfo: [],
+    emotes: [],
+    gifs: [
+      {
+        id: SAMPLE_CHAT_GIF.id,
+        url: SAMPLE_CHAT_GIF.url,
+        start: 0,
+        end: Math.max(text.length - 1, 0),
+      },
+    ],
+    reply: null,
+    bits: null,
     deletedAt: null,
     flags,
   }
@@ -315,6 +364,7 @@ function buildChatMessage(
     badges,
     badgeInfo: [],
     emotes: withEmotes.emotes,
+    gifs: [],
     reply:
       kind === "reply"
         ? (() => {
@@ -642,6 +692,7 @@ function buildReplyThreadMessages(
     badges: [{ set: "subscriber", version: "0" }],
     badgeInfo: [],
     emotes: rootWithEmotes.emotes,
+    gifs: [],
     reply: null,
     bits: null,
     deletedAt: null,
@@ -674,6 +725,7 @@ function buildReplyThreadMessages(
     badges,
     badgeInfo: [],
     emotes: [],
+    gifs: [],
     reply: {
       parentMessageId: rootId,
       threadRootMessageId: rootId,
@@ -701,6 +753,7 @@ function buildReplyThreadMessages(
     badges: [],
     badgeInfo: [],
     emotes: [],
+    gifs: [],
     reply: {
       parentMessageId: firstReply.id,
       threadRootMessageId: rootId,
@@ -735,6 +788,7 @@ function buildReplyThreadMessages(
     badges: [{ set: "moderator", version: "1" }],
     badgeInfo: [],
     emotes: [],
+    gifs: [],
     reply: {
       parentMessageId: rootId,
       threadRootMessageId: rootId,
@@ -776,6 +830,8 @@ function buildFakeTimelineItem(
       }
     case "cheer":
       return { kind: "chat", message: buildCheerMessage(options) }
+    case "gif":
+      return { kind: "chat", message: buildGifMessage(options) }
     case "automod":
       return {
         kind: "automod",
@@ -834,7 +890,8 @@ export function supportsFakeChatRole(kind: FakeMessageKind) {
     kind === "reply" ||
     kind === "reply_thread" ||
     kind === "deleted" ||
-    kind === "cheer"
+    kind === "cheer" ||
+    kind === "gif"
   )
 }
 

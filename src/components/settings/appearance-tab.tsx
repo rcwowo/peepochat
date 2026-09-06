@@ -267,6 +267,22 @@ export function AppearanceTab() {
               { value: "show-on-hover", label: "Show on hover" },
             ]}
           />
+          <SettingsSelectRow
+            title="GIF message appearance"
+            description="How Tier 2 and Tier 3 subscriber GIF messages appear in chat."
+            value={config.chat.gifMessageAppearance}
+            onChange={(gifMessageAppearance) =>
+              updateConfig((current) => ({
+                ...current,
+                chat: { ...current.chat, gifMessageAppearance },
+              }))
+            }
+            options={[
+              { value: "display", label: "Display GIFs in chat" },
+              { value: "links", label: "Only display GIF links" },
+              { value: "disabled", label: "Disabled" },
+            ]}
+          />
         </SettingsGroup>
       </SettingsSection>
 
