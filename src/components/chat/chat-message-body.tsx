@@ -166,11 +166,13 @@ function ChatMessageBodyInner({
       }
 
       parts.push(
-        <ChatGif
-          key={`g-${token.gif.id}-${token.gif.start}`}
-          gif={token.gif}
-          label={text.slice(token.gif.start, token.gif.end + 1)}
-        />
+        <React.Fragment key={`g-${token.gif.id}-${token.gif.start}`}>
+          <br />
+          <ChatGif
+            gif={token.gif}
+            label={text.slice(token.gif.start, token.gif.end + 1)}
+          />
+        </React.Fragment>
       )
       continue
     }

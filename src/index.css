@@ -347,15 +347,18 @@
   }
 
   .chat-gif {
-    display: block;
+    display: inline-block;
+    max-width: 100%;
     max-height: var(--chat-gif-max-height);
     margin-top: 0.125rem;
+    vertical-align: middle;
     border-radius: 0.25rem;
     overflow: hidden;
   }
 
   .chat-gif img {
     display: block;
+    max-width: 100%;
     max-height: var(--chat-gif-max-height);
     width: auto;
     height: auto;

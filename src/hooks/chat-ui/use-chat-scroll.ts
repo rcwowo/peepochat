@@ -24,11 +24,12 @@ export type ChatScrollLayout = Omit<
 
 function readChatViewport(el: HTMLElement | null) {
   if (!el) {
-    return { width: 0, fontFamily: "" }
+    return { width: 0, height: 0, fontFamily: "" }
   }
 
   return {
     width: el.clientWidth,
+    height: el.clientHeight,
     fontFamily: getComputedStyle(el).fontFamily,
   }
 }
@@ -39,6 +40,24 @@ function getDistanceFromBottom(el: HTMLElement) {
 
 function isVerticalScrollbarInteraction(event: PointerEvent, el: HTMLElement) {
   return event.clientX - el.getBoundingClientRect().left >= el.clientWidth
+}
+
+function measureChatItem(
+  element: Element,
+  entry: ResizeObserverEntry | undefined,
+  instance: Virtualizer<HTMLDivElement, Element>
+) {
+  if (!entry) {
+    const index = instance.indexFromElement(element)
+    const cached = instance.itemSizeCache.get(
+      instance.options.getItemKey(index)
+    )
+    if (cached !== undefined) {
+      return cached
+    }
+  }
+
+  return (element as HTMLElement).offsetHeight
 }
 
 function remeasureMountedItems(
@@ -90,6 +109,7 @@ export function useChatScroll<T extends TwitchTimelineItem>({
   const [listPaddingStart, setListPaddingStart] =
     React.useState(LIST_EDGE_PADDING_PX)
   const [viewportWidth, setViewportWidth] = React.useState(0)
+  const [viewportHeight, setViewportHeight] = React.useState(0)
   const [fontFamily, setFontFamily] = React.useState("")
 
   const listLayout = React.useMemo<ChatListLayout>(
@@ -251,6 +271,7 @@ export function useChatScroll<T extends TwitchTimelineItem>({
     estimateSize,
     getItemKey,
     scrollToFn,
+    measureElement: measureChatItem,
     anchorTo: isScrollPaused ? "start" : "end",
     followOnAppend: !isScrollPaused,
     scrollEndThreshold: STICK_TO_END_PX,
@@ -585,6 +606,9 @@ export function useChatScroll<T extends TwitchTimelineItem>({
     setViewportWidth((current) =>
       current === viewport.width ? current : viewport.width
     )
+    setViewportHeight((current) =>
+      current === viewport.height ? current : viewport.height
+    )
     setFontFamily((current) =>
       current === viewport.fontFamily ? current : viewport.fontFamily
     )
@@ -608,6 +632,7 @@ export function useChatScroll<T extends TwitchTimelineItem>({
     layout.metrics.gifMaxHeightPx,
     layout.showTwitchBadges,
     layout.timestampFormat,
+    viewportHeight,
     viewportWidth,
     virtualizer,
   ])
@@ -621,6 +646,9 @@ export function useChatScroll<T extends TwitchTimelineItem>({
     const viewport = readChatViewport(chatContainerRef.current)
     setViewportWidth((current) =>
       current === viewport.width ? current : viewport.width
+    )
+    setViewportHeight((current) =>
+      current === viewport.height ? current : viewport.height
     )
     setFontFamily((current) =>
       current === viewport.fontFamily ? current : viewport.fontFamily
@@ -671,6 +699,9 @@ export function useChatScroll<T extends TwitchTimelineItem>({
       const viewport = readChatViewport(chatContainer)
       setViewportWidth((current) =>
         current === viewport.width ? current : viewport.width
+      )
+      setViewportHeight((current) =>
+        current === viewport.height ? current : viewport.height
       )
       setFontFamily((current) =>
         current === viewport.fontFamily ? current : viewport.fontFamily
