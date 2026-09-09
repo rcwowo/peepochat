@@ -16,13 +16,13 @@ import {
   purgeMessagesFromUsers,
   trimTimeline,
   type TimelineMatchableMessage,
-} from "@/lib/twitch/chat-timeline"
-import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
-import type { TwitchSystemMessage } from "@/lib/twitch/twitch-chat"
+} from "@/lib/twitch/chat/timeline"
+import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
+import type { TwitchSystemMessage } from "@/lib/twitch/chat/chat"
 import type {
   TwitchChatRoomState,
   TwitchTimelineItem,
-} from "@/lib/twitch/twitch-chat-types"
+} from "@/lib/twitch/chat/types"
 
 type UseTimelineOptions = {
   roomStore: RoomStore

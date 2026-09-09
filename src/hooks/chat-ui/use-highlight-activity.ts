@@ -27,8 +27,8 @@ import {
   isUnreadIndicatorEnabledForChannel,
   isUnreadIndicatorEnabledForSplit,
 } from "@/lib/peepochat/peepochat-config"
-import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
-import type { TwitchChatMessage } from "@/lib/twitch/twitch-chat"
+import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
+import type { TwitchChatMessage } from "@/lib/twitch/chat/chat"
 
 function buildUnreadEnabledByLogin(
   config: AppConfig,

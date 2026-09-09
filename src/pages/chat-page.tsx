@@ -1,18 +1,18 @@
 import * as React from "react"
 
-import { ChatPane } from "@/components/chat/chat-pane"
-import { ChatViewActiveProvider } from "@/components/chat/chat-view-active"
-import { ChatSplitLayout } from "@/components/chat/chat-split-layout"
+import { ChatPane } from "@/components/chat/pane/pane"
+import { ChatViewActiveProvider } from "@/components/chat/pane/view-active"
+import { ChatSplitLayout } from "@/components/chat/pane/split-layout"
 import { useChannelRoom } from "@/hooks/chat-ui/use-channel-room"
 import { useBadgeCatalog } from "@/hooks/chat-ui/use-badge-catalog"
 import { useChatViewActive } from "@/hooks/chat-ui/use-chat-view-active"
-import type { TwitchSelfChatState } from "@/lib/twitch/twitch-chat-types"
+import type { TwitchSelfChatState } from "@/lib/twitch/chat/types"
 import type { CachedChatView } from "@/hooks/chat-ui/use-chat-layout"
-import type { ResolvedMemberBadge } from "@/lib/chat/rcw-badges"
-import type { TwitchLiveStream } from "@/lib/twitch/twitch-api"
+import type { ResolvedMemberBadge } from "@/lib/rcw/badges"
+import type { TwitchLiveStream } from "@/lib/twitch/auth/api"
 import { useChatFontFamily } from "@/hooks/chat-ui/use-chat-font"
-import { useResizeActivity } from "@/hooks/use-resize-session"
-import { getChatPresentationStyle } from "@/lib/chat/chat-presentation-style"
+import { useResizeActivity } from "@/hooks/player/use-resize-session"
+import { getChatPresentationStyle } from "@/lib/chat/presentation/presentation-style"
 import {
   type ChatConfig,
   type ChatSplitLayoutNode,

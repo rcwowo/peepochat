@@ -1,4 +1,4 @@
-import { getReadableUsernameColor } from "@/lib/chat/chat-username"
+import { getReadableUsernameColor } from "@/lib/chat/presentation/username"
 
 import { useChatterByLogin } from "@/hooks/chat-ui/use-chatter-by-login"
 

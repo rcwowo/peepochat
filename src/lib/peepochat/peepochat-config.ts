@@ -1,18 +1,18 @@
 import { z } from "zod"
 
-import { migrateChatFontFamilyInput } from "@/lib/chat/chat-fonts"
+import { migrateChatFontFamilyInput } from "@/lib/chat/presentation/fonts"
 import {
   createDefaultSplitLayout,
   normalizeSplitLayout,
   type ChatSplitLayoutChild,
   type ChatSplitLayoutNode,
-} from "@/lib/chat/chat-split-layout"
+} from "@/lib/chat/layout/split-layout"
 import {
   CHANNEL_ORDER_PREFIX,
   normalizeSidebarOrder,
   SPLIT_ORDER_PREFIX,
 } from "@/lib/sidebar/sidebar-order"
-import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
+import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 
 export const PEEPOCHAT_STORAGE_KEY = "peepochat::config"
 export const PEEPOCHAT_SCHEMA_VERSION = 1
@@ -256,7 +256,7 @@ export type {
   ChatSplitLayoutNode,
   SplitLayoutDirection,
   SplitLayoutEdge,
-} from "@/lib/chat/chat-split-layout"
+} from "@/lib/chat/layout/split-layout"
 export type ChatLayoutConfig = z.infer<typeof chatLayoutSchema>
 export type ChatConfig = z.infer<typeof chatSchema>
 export type TwitchAccount = z.infer<typeof twitchAccountSchema>

@@ -2,17 +2,17 @@ import * as React from "react"
 
 import type { RoomStore } from "@/hooks/twitch/chat/use-room-store"
 import type { TwitchAccount } from "@/lib/peepochat/peepochat-config"
-import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
+import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 import type {
   TwitchAutomodHeldStatus,
   TwitchChatRoomState,
   TwitchSelfChatState,
   TwitchTimelineItem,
-} from "@/lib/twitch/twitch-chat-types"
+} from "@/lib/twitch/chat/types"
 import {
   isAnonymousBanTimeoutSystemMessage,
   type TwitchSystemMessage,
-} from "@/lib/twitch/twitch-chat"
+} from "@/lib/twitch/chat/chat"
 import {
   automodHeldTimelineId,
   createUserAutomodHeldNotice,
@@ -22,12 +22,12 @@ import {
   parseUserMessageHoldEvent,
   parseUserMessageUpdateEvent,
   userAutomodHeldNoticeId,
-} from "@/lib/twitch/twitch-eventsub-automod"
+} from "@/lib/twitch/eventsub/automod"
 import {
   fetchSharedChatSession,
   fetchTwitchUsersById,
   type TwitchUser,
-} from "@/lib/twitch/twitch-api"
+} from "@/lib/twitch/auth/api"
 import {
   formatSharedChatEndedNotice,
   formatSharedChatParticipantsNotice,
@@ -36,27 +36,27 @@ import {
   sharedChatSessionsEqual,
   type SharedChatSession,
   type SharedChatSourceProfile,
-} from "@/lib/chat/shared-chat"
+} from "@/lib/chat/shared-chat/shared-chat"
 import {
   getSharedChatSourceProfile,
   upsertSharedChatSourceProfiles,
-} from "@/lib/chat/shared-chat-profiles"
+} from "@/lib/chat/shared-chat/profiles"
 import {
   createSystemMessageFromChannelModerate,
   parseChannelModerateAction,
-} from "@/lib/twitch/twitch-eventsub-moderate"
-import type { SelfModerationRestriction } from "@/lib/chat/chat-send-notice"
-import { extractModerateTargetNames } from "@/lib/twitch/twitch-eventsub-parse"
+} from "@/lib/twitch/eventsub/moderate"
+import type { SelfModerationRestriction } from "@/lib/chat/send/send-notice"
+import { extractModerateTargetNames } from "@/lib/twitch/eventsub/parse"
 import {
   createSystemMessageFromSuspiciousUserUpdate,
   parseSuspiciousUserMessage,
-} from "@/lib/twitch/twitch-eventsub-suspicious"
-import { buildDesiredEventSubSubscriptions } from "@/lib/twitch/twitch-eventsub-subscriptions"
+} from "@/lib/twitch/eventsub/suspicious"
+import { buildDesiredEventSubSubscriptions } from "@/lib/twitch/eventsub/subscriptions"
 import {
   getTwitchEventSubClient,
   type TwitchEventSubNotification,
-} from "@/lib/twitch/twitch-eventsub"
-import type { TwitchSuspiciousUserMessage } from "@/lib/twitch/twitch-chat-types"
+} from "@/lib/twitch/eventsub/eventsub"
+import type { TwitchSuspiciousUserMessage } from "@/lib/twitch/chat/types"
 
 type UseTwitchEventSubOptions = {
   account: TwitchAccount | null

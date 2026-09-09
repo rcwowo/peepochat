@@ -17,15 +17,15 @@ import {
   formatChatModesNotice,
   hasAnyChatModeEnabled,
   mergeChatModes,
-} from "@/lib/chat/chat-modes"
+} from "@/lib/chat/room/modes"
 import { devChatLogger } from "@/lib/dev-logger"
 import {
   buildSyncChannelsKey,
   createEmptySenderState,
   toSelfChatState,
   type SenderState,
-} from "@/lib/twitch/chat-timeline"
-import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
+} from "@/lib/twitch/chat/timeline"
+import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 import {
   createChatModesSystemMessage,
   TwitchChatClient,
@@ -35,8 +35,8 @@ import {
   type TwitchClearMsgEvent,
   type TwitchConnectionState,
   type TwitchSystemMessage,
-} from "@/lib/twitch/twitch-chat"
-import type { TwitchSelfChatState } from "@/lib/twitch/twitch-chat-types"
+} from "@/lib/twitch/chat/chat"
+import type { TwitchSelfChatState } from "@/lib/twitch/chat/types"
 
 export type ReadClientHandlers = {
   onMessage: (message: TwitchChatMessage) => void

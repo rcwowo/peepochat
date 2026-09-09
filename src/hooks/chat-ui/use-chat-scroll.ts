@@ -5,12 +5,12 @@ import {
   type Virtualizer,
 } from "@tanstack/react-virtual"
 
-import { useResizeActivity } from "@/hooks/use-resize-session"
+import { useResizeActivity } from "@/hooks/player/use-resize-session"
 import {
   estimateTimelineItemSize,
   type ChatListLayout,
-} from "@/lib/chat/chat-message-layout"
-import type { TwitchTimelineItem } from "@/lib/twitch/twitch-chat-types"
+} from "@/lib/chat/presentation/message-layout"
+import type { TwitchTimelineItem } from "@/lib/twitch/chat/types"
 
 const NEAR_BOTTOM_PX = 24
 const STICK_TO_END_PX = 1

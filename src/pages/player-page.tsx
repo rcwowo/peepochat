@@ -1,15 +1,15 @@
 import * as React from "react"
 import { ClockIcon, EyeIcon } from "lucide-react"
 
-import { useStreamUptime } from "@/hooks/twitch/use-stream-uptime"
-import { PlayerResizeLayout } from "@/components/player/player-resize-layout"
-import { usePlayerChannelData } from "@/hooks/twitch/use-player-channel-data"
+import { useStreamUptime } from "@/hooks/twitch/player/use-stream-uptime"
+import { PlayerResizeLayout } from "@/components/player/resize-layout"
+import { usePlayerChannelData } from "@/hooks/twitch/player/use-player-channel-data"
 import {
   usePeepochatPlayer,
   usePeepochatSettings,
 } from "@/lib/peepochat/peepochat-context"
-import { formatViewerCount } from "@/lib/twitch/stream-display"
-import { buildTwitchPlayerUrl } from "@/lib/twitch/twitch-player"
+import { formatViewerCount } from "@/lib/twitch/channel/stream-display"
+import { buildTwitchPlayerUrl } from "@/lib/player/twitch-player"
 import { ChatPage } from "@/pages/chat-page"
 
 function PlayerDetails({

@@ -40,12 +40,12 @@ import {
   formatMessageTimestamp,
   usePeepochatSettings,
 } from "@/lib/peepochat/peepochat-context"
-import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
+import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 import {
   fetchUserAvatarUrl,
   getCachedUserAvatarUrl,
   subscribeToUserAvatars,
-} from "@/lib/twitch/twitch-user-avatars"
+} from "@/lib/twitch/channel/user-avatars"
 
 const notificationRelativeDateFormatter = new Intl.DateTimeFormat(undefined, {
   month: "short",

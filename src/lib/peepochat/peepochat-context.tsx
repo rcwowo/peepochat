@@ -12,22 +12,22 @@ import { useTwitchChannels } from "@/hooks/twitch/use-twitch-channels"
 import { useChatBadges } from "@/hooks/chat-ui/use-chat-badges"
 import { useRcwBadges } from "@/hooks/chat-ui/use-rcw-badges"
 import { useHighlightActivity } from "@/hooks/chat-ui/use-highlight-activity"
-import { useStreamLiveStatus } from "@/hooks/twitch/use-stream-live-status"
+import { useStreamLiveStatus } from "@/hooks/twitch/player/use-stream-live-status"
 import {
   useTwitchChat,
   isSyncChannelsSupersededError,
 } from "@/hooks/twitch/use-twitch-chat"
-import type { TwitchChannelSendBlock } from "@/lib/chat/chat-send-notice"
+import type { TwitchChannelSendBlock } from "@/lib/chat/send/send-notice"
 import type {
   TwitchAutomodHeldMessage,
   TwitchChatRoomState,
   TwitchSelfChatState,
   TwitchTimelineItem,
-} from "@/lib/twitch/twitch-chat-types"
+} from "@/lib/twitch/chat/types"
 import type {
   TwitchChatMessage,
   TwitchSystemMessage,
-} from "@/lib/twitch/twitch-chat"
+} from "@/lib/twitch/chat/chat"
 import {
   canShowDesktopNotifications,
   shouldShowDesktopNotification,
@@ -38,9 +38,9 @@ import {
   addLiveNotification,
   formatLiveNotificationText,
 } from "@/lib/highlights/notification-center"
-import type { ChatBadgeCatalog } from "@/lib/chat/chat-badges"
-import type { ResolvedMemberBadge } from "@/lib/chat/rcw-badges"
-import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
+import type { ChatBadgeCatalog } from "@/lib/chat/presentation/badges"
+import type { ResolvedMemberBadge } from "@/lib/rcw/badges"
+import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 import type {
   AppConfig,
   ChatSplit,
@@ -57,17 +57,17 @@ import {
 import {
   setSeventvEmoteRenderOptions,
   setThirdPartyEmoteFetchOptions,
-} from "@/lib/chat/chat-emotes"
-import type { ChatSendResult } from "@/lib/chat/chat-send"
-import type { SendOutcomeEvent } from "@/lib/chat/chat-send-notice"
-import type { ComposerEmoteCatalog } from "@/lib/chat/chat-emote-catalog"
+} from "@/lib/chat/emotes/emotes"
+import type { ChatSendResult } from "@/lib/chat/send/send"
+import type { SendOutcomeEvent } from "@/lib/chat/send/send-notice"
+import type { ComposerEmoteCatalog } from "@/lib/chat/emotes/catalog"
 import type {
   ChannelChatter,
   ChatterSearchOptions,
-} from "@/lib/chat/chatter-store"
-import type { TwitchConnectionState } from "@/lib/twitch/twitch-chat"
+} from "@/lib/chat/chatters/store"
+import type { TwitchConnectionState } from "@/lib/twitch/chat/chat"
 
-export type { TwitchTimelineItem } from "@/lib/twitch/twitch-chat-types"
+export type { TwitchTimelineItem } from "@/lib/twitch/chat/types"
 
 export type PeepochatConfigContextValue = {
   config: AppConfig
@@ -131,7 +131,7 @@ export type PeepochatSidebarHighlightsContextValue = {
   isChannelLive: (login: string) => boolean
   getChannelLiveStream: (
     login: string
-  ) => import("@/lib/twitch/twitch-api").TwitchLiveStream | null
+  ) => import("@/lib/twitch/auth/api").TwitchLiveStream | null
   isSplitLive: (channelLogins: string[]) => boolean
   liveIndicatorsEnabled: boolean
 }
@@ -191,17 +191,17 @@ export type PeepochatChatContextValue = {
   sendChatMessage: (
     login: string,
     message: string,
-    reply?: import("@/lib/twitch/twitch-chat").TwitchChatReply | null
+    reply?: import("@/lib/twitch/chat/chat").TwitchChatReply | null
   ) => ChatSendResult
   sendActionMessage: (
     login: string,
     message: string,
-    reply?: import("@/lib/twitch/twitch-chat").TwitchChatReply | null
+    reply?: import("@/lib/twitch/chat/chat").TwitchChatReply | null
   ) => ChatSendResult
   executeChatCommand: (
     login: string,
     input: string
-  ) => Promise<import("@/lib/chat/chat-commands").ChatCommandResult>
+  ) => Promise<import("@/lib/chat/commands/commands").ChatCommandResult>
   markChatMessageDeleted: (login: string, messageId: string) => void
   injectChatMessage: (message: TwitchChatMessage) => boolean
   injectSystemMessage: (message: TwitchSystemMessage) => boolean
@@ -318,13 +318,11 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
   })
   const hasAccountValue = account !== null
   const onChatMessageRef = React.useRef<
-    | ((message: import("@/lib/twitch/twitch-chat").TwitchChatMessage) => void)
+    | ((message: import("@/lib/twitch/chat/chat").TwitchChatMessage) => void)
     | null
   >(null)
   const onHistoricalMessagesRef = React.useRef<
-    | ((
-        messages: import("@/lib/twitch/twitch-chat").TwitchChatMessage[]
-      ) => void)
+    | ((messages: import("@/lib/twitch/chat/chat").TwitchChatMessage[]) => void)
     | null
   >(null)
 

@@ -1,8 +1,8 @@
 import * as React from "react"
 
-import type { ChannelChatter } from "@/lib/chat/chatter-store"
+import type { ChannelChatter } from "@/lib/chat/chatters/store"
 import { usePeepochatChat } from "@/lib/peepochat/peepochat-context"
-import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
+import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 
 export function useChannelChatters(login: string): ChannelChatter[] {
   const { subscribeToChatters, getChatters } = usePeepochatChat()

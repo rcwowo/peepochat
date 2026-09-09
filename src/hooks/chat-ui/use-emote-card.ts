@@ -1,13 +1,13 @@
 import * as React from "react"
 
-import type { ComposerEmoteCatalog } from "@/lib/chat/chat-emote-catalog"
-import { loadEmoteCardDetails } from "@/lib/chat/emote-card-details"
+import type { ComposerEmoteCatalog } from "@/lib/chat/emotes/catalog"
+import { loadEmoteCardDetails } from "@/lib/chat/emotes/card-details"
 import {
   buildInitialEmoteCardDetails,
   lookupEmoteCatalogEntry,
   type EmoteCardDetails,
   type EmoteCardTarget,
-} from "@/lib/chat/emote-card"
+} from "@/lib/chat/emotes/card"
 
 type EmoteCardState =
   | { status: "idle"; details: null; error: null }

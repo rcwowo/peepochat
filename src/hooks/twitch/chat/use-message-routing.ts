@@ -5,25 +5,25 @@ import type { ChatSendApi } from "@/hooks/twitch/chat/use-chat-send"
 import type { RoomStore } from "@/hooks/twitch/chat/use-room-store"
 import type { TimelineApi } from "@/hooks/twitch/chat/use-timeline"
 import { devChatLogger } from "@/lib/dev-logger"
-import { hydrateSystemMessageDetails } from "@/lib/chat/chat-emotes"
+import { hydrateSystemMessageDetails } from "@/lib/chat/emotes/emotes"
 import {
   applyDeletedBehaviorToTimeline,
   notifyChatMessageDeleted,
   selfStateFromMessage,
   type TimelineMatchableMessage,
-} from "@/lib/twitch/chat-timeline"
-import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
+} from "@/lib/twitch/chat/timeline"
+import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 import {
   createClearChatModActionMessage,
   type TwitchChatMessage,
   type TwitchClearChatEvent,
   type TwitchClearMsgEvent,
   type TwitchSystemMessage,
-} from "@/lib/twitch/twitch-chat"
+} from "@/lib/twitch/chat/chat"
 import type {
   TwitchSelfChatState,
   TwitchTimelineItem,
-} from "@/lib/twitch/twitch-chat-types"
+} from "@/lib/twitch/chat/types"
 
 type UseMessageRoutingOptions = {
   roomStore: RoomStore

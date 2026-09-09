@@ -19,18 +19,18 @@ import type {
   DeletedMessagesBehavior,
   TwitchAccount,
 } from "@/lib/peepochat/peepochat-config"
-import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
+import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 import type {
   TwitchChatClient,
   TwitchChatConnectOptions,
   TwitchChatMessage,
   TwitchSystemMessage,
-} from "@/lib/twitch/twitch-chat"
+} from "@/lib/twitch/chat/chat"
 import type {
   TwitchAutomodHeldMessage,
   TwitchSelfChatState,
   TwitchTimelineItem,
-} from "@/lib/twitch/twitch-chat-types"
+} from "@/lib/twitch/chat/types"
 
 export { isSyncChannelsSupersededError } from "@/hooks/twitch/chat/types"
 

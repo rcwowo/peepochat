@@ -5,10 +5,10 @@ import {
   type TwitchChatMessage,
   type TwitchEmote,
   type TwitchSystemMessage,
-} from "@/lib/twitch/twitch-chat"
-import type { TwitchAutomodHeldMessage } from "@/lib/twitch/twitch-chat-types"
-import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
-import { buildTwitchEmoteCdnUrl } from "@/lib/twitch/twitch-api"
+} from "@/lib/twitch/chat/chat"
+import type { TwitchAutomodHeldMessage } from "@/lib/twitch/chat/types"
+import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
+import { buildTwitchEmoteCdnUrl } from "@/lib/twitch/auth/api"
 
 export type FakeMessageKind =
   | "chat"

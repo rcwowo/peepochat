@@ -1,5 +1,5 @@
 import type { HighlightPingRule } from "@/lib/peepochat/peepochat-config"
-import type { TwitchChatMessage } from "@/lib/twitch/twitch-chat"
+import type { TwitchChatMessage } from "@/lib/twitch/chat/chat"
 
 export type CompiledPingRule = {
   id: string

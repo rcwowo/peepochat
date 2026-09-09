@@ -1,8 +1,8 @@
 import * as React from "react"
 
-import type { TwitchChatRoomState } from "@/lib/twitch/twitch-chat-types"
+import type { TwitchChatRoomState } from "@/lib/twitch/chat/types"
 import { usePeepochatChat } from "@/lib/peepochat/peepochat-context"
-import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
+import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 
 const WARM_UPDATE_MS = 500
 

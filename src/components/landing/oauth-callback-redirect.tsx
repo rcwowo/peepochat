@@ -1,7 +1,7 @@
 import * as React from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 
-import { hasTwitchOAuthCallback } from "@/lib/twitch/twitch-oauth"
+import { hasTwitchOAuthCallback } from "@/lib/twitch/auth/oauth"
 
 export function OAuthCallbackRedirect() {
   const location = useLocation()

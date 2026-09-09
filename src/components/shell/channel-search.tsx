@@ -2,10 +2,10 @@ import * as React from "react"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { SearchIcon, XIcon } from "lucide-react"
 
-import { ChatHoverTooltipProvider } from "@/components/chat/chat-hover-tooltip"
-import { ChatMessageRow } from "@/components/chat/chat-message-row"
-import { EmoteCardProvider } from "@/components/chat/emote-card-context"
-import { UserCardProvider } from "@/components/chat/user-card-context"
+import { ChatHoverTooltipProvider } from "@/components/chat/message/hover-tooltip"
+import { ChatMessageRow } from "@/components/chat/message/row"
+import { EmoteCardProvider } from "@/components/chat/emote-card/context"
+import { UserCardProvider } from "@/components/chat/user-card/context"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -22,13 +22,13 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { useChatFontFamily } from "@/hooks/chat-ui/use-chat-font"
-import { getChatPresentationStyle } from "@/lib/chat/chat-presentation-style"
-import { mergeComposerEmoteCatalogs } from "@/lib/chat/chat-emote-catalog"
+import { getChatPresentationStyle } from "@/lib/chat/presentation/presentation-style"
+import { mergeComposerEmoteCatalogs } from "@/lib/chat/emotes/catalog"
 import {
   updateMergedRecentUserMessageBuckets,
   type RecentUserMessageBucketCache,
-} from "@/lib/chat/recent-user-messages"
-import type { UserCardTarget } from "@/lib/chat/user-card"
+} from "@/lib/chat/threads/recent-user-messages"
+import type { UserCardTarget } from "@/lib/chat/user-card/user-card"
 import {
   collectRecentSearchUsernames,
   createChatSearchResultsCache,
@@ -47,11 +47,11 @@ import {
   type ChatSearchSuggestion,
   type ChatSearchUsername,
 } from "@/lib/search/chat-search"
-import { messageHasChatGifs } from "@/lib/twitch/twitch-chat"
+import { messageHasChatGifs } from "@/lib/twitch/chat/chat"
 import { useHotkeyRegistry } from "@/hooks/use-hotkey-registry"
 import { shouldPreventSearchDismiss } from "@/lib/search/search-portaled-layers"
-import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
-import type { TwitchTimelineItem } from "@/lib/twitch/twitch-chat-types"
+import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
+import type { TwitchTimelineItem } from "@/lib/twitch/chat/types"
 import {
   usePeepochatChat,
   usePeepochatLayout,

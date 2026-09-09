@@ -11,10 +11,10 @@ import {
   RECENT_MESSAGES_CONCURRENCY,
   RECENT_MESSAGES_ERROR_TEXT,
   RECENT_MESSAGES_UNAVAILABLE_TEXT,
-} from "@/lib/chat/recent-messages"
+} from "@/lib/chat/threads/recent-messages"
 import type { DeletedMessagesBehavior } from "@/lib/peepochat/peepochat-config"
-import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
-import type { TwitchChatMessage } from "@/lib/twitch/twitch-chat"
+import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
+import type { TwitchChatMessage } from "@/lib/twitch/chat/chat"
 
 type UseRecentMessagesOptions = {
   roomStore: RoomStore

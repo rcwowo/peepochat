@@ -1,6 +1,6 @@
 import * as React from "react"
 
-import type { ChannelChatter } from "@/lib/chat/chatter-store"
+import type { ChannelChatter } from "@/lib/chat/chatters/store"
 import { usePeepochatChat } from "@/lib/peepochat/peepochat-context"
 
 function chatterAppearanceEqual(

@@ -1,11 +1,11 @@
 import * as React from "react"
 
-import { createEmptyRoom } from "@/lib/twitch/chat-timeline"
-import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
+import { createEmptyRoom } from "@/lib/twitch/chat/timeline"
+import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 import type {
   TwitchChatRoomState,
   TwitchTimelineItem,
-} from "@/lib/twitch/twitch-chat-types"
+} from "@/lib/twitch/chat/types"
 
 const EMPTY_ROOMS: Record<string, TwitchChatRoomState> = {}
 const EMPTY_TIMELINE: TwitchTimelineItem[] = []

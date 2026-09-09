@@ -16,8 +16,8 @@ import {
   resolveFocusAfterChannelRemoval,
   splitOrderKey,
 } from "@/lib/sidebar/sidebar-order"
-import { fetchTwitchUsersByLogin } from "@/lib/twitch/twitch-api"
-import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
+import { fetchTwitchUsersByLogin } from "@/lib/twitch/auth/api"
+import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 
 function pruneSplitsAfterChannelRemoval(
   splits: AppConfig["layout"]["splits"],

@@ -1,10 +1,10 @@
 import type { PingMatchRange } from "@/lib/highlights/highlight-rules"
 import { findMessageUrls } from "@/lib/peepochat/peepochat-config"
-import { textHasChatMention } from "@/lib/chat/chat-mentions"
-import { isTimelineAppend } from "@/lib/chat/timeline-prefix"
-import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
-import type { TwitchChatMessage } from "@/lib/twitch/twitch-chat"
-import type { TwitchTimelineItem } from "@/lib/twitch/twitch-chat-types"
+import { textHasChatMention } from "@/lib/chat/presentation/mentions"
+import { isTimelineAppend } from "@/lib/chat/presentation/timeline-prefix"
+import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
+import type { TwitchChatMessage } from "@/lib/twitch/chat/chat"
+import type { TwitchTimelineItem } from "@/lib/twitch/chat/types"
 
 const FILTER_KEYS = new Set(["in", "from", "role", "has"] as const)
 

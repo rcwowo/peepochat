@@ -5,7 +5,7 @@ import type { RoomStore } from "@/hooks/twitch/chat/use-room-store"
 import {
   createEmptyComposerCatalog,
   rebuildRoomThirdPartyEmoteBundle,
-} from "@/lib/chat/chat-emote-catalog"
+} from "@/lib/chat/emotes/catalog"
 import {
   applySevenTvChannelEmoteAdd,
   applySevenTvChannelEmoteRemove,
@@ -14,17 +14,17 @@ import {
   getRoomIdsForSevenTvUser,
   getSevenTvRoomBinding,
   replaceSevenTvChannelEmotesFromSet,
-} from "@/lib/chat/chat-emotes"
+} from "@/lib/chat/emotes/emotes"
 import {
   getSevenTvEventApi,
   type SevenTvEmoteSetUpdateEvent,
   type SevenTvUserEmoteSetChangeEvent,
-} from "@/lib/chat/seventv-event-api"
-import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
+} from "@/lib/seventv/event-api"
+import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 import {
   EMPTY_SYSTEM_MESSAGE_META,
   type TwitchSystemMessage,
-} from "@/lib/twitch/twitch-chat"
+} from "@/lib/twitch/chat/chat"
 
 type UseSevenTvLiveUpdatesOptions = {
   roomStore: RoomStore

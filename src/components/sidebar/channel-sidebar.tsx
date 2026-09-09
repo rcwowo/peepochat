@@ -12,7 +12,7 @@ import {
   XIcon,
 } from "lucide-react"
 
-import { useStreamUptime } from "@/hooks/twitch/use-stream-uptime"
+import { useStreamUptime } from "@/hooks/twitch/player/use-stream-uptime"
 import { SortableSidebarList } from "@/components/sidebar/channel-sidebar-list"
 import {
   SidebarChannelAvatar,
@@ -34,8 +34,8 @@ import {
   isLiveNotificationsEnabledForSplit,
 } from "@/lib/peepochat/peepochat-config"
 import { getSidebarEntries } from "@/lib/sidebar/sidebar-entries"
-import { usePlayerChannelData } from "@/hooks/twitch/use-player-channel-data"
-import { formatViewerCount } from "@/lib/twitch/stream-display"
+import { usePlayerChannelData } from "@/hooks/twitch/player/use-player-channel-data"
+import { formatViewerCount } from "@/lib/twitch/channel/stream-display"
 import { Button } from "@/components/ui/button"
 import {
   ContextMenu,

@@ -7,7 +7,7 @@ import {
   TwitchApiError,
   fetchTwitchUser,
   validateTwitchToken,
-} from "@/lib/twitch/twitch-api"
+} from "@/lib/twitch/auth/api"
 import {
   clearTwitchOAuthCallbackUrl,
   consumeTwitchOAuthReturnPath,
@@ -21,7 +21,7 @@ import {
   isTwitchOAuthConfigured,
   parseTwitchOAuthCallback,
   startTwitchOAuthLogin,
-} from "@/lib/twitch/twitch-oauth"
+} from "@/lib/twitch/auth/oauth"
 
 const SESSION_CHECK_INTERVAL_MS = 5 * 60 * 1000
 

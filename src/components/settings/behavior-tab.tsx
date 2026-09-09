@@ -18,7 +18,7 @@ import {
 import {
   canBanOrTimeoutUsers,
   canDeleteChatMessages,
-} from "@/lib/chat/moderation-permissions"
+} from "@/lib/chat/moderation/permissions"
 import {
   LIVE_MESSAGES_PER_CHANNEL_MAX,
   LIVE_MESSAGES_PER_CHANNEL_MIN,

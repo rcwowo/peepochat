@@ -1,6 +1,6 @@
 import * as React from "react"
 
-import { createChatterStore } from "@/lib/chat/chatter-store"
+import { createChatterStore } from "@/lib/chat/chatters/store"
 
 export function useChatterStore() {
   const [store] = React.useState(() => createChatterStore())

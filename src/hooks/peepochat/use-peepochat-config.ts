@@ -9,7 +9,7 @@ import {
   saveConfig,
 } from "@/lib/peepochat/peepochat-config"
 import { isAwaitingOnboardingFinalStep } from "@/lib/peepochat/onboarding-storage"
-import { getTwitchClientId } from "@/lib/twitch/twitch-oauth"
+import { getTwitchClientId } from "@/lib/twitch/auth/oauth"
 
 type IdleScheduler = (cb: () => void) => number
 type IdleCanceler = (handle: number) => void
