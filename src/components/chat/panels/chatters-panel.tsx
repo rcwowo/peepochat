@@ -264,6 +264,7 @@ function ChatChattersPanelContent({
     getScrollElement: () => scrollElement,
     estimateSize: (index) => (rows[index]?.kind === "header" ? 32 : 36),
     overscan: 12,
+    useFlushSync: false,
     getItemKey: (index) => {
       const row = rows[index]
       if (!row) {

@@ -1,5 +1,5 @@
 import type { MessageTimestampFormat } from "@/lib/peepochat/peepochat-config"
-import { formatMessageTimestamp } from "@/lib/peepochat/peepochat-context"
+import { formatMessageTimestamp } from "@/lib/chat/presentation/timestamp"
 
 export function ChatTimestamp({
   receivedAt,

@@ -1,5 +1,6 @@
 import * as React from "react"
 
+import { useRetainedRef } from "@/hooks/use-retained-ref"
 import { createEmptyRoom } from "@/lib/twitch/chat/timeline"
 import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 import type {
@@ -60,8 +61,10 @@ export function computeRoomIdsKey(
 }
 
 export function useRoomStore() {
-  const roomsRef =
-    React.useRef<Record<string, TwitchChatRoomState>>(EMPTY_ROOMS)
+  const roomsRef = useRetainedRef(
+    "twitch-rooms",
+    (): Record<string, TwitchChatRoomState> => ({})
+  )
 
   const roomSubscribersRef = React.useRef<Map<string, Set<() => void>> | null>(
     null
@@ -111,7 +114,7 @@ export function useRoomStore() {
     const next = roomsRef.current
     lastNotifiedRoomsRef.current = next
     notifyChangedRoomSubscribers(current, next)
-  }, [notifyChangedRoomSubscribers])
+  }, [notifyChangedRoomSubscribers, roomsRef])
 
   const scheduleRoomSubscriberNotifications = React.useCallback(() => {
     if (notifyScheduledRef.current) {
@@ -144,7 +147,7 @@ export function useRoomStore() {
         }
       }
     },
-    [scheduleRoomSubscriberNotifications]
+    [scheduleRoomSubscriberNotifications, roomsRef]
   )
 
   const subscribeToRoom = React.useCallback(
@@ -230,7 +233,7 @@ export function useRoomStore() {
       const normalized = normalizeChannelLogin(login)
       return roomsRef.current[normalized] ?? null
     },
-    []
+    [roomsRef]
   )
 
   const getTimeline = React.useCallback(

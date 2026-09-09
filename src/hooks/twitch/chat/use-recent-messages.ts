@@ -4,6 +4,7 @@ import type { ChatEmotesApi } from "@/hooks/twitch/chat/use-chat-emotes"
 import type { RoomStore } from "@/hooks/twitch/chat/use-room-store"
 import type { TimelineApi } from "@/hooks/twitch/chat/use-timeline"
 import { useLazyRef } from "@/hooks/use-lazy-ref"
+import { useRetainedRef } from "@/hooks/use-retained-ref"
 import { devFetchLogger } from "@/lib/dev-logger"
 import {
   createRecentMessagesStatusMessage,
@@ -56,7 +57,10 @@ export function useRecentMessages({
 
   const recentMessagesEnabledRef = React.useRef(true)
   const historyFetchLimitRef = React.useRef(0)
-  const historyLoadedRef = useLazyRef(() => new Set<string>())
+  const historyLoadedRef = useRetainedRef(
+    "recent-history-loaded",
+    () => new Set<string>()
+  )
   const historyLoadingRef = useLazyRef(() => new Set<string>())
   const historyErrorNotifiedRef = useLazyRef(() => new Set<string>())
   const recentMessagesGenerationRef = React.useRef(0)

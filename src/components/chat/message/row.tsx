@@ -40,10 +40,8 @@ import type {
   MessageTimestampFormat,
   TwitchAccount,
 } from "@/lib/peepochat/peepochat-config"
-import {
-  formatMessageTimestamp,
-  usePeepochatChat,
-} from "@/lib/peepochat/peepochat-context"
+import { formatMessageTimestamp } from "@/lib/chat/presentation/timestamp"
+import { usePeepochatChat } from "@/lib/peepochat/peepochat-context"
 import type { ResolvedMemberBadge } from "@/lib/rcw/badges"
 import type { TwitchSelfChatState } from "@/lib/twitch/chat/types"
 import { banTwitchUser, deleteTwitchChatMessage } from "@/lib/twitch/auth/api"

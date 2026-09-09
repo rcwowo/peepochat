@@ -36,10 +36,8 @@ import {
   type MissedPingNotification,
   type PingNotification,
 } from "@/lib/highlights/notification-center"
-import {
-  formatMessageTimestamp,
-  usePeepochatSettings,
-} from "@/lib/peepochat/peepochat-context"
+import { formatMessageTimestamp } from "@/lib/chat/presentation/timestamp"
+import { usePeepochatSettings } from "@/lib/peepochat/peepochat-context"
 import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 import {
   fetchUserAvatarUrl,

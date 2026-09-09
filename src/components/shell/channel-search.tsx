@@ -203,6 +203,7 @@ function SearchResultsList({
     getScrollElement: () => parentRef.current,
     estimateSize: () => 52,
     overscan: 10,
+    useFlushSync: false,
     getItemKey: (index) => {
       const result = results[index]
       return result ? `${result.message.channel}:${result.message.id}` : index

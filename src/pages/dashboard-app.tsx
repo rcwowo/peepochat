@@ -2,8 +2,8 @@ import * as React from "react"
 import { toast } from "sonner"
 import { SparklesIcon } from "lucide-react"
 
+import { PeepochatProvider } from "@/lib/peepochat/peepochat-provider"
 import {
-  PeepochatProvider,
   usePeepochatPlayer,
   usePeepochatSettings,
 } from "@/lib/peepochat/peepochat-context"

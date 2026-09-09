@@ -308,6 +308,10 @@ export class TwitchChatClient {
     this.mode = mode
   }
 
+  setHandler(handler: TwitchChatEventHandler) {
+    this.handler = handler
+  }
+
   private emit(event: TwitchChatEvent) {
     devChatLogger.debugLazy(() => ["event", summarizeChatEvent(event)])
     this.handler(event)

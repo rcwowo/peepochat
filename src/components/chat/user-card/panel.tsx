@@ -53,7 +53,7 @@ import type {
   MessageTimestampFormat,
   TwitchAccount,
 } from "@/lib/peepochat/peepochat-config"
-import { formatMessageTimestamp } from "@/lib/peepochat/peepochat-context"
+import { formatMessageTimestamp } from "@/lib/chat/presentation/timestamp"
 import { hasBlockedUsersManageScope } from "@/hooks/twitch/use-blocked-users"
 import type { TwitchChatMessage } from "@/lib/twitch/chat/chat"
 import { cn } from "@/lib/utils"

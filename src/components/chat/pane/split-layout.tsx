@@ -195,6 +195,48 @@ function SplitPaneDropFrame({
   )
 }
 
+function SplitResizeSlot({
+  path,
+  index,
+  size,
+  registerResizeChild,
+  children,
+}: {
+  path: number[]
+  index: number
+  size: number
+  registerResizeChild: (
+    path: number[],
+    index: number,
+    node: HTMLElement | null
+  ) => void
+  children: React.ReactNode
+}) {
+  const serializedPath = pathKey(path)
+  const setRef = React.useCallback(
+    (element: HTMLDivElement | null) => {
+      const nextPath =
+        serializedPath === "" ? [] : serializedPath.split(".").map(Number)
+      registerResizeChild(nextPath, index, element)
+    },
+    [index, registerResizeChild, serializedPath]
+  )
+
+  return (
+    <div
+      ref={setRef}
+      className="flex min-h-0 min-w-0 overflow-hidden"
+      style={{
+        flexBasis: `${size}%`,
+        flexGrow: size,
+        flexShrink: 1,
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
 function SplitNodeView({
   node,
   path,
@@ -262,14 +304,11 @@ function SplitNodeView({
     >
       {node.children.map((entry, index) => (
         <React.Fragment key={`${pathKey([...path, index])}:${index}`}>
-          <div
-            ref={(element) => registerResizeChild(path, index, element)}
-            className="flex min-h-0 min-w-0 overflow-hidden"
-            style={{
-              flexBasis: `${sizes[index]}%`,
-              flexGrow: sizes[index],
-              flexShrink: 1,
-            }}
+          <SplitResizeSlot
+            path={path}
+            index={index}
+            size={sizes[index] ?? 0}
+            registerResizeChild={registerResizeChild}
           >
             <SplitNodeView
               node={entry.node}
@@ -284,7 +323,7 @@ function SplitNodeView({
               onResizeReset={onResizeReset}
               onResizeKeyDown={onResizeKeyDown}
             />
-          </div>
+          </SplitResizeSlot>
           {index < node.children.length - 1 ? (
             <ResizeSeparator
               direction={node.direction}

@@ -19,10 +19,16 @@ export function usePointerResizeSession<T>() {
   const [active, setActive] = React.useState(false)
   const mountedRef = React.useRef(true)
   const stopRef = React.useRef<((commit: boolean) => void) | null>(null)
+  const activateFrameRef = React.useRef<number | null>(null)
 
   React.useEffect(() => {
+    mountedRef.current = true
     return () => {
       mountedRef.current = false
+      if (activateFrameRef.current !== null) {
+        window.cancelAnimationFrame(activateFrameRef.current)
+        activateFrameRef.current = null
+      }
       stopRef.current?.(false)
     }
   }, [])
@@ -35,6 +41,7 @@ export function usePointerResizeSession<T>() {
     let latestValue = options.initialValue
     let frameId: number | null = null
     let finished = false
+    let recaptureAttempts = 0
 
     const previewLatest = () => {
       frameId = null
@@ -58,6 +65,10 @@ export function usePointerResizeSession<T>() {
       window.removeEventListener("pointercancel", handlePointerCancel)
       window.removeEventListener("blur", handleBlur)
       target.removeEventListener("lostpointercapture", handleLostPointerCapture)
+      if (activateFrameRef.current !== null) {
+        window.cancelAnimationFrame(activateFrameRef.current)
+        activateFrameRef.current = null
+      }
     }
 
     const finish = (commit: boolean) => {
@@ -102,9 +113,22 @@ export function usePointerResizeSession<T>() {
     }
 
     function handleLostPointerCapture(event: PointerEvent) {
-      if (event.pointerId === pointerId) {
-        finish(false)
+      if (event.pointerId !== pointerId || finished) {
+        return
       }
+
+      if (target.isConnected && recaptureAttempts < 3) {
+        recaptureAttempts += 1
+        try {
+          target.setPointerCapture(pointerId)
+          return
+        } catch {
+          finish(false)
+          return
+        }
+      }
+
+      finish(false)
     }
 
     function handleBlur() {
@@ -121,7 +145,12 @@ export function usePointerResizeSession<T>() {
     window.addEventListener("blur", handleBlur)
     target.addEventListener("lostpointercapture", handleLostPointerCapture)
     stopRef.current = finish
-    setActive(true)
+    activateFrameRef.current = window.requestAnimationFrame(() => {
+      activateFrameRef.current = null
+      if (!finished && mountedRef.current) {
+        setActive(true)
+      }
+    })
   }, [])
 
   return { active, start }

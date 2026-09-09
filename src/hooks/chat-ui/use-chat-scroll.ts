@@ -279,6 +279,7 @@ export function useChatScroll<T extends TwitchTimelineItem>({
     paddingStart: listPaddingStart,
     paddingEnd: LIST_EDGE_PADDING_PX,
     enabled: displayedTimeline.length > 0,
+    useFlushSync: false,
   })
 
   const scrollToEnd = React.useCallback(

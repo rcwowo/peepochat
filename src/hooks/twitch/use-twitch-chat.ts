@@ -14,7 +14,7 @@ import { useRoomStore } from "@/hooks/twitch/chat/use-room-store"
 import { useSevenTvLiveUpdates } from "@/hooks/twitch/chat/use-seventv-live-updates"
 import { useTimeline } from "@/hooks/twitch/chat/use-timeline"
 import { useTwitchEventSub } from "@/hooks/twitch/chat/use-twitch-eventsub"
-import { useLazyRef } from "@/hooks/use-lazy-ref"
+import { useRetainedRef } from "@/hooks/use-retained-ref"
 import type {
   DeletedMessagesBehavior,
   TwitchAccount,
@@ -56,10 +56,19 @@ export function useTwitchChat(options?: {
   const clearChatWhenInstructedRef = React.useRef(true)
   const showSuspiciousActivityRef = React.useRef(true)
 
-  const syncedChannelsRef = React.useRef<string[]>([])
+  const syncedChannelsRef = useRetainedRef(
+    "synced-channels",
+    () => [] as string[]
+  )
   const visibleChannelsRef = React.useRef<string[]>([])
-  const sendClientRef = React.useRef<TwitchChatClient | null>(null)
-  const selfStatesRef = useLazyRef(() => new Map<string, TwitchSelfChatState>())
+  const sendClientRef = useRetainedRef(
+    "send-client",
+    () => null as TwitchChatClient | null
+  )
+  const selfStatesRef = useRetainedRef(
+    "self-states",
+    () => new Map<string, TwitchSelfChatState>()
+  )
   const getSendClientRef = React.useRef<() => TwitchChatClient>(() => {
     throw new Error("Send client is not ready")
   })
@@ -356,9 +365,12 @@ export function useTwitchChat(options?: {
     ]
   )
 
-  const isChannelSynced = React.useCallback((login: string) => {
-    return syncedChannelsRef.current.includes(normalizeChannelLogin(login))
-  }, [])
+  const isChannelSynced = React.useCallback(
+    (login: string) => {
+      return syncedChannelsRef.current.includes(normalizeChannelLogin(login))
+    },
+    [syncedChannelsRef]
+  )
 
   const { routeMessageToRoom, routeSystemMessage } = routing
   const { queueLiveRoomTimeline } = timeline
