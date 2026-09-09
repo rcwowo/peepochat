@@ -24,7 +24,6 @@ import {
   userAutomodHeldNoticeId,
 } from "@/lib/twitch/twitch-eventsub-automod"
 import {
-  fetchChannelsByBroadcasterId,
   fetchSharedChatSession,
   fetchTwitchUsersById,
   type TwitchUser,
@@ -43,11 +42,6 @@ import {
   upsertSharedChatSourceProfiles,
 } from "@/lib/chat/shared-chat-profiles"
 import {
-  createChannelUpdateSystemMessages,
-  parseChannelUpdateEvent,
-  type ChannelUpdateSnapshot,
-} from "@/lib/twitch/twitch-eventsub-channel-update"
-import {
   createSystemMessageFromChannelModerate,
   parseChannelModerateAction,
 } from "@/lib/twitch/twitch-eventsub-moderate"
@@ -58,10 +52,6 @@ import {
   parseSuspiciousUserMessage,
 } from "@/lib/twitch/twitch-eventsub-suspicious"
 import { buildDesiredEventSubSubscriptions } from "@/lib/twitch/twitch-eventsub-subscriptions"
-import {
-  parseSharedChatEndEvent,
-  parseSharedChatSessionEvent,
-} from "@/lib/twitch/twitch-eventsub-shared-chat"
 import {
   getTwitchEventSubClient,
   type TwitchEventSubNotification,
@@ -88,11 +78,20 @@ type UseTwitchEventSubOptions = {
   ) => void
   trimRoomTimeline: (timeline: TwitchTimelineItem[]) => TwitchTimelineItem[]
   showSuspiciousActivityRef: React.RefObject<boolean>
-  showChannelUpdatesRef: React.RefObject<boolean>
   hideBlockedUsersRef: React.RefObject<boolean>
   isUserBlockedRef: React.RefObject<
     (userId?: string | null, login?: string | null) => boolean
   >
+  visibleChannelsRef: React.RefObject<string[]>
+}
+
+const SHARED_CHAT_POLL_INTERVAL_MS = 60_000
+const SHARED_CHAT_POLL_STAGGER_MS = 750
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms)
+  })
 }
 
 function resolveChannelLogin(
@@ -115,14 +114,12 @@ function buildSyncKey({
   rooms,
   selfStates,
   showSuspiciousActivity,
-  showChannelUpdates,
 }: {
   account: TwitchAccount
   syncedChannels: readonly string[]
   rooms: Record<string, TwitchChatRoomState>
   selfStates: Map<string, TwitchSelfChatState>
   showSuspiciousActivity: boolean
-  showChannelUpdates: boolean
 }): string {
   const channelPart = syncedChannels
     .map((login) => {
@@ -138,7 +135,7 @@ function buildSyncKey({
     .join("|")
 
   const scopesPart = [...account.scopes].sort().join(" ")
-  return `${account.id}::${account.accessToken}::${scopesPart}::${showSuspiciousActivity ? "1" : "0"}::${showChannelUpdates ? "1" : "0"}::${channelPart}`
+  return `${account.id}::${account.accessToken}::${scopesPart}::${showSuspiciousActivity ? "1" : "0"}::${channelPart}`
 }
 
 export function useTwitchEventSub({
@@ -153,9 +150,9 @@ export function useTwitchEventSub({
   applySelfModerationRestriction,
   trimRoomTimeline,
   showSuspiciousActivityRef,
-  showChannelUpdatesRef,
   hideBlockedUsersRef,
   isUserBlockedRef,
+  visibleChannelsRef,
 }: UseTwitchEventSubOptions) {
   const { roomsRef, updateRoom, subscribeToRoomIds, getRoomIdsKey } = roomStore
   const client = React.useMemo(() => getTwitchEventSubClient(), [])
@@ -172,21 +169,8 @@ export function useTwitchEventSub({
     onTimelineItemsRef.current = onTimelineItems
   }, [onTimelineItems])
   const lastSyncKeyRef = React.useRef("")
-  const channelUpdateStateRef = React.useRef(
-    new Map<string, ChannelUpdateSnapshot>()
-  )
-  const channelUpdatePendingRef = React.useRef(
-    new Map<
-      string,
-      Array<{
-        snapshot: ChannelUpdateSnapshot
-        roomId: string | null
-        messageId: string | null
-        messageTimestamp: string | null
-      }>
-    >()
-  )
-  const channelUpdateSeedKeyRef = React.useRef("")
+  const sharedChatPollInFlightRef = React.useRef(false)
+  const sharedChatPollQueuedRef = React.useRef(false)
   const sharedChatStateRef = React.useRef(
     new Map<string, SharedChatSession | null>()
   )
@@ -304,7 +288,7 @@ export function useTwitchEventSub({
     (
       channelLogin: string,
       session: SharedChatSession | null,
-      kind: "join" | "begin" | "update" | "end"
+      kind: "join" | "update" | "end"
     ) => {
       const login = normalizeChannelLogin(channelLogin)
       if (!login || !syncedChannelsRef.current.includes(login)) {
@@ -411,17 +395,50 @@ export function useTwitchEventSub({
         const participantIds = raw.participants.map(
           (participant) => participant.broadcasterId
         )
-        const users = await fetchTwitchUsersById(
-          participantIds,
-          currentAccount.accessToken,
-          currentAccount.clientId
-        )
+
+        const missingIds = [
+          ...new Set(
+            participantIds.filter((id) => {
+              if (getSharedChatSourceProfile(id)?.profileImageUrl) return false
+              if (sourceProfilesResolvedRef.current.has(id)) return false
+              if (sourceProfileFetchesRef.current.has(id)) return false
+              return true
+            })
+          ),
+        ]
+        const usersById = new Map<string, TwitchUser>()
+        if (missingIds.length > 0) {
+          for (const id of missingIds) {
+            sourceProfileFetchesRef.current.add(id)
+          }
+          let users: TwitchUser[] | null = null
+          try {
+            users = await fetchTwitchUsersById(
+              missingIds,
+              currentAccount.accessToken,
+              currentAccount.clientId
+            )
+          } catch {
+            users = null
+          } finally {
+            for (const id of missingIds) {
+              sourceProfileFetchesRef.current.delete(id)
+            }
+          }
+          if (users) {
+            rememberUsersAsSourceProfiles(users)
+            for (const user of users) {
+              usersById.set(user.id, user)
+            }
+            for (const id of missingIds) {
+              sourceProfilesResolvedRef.current.add(id)
+            }
+          }
+        }
         if (!syncedChannelsRef.current.includes(login)) {
           return
         }
 
-        rememberUsersAsSourceProfiles(users)
-        const usersById = new Map(users.map((user) => [user.id, user]))
         applySharedChatSession(
           login,
           {
@@ -438,7 +455,7 @@ export function useTwitchEventSub({
               }
             }),
           },
-          kind === "join" ? "join" : "begin"
+          kind === "join" ? "join" : "update"
         )
       } catch {
         return
@@ -463,7 +480,6 @@ export function useTwitchEventSub({
       rooms: roomsRef.current,
       selfStates: selfStatesRef.current,
       showSuspiciousActivity: showSuspiciousActivityRef.current,
-      showChannelUpdates: showChannelUpdatesRef.current,
     })
 
     if (syncKey === lastSyncKeyRef.current) {
@@ -487,16 +503,6 @@ export function useTwitchEventSub({
     })
 
     const syncedLoginSet = new Set(channels.map((channel) => channel.login))
-    for (const login of channelUpdateStateRef.current.keys()) {
-      if (!syncedLoginSet.has(login)) {
-        channelUpdateStateRef.current.delete(login)
-      }
-    }
-    for (const login of channelUpdatePendingRef.current.keys()) {
-      if (!syncedLoginSet.has(login)) {
-        channelUpdatePendingRef.current.delete(login)
-      }
-    }
     for (const login of sharedChatStateRef.current.keys()) {
       if (!syncedLoginSet.has(login)) {
         sharedChatStateRef.current.delete(login)
@@ -509,22 +515,15 @@ export function useTwitchEventSub({
         channels,
         selfStates: selfStatesRef.current,
         showSuspiciousActivity: showSuspiciousActivityRef.current,
-        showChannelUpdates: showChannelUpdatesRef.current,
       })
     )
   }, [
     client,
     roomsRef,
     selfStatesRef,
-    showChannelUpdatesRef,
     showSuspiciousActivityRef,
     syncedChannelsRef,
   ])
-
-  const applySharedChatSessionRef = React.useRef(applySharedChatSession)
-  React.useLayoutEffect(() => {
-    applySharedChatSessionRef.current = applySharedChatSession
-  }, [applySharedChatSession])
 
   const appendSystemMessage = React.useCallback(
     (
@@ -574,132 +573,6 @@ export function useTwitchEventSub({
   React.useLayoutEffect(() => {
     appendSystemMessageRef.current = appendSystemMessage
   }, [appendSystemMessage])
-
-  const applyChannelUpdateSnapshot = React.useCallback(
-    (
-      channelLogin: string,
-      nextSnapshot: ChannelUpdateSnapshot,
-      meta: {
-        roomId: string | null
-        messageId: string | null
-        messageTimestamp: string | null
-      }
-    ) => {
-      const previous = channelUpdateStateRef.current.get(channelLogin) ?? null
-      channelUpdateStateRef.current.set(channelLogin, nextSnapshot)
-
-      const messages = createChannelUpdateSystemMessages({
-        channelLogin,
-        roomId: meta.roomId,
-        messageId: meta.messageId,
-        messageTimestamp: meta.messageTimestamp,
-        previous,
-        next: nextSnapshot,
-      })
-      for (const message of messages) {
-        appendSystemMessageRef.current(channelLogin, message)
-      }
-    },
-    []
-  )
-
-  const flushPendingChannelUpdates = React.useCallback(
-    (channelLogin: string) => {
-      const pending = channelUpdatePendingRef.current.get(channelLogin)
-      if (!pending || pending.length === 0) {
-        return
-      }
-      channelUpdatePendingRef.current.delete(channelLogin)
-      for (const entry of pending) {
-        applyChannelUpdateSnapshot(channelLogin, entry.snapshot, entry)
-      }
-    },
-    [applyChannelUpdateSnapshot]
-  )
-
-  const seedChannelUpdateBaselines = React.useCallback(async () => {
-    const currentAccount = accountRef.current
-    if (!currentAccount || !showChannelUpdatesRef.current) {
-      channelUpdateSeedKeyRef.current = ""
-      return
-    }
-
-    const syncedChannels = syncedChannelsRef.current
-    const targets = syncedChannels.flatMap((login) => {
-      const roomId = roomsRef.current[login]?.roomId?.trim()
-      if (!roomId) return []
-      return [{ login, roomId }]
-    })
-
-    const seedKey = `${currentAccount.id}::${targets
-      .map((target) => `${target.login}:${target.roomId}`)
-      .join("|")}`
-    if (seedKey === channelUpdateSeedKeyRef.current) {
-      return
-    }
-    channelUpdateSeedKeyRef.current = seedKey
-
-    const missing = targets.filter(
-      (target) => !channelUpdateStateRef.current.has(target.login)
-    )
-    if (missing.length === 0) {
-      for (const target of targets) {
-        flushPendingChannelUpdates(target.login)
-      }
-      return
-    }
-
-    try {
-      const channels = await fetchChannelsByBroadcasterId(
-        missing.map((target) => target.roomId),
-        currentAccount.accessToken,
-        currentAccount.clientId
-      )
-      if (channelUpdateSeedKeyRef.current !== seedKey) {
-        return
-      }
-
-      const seededLogins = new Set<string>()
-      for (const channel of channels) {
-        const login = normalizeChannelLogin(channel.broadcasterLogin)
-        if (!login || channelUpdateStateRef.current.has(login)) {
-          continue
-        }
-        channelUpdateStateRef.current.set(login, {
-          title: channel.title,
-          categoryName: channel.gameName,
-        })
-        seededLogins.add(login)
-      }
-
-      for (const login of seededLogins) {
-        flushPendingChannelUpdates(login)
-      }
-
-      for (const target of missing) {
-        if (channelUpdateStateRef.current.has(target.login)) {
-          continue
-        }
-        const pending = channelUpdatePendingRef.current.get(target.login)
-        if (!pending || pending.length === 0) {
-          continue
-        }
-        channelUpdatePendingRef.current.delete(target.login)
-        for (const entry of pending) {
-          channelUpdateStateRef.current.set(target.login, entry.snapshot)
-        }
-      }
-    } catch {
-      if (channelUpdateSeedKeyRef.current === seedKey) {
-        channelUpdateSeedKeyRef.current = ""
-      }
-    }
-  }, [
-    flushPendingChannelUpdates,
-    roomsRef,
-    showChannelUpdatesRef,
-    syncedChannelsRef,
-  ])
 
   const upsertAutomodHeldMessage = React.useCallback(
     (
@@ -932,95 +805,6 @@ export function useTwitchEventSub({
           return
         }
 
-        if (
-          type === "channel.shared_chat.begin" ||
-          type === "channel.shared_chat.update"
-        ) {
-          const parsed = parseSharedChatSessionEvent(notification.event)
-          if (!parsed) return
-
-          const channelLogin = resolveChannelLogin(
-            notification,
-            parsed.channelLogin
-          )
-          if (
-            !channelLogin ||
-            !syncedChannelsRef.current.includes(channelLogin)
-          ) {
-            return
-          }
-
-          applySharedChatSessionRef.current(
-            channelLogin,
-            parsed.session,
-            type === "channel.shared_chat.begin" ? "begin" : "update"
-          )
-          return
-        }
-
-        if (type === "channel.shared_chat.end") {
-          const parsed = parseSharedChatEndEvent(notification.event)
-          if (!parsed) return
-
-          const channelLogin = resolveChannelLogin(
-            notification,
-            parsed.channelLogin
-          )
-          if (
-            !channelLogin ||
-            !syncedChannelsRef.current.includes(channelLogin)
-          ) {
-            return
-          }
-
-          applySharedChatSessionRef.current(channelLogin, null, "end")
-          return
-        }
-
-        if (type === "channel.update") {
-          if (!showChannelUpdatesRef.current) {
-            return
-          }
-
-          const parsed = parseChannelUpdateEvent(notification.event)
-          if (!parsed) return
-
-          const channelLogin = resolveChannelLogin(
-            notification,
-            parsed.channelLogin
-          )
-          if (
-            !channelLogin ||
-            !syncedChannelsRef.current.includes(channelLogin)
-          ) {
-            return
-          }
-
-          const nextSnapshot: ChannelUpdateSnapshot = {
-            title: parsed.title,
-            categoryName: parsed.categoryName,
-          }
-          const roomId =
-            roomsRef.current[channelLogin]?.roomId ?? parsed.broadcasterUserId
-          const meta = {
-            snapshot: nextSnapshot,
-            roomId,
-            messageId: notification.messageId,
-            messageTimestamp: notification.messageTimestamp,
-          }
-
-          if (!channelUpdateStateRef.current.has(channelLogin)) {
-            const pending =
-              channelUpdatePendingRef.current.get(channelLogin) ?? []
-            pending.push(meta)
-            channelUpdatePendingRef.current.set(channelLogin, pending)
-            return
-          }
-
-          applyChannelUpdateSnapshot(channelLogin, nextSnapshot, meta)
-          return
-        }
-
         if (type === "automod.message.hold") {
           const channelLogin = resolveChannelLogin(notification, null)
           if (
@@ -1203,36 +987,23 @@ export function useTwitchEventSub({
       client.setHandlers({})
     }
   }, [
-    applyChannelUpdateSnapshot,
     client,
     hideBlockedUsersRef,
     isUserBlockedRef,
     roomsRef,
-    showChannelUpdatesRef,
     showSuspiciousActivityRef,
     syncedChannelsRef,
   ])
 
   React.useEffect(() => {
     syncDesiredSubscriptions()
-    void seedChannelUpdateBaselines()
-  }, [
-    account,
-    roomIdsKey,
-    seedChannelUpdateBaselines,
-    syncDesiredSubscriptions,
-  ])
+  }, [account, roomIdsKey, syncDesiredSubscriptions])
 
   React.useEffect(() => {
     client.retain()
-    const channelUpdateState = channelUpdateStateRef.current
-    const channelUpdatePending = channelUpdatePendingRef.current
     const sharedChatState = sharedChatStateRef.current
     return () => {
       lastSyncKeyRef.current = ""
-      channelUpdateSeedKeyRef.current = ""
-      channelUpdateState.clear()
-      channelUpdatePending.clear()
       sharedChatState.clear()
       client.release()
     }
@@ -1246,28 +1017,12 @@ export function useTwitchEventSub({
   const notifyChannelsChanged = React.useCallback(() => {
     lastSyncKeyRef.current = ""
     syncDesiredSubscriptions()
-    void seedChannelUpdateBaselines()
-  }, [seedChannelUpdateBaselines, syncDesiredSubscriptions])
+  }, [syncDesiredSubscriptions])
 
   const notifySuspiciousSettingChanged = React.useCallback(() => {
     lastSyncKeyRef.current = ""
     syncDesiredSubscriptions()
   }, [syncDesiredSubscriptions])
-
-  const notifyChannelUpdatesSettingChanged = React.useCallback(() => {
-    lastSyncKeyRef.current = ""
-    if (!showChannelUpdatesRef.current) {
-      channelUpdateSeedKeyRef.current = ""
-      channelUpdateStateRef.current.clear()
-      channelUpdatePendingRef.current.clear()
-    }
-    syncDesiredSubscriptions()
-    void seedChannelUpdateBaselines()
-  }, [
-    seedChannelUpdateBaselines,
-    showChannelUpdatesRef,
-    syncDesiredSubscriptions,
-  ])
 
   const notifyRoomReady = React.useCallback(
     (login: string, roomId: string) => {
@@ -1276,12 +1031,73 @@ export function useTwitchEventSub({
     [loadSharedChatSession]
   )
 
+  const refreshVisibleSharedChatSessions = React.useCallback(async () => {
+    if (typeof document !== "undefined" && document.hidden) {
+      return
+    }
+    if (sharedChatPollInFlightRef.current) {
+      sharedChatPollQueuedRef.current = true
+      return
+    }
+    const currentAccount = accountRef.current
+    if (!currentAccount) {
+      return
+    }
+
+    sharedChatPollInFlightRef.current = true
+    try {
+      const visible = visibleChannelsRef.current ?? []
+      let refreshed = false
+      for (const login of visible) {
+        const normalized = normalizeChannelLogin(login)
+        const roomId = roomsRef.current[normalized]?.roomId?.trim()
+        if (!normalized || !roomId) {
+          continue
+        }
+        if (!syncedChannelsRef.current.includes(normalized)) {
+          continue
+        }
+        if (refreshed) {
+          await sleep(SHARED_CHAT_POLL_STAGGER_MS)
+        }
+        refreshed = true
+        await loadSharedChatSession(normalized, roomId, "refresh")
+      }
+    } finally {
+      sharedChatPollInFlightRef.current = false
+      if (sharedChatPollQueuedRef.current) {
+        sharedChatPollQueuedRef.current = false
+        void refreshVisibleSharedChatSessions()
+      }
+    }
+  }, [loadSharedChatSession, roomsRef, syncedChannelsRef, visibleChannelsRef])
+
+  React.useEffect(() => {
+    const interval = window.setInterval(() => {
+      void refreshVisibleSharedChatSessions()
+    }, SHARED_CHAT_POLL_INTERVAL_MS)
+    const onVisibilityChange = () => {
+      if (!document.hidden) {
+        void refreshVisibleSharedChatSessions()
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange)
+    return () => {
+      window.clearInterval(interval)
+      document.removeEventListener("visibilitychange", onVisibilityChange)
+    }
+  }, [refreshVisibleSharedChatSessions])
+
+  const notifyVisibleChannelsChanged = React.useCallback(() => {
+    void refreshVisibleSharedChatSessions()
+  }, [refreshVisibleSharedChatSessions])
+
   return {
     notifySelfStateChanged,
     notifyChannelsChanged,
     notifySuspiciousSettingChanged,
-    notifyChannelUpdatesSettingChanged,
     notifyRoomReady,
+    notifyVisibleChannelsChanged,
     ensureSharedChatSourceProfiles,
   }
 }

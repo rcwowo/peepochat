@@ -9,7 +9,6 @@ import {
 import type { TwitchAutomodHeldMessage } from "@/lib/twitch/twitch-chat-types"
 import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
 import { buildTwitchEmoteCdnUrl } from "@/lib/twitch/twitch-api"
-import { formatChannelUpdateValue } from "@/lib/twitch/twitch-eventsub-channel-update"
 
 export type FakeMessageKind =
   | "chat"
@@ -29,8 +28,6 @@ export type FakeMessageKind =
   | "mod_unban"
   | "notice"
   | "status"
-  | "channel_title_update"
-  | "channel_category_update"
   | "automod"
 
 export const FAKE_MESSAGE_KIND_OPTIONS: {
@@ -54,8 +51,6 @@ export const FAKE_MESSAGE_KIND_OPTIONS: {
   { value: "mod_unban", label: "Mod unban" },
   { value: "notice", label: "Notice" },
   { value: "status", label: "Status / ritual" },
-  { value: "channel_title_update", label: "Channel title update" },
-  { value: "channel_category_update", label: "Channel category update" },
   { value: "automod", label: "AutoMod held" },
 ]
 
@@ -229,10 +224,6 @@ function defaultTextForKind(kind: FakeMessageKind): string {
       return "This room is now in followers-only mode."
     case "status":
       return "FakeUser is new here! Say hello!"
-    case "channel_title_update":
-      return "My super duper cool awesome stream! !discord !merch"
-    case "channel_category_update":
-      return "Grand Theft Auto V"
     case "automod":
       return "This held message has some spicy words"
     case "chat":
@@ -397,8 +388,6 @@ function buildSystemMessage(
     | "mod_unban"
     | "notice"
     | "status"
-    | "channel_title_update"
-    | "channel_category_update"
   >,
   options: FakeMessageOptions
 ): TwitchSystemMessage {
@@ -563,33 +552,6 @@ function buildSystemMessage(
         { set: "subscriber", version: "0" },
       ],
       announcementTheme: theme,
-    }
-  }
-
-  if (kind === "channel_title_update" || kind === "channel_category_update") {
-    const value = formatChannelUpdateValue(
-      textOverride || defaultTextForKind(kind)
-    )
-    const text =
-      kind === "channel_title_update"
-        ? `Stream title updated: ${value}`
-        : `Stream category updated: ${value}`
-    return {
-      id: nextFakeId(kind),
-      channel,
-      roomId,
-      text,
-      headline: text,
-      details: null,
-      receivedAt,
-      event: "status",
-      level: "info",
-      accentColor: null,
-      ...EMPTY_SYSTEM_MESSAGE_META,
-      msgId:
-        kind === "channel_title_update"
-          ? "channel-update-title"
-          : "channel-update-category",
     }
   }
 
@@ -870,8 +832,6 @@ export function fakeMessageTextLabel(kind: FakeMessageKind) {
     case "raid":
     case "notice":
     case "status":
-    case "channel_title_update":
-    case "channel_category_update":
       return "Headline"
     case "mod_timeout":
     case "mod_ban":

@@ -39,7 +39,7 @@ class PlayerChannelDataEntry {
   private profileError = false
   private streamError = false
   private readonly channelLogin: string
-  private readonly account: TwitchAccount
+  private account: TwitchAccount
 
   constructor(channelLogin: string, account: TwitchAccount) {
     this.channelLogin = channelLogin
@@ -88,6 +88,14 @@ class PlayerChannelDataEntry {
       window.clearInterval(this.intervalId)
       this.intervalId = null
     }
+  }
+
+  get listenerCount() {
+    return this.listeners.size
+  }
+
+  updateAccount(account: TwitchAccount) {
+    this.account = account
   }
 
   private async loadProfile(generation: number) {
@@ -152,29 +160,47 @@ export function usePlayerChannelData(
   channelLogin: string,
   account: TwitchAccount | null
 ) {
-  const entry = React.useMemo(() => {
+  const binding = React.useMemo(() => {
     if (!account) {
       return null
     }
 
-    const key = [
-      account.id,
-      account.clientId,
-      account.accessToken,
-      channelLogin,
-    ].join(":")
+    const key = [account.id, account.clientId, channelLogin].join(":")
     const existing = playerChannelDataEntries.get(key)
     if (existing) {
-      return existing
+      return { key, entry: existing }
     }
 
     const created = new PlayerChannelDataEntry(channelLogin, account)
     playerChannelDataEntries.set(key, created)
-    return created
+    return { key, entry: created }
   }, [account, channelLogin])
+  const entry = binding?.entry ?? null
+  const bindingKey = binding?.key ?? null
+
+  React.useLayoutEffect(() => {
+    if (entry && account) {
+      entry.updateAccount(account)
+    }
+  }, [account, entry])
+
   const subscribe = React.useCallback(
-    (listener: () => void) => entry?.subscribe(listener) ?? (() => undefined),
-    [entry]
+    (listener: () => void) => {
+      if (!entry || bindingKey === null) {
+        return () => undefined
+      }
+      playerChannelDataEntries.set(bindingKey, entry)
+      const unsubscribe = entry.subscribe(listener)
+      return () => {
+        unsubscribe()
+        if (entry.listenerCount === 0) {
+          if (playerChannelDataEntries.get(bindingKey) === entry) {
+            playerChannelDataEntries.delete(bindingKey)
+          }
+        }
+      }
+    },
+    [entry, bindingKey]
   )
   const getSnapshot = React.useCallback(
     () => entry?.getSnapshot() ?? EMPTY_PLAYER_CHANNEL_DATA,

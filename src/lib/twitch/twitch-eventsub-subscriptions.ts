@@ -64,17 +64,22 @@ export function buildDesiredEventSubSubscriptions({
   channels,
   selfStates,
   showSuspiciousActivity = true,
-  showChannelUpdates = true,
 }: {
   account: TwitchAccount
   channels: EventSubChannelTarget[]
   selfStates: Map<string, TwitchSelfChatState>
   showSuspiciousActivity?: boolean
-  showChannelUpdates?: boolean
 }): TwitchEventSubDesiredSubscription[] {
   const out: TwitchEventSubDesiredSubscription[] = []
   const moderatorUserId = account.id
 
+  // Policy: EventSub stays cost-0 only. Every subscription below is conditioned
+  // on the token owner (moderator_user_id / user_id), so Twitch bills it at 0
+  // against the websocket max_total_cost budget and the client can join any
+  // number of channels. Anything conditioned solely on a broadcaster
+  // (channel.update, channel.shared_chat.*) costs 1 per channel and is
+  // deliberately NOT subscribed here — shared chat is tracked via the
+  // shared_chat/session Helix endpoint instead.
   for (const channel of channels) {
     const login = normalizeChannelLogin(channel.login)
     const broadcasterUserId = channel.roomId.trim()
@@ -85,46 +90,6 @@ export function buildDesiredEventSubSubscriptions({
       account,
       broadcasterUserId,
       selfState,
-      login
-    )
-
-    if (showChannelUpdates) {
-      pushSub(
-        out,
-        "channel.update",
-        "2",
-        {
-          broadcaster_user_id: broadcasterUserId,
-        },
-        login
-      )
-    }
-
-    pushSub(
-      out,
-      "channel.shared_chat.begin",
-      "1",
-      {
-        broadcaster_user_id: broadcasterUserId,
-      },
-      login
-    )
-    pushSub(
-      out,
-      "channel.shared_chat.update",
-      "1",
-      {
-        broadcaster_user_id: broadcasterUserId,
-      },
-      login
-    )
-    pushSub(
-      out,
-      "channel.shared_chat.end",
-      "1",
-      {
-        broadcaster_user_id: broadcasterUserId,
-      },
       login
     )
 

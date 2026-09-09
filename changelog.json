@@ -8,6 +8,8 @@
             "Chat modes are now displayed as system messages instead.",
             "Moved the chat modes panel to the chat composer, with settings to change it's visibility.",
             "Minor redesign to context/dropdown menus.",
+            "Changed shared chat sessions to be polled instead of using EventSub.",
+            "Removed channel updates feature due to EventSub issues.",
             "Fixed a performance issue with resizing chat panes.",
             "Fixed a few performance issues with rendering/processing new messages."
         ]

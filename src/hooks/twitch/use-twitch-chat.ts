@@ -55,9 +55,9 @@ export function useTwitchChat(options?: {
   >(() => false)
   const clearChatWhenInstructedRef = React.useRef(true)
   const showSuspiciousActivityRef = React.useRef(true)
-  const showChannelUpdatesRef = React.useRef(true)
 
   const syncedChannelsRef = React.useRef<string[]>([])
+  const visibleChannelsRef = React.useRef<string[]>([])
   const sendClientRef = React.useRef<TwitchChatClient | null>(null)
   const selfStatesRef = useLazyRef(() => new Map<string, TwitchSelfChatState>())
   const getSendClientRef = React.useRef<() => TwitchChatClient>(() => {
@@ -179,9 +179,9 @@ export function useTwitchChat(options?: {
     applySelfModerationRestriction: send.applySelfModerationRestriction,
     trimRoomTimeline: timeline.trimWithLimit,
     showSuspiciousActivityRef,
-    showChannelUpdatesRef,
     hideBlockedUsersRef,
     isUserBlockedRef,
+    visibleChannelsRef,
   })
 
   const notifySelfStateChangedRef = React.useRef(
@@ -191,10 +191,10 @@ export function useTwitchChat(options?: {
   const notifySuspiciousSettingChangedRef = React.useRef(
     eventSub.notifySuspiciousSettingChanged
   )
-  const notifyChannelUpdatesSettingChangedRef = React.useRef(
-    eventSub.notifyChannelUpdatesSettingChanged
-  )
   const notifyRoomReadyRef = React.useRef(eventSub.notifyRoomReady)
+  const notifyVisibleChannelsChangedRef = React.useRef(
+    eventSub.notifyVisibleChannelsChanged
+  )
   const syncChannelsBaseRef = React.useRef(connection.syncChannels)
 
   React.useLayoutEffect(() => {
@@ -202,17 +202,17 @@ export function useTwitchChat(options?: {
     notifyChannelsChangedRef.current = eventSub.notifyChannelsChanged
     notifySuspiciousSettingChangedRef.current =
       eventSub.notifySuspiciousSettingChanged
-    notifyChannelUpdatesSettingChangedRef.current =
-      eventSub.notifyChannelUpdatesSettingChanged
     notifyRoomReadyRef.current = eventSub.notifyRoomReady
+    notifyVisibleChannelsChangedRef.current =
+      eventSub.notifyVisibleChannelsChanged
     syncChannelsBaseRef.current = connection.syncChannels
   }, [
     connection.syncChannels,
-    eventSub.notifyChannelUpdatesSettingChanged,
     eventSub.notifyChannelsChanged,
     eventSub.notifyRoomReady,
     eventSub.notifySelfStateChanged,
     eventSub.notifySuspiciousSettingChanged,
+    eventSub.notifyVisibleChannelsChanged,
   ])
 
   const lastSelfModFlagsRef = React.useRef(
@@ -315,12 +315,19 @@ export function useTwitchChat(options?: {
     notifySuspiciousSettingChangedRef.current()
   }, [])
 
-  const setShowChannelUpdates = React.useCallback((enabled: boolean) => {
-    if (showChannelUpdatesRef.current === enabled) {
+  const setVisibleSharedChatChannels = React.useCallback((logins: string[]) => {
+    const next = logins
+      .map((login) => normalizeChannelLogin(login))
+      .filter(Boolean)
+    const previous = visibleChannelsRef.current
+    if (
+      next.length === previous.length &&
+      next.every((login, index) => login === previous[index])
+    ) {
       return
     }
-    showChannelUpdatesRef.current = enabled
-    notifyChannelUpdatesSettingChangedRef.current()
+    visibleChannelsRef.current = next
+    notifyVisibleChannelsChangedRef.current()
   }, [])
 
   const setIsUserBlocked = React.useCallback(
@@ -421,7 +428,7 @@ export function useTwitchChat(options?: {
     setClearChatWhenInstructed,
     setHideBlockedUsers,
     setShowSuspiciousActivity,
-    setShowChannelUpdates,
+    setVisibleSharedChatChannels,
     setIsUserBlocked,
     setChatCommandActions: send.setChatCommandActions,
     purgeMessagesFromBlockedUsers: timeline.purgeMessagesFromBlockedUsers,

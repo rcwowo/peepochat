@@ -35,12 +35,25 @@ export function useStreamLiveStatus({
   const liveLoginsRef = React.useRef(liveLogins)
   const initialPollDoneRef = React.useRef(false)
 
+  const channelKey = React.useMemo(
+    () =>
+      [...new Set(channelLogins.map(normalizeStreamLogin))]
+        .filter(Boolean)
+        .sort()
+        .join(","),
+    [channelLogins]
+  )
+  const pollLogins = React.useMemo(
+    () => (channelKey ? channelKey.split(",") : []),
+    [channelKey]
+  )
+
   const onWentLiveRef = React.useRef(onChannelWentLive)
   const pollingActive =
     enabled &&
     Boolean(accessToken) &&
     Boolean(clientId) &&
-    channelLogins.length > 0
+    pollLogins.length > 0
 
   React.useEffect(() => {
     liveLoginsRef.current = liveLogins
@@ -62,7 +75,7 @@ export function useStreamLiveStatus({
     const poll = async () => {
       try {
         const streams = await fetchLiveStreamsByLogin(
-          channelLogins,
+          pollLogins,
           accessToken!,
           clientId!
         )
@@ -93,10 +106,8 @@ export function useStreamLiveStatus({
         setLiveLogins(next)
         setLiveStreamsByLogin(nextStreams)
       } catch {
-        if (!cancelled) {
-          setLiveLogins(new Set())
-          setLiveStreamsByLogin(new Map())
-        }
+        // Keep the last known state on transient failures instead of
+        // flashing every channel offline; the next poll retries.
       }
     }
 
@@ -109,7 +120,7 @@ export function useStreamLiveStatus({
       cancelled = true
       window.clearInterval(interval)
     }
-  }, [pollingActive, accessToken, clientId, channelLogins])
+  }, [pollingActive, accessToken, clientId, pollLogins])
 
   const effectiveLiveLogins = pollingActive ? liveLogins : EMPTY_LIVE_LOGINS
   const effectiveLiveStreams = pollingActive

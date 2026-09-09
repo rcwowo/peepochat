@@ -356,7 +356,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     setClearChatWhenInstructed,
     setHideBlockedUsers,
     setShowSuspiciousActivity,
-    setShowChannelUpdates,
+    setVisibleSharedChatChannels,
     setIsUserBlocked,
     setChatCommandActions,
     purgeMessagesFromBlockedUsers,
@@ -468,6 +468,10 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     visibleChannelLoginsRef.current = effectiveVisibleChannelLogins
   }, [effectiveVisibleChannelLogins])
+
+  React.useEffect(() => {
+    setVisibleSharedChatChannels(effectiveVisibleChannelLogins)
+  }, [effectiveVisibleChannelLogins, setVisibleSharedChatChannels])
 
   const highlightActivity = useHighlightActivity({
     config,
@@ -650,10 +654,6 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     setShowSuspiciousActivity(config.chat.showSuspiciousActivity)
   }, [config.chat.showSuspiciousActivity, setShowSuspiciousActivity])
-
-  React.useEffect(() => {
-    setShowChannelUpdates(config.chat.showChannelUpdates)
-  }, [config.chat.showChannelUpdates, setShowChannelUpdates])
 
   React.useEffect(() => {
     setIsUserBlocked(isBlocked)
