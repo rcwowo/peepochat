@@ -274,7 +274,8 @@ export function useHighlightActivity({
             matchRange: findPingMatchRange(
               message.text,
               pingMatch.ruleId,
-              matchPattern
+              matchPattern,
+              message.gifs
             ),
           })
         }
@@ -422,7 +423,8 @@ export function useHighlightActivity({
             matchRange: findPingMatchRange(
               message.text,
               pingMatch.ruleId,
-              matchPattern
+              matchPattern,
+              message.gifs
             ),
           })
         }

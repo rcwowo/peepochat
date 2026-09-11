@@ -1,5 +1,45 @@
 import type { HighlightPingRule } from "@/lib/peepochat/peepochat-config"
-import type { TwitchChatMessage } from "@/lib/twitch/chat/chat"
+import {
+  getGifConsumedEnd,
+  type TwitchChatGif,
+  type TwitchChatMessage,
+} from "@/lib/twitch/chat/chat"
+
+function maskGifCaptions(text: string, gifs: TwitchChatGif[]): string {
+  if (gifs.length === 0 || text.length === 0) {
+    return text
+  }
+
+  const ordered =
+    gifs.length === 1
+      ? gifs
+      : [...gifs].sort((left, right) => left.start - right.start)
+
+  let result = ""
+  let lastIndex = 0
+  for (const gif of ordered) {
+    const start = Math.max(gif.start, lastIndex)
+    const end = Math.min(getGifConsumedEnd(gif), text.length)
+    if (start >= end) {
+      continue
+    }
+    if (start > lastIndex) {
+      result += text.slice(lastIndex, start)
+    }
+    result += " ".repeat(end - start)
+    lastIndex = end
+  }
+
+  if (lastIndex < text.length) {
+    result += text.slice(lastIndex)
+  }
+
+  return result
+}
+
+function getMessagePingSearchText(message: TwitchChatMessage) {
+  return maskGifCaptions(message.text, message.gifs)
+}
 
 export type CompiledPingRule = {
   id: string
@@ -48,7 +88,7 @@ export function matchPingRules(
     return null
   }
 
-  const haystack = message.text
+  const haystack = getMessagePingSearchText(message)
   for (const rule of compiled) {
     rule.regex.lastIndex = 0
     if (rule.regex.test(haystack)) {
@@ -96,7 +136,7 @@ export function messageMentionsUsername(
   }
 
   mentionPattern.lastIndex = 0
-  return mentionPattern.test(message.text)
+  return mentionPattern.test(getMessagePingSearchText(message))
 }
 
 export function resolveMessagePingMatch(
@@ -146,15 +186,17 @@ export function getPingMatchPattern(
 export function findPingMatchRange(
   text: string,
   ruleId: string,
-  matchPattern: string
+  matchPattern: string,
+  gifs: TwitchChatGif[] = []
 ): PingMatchRange | null {
+  const haystack = maskGifCaptions(text, gifs)
   if (ruleId === USERNAME_MENTION_RULE_ID) {
     const mentionPattern = buildUsernameMentionPattern(matchPattern)
     if (!mentionPattern) {
       return null
     }
 
-    const match = mentionPattern.exec(text)
+    const match = mentionPattern.exec(haystack)
     if (!match || match.index === undefined) {
       return null
     }
@@ -172,7 +214,7 @@ export function findPingMatchRange(
 
   try {
     const regex = new RegExp(pattern, "i")
-    const match = regex.exec(text)
+    const match = regex.exec(haystack)
     if (!match || match.index === undefined) {
       return null
     }
