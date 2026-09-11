@@ -55,6 +55,7 @@ import type { TwitchTimelineItem } from "@/lib/twitch/chat/types"
 import {
   usePeepochatChat,
   usePeepochatLayout,
+  usePeepochatPlayer,
   usePeepochatSettings,
 } from "@/lib/peepochat/peepochat-context"
 import { cn } from "@/lib/utils"
@@ -328,6 +329,7 @@ export function ChannelSearch() {
   const { channels, account, loginWithTwitch, config, activeChannelLogin } =
     usePeepochatSettings()
   const { visibleChannelLogins, isSplitView } = usePeepochatLayout()
+  const { playerChannelLogin, playerViewActive } = usePeepochatPlayer()
   const {
     getComposerEmoteCatalog,
     getRoomId,
@@ -348,13 +350,13 @@ export function ChannelSearch() {
       })),
     [channels]
   )
-  const defaultChannelLogins = React.useMemo(
-    () =>
-      visibleChannelLogins
-        .map((login) => normalizeChannelLogin(login))
-        .filter(Boolean),
-    [visibleChannelLogins]
-  )
+  const defaultChannelLogins = React.useMemo(() => {
+    const logins =
+      playerViewActive && playerChannelLogin
+        ? [playerChannelLogin]
+        : visibleChannelLogins
+    return logins.map((login) => normalizeChannelLogin(login)).filter(Boolean)
+  }, [playerChannelLogin, playerViewActive, visibleChannelLogins])
   const searchChannelLogins = React.useMemo(
     () =>
       resolveSearchChannelLogins(parsed, defaultChannelLogins, knownChannels),
@@ -422,7 +424,12 @@ export function ChannelSearch() {
 
   const showChannelLabels = searchChannelLogins.length > 1
   const userCardChannelLogin =
-    searchChannelLogins[0] || normalizeChannelLogin(activeChannelLogin)
+    searchChannelLogins[0] ||
+    normalizeChannelLogin(
+      playerViewActive && playerChannelLogin
+        ? playerChannelLogin
+        : activeChannelLogin
+    )
   const emoteCatalog = React.useMemo(
     () =>
       mergeComposerEmoteCatalogs(

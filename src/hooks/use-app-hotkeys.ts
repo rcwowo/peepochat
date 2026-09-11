@@ -61,7 +61,8 @@ export function useAppHotkeys({
     visibleChannelLogins,
   } = usePeepochatLayout()
   const { refreshEmotes } = usePeepochatChat()
-  const { playerChannelLogin, selectPlayer } = usePeepochatPlayer()
+  const { playerChannelLogin, playerViewActive, selectPlayer } =
+    usePeepochatPlayer()
 
   const selectSidebarIndex = React.useCallback(
     (index: number) => {
@@ -230,6 +231,10 @@ export function useAppHotkeys({
           }
           return
         case "composer.focus": {
+          if (playerViewActive && playerChannelLogin) {
+            requestComposerFocus(playerChannelLogin)
+            return
+          }
           const login = getLastFocusedLogin()
           if (login) {
             setActiveChannel(login)
@@ -250,6 +255,8 @@ export function useAppHotkeys({
     getLastFocusedLogin,
     getSearch,
     getTargetPane,
+    playerChannelLogin,
+    playerViewActive,
     requestComposerFocus,
     setActiveChannel,
     notificationsOpen,
