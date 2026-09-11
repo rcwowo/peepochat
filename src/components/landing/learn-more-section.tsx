@@ -54,7 +54,7 @@ const LEARN_MORE_ITEMS = [
     ),
   },
   {
-    question: "Why aren't polls, predictions, or pinned messages supported?",
+    question: "Why aren't polls and predictions supported?",
     answer: (
       <>
         Some chat clients display these features by utilizing Twitch&apos;s

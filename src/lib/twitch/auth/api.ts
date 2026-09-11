@@ -1186,6 +1186,148 @@ export async function deleteTwitchChatMessage({
   }
 }
 
+export type TwitchPinnedChatMessage = {
+  messageId: string
+  broadcasterId: string
+  senderUserId: string
+  senderUserLogin: string
+  senderUserName: string
+  pinnedByUserId: string
+  pinnedByUserLogin: string
+  pinnedByUserName: string
+  messageText: string
+  messageFragments: unknown
+  startsAt: string
+  endsAt: string | null
+  updatedAt: string
+}
+
+export async function fetchPinnedChatMessage({
+  broadcasterId,
+  moderatorId,
+  accessToken,
+  clientId,
+}: {
+  broadcasterId: string
+  moderatorId: string
+  accessToken: string
+  clientId: string
+}): Promise<TwitchPinnedChatMessage | null> {
+  const params = new URLSearchParams({
+    broadcaster_id: broadcasterId,
+    moderator_id: moderatorId,
+  })
+
+  const response = await devLoggedFetch(
+    `https://api.twitch.tv/helix/chat/pins?${params.toString()}`,
+    { headers: helixHeaders(accessToken, clientId) }
+  )
+
+  if (!response.ok) {
+    await throwTwitchApiError(response, "Could not load pinned chat message.")
+  }
+
+  const payload = (await response.json()) as {
+    data?: Array<Record<string, unknown>>
+  }
+
+  const entry = payload.data?.[0]
+  if (!entry) {
+    return null
+  }
+
+  const messageId =
+    typeof entry.message_id === "string" ? entry.message_id.trim() : ""
+  const senderUserId =
+    typeof entry.sender_user_id === "string" ? entry.sender_user_id.trim() : ""
+  const senderUserLogin =
+    typeof entry.sender_user_login === "string"
+      ? entry.sender_user_login.trim()
+      : ""
+  const senderUserName =
+    typeof entry.sender_user_name === "string"
+      ? entry.sender_user_name.trim()
+      : senderUserLogin
+  if (!messageId || !senderUserId || (!senderUserLogin && !senderUserName)) {
+    return null
+  }
+
+  const message =
+    typeof entry.message === "object" &&
+    entry.message !== null &&
+    !Array.isArray(entry.message)
+      ? (entry.message as Record<string, unknown>)
+      : null
+  const messageText = typeof message?.text === "string" ? message.text : ""
+  const startsAt = typeof entry.starts_at === "string" ? entry.starts_at : ""
+  const updatedAt =
+    typeof entry.updated_at === "string" ? entry.updated_at : startsAt
+  const endsRaw =
+    (typeof entry.ends_at === "string" && entry.ends_at.trim()) ||
+    (typeof entry.expires_at === "string" && entry.expires_at.trim()) ||
+    ""
+
+  return {
+    messageId,
+    broadcasterId:
+      typeof entry.broadcaster_id === "string"
+        ? entry.broadcaster_id.trim()
+        : broadcasterId,
+    senderUserId,
+    senderUserLogin:
+      senderUserLogin.toLowerCase() || senderUserName.toLowerCase(),
+    senderUserName: senderUserName || senderUserLogin,
+    pinnedByUserId:
+      typeof entry.pinned_by_user_id === "string"
+        ? entry.pinned_by_user_id.trim()
+        : "",
+    pinnedByUserLogin:
+      typeof entry.pinned_by_user_login === "string"
+        ? entry.pinned_by_user_login.trim().toLowerCase()
+        : "",
+    pinnedByUserName:
+      typeof entry.pinned_by_user_name === "string"
+        ? entry.pinned_by_user_name.trim()
+        : "",
+    messageText,
+    messageFragments: message?.fragments ?? [],
+    startsAt,
+    endsAt: endsRaw || null,
+    updatedAt,
+  }
+}
+
+export async function fetchTwitchChatColor({
+  userId,
+  accessToken,
+  clientId,
+}: {
+  userId: string
+  accessToken: string
+  clientId: string
+}): Promise<string | null> {
+  const id = userId.trim()
+  if (!id) {
+    return null
+  }
+
+  const params = new URLSearchParams({ user_id: id })
+  const response = await devLoggedFetch(
+    `https://api.twitch.tv/helix/chat/color?${params.toString()}`,
+    { headers: helixHeaders(accessToken, clientId) }
+  )
+
+  if (!response.ok) {
+    return null
+  }
+
+  const payload = (await response.json()) as {
+    data?: Array<{ color?: string }>
+  }
+  const color = payload.data?.[0]?.color?.trim()
+  return color || null
+}
+
 export async function manageHeldAutomodMessage({
   moderatorUserId,
   msgId,

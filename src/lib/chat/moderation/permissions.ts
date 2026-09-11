@@ -64,6 +64,26 @@ export function canDeleteChatMessages(account: TwitchAccount | null): boolean {
   return hasModerationScope(account, CHAT_COMMAND_SCOPES.chatMessages)
 }
 
+export function canReadPinnedChatMessages(
+  account: TwitchAccount | null
+): boolean {
+  return (
+    canDeleteChatMessages(account) ||
+    hasModerationScope(account, "moderator:read:chat_messages")
+  )
+}
+
+export function canFetchPinnedChatMessages({
+  account,
+  broadcasterId,
+}: {
+  account: TwitchAccount | null
+  broadcasterId: string | null
+}): boolean {
+  // Twitch docs doesn't match the actual behavior. If pinned chats break for channels where the user isn't a mod in the future, this is likely where the issue is
+  return canReadPinnedChatMessages(account) && Boolean(broadcasterId?.trim())
+}
+
 export function canBanOrTimeoutUsers(account: TwitchAccount | null): boolean {
   return hasModerationScope(account, CHAT_COMMAND_SCOPES.bannedUsers)
 }

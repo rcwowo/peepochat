@@ -4,6 +4,7 @@
         "date": "2026-09-31",
         "items": [
             "Added the player to watch streams from within the client.",
+            "Added experimental support for pinned chat messages.",
             "Added configurable support for the new GIF feature.",
             "Chat modes are now displayed as system messages instead.",
             "Moved the chat modes panel to the chat composer, with settings to change it's visibility.",
