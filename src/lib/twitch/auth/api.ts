@@ -1821,38 +1821,6 @@ export async function setTwitchVipStatus({
   }
 }
 
-export async function sendTwitchWhisper({
-  fromUserId,
-  toUserId,
-  message,
-  accessToken,
-  clientId,
-}: {
-  fromUserId: string
-  toUserId: string
-  message: string
-  accessToken: string
-  clientId: string
-}): Promise<void> {
-  const params = new URLSearchParams({
-    from_user_id: fromUserId,
-    to_user_id: toUserId,
-  })
-
-  const response = await devLoggedFetch(
-    `https://api.twitch.tv/helix/whispers?${params.toString()}`,
-    {
-      method: "POST",
-      headers: helixJsonHeaders(accessToken, clientId),
-      body: JSON.stringify({ message }),
-    }
-  )
-
-  if (!response.ok) {
-    await throwTwitchApiError(response, "Could not send whisper.")
-  }
-}
-
 export type TwitchEventSubTransport = {
   method: "websocket"
   session_id: string

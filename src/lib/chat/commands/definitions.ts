@@ -87,7 +87,6 @@ export const CHAT_COMMAND_DEFINITIONS: ChatCommandDefinition[] = [
   { name: "vips", usage: "", description: "List channel VIPs" },
   { name: "unvip", usage: "<username>", description: "Remove VIP" },
   { name: "user", usage: "<username>", description: "Open a user card" },
-  { name: "w", usage: "<username> <message>", description: "Send a whisper" },
   {
     name: "shoutout",
     usage: "<username>",

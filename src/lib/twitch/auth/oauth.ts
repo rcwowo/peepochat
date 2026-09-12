@@ -35,7 +35,6 @@ export const TWITCH_OAUTH_SCOPES = [
   "channel:manage:raids",
   "channel:manage:broadcast",
   "channel:manage:vips",
-  "user:manage:whispers",
   "user:read:follows",
   "user:read:blocked_users",
   "user:manage:blocked_users",

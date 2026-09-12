@@ -147,11 +147,6 @@ export const TWITCH_OAUTH_SCOPE_GROUPS: TwitchOAuthScopeGroup[] = [
         description: "Update your stream title and category.",
       },
       {
-        scope: "user:manage:whispers",
-        label: "Send whispers",
-        description: "Send private whispers to other Twitch users.",
-      },
-      {
         scope: "user:read:follows",
         label: "Following list",
         description: "Load the channels you follow when adding a channel.",

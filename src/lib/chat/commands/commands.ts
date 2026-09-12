@@ -23,7 +23,6 @@ import {
   fetchTwitchUsersByLogin,
   sendTwitchChatAnnouncement,
   sendTwitchShoutout,
-  sendTwitchWhisper,
   setTwitchModeratorStatus,
   setTwitchVipStatus,
   startTwitchCommercial,
@@ -881,45 +880,6 @@ async function runCommand(
           command.name === "vip"
             ? `Added ${login.replace(/^@/, "")} as a VIP.`
             : `Removed ${login.replace(/^@/, "")} as a VIP.`,
-      }
-    }
-
-    case "w": {
-      if (!hasScope(account, CHAT_COMMAND_SCOPES.whispers)) {
-        return {
-          handled: true,
-          kind: "feedback",
-          level: "error",
-          message: missingScopeMessage(CHAT_COMMAND_SCOPES.whispers),
-        }
-      }
-
-      const [login, whisperMessage] = splitFirstToken(command.rawArgs)
-      if (!login || !whisperMessage) {
-        return {
-          handled: true,
-          kind: "feedback",
-          level: "error",
-          message: "Usage: /w <username> <message>",
-        }
-      }
-
-      const userIdResult = await resolveLogin(login, account)
-      if (typeof userIdResult !== "string") {
-        return userIdResult
-      }
-
-      await sendTwitchWhisper({
-        fromUserId: account.id,
-        toUserId: userIdResult,
-        message: whisperMessage,
-        ...auth,
-      })
-
-      return {
-        handled: true,
-        kind: "feedback",
-        message: `Whisper sent to ${login.replace(/^@/, "")}.`,
       }
     }
 
