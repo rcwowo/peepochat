@@ -952,6 +952,35 @@ export type TwitchLiveStream = {
   startedAt: string
 }
 
+type HelixStreamPayload = {
+  id: string
+  user_id: string
+  user_login: string
+  user_name: string
+  title: string
+  game_name?: string
+  viewer_count: number
+  started_at: string
+}
+
+type HelixStreamListResponse = {
+  data?: HelixStreamPayload[]
+  pagination?: { cursor?: string }
+}
+
+function parseHelixLiveStream(stream: HelixStreamPayload): TwitchLiveStream {
+  return {
+    id: stream.id,
+    userId: stream.user_id,
+    userLogin: stream.user_login.toLowerCase(),
+    userName: stream.user_name,
+    title: stream.title,
+    gameName: stream.game_name ?? "",
+    viewerCount: stream.viewer_count,
+    startedAt: stream.started_at,
+  }
+}
+
 export async function fetchLiveStreamsByLogin(
   logins: string[],
   accessToken: string,
@@ -994,33 +1023,123 @@ export async function fetchLiveStreamsByLogin(
         )
       }
 
-      const payload = (await response.json()) as {
-        data?: Array<{
-          id: string
-          user_id: string
-          user_login: string
-          user_name: string
-          title: string
-          game_name: string
-          viewer_count: number
-          started_at: string
-        }>
-      }
-
-      return (payload.data ?? []).map((stream) => ({
-        id: stream.id,
-        userId: stream.user_id,
-        userLogin: stream.user_login.toLowerCase(),
-        userName: stream.user_name,
-        title: stream.title,
-        gameName: stream.game_name ?? "",
-        viewerCount: stream.viewer_count,
-        startedAt: stream.started_at,
-      }))
+      const payload = (await response.json()) as HelixStreamListResponse
+      return (payload.data ?? []).map(parseHelixLiveStream)
     })
   )
 
   return chunkResults.flat()
+}
+
+export type TwitchFollowedChannel = {
+  id: string
+  login: string
+  displayName: string
+  followedAt: string
+}
+
+type HelixFollowedChannelPayload = {
+  broadcaster_id: string
+  broadcaster_login: string
+  broadcaster_name: string
+  followed_at: string
+}
+
+type HelixFollowedChannelListResponse = {
+  data?: HelixFollowedChannelPayload[]
+  pagination?: { cursor?: string }
+}
+
+export async function fetchTwitchFollowedChannels({
+  userId,
+  accessToken,
+  clientId,
+  onPage,
+}: {
+  userId: string
+  accessToken: string
+  clientId: string
+  onPage?: (channels: TwitchFollowedChannel[]) => void
+}): Promise<TwitchFollowedChannel[]> {
+  const channels: TwitchFollowedChannel[] = []
+  let cursor: string | undefined
+
+  do {
+    const params = new URLSearchParams({
+      user_id: userId,
+      first: "100",
+    })
+    if (cursor) {
+      params.set("after", cursor)
+    }
+
+    const response = await devLoggedFetch(
+      `https://api.twitch.tv/helix/channels/followed?${params.toString()}`,
+      { headers: helixHeaders(accessToken, clientId) }
+    )
+
+    if (!response.ok) {
+      throw new TwitchApiError(
+        "Could not load followed channels.",
+        response.status
+      )
+    }
+
+    const payload = (await response.json()) as HelixFollowedChannelListResponse
+    for (const entry of payload.data ?? []) {
+      channels.push({
+        id: entry.broadcaster_id,
+        login: entry.broadcaster_login.toLowerCase(),
+        displayName: entry.broadcaster_name,
+        followedAt: entry.followed_at,
+      })
+    }
+    onPage?.(channels)
+    cursor = payload.pagination?.cursor
+  } while (cursor)
+
+  return channels
+}
+
+export async function fetchFollowedLiveStreams({
+  userId,
+  accessToken,
+  clientId,
+}: {
+  userId: string
+  accessToken: string
+  clientId: string
+}): Promise<TwitchLiveStream[]> {
+  const streams: TwitchLiveStream[] = []
+  let cursor: string | undefined
+
+  do {
+    const params = new URLSearchParams({
+      user_id: userId,
+      first: "100",
+    })
+    if (cursor) {
+      params.set("after", cursor)
+    }
+
+    const response = await devLoggedFetch(
+      `https://api.twitch.tv/helix/streams/followed?${params.toString()}`,
+      { headers: helixHeaders(accessToken, clientId) }
+    )
+
+    if (!response.ok) {
+      throw new TwitchApiError(
+        "Could not load followed live streams.",
+        response.status
+      )
+    }
+
+    const payload = (await response.json()) as HelixStreamListResponse
+    streams.push(...(payload.data ?? []).map(parseHelixLiveStream))
+    cursor = payload.pagination?.cursor
+  } while (cursor)
+
+  return streams
 }
 
 export type TwitchChannelInformation = {

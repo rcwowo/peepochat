@@ -152,6 +152,11 @@ export const TWITCH_OAUTH_SCOPE_GROUPS: TwitchOAuthScopeGroup[] = [
         description: "Send private whispers to other Twitch users.",
       },
       {
+        scope: "user:read:follows",
+        label: "Following list",
+        description: "Load the channels you follow when adding a channel.",
+      },
+      {
         scope: "user:read:blocked_users",
         label: "View blocked users",
         description: "Load your Twitch block list to hide blocked chatters.",

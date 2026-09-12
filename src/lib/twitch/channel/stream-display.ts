@@ -1,7 +1,15 @@
 const viewerCountFormatter = new Intl.NumberFormat()
+const compactViewerCountFormatter = new Intl.NumberFormat(undefined, {
+  notation: "compact",
+  maximumFractionDigits: 1,
+})
 
 export function formatViewerCount(count: number): string {
   return viewerCountFormatter.format(count)
+}
+
+export function formatCompactViewerCount(count: number): string {
+  return compactViewerCountFormatter.format(count)
 }
 
 export function formatStreamUptime(durationMs: number): string {
