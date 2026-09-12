@@ -163,3 +163,20 @@ export function canDeleteMessageInChannel({
     actorCanModerate(account, broadcasterId, selfState, channelLogin)
   )
 }
+
+export function canPinMessageInChannel({
+  account,
+  broadcasterId,
+  channelLogin,
+  selfState,
+}: {
+  account: TwitchAccount | null
+  broadcasterId: string | null
+  channelLogin?: string | null
+  selfState: TwitchSelfChatState | null
+}): boolean {
+  return (
+    canDeleteChatMessages(account) &&
+    actorCanModerate(account, broadcasterId, selfState, channelLogin)
+  )
+}

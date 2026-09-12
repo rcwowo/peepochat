@@ -470,6 +470,8 @@ export function useTwitchChat(options?: {
     getRoomId: roomStore.getRoomId,
     subscribeToPinnedMessage: pinnedMessages.subscribe,
     getPinnedMessage: pinnedMessages.getPinnedMessage,
+    refreshPinnedMessage: pinnedMessages.refreshPinnedMessage,
+    clearPinnedMessage: pinnedMessages.clearPinnedMessage,
     subscribeToChatters: chatterStore.subscribe,
     getChatters: chatterStore.getChatters,
     getChatterByLogin: chatterStore.getChatterByLogin,

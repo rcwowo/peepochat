@@ -1416,6 +1416,75 @@ export async function fetchPinnedChatMessage({
   }
 }
 
+export async function pinTwitchChatMessage({
+  broadcasterId,
+  moderatorId,
+  messageId,
+  durationSeconds,
+  accessToken,
+  clientId,
+}: {
+  broadcasterId: string
+  moderatorId: string
+  messageId: string
+  durationSeconds?: number | null
+  accessToken: string
+  clientId: string
+}): Promise<void> {
+  const params = new URLSearchParams({
+    broadcaster_id: broadcasterId,
+    moderator_id: moderatorId,
+    message_id: messageId,
+  })
+  if (durationSeconds != null) {
+    params.set("duration_seconds", String(durationSeconds))
+  }
+
+  const response = await devLoggedFetch(
+    `https://api.twitch.tv/helix/chat/pins?${params.toString()}`,
+    {
+      method: "PUT",
+      headers: helixHeaders(accessToken, clientId),
+    }
+  )
+
+  if (!response.ok) {
+    await throwTwitchApiError(response, "Could not pin message.")
+  }
+}
+
+export async function unpinTwitchChatMessage({
+  broadcasterId,
+  moderatorId,
+  messageId,
+  accessToken,
+  clientId,
+}: {
+  broadcasterId: string
+  moderatorId: string
+  messageId: string
+  accessToken: string
+  clientId: string
+}): Promise<void> {
+  const params = new URLSearchParams({
+    broadcaster_id: broadcasterId,
+    moderator_id: moderatorId,
+    message_id: messageId,
+  })
+
+  const response = await devLoggedFetch(
+    `https://api.twitch.tv/helix/chat/pins?${params.toString()}`,
+    {
+      method: "DELETE",
+      headers: helixHeaders(accessToken, clientId),
+    }
+  )
+
+  if (!response.ok) {
+    await throwTwitchApiError(response, "Could not unpin message.")
+  }
+}
+
 export async function fetchTwitchChatColor({
   userId,
   accessToken,

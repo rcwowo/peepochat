@@ -1,20 +1,31 @@
 import * as React from "react"
-import { PinIcon } from "lucide-react"
+import { PinIcon, PinOffIcon } from "lucide-react"
+import { toast } from "sonner"
 
 import { ChatMessageRow } from "@/components/chat/message/row"
+import { Button } from "@/components/ui/button"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { canPinMessageInChannel } from "@/lib/chat/moderation/permissions"
 import type { ChatBadgeCatalog } from "@/lib/chat/presentation/badges"
 import type {
   DeletedMessagesBehavior,
   MessageTimestampFormat,
   TwitchAccount,
 } from "@/lib/peepochat/peepochat-config"
+import { usePeepochatChat } from "@/lib/peepochat/peepochat-context"
 import type { ResolvedMemberBadge } from "@/lib/rcw/badges"
+import { TwitchApiError, unpinTwitchChatMessage } from "@/lib/twitch/auth/api"
 import type { TwitchSelfChatState } from "@/lib/twitch/chat/types"
 import type { ChannelPinnedMessage } from "@/lib/twitch/chat/pins"
 
 const PINNED_QUICK_ACTIONS = {
   copyEnabled: false,
   replyEnabled: false,
+  pinEnabled: false,
   deleteEnabled: false,
   timeoutEnabled: false,
   banEnabled: false,
@@ -86,6 +97,53 @@ export function ChatPinnedMessageBar({
 }) {
   const remaining = usePinRemainingLabel(pin.endsAt)
   const pinnedBy = pin.pinnedByUserName || pin.pinnedByUserLogin
+  const { clearPinnedMessage } = usePeepochatChat()
+  const [unpinPending, setUnpinPending] = React.useState(false)
+  const unpinPendingRef = React.useRef(false)
+  const canUnpin = canPinMessageInChannel({
+    account,
+    broadcasterId: channelRoomId,
+    channelLogin: pin.message.channel,
+    selfState: selfChatState,
+  })
+
+  const unpinMessage = React.useCallback(async () => {
+    if (!account || !channelRoomId || unpinPendingRef.current) {
+      return
+    }
+
+    unpinPendingRef.current = true
+    setUnpinPending(true)
+    try {
+      try {
+        await unpinTwitchChatMessage({
+          broadcasterId: channelRoomId,
+          moderatorId: account.id,
+          messageId: pin.message.id,
+          accessToken: account.accessToken,
+          clientId: account.clientId,
+        })
+      } catch (error) {
+        if (!(error instanceof TwitchApiError && error.status === 404)) {
+          toast.error(
+            error instanceof Error ? error.message : "Could not unpin message."
+          )
+          return
+        }
+      }
+      clearPinnedMessage(pin.message.channel)
+      toast.success("Message unpinned.")
+    } finally {
+      unpinPendingRef.current = false
+      setUnpinPending(false)
+    }
+  }, [
+    account,
+    channelRoomId,
+    clearPinnedMessage,
+    pin.message.channel,
+    pin.message.id,
+  ])
 
   return (
     <div className="absolute inset-x-2 top-2 z-20 overflow-hidden rounded-md border border-border bg-background shadow-md">
@@ -94,8 +152,32 @@ export function ChatPinnedMessageBar({
         <span className="min-w-0 truncate">
           {pinnedBy ? `Pinned by ${pinnedBy}` : "Pinned message"}
         </span>
-        {remaining ? (
-          <span className="ml-auto shrink-0 tabular-nums">{remaining}</span>
+        {remaining || canUnpin ? (
+          <div className="ml-auto flex shrink-0 items-center gap-1">
+            {remaining ? (
+              <span className="tabular-nums">{remaining}</span>
+            ) : null}
+            {canUnpin ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      aria-label="Unpin message"
+                      className="text-muted-foreground hover:text-foreground"
+                      disabled={unpinPending}
+                      onClick={() => void unpinMessage()}
+                    >
+                      <PinOffIcon className="size-3.5" />
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>Unpin message</TooltipContent>
+              </Tooltip>
+            ) : null}
+          </div>
         ) : null}
       </div>
       <div className="max-h-32 overflow-y-auto py-1">

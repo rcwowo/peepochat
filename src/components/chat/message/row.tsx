@@ -5,6 +5,7 @@ import {
   CopyIcon,
   CornerUpLeftIcon,
   MessageCirclePlusIcon,
+  PinIcon,
   Trash2Icon,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -20,6 +21,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import type { ChatBadgeCatalog } from "@/lib/chat/presentation/badges"
@@ -31,8 +33,12 @@ import {
 import {
   canDeleteMessageInChannel,
   canModerateTarget,
+  canPinMessageInChannel,
 } from "@/lib/chat/moderation/permissions"
-import { MODERATION_TIMEOUT_PRESETS } from "@/lib/chat/moderation/tools"
+import {
+  MODERATION_TIMEOUT_PRESETS,
+  PIN_MESSAGE_DURATION_PRESETS,
+} from "@/lib/chat/moderation/tools"
 import type { PingMatchRange } from "@/lib/highlights/highlight-rules"
 import type {
   DeletedMessagesBehavior,
@@ -44,7 +50,11 @@ import { formatMessageTimestamp } from "@/lib/chat/presentation/timestamp"
 import { usePeepochatChat } from "@/lib/peepochat/peepochat-context"
 import type { ResolvedMemberBadge } from "@/lib/rcw/badges"
 import type { TwitchSelfChatState } from "@/lib/twitch/chat/types"
-import { banTwitchUser, deleteTwitchChatMessage } from "@/lib/twitch/auth/api"
+import {
+  banTwitchUser,
+  deleteTwitchChatMessage,
+  pinTwitchChatMessage,
+} from "@/lib/twitch/auth/api"
 import type { TwitchChatMessage } from "@/lib/twitch/chat/chat"
 import { cn } from "@/lib/utils"
 
@@ -93,12 +103,12 @@ function ChatMessageRowInner({
   channelLabel?: string | null
 }) {
   const [pendingAction, setPendingAction] = React.useState<
-    "delete" | "timeout" | "ban" | null
+    "delete" | "pin" | "timeout" | "ban" | null
   >(null)
-  const pendingActionRef = React.useRef<"delete" | "timeout" | "ban" | null>(
-    null
-  )
-  const { markChatMessageDeleted } = usePeepochatChat()
+  const pendingActionRef = React.useRef<
+    "delete" | "pin" | "timeout" | "ban" | null
+  >(null)
+  const { markChatMessageDeleted, refreshPinnedMessage } = usePeepochatChat()
   const isDeleted = message.deletedAt !== null
   const timestamp = formatMessageTimestamp(message.receivedAt, timestampFormat)
   const { resolvedBadges: badges, sourceChannel } = useSharedChatMessageChrome({
@@ -136,6 +146,16 @@ function ChatMessageRowInner({
       channelLogin: message.channel,
       selfState: selfChatState,
     })
+  const canPinMessage =
+    messageQuickActions.pinEnabled &&
+    !isDeleted &&
+    !message.sourceRoomId &&
+    canPinMessageInChannel({
+      account,
+      broadcasterId: channelRoomId,
+      channelLogin: message.channel,
+      selfState: selfChatState,
+    })
   const canBanOrTimeout = canModerateTarget({
     account,
     broadcasterId: channelRoomId,
@@ -150,6 +170,7 @@ function ChatMessageRowInner({
   const showQuickActions =
     messageQuickActions.copyEnabled ||
     showReplyButton ||
+    canPinMessage ||
     canDeleteMessage ||
     showTimeoutButton ||
     showBanButton
@@ -209,8 +230,8 @@ function ChatMessageRowInner({
 
   const runModerationAction = React.useCallback(
     async (
-      action: "delete" | "timeout" | "ban",
-      options?: { durationSeconds?: number }
+      action: "delete" | "pin" | "timeout" | "ban",
+      options?: { durationSeconds?: number | null }
     ) => {
       if (!account || !channelRoomId || pendingActionRef.current) {
         return
@@ -229,6 +250,20 @@ function ChatMessageRowInner({
           })
           markChatMessageDeleted(message.channel, message.id)
           toast.success("Message deleted.")
+          return
+        }
+
+        if (action === "pin") {
+          await pinTwitchChatMessage({
+            broadcasterId: channelRoomId,
+            moderatorId: account.id,
+            messageId: message.id,
+            durationSeconds: options?.durationSeconds,
+            accessToken: account.accessToken,
+            clientId: account.clientId,
+          })
+          refreshPinnedMessage(message.channel)
+          toast.success("Message pinned.")
           return
         }
 
@@ -254,7 +289,7 @@ function ChatMessageRowInner({
           userId: message.userId,
           accessToken: account.accessToken,
           clientId: account.clientId,
-          durationSeconds: options?.durationSeconds,
+          durationSeconds: options?.durationSeconds ?? undefined,
         })
         toast.success(`Timed out ${message.displayName}.`)
       } catch (error) {
@@ -274,6 +309,7 @@ function ChatMessageRowInner({
       message.displayName,
       message.id,
       message.userId,
+      refreshPinnedMessage,
     ]
   )
 
@@ -420,6 +456,48 @@ function ChatMessageRowInner({
               >
                 <CornerUpLeftIcon className="size-3.5" />
               </Button>
+            ) : null}
+            {canPinMessage ? (
+              <DropdownMenu modal={false}>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label="Pin message"
+                    className={QUICK_ACTION_BUTTON_CLASS}
+                    disabled={pendingAction !== null}
+                  >
+                    <PinIcon className="size-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-40">
+                  {PIN_MESSAGE_DURATION_PRESETS.map((preset) => (
+                    <DropdownMenuItem
+                      key={preset.label}
+                      className="cursor-pointer"
+                      onSelect={() =>
+                        void runModerationAction("pin", {
+                          durationSeconds: preset.seconds,
+                        })
+                      }
+                    >
+                      {preset.label}
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="cursor-pointer"
+                    onSelect={() =>
+                      void runModerationAction("pin", {
+                        durationSeconds: null,
+                      })
+                    }
+                  >
+                    Until stream ends
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : null}
             {canDeleteMessage ? (
               <Button

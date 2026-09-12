@@ -8,6 +8,13 @@ export const MODERATION_TIMEOUT_PRESETS = [
   { label: "7d", seconds: 604800 },
 ] as const
 
+export const PIN_MESSAGE_DURATION_PRESETS = [
+  { label: "30s", seconds: 30 },
+  { label: "1m", seconds: 60 },
+  { label: "5m", seconds: 300 },
+  { label: "10m", seconds: 600 },
+] as const
+
 export const CHATLOGS_URL = "https://tv.supa.sh/logs"
 
 export function twitchViewerCardUrl(

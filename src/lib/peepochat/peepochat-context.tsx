@@ -122,6 +122,8 @@ export type PeepochatChatContextValue = {
   getRoomId: (login: string) => string | null
   subscribeToPinnedMessage: (login: string, listener: () => void) => () => void
   getPinnedMessage: (login: string) => ChannelPinnedMessage | null
+  refreshPinnedMessage: (login: string) => void
+  clearPinnedMessage: (login: string) => void
   subscribeToChatters: (login: string, listener: () => void) => () => void
   getChatters: (login: string) => ChannelChatter[]
   getChatterByLogin: (

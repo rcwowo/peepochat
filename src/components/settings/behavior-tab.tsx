@@ -8,6 +8,7 @@ import {
   HistoryIcon,
   LayersIcon,
   Layers2Icon,
+  PinIcon,
   PlayIcon,
   RadioIcon,
   ShieldAlertIcon,
@@ -56,7 +57,7 @@ const EMOTE_PROVIDER_ROWS = [
 
 export function BehaviorTab() {
   const { config, updateConfig, account } = usePeepochatSettings()
-  const canConfigureDelete = canDeleteChatMessages(account)
+  const canConfigureChatMessages = canDeleteChatMessages(account)
   const canConfigureBanOrTimeout = canBanOrTimeoutUsers(account)
 
   const setEmoteProvider = (
@@ -192,7 +193,27 @@ export function BehaviorTab() {
               }))
             }
           />
-          {canConfigureDelete ? (
+          {canConfigureChatMessages ? (
+            <SettingsSwitchRow
+              icon={PinIcon}
+              title="Pin message"
+              description="Pins the message in chats you have permissions for."
+              checked={config.chat.messageQuickActions.pinEnabled}
+              onCheckedChange={(pinEnabled) =>
+                updateConfig((current) => ({
+                  ...current,
+                  chat: {
+                    ...current.chat,
+                    messageQuickActions: {
+                      ...current.chat.messageQuickActions,
+                      pinEnabled,
+                    },
+                  },
+                }))
+              }
+            />
+          ) : null}
+          {canConfigureChatMessages ? (
             <SettingsSwitchRow
               icon={Trash2Icon}
               title="Delete message"

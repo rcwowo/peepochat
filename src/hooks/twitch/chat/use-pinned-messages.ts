@@ -486,9 +486,25 @@ export function usePinnedMessages({
     return pinsRef.current.get(normalizeChannelLogin(login)) ?? null
   }, [])
 
+  const refreshPinnedMessage = React.useCallback(
+    (login: string) => {
+      void loadPinnedMessage(login)
+    },
+    [loadPinnedMessage]
+  )
+
+  const clearPinnedMessage = React.useCallback(
+    (login: string) => {
+      clearPin(normalizeChannelLogin(login))
+    },
+    [clearPin]
+  )
+
   return {
     subscribe,
     getPinnedMessage,
+    refreshPinnedMessage,
+    clearPinnedMessage,
     notifyVisibleChannelsChanged,
     notifyRoomReady,
     notifySelfStateChanged,

@@ -56,6 +56,7 @@ const chatBadgesSchema = z.object({
 const messageQuickActionsSchema = z.object({
   copyEnabled: z.boolean().default(true),
   replyEnabled: z.boolean().default(true),
+  pinEnabled: z.boolean().default(true),
   deleteEnabled: z.boolean().default(true),
   timeoutEnabled: z.boolean().default(false),
   banEnabled: z.boolean().default(false),
@@ -297,6 +298,7 @@ export function createDefaultConfig(): AppConfig {
       messageQuickActions: {
         copyEnabled: true,
         replyEnabled: true,
+        pinEnabled: true,
         deleteEnabled: true,
         timeoutEnabled: false,
         banEnabled: false,
