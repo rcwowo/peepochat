@@ -225,7 +225,7 @@ function parseTwitchUser(user: TwitchUserPayload): TwitchUser {
     login: user.login,
     displayName: user.display_name,
     profileImageUrl: user.profile_image_url ?? "",
-    bannerImageUrl: user.offline_image_url ?? "",
+    bannerImageUrl: "",
     description: user.description ?? "",
     createdAt: user.created_at ?? "",
     broadcasterType: user.broadcaster_type ?? "",
