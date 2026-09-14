@@ -1,5 +1,5 @@
 import * as React from "react"
-import { PinIcon, PinOffIcon } from "lucide-react"
+import { PinIcon, Trash2Icon } from "lucide-react"
 import { toast } from "sonner"
 
 import { ChatMessageRow } from "@/components/chat/message/row"
@@ -170,7 +170,7 @@ export function ChatPinnedMessageBar({
                       disabled={unpinPending}
                       onClick={() => void unpinMessage()}
                     >
-                      <PinOffIcon className="size-3.5" />
+                      <Trash2Icon className="size-3.5" />
                     </Button>
                   </span>
                 </TooltipTrigger>

@@ -4,6 +4,7 @@ import {
   ExternalLinkIcon,
   MessagesSquareIcon,
   PinIcon,
+  PinOffIcon,
   PlayIcon,
   RefreshCcwIcon,
   UsersIcon,
@@ -571,11 +572,7 @@ function ChatPaneInner({
                           type="button"
                           variant="ghost"
                           size="icon-xs"
-                          className={
-                            pinVisible
-                              ? "text-foreground"
-                              : "text-muted-foreground hover:text-foreground"
-                          }
+                          className="text-muted-foreground hover:text-foreground"
                           aria-label={
                             pinVisible
                               ? "Hide pinned message"
@@ -584,7 +581,11 @@ function ChatPaneInner({
                           aria-pressed={pinVisible}
                           onClick={() => setPinVisible((visible) => !visible)}
                         >
-                          <PinIcon className="size-3.5" />
+                          {pinVisible ? (
+                            <PinIcon className="size-3.5" />
+                          ) : (
+                            <PinOffIcon className="size-3.5" />
+                          )}
                         </Button>
                       </span>
                     </TooltipTrigger>
