@@ -72,7 +72,7 @@ const gifMessageAppearanceSchema = z
 
 const chatModesVisibilitySchema = z
   .enum(["always", "when-permitted", "hidden"])
-  .default("always")
+  .default("when-permitted")
 
 const chatStreamInfoSchema = z.object({
   viewerCountEnabled: z.boolean().default(true),
