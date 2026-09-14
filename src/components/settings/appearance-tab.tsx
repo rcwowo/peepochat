@@ -1,15 +1,25 @@
 import * as React from "react"
 import {
+  BanIcon,
   ClockIcon,
+  CopyIcon,
+  CornerUpLeftIcon,
   EyeIcon,
   Gamepad2Icon,
   Link2Icon,
   MonitorIcon,
   MoonIcon,
+  PinIcon,
   SunIcon,
+  Trash2Icon,
   TypeIcon,
   Unlink2Icon,
 } from "lucide-react"
+
+import {
+  canBanOrTimeoutUsers,
+  canDeleteChatMessages,
+} from "@/lib/chat/moderation/permissions"
 
 import {
   CHAT_EMOTE_SCALE_DEFAULT,
@@ -125,7 +135,9 @@ function FontFamilySettingRow({
 }
 
 export function AppearanceTab() {
-  const { config, updateConfig } = usePeepochatSettings()
+  const { config, updateConfig, account } = usePeepochatSettings()
+  const canConfigureChatMessages = canDeleteChatMessages(account)
+  const canConfigureBanOrTimeout = canBanOrTimeoutUsers(account)
   const { theme, setTheme } = useTheme()
   const scalesLinked = config.chat.linkEmoteScaleToFontSize
 
@@ -384,6 +396,130 @@ export function AppearanceTab() {
               }))
             }
           />
+        </SettingsGroup>
+      </SettingsSection>
+
+      <SettingsSection
+        title="Message quick actions"
+        description="Buttons shown when you hover a message."
+      >
+        <SettingsGroup>
+          <SettingsSwitchRow
+            icon={CopyIcon}
+            title="Copy message"
+            description="Copy the message text to your clipboard."
+            checked={config.chat.messageQuickActions.copyEnabled}
+            onCheckedChange={(copyEnabled) =>
+              updateConfig((current) => ({
+                ...current,
+                chat: {
+                  ...current.chat,
+                  messageQuickActions: {
+                    ...current.chat.messageQuickActions,
+                    copyEnabled,
+                  },
+                },
+              }))
+            }
+          />
+          <SettingsSwitchRow
+            icon={CornerUpLeftIcon}
+            title="Reply"
+            description="Start a threaded reply to the message."
+            checked={config.chat.messageQuickActions.replyEnabled}
+            onCheckedChange={(replyEnabled) =>
+              updateConfig((current) => ({
+                ...current,
+                chat: {
+                  ...current.chat,
+                  messageQuickActions: {
+                    ...current.chat.messageQuickActions,
+                    replyEnabled,
+                  },
+                },
+              }))
+            }
+          />
+          {canConfigureChatMessages ? (
+            <SettingsSwitchRow
+              icon={PinIcon}
+              title="Pin message"
+              description="Pins the message in chats you have permissions for."
+              checked={config.chat.messageQuickActions.pinEnabled}
+              onCheckedChange={(pinEnabled) =>
+                updateConfig((current) => ({
+                  ...current,
+                  chat: {
+                    ...current.chat,
+                    messageQuickActions: {
+                      ...current.chat.messageQuickActions,
+                      pinEnabled,
+                    },
+                  },
+                }))
+              }
+            />
+          ) : null}
+          {canConfigureChatMessages ? (
+            <SettingsSwitchRow
+              icon={Trash2Icon}
+              title="Delete message"
+              description="Deletes the message in chats you have permissions for."
+              checked={config.chat.messageQuickActions.deleteEnabled}
+              onCheckedChange={(deleteEnabled) =>
+                updateConfig((current) => ({
+                  ...current,
+                  chat: {
+                    ...current.chat,
+                    messageQuickActions: {
+                      ...current.chat.messageQuickActions,
+                      deleteEnabled,
+                    },
+                  },
+                }))
+              }
+            />
+          ) : null}
+          {canConfigureBanOrTimeout ? (
+            <SettingsSwitchRow
+              icon={ClockIcon}
+              title="Timeout"
+              description="Timeout the user in chats you have permissions for."
+              checked={config.chat.messageQuickActions.timeoutEnabled}
+              onCheckedChange={(timeoutEnabled) =>
+                updateConfig((current) => ({
+                  ...current,
+                  chat: {
+                    ...current.chat,
+                    messageQuickActions: {
+                      ...current.chat.messageQuickActions,
+                      timeoutEnabled,
+                    },
+                  },
+                }))
+              }
+            />
+          ) : null}
+          {canConfigureBanOrTimeout ? (
+            <SettingsSwitchRow
+              icon={BanIcon}
+              title="Ban"
+              description="Bans the user in chats you have permissions for."
+              checked={config.chat.messageQuickActions.banEnabled}
+              onCheckedChange={(banEnabled) =>
+                updateConfig((current) => ({
+                  ...current,
+                  chat: {
+                    ...current.chat,
+                    messageQuickActions: {
+                      ...current.chat.messageQuickActions,
+                      banEnabled,
+                    },
+                  },
+                }))
+              }
+            />
+          ) : null}
         </SettingsGroup>
       </SettingsSection>
 

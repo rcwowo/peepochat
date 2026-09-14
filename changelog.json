@@ -9,6 +9,7 @@
             "Added settings to choose which stream details appear in the channel header.",
             "Added ability to open stream info even when a channel is offline.",
             "Moved the chat modes panel to the chat composer, with settings to change it's visibility.",
+            "Moved the quick action settings to the appearance tab.",
             "Major redesign to the add channel dialog to show your following list.",
             "Minor redesign to context/dropdown menus.",
             "Changed chat modes to be displayed as system messages instead.",
