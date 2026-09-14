@@ -1,9 +1,13 @@
 import * as React from "react"
 import {
+  ClockIcon,
+  EyeIcon,
+  Gamepad2Icon,
   Link2Icon,
   MonitorIcon,
   MoonIcon,
   SunIcon,
+  TypeIcon,
   Unlink2Icon,
 } from "lucide-react"
 
@@ -376,6 +380,86 @@ export function AppearanceTab() {
                 chat: {
                   ...current.chat,
                   badges: { ...current.chat.badges, owoMemberEnabled: checked },
+                },
+              }))
+            }
+          />
+        </SettingsGroup>
+      </SettingsSection>
+
+      <SettingsSection
+        title="Stream info"
+        description="Details shown when you expand a channel's header."
+      >
+        <SettingsGroup>
+          <SettingsSwitchRow
+            icon={EyeIcon}
+            title="View count"
+            description="How many people are watching while live."
+            checked={config.chat.streamInfo.viewerCountEnabled}
+            onCheckedChange={(viewerCountEnabled) =>
+              updateConfig((current) => ({
+                ...current,
+                chat: {
+                  ...current.chat,
+                  streamInfo: {
+                    ...current.chat.streamInfo,
+                    viewerCountEnabled,
+                  },
+                },
+              }))
+            }
+          />
+          <SettingsSwitchRow
+            icon={TypeIcon}
+            title="Title"
+            description="The current stream title."
+            checked={config.chat.streamInfo.titleEnabled}
+            onCheckedChange={(titleEnabled) =>
+              updateConfig((current) => ({
+                ...current,
+                chat: {
+                  ...current.chat,
+                  streamInfo: {
+                    ...current.chat.streamInfo,
+                    titleEnabled,
+                  },
+                },
+              }))
+            }
+          />
+          <SettingsSwitchRow
+            icon={Gamepad2Icon}
+            title="Category"
+            description="The game or category, shown before the title when both are enabled."
+            checked={config.chat.streamInfo.categoryEnabled}
+            onCheckedChange={(categoryEnabled) =>
+              updateConfig((current) => ({
+                ...current,
+                chat: {
+                  ...current.chat,
+                  streamInfo: {
+                    ...current.chat.streamInfo,
+                    categoryEnabled,
+                  },
+                },
+              }))
+            }
+          />
+          <SettingsSwitchRow
+            icon={ClockIcon}
+            title="Uptime"
+            description="How long the current stream has been live."
+            checked={config.chat.streamInfo.uptimeEnabled}
+            onCheckedChange={(uptimeEnabled) =>
+              updateConfig((current) => ({
+                ...current,
+                chat: {
+                  ...current.chat,
+                  streamInfo: {
+                    ...current.chat.streamInfo,
+                    uptimeEnabled,
+                  },
                 },
               }))
             }

@@ -25,6 +25,7 @@ import { ChatSystemMessage } from "@/components/chat/message/system-message"
 import {
   ChatPaneLiveBadge,
   ChatPaneLiveInfoBar,
+  ChatPaneStreamInfoToggle,
 } from "@/components/chat/pane/pane-live"
 import { ChatPinnedMessageBar } from "@/components/chat/pane/pinned-message"
 import { Button } from "@/components/ui/button"
@@ -135,6 +136,7 @@ function ChannelPaneAvatar({
       <img
         src={profileImageUrl}
         alt=""
+        draggable={false}
         className="size-6 shrink-0 rounded-full object-cover"
       />
     )
@@ -237,9 +239,7 @@ function ChatPaneInner({
   const [recentMessagesCache] = React.useState(
     createRecentUserMessageBucketCache
   )
-  const [liveInfoExpanded, setLiveInfoExpanded] = React.useState(
-    streamInfoMode === "mobile"
-  )
+  const [liveInfoExpanded, setLiveInfoExpanded] = React.useState(false)
   const [chattersOpen, setChattersOpen] = React.useState(false)
   const [emotePickerOpen, setEmotePickerOpen] = React.useState(false)
   const [pinVisible, setPinVisible] = React.useState(true)
@@ -303,16 +303,16 @@ function ChatPaneInner({
   }, [])
 
   const label = displayName ?? channelLogin
-  const isLive =
-    liveStreamOverride !== undefined
-      ? liveStreamOverride !== null
-      : isChannelLive(channelLogin)
   const liveStream =
     liveStreamOverride !== undefined
       ? liveStreamOverride
-      : isLive
-        ? getChannelLiveStream(channelLogin)
-        : null
+      : getChannelLiveStream(channelLogin)
+  const showLiveBadge =
+    liveStreamOverride !== undefined
+      ? liveStreamOverride !== null
+      : isChannelLive(channelLogin)
+  const streamInfo = config.chat.streamInfo
+  const streamInfoHiddenOnDesktop = streamInfoMode === "mobile"
   const displayPinnedMessage =
     hideBlockedUsers &&
     pinnedMessage &&
@@ -456,22 +456,26 @@ function ChatPaneInner({
                 dragHandleProps?.className
               )}
             >
-              <div className="flex min-w-0 items-center gap-2">
+              <ChatPaneStreamInfoToggle
+                expanded={liveInfoExpanded}
+                label={label}
+                className={
+                  streamInfoHiddenOnDesktop ? "md:pointer-events-none" : ""
+                }
+                onToggle={() => setLiveInfoExpanded((expanded) => !expanded)}
+              >
                 <ChannelPaneAvatar
                   login={channelLogin}
                   profileImageUrl={profileImageUrl}
                 />
                 <span className="truncate text-sm font-medium">{label}</span>
-                {isLive ? (
+                {showLiveBadge ? (
                   <ChatPaneLiveBadge
                     expanded={liveInfoExpanded}
-                    className={streamInfoMode === "mobile" ? "md:hidden" : ""}
-                    onToggle={() =>
-                      setLiveInfoExpanded((expanded) => !expanded)
-                    }
+                    className={streamInfoHiddenOnDesktop ? "md:hidden" : ""}
                   />
                 ) : null}
-              </div>
+              </ChatPaneStreamInfoToggle>
               <div
                 className="flex shrink-0 items-center gap-2"
                 onPointerDown={(event) => event.stopPropagation()}
@@ -618,10 +622,13 @@ function ChatPaneInner({
               </div>
             </div>
 
-            {liveInfoExpanded && liveStream ? (
+            {liveInfoExpanded ? (
               <ChatPaneLiveInfoBar
                 stream={liveStream}
-                className={streamInfoMode === "mobile" ? "md:hidden" : ""}
+                channelLogin={channelLogin}
+                channelRoomId={channelRoomId}
+                streamInfo={streamInfo}
+                className={streamInfoHiddenOnDesktop ? "md:hidden" : ""}
               />
             ) : null}
 

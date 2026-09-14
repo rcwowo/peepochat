@@ -12,6 +12,41 @@ export function formatCompactViewerCount(count: number): string {
   return compactViewerCountFormatter.format(count)
 }
 
+export function formatStreamHeadline({
+  title,
+  gameName,
+  showTitle,
+  showCategory,
+  live,
+}: {
+  title: string
+  gameName: string
+  showTitle: boolean
+  showCategory: boolean
+  live: boolean
+}): string {
+  const parts: string[] = []
+  const trimmedTitle = title.trim()
+  const trimmedGame = gameName.trim()
+
+  if (showCategory && trimmedGame) {
+    parts.push(trimmedGame)
+  }
+  if (showTitle && trimmedTitle) {
+    parts.push(trimmedTitle)
+  }
+  if (parts.length > 0) {
+    return parts.join(" — ")
+  }
+  if (!live) {
+    return "Offline"
+  }
+  if (showTitle) {
+    return "Untitled stream"
+  }
+  return ""
+}
+
 export function formatStreamUptime(durationMs: number): string {
   const totalSeconds = Math.max(0, Math.floor(durationMs / 1000))
   const days = Math.floor(totalSeconds / 86_400)

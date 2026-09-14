@@ -74,6 +74,13 @@ const chatModesVisibilitySchema = z
   .enum(["always", "when-permitted", "hidden"])
   .default("always")
 
+const chatStreamInfoSchema = z.object({
+  viewerCountEnabled: z.boolean().default(true),
+  titleEnabled: z.boolean().default(true),
+  categoryEnabled: z.boolean().default(false),
+  uptimeEnabled: z.boolean().default(true),
+})
+
 const chatSchema = z.object({
   messageTimestampFormat: messageTimestampFormatSchema,
   recentMessagesEnabled: z.boolean().default(true),
@@ -109,6 +116,12 @@ const chatSchema = z.object({
   showSuspiciousActivity: z.boolean().default(true),
   emotes: chatEmotesSchema,
   badges: chatBadgesSchema,
+  streamInfo: chatStreamInfoSchema.default({
+    viewerCountEnabled: true,
+    titleEnabled: true,
+    categoryEnabled: false,
+    uptimeEnabled: true,
+  }),
 })
 
 const highlightPingRuleSchema = z.object({
@@ -251,6 +264,7 @@ export type DeletedMessagesBehavior = z.infer<
 >
 export type GifMessageAppearance = z.infer<typeof gifMessageAppearanceSchema>
 export type ChatModesVisibility = z.infer<typeof chatModesVisibilitySchema>
+export type ChatStreamInfoConfig = z.infer<typeof chatStreamInfoSchema>
 export type ChatSplit = z.infer<typeof chatSplitSchema>
 export type {
   ChatSplitLayoutChild,
@@ -320,6 +334,12 @@ export function createDefaultConfig(): AppConfig {
       badges: {
         twitchEnabled: true,
         owoMemberEnabled: true,
+      },
+      streamInfo: {
+        viewerCountEnabled: true,
+        titleEnabled: true,
+        categoryEnabled: false,
+        uptimeEnabled: true,
       },
     },
     layout: {
@@ -924,6 +944,10 @@ function normalizeConfig(config: AppConfig): AppConfig {
   const chat = {
     ...config.chat,
     fontFamily: migrateChatFontFamilyInput(config.chat.fontFamily),
+    streamInfo: {
+      ...createDefaultConfig().chat.streamInfo,
+      ...config.chat.streamInfo,
+    },
   }
 
   if (chat.linkEmoteScaleToFontSize) {

@@ -252,7 +252,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
 
   const { isLive: isChannelLive, getLiveStream } = useStreamLiveStatus({
     channelLogins,
-    enabled: config.highlights.liveIndicatorsEnabled && hasAccountValue,
+    enabled: hasAccountValue,
     accessToken: account?.accessToken,
     clientId: account?.clientId,
     onChannelWentLive: (login, title, gameName) => {
@@ -704,12 +704,8 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
   )
 
   const getChannelLiveStream = React.useCallback(
-    (login: string) => {
-      if (!config.highlights.liveIndicatorsEnabled) return null
-      if (!isChannelLive(login)) return null
-      return getLiveStream(login)
-    },
-    [config.highlights.liveIndicatorsEnabled, isChannelLive, getLiveStream]
+    (login: string) => getLiveStream(login),
+    [getLiveStream]
   )
 
   const sidebarHighlightsValue =
