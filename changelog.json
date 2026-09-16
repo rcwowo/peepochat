@@ -1,7 +1,7 @@
 [
     {
         "version": "1.2.0",
-        "date": "2026-09-31",
+        "date": "2026-09-16",
         "items": [
             "Added the player to watch streams from within the client.",
             "Added experimental support for pinned chat messages.",
