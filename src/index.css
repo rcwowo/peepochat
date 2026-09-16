@@ -98,6 +98,7 @@
   --chat-link-hover: oklch(0.38 0.22 303);
   --chat-badge-size: 18px;
   --chat-emote-size: 28px;
+  --chat-gif-max-height: 140px;
   --chat-emote-margin: -0.35rem;
   --chat-scrollbar-thumb: oklch(0 0 0 / 18%);
   --chat-system-foreground: oklch(0.58 0.03 322.5);
@@ -185,6 +186,7 @@
   }
 
   .chat-presentation {
+    background: var(--chat-background);
     --chat-badge-size: calc(var(--chat-font-size, 13px) * 18 / 13);
   }
 
@@ -342,6 +344,25 @@
 
   .chat-emote img.chat-emote-overlay {
     pointer-events: none;
+  }
+
+  .chat-gif {
+    display: inline-block;
+    max-width: 100%;
+    max-height: var(--chat-gif-max-height);
+    margin-top: 0.125rem;
+    vertical-align: middle;
+    border-radius: 0.25rem;
+    overflow: hidden;
+  }
+
+  .chat-gif img {
+    display: block;
+    max-width: 100%;
+    max-height: var(--chat-gif-max-height);
+    width: auto;
+    height: auto;
+    object-fit: contain;
   }
 
   .chat-cheermote {

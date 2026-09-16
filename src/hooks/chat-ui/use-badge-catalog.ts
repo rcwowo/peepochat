@@ -1,6 +1,6 @@
 import * as React from "react"
 
-import type { ChatBadgeCatalog } from "@/lib/chat/chat-badges"
+import type { ChatBadgeCatalog } from "@/lib/chat/presentation/badges"
 import { usePeepochatChat } from "@/lib/peepochat/peepochat-context"
 
 export function useBadgeCatalog(roomId: string | null): ChatBadgeCatalog {

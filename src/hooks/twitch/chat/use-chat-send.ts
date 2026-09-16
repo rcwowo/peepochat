@@ -5,14 +5,14 @@ import {
   executeChatCommand,
   type ChatCommandContext,
   type ChatCommandResult,
-} from "@/lib/chat/chat-commands"
+} from "@/lib/chat/commands/commands"
 import {
   createChatRateLimiter,
   isPrivilegedChannelSender,
   mapRateLimitResult,
   type ChatSendResult,
   type TwitchChannelSendBlock,
-} from "@/lib/chat/chat-send"
+} from "@/lib/chat/send/send"
 import {
   classifySendNotice,
   formatSelfBanNoticeMessage,
@@ -21,20 +21,20 @@ import {
   timeoutComposerNoticeId,
   type SelfModerationRestriction,
   type SendOutcomeEvent,
-} from "@/lib/chat/chat-send-notice"
-import { createRecentMessagesStatusMessage } from "@/lib/chat/recent-messages"
+} from "@/lib/chat/send/send-notice"
+import { createRecentMessagesStatusMessage } from "@/lib/chat/threads/recent-messages"
 import type { TwitchAccount } from "@/lib/peepochat/peepochat-config"
-import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
+import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 import type {
   TwitchChatClient,
   TwitchChatReply,
   TwitchSystemMessage,
-} from "@/lib/twitch/twitch-chat"
+} from "@/lib/twitch/chat/chat"
 import type {
   TwitchChatEmoteLoadContext,
   TwitchChatRoomState,
   TwitchSelfChatState,
-} from "@/lib/twitch/twitch-chat-types"
+} from "@/lib/twitch/chat/types"
 
 type UseChatSendOptions = {
   getSendClient: () => TwitchChatClient

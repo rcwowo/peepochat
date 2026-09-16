@@ -1,16 +1,16 @@
 import * as React from "react"
 
-import type { ChatSourceChannelBadge } from "@/components/chat/chat-badge"
+import type { ChatSourceChannelBadge } from "@/components/chat/message/badge"
 import {
   resolveMessageBadges,
   type ChatBadgeCatalog,
-} from "@/lib/chat/chat-badges"
+} from "@/lib/chat/presentation/badges"
 import {
   getSharedChatSourceProfile,
   subscribeToSharedChatSourceProfiles,
-} from "@/lib/chat/shared-chat-profiles"
+} from "@/lib/chat/shared-chat/profiles"
 import { usePeepochatChat } from "@/lib/peepochat/peepochat-context"
-import type { TwitchBadge } from "@/lib/twitch/twitch-chat"
+import type { TwitchBadge } from "@/lib/twitch/chat/chat"
 
 const NOOP_SUBSCRIBE = () => () => {}
 

@@ -13,7 +13,7 @@ import {
   fetchRoomEmoteBundle,
   getTwitchEmoteHydration,
   type ComposerEmoteCatalog,
-} from "@/lib/chat/chat-emote-catalog"
+} from "@/lib/chat/emotes/catalog"
 import {
   clearThirdPartyEmoteCache,
   createEmptyEmoteCatalog,
@@ -21,16 +21,16 @@ import {
   hydrateSystemMessageDetails,
   type ThirdPartyEmoteCatalog,
   type TwitchEmoteHydration,
-} from "@/lib/chat/chat-emotes"
-import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
-import { clearTwitchEmoteIvrCache } from "@/lib/twitch/twitch-emote-ivr"
+} from "@/lib/chat/emotes/emotes"
+import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
+import { clearTwitchEmoteIvrCache } from "@/lib/twitch/emotes/ivr"
 import {
   clearCheermoteCache,
   DEFAULT_CHEERMOTE_CATALOG,
   type CheermoteCatalog,
-} from "@/lib/twitch/twitch-cheermotes"
-import type { TwitchChatMessage } from "@/lib/twitch/twitch-chat"
-import type { TwitchChatEmoteLoadContext } from "@/lib/twitch/twitch-chat-types"
+} from "@/lib/twitch/emotes/cheermotes"
+import type { TwitchChatMessage } from "@/lib/twitch/chat/chat"
+import type { TwitchChatEmoteLoadContext } from "@/lib/twitch/chat/types"
 
 type UseChatEmotesOptions = {
   roomStore: RoomStore

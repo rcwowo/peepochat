@@ -1,12 +1,12 @@
 import * as React from "react"
 
 import type { TwitchAccount } from "@/lib/peepochat/peepochat-config"
-import { isBlockedUser } from "@/lib/twitch/blocked-users"
+import { isBlockedUser } from "@/lib/twitch/channel/blocked-users"
 import {
   blockTwitchUser,
   fetchTwitchBlockedUsers,
   unblockTwitchUser,
-} from "@/lib/twitch/twitch-api"
+} from "@/lib/twitch/auth/api"
 
 const BLOCKED_USERS_READ_SCOPE = "user:read:blocked_users"
 const BLOCKED_USERS_MANAGE_SCOPE = "user:manage:blocked_users"

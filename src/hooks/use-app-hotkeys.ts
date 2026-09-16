@@ -12,6 +12,7 @@ import { getSidebarEntries } from "@/lib/sidebar/sidebar-entries"
 import {
   usePeepochatChat,
   usePeepochatLayout,
+  usePeepochatPlayer,
   usePeepochatSettings,
 } from "@/lib/peepochat/peepochat-context"
 
@@ -60,9 +61,19 @@ export function useAppHotkeys({
     visibleChannelLogins,
   } = usePeepochatLayout()
   const { refreshEmotes } = usePeepochatChat()
+  const { playerChannelLogin, playerViewActive, selectPlayer } =
+    usePeepochatPlayer()
 
   const selectSidebarIndex = React.useCallback(
     (index: number) => {
+      if (playerChannelLogin) {
+        if (index === 0) {
+          selectPlayer()
+          return playerChannelLogin
+        }
+        index -= 1
+      }
+
       const entries = getSidebarEntries(
         sidebarOrder,
         savedSplits,
@@ -85,7 +96,9 @@ export function useAppHotkeys({
     [
       channels,
       channelsInSplits,
+      playerChannelLogin,
       savedSplits,
+      selectPlayer,
       selectSplit,
       setActiveChannel,
       sidebarOrder,
@@ -218,6 +231,10 @@ export function useAppHotkeys({
           }
           return
         case "composer.focus": {
+          if (playerViewActive && playerChannelLogin) {
+            requestComposerFocus(playerChannelLogin)
+            return
+          }
           const login = getLastFocusedLogin()
           if (login) {
             setActiveChannel(login)
@@ -238,6 +255,8 @@ export function useAppHotkeys({
     getLastFocusedLogin,
     getSearch,
     getTargetPane,
+    playerChannelLogin,
+    playerViewActive,
     requestComposerFocus,
     setActiveChannel,
     notificationsOpen,

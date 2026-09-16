@@ -1,24 +1,14 @@
 import {
-  BanIcon,
-  ClockIcon,
-  CopyIcon,
-  CornerUpLeftIcon,
   EraserIcon,
   EyeIcon,
   HistoryIcon,
   LayersIcon,
   Layers2Icon,
+  PlayIcon,
   RadioIcon,
-  RefreshCwIcon,
   ShieldAlertIcon,
-  Trash2Icon,
   UserXIcon,
 } from "lucide-react"
-
-import {
-  canBanOrTimeoutUsers,
-  canDeleteChatMessages,
-} from "@/lib/chat/moderation-permissions"
 import {
   LIVE_MESSAGES_PER_CHANNEL_MAX,
   LIVE_MESSAGES_PER_CHANNEL_MIN,
@@ -55,9 +45,7 @@ const EMOTE_PROVIDER_ROWS = [
 ]
 
 export function BehaviorTab() {
-  const { config, updateConfig, account } = usePeepochatSettings()
-  const canConfigureDelete = canDeleteChatMessages(account)
-  const canConfigureBanOrTimeout = canBanOrTimeoutUsers(account)
+  const { config, updateConfig } = usePeepochatSettings()
 
   const setEmoteProvider = (
     provider: "bttvEnabled" | "ffzEnabled" | "seventvEnabled",
@@ -148,122 +136,6 @@ export function BehaviorTab() {
               }))
             }
           />
-          <SettingsSwitchRow
-            icon={RefreshCwIcon}
-            title="Show channel updates"
-            description="Show updates for when a channel's stream title or category changes."
-            checked={config.chat.showChannelUpdates}
-            onCheckedChange={(showChannelUpdates) =>
-              updateConfig((current) => ({
-                ...current,
-                chat: { ...current.chat, showChannelUpdates },
-              }))
-            }
-          />
-        </SettingsGroup>
-      </SettingsSection>
-
-      <SettingsSection
-        title="Message quick actions"
-        description="Buttons shown when you hover a message."
-      >
-        <SettingsGroup>
-          <SettingsSwitchRow
-            icon={CopyIcon}
-            title="Copy message"
-            description="Copy the message text to your clipboard."
-            checked={config.chat.messageQuickActions.copyEnabled}
-            onCheckedChange={(copyEnabled) =>
-              updateConfig((current) => ({
-                ...current,
-                chat: {
-                  ...current.chat,
-                  messageQuickActions: {
-                    ...current.chat.messageQuickActions,
-                    copyEnabled,
-                  },
-                },
-              }))
-            }
-          />
-          <SettingsSwitchRow
-            icon={CornerUpLeftIcon}
-            title="Reply"
-            description="Start a threaded reply to the message."
-            checked={config.chat.messageQuickActions.replyEnabled}
-            onCheckedChange={(replyEnabled) =>
-              updateConfig((current) => ({
-                ...current,
-                chat: {
-                  ...current.chat,
-                  messageQuickActions: {
-                    ...current.chat.messageQuickActions,
-                    replyEnabled,
-                  },
-                },
-              }))
-            }
-          />
-          {canConfigureDelete ? (
-            <SettingsSwitchRow
-              icon={Trash2Icon}
-              title="Delete message"
-              description="Deletes the message in chats you have permissions for."
-              checked={config.chat.messageQuickActions.deleteEnabled}
-              onCheckedChange={(deleteEnabled) =>
-                updateConfig((current) => ({
-                  ...current,
-                  chat: {
-                    ...current.chat,
-                    messageQuickActions: {
-                      ...current.chat.messageQuickActions,
-                      deleteEnabled,
-                    },
-                  },
-                }))
-              }
-            />
-          ) : null}
-          {canConfigureBanOrTimeout ? (
-            <SettingsSwitchRow
-              icon={ClockIcon}
-              title="Timeout"
-              description="Timeout the user in chats you have permissions for."
-              checked={config.chat.messageQuickActions.timeoutEnabled}
-              onCheckedChange={(timeoutEnabled) =>
-                updateConfig((current) => ({
-                  ...current,
-                  chat: {
-                    ...current.chat,
-                    messageQuickActions: {
-                      ...current.chat.messageQuickActions,
-                      timeoutEnabled,
-                    },
-                  },
-                }))
-              }
-            />
-          ) : null}
-          {canConfigureBanOrTimeout ? (
-            <SettingsSwitchRow
-              icon={BanIcon}
-              title="Ban"
-              description="Bans the user in chats you have permissions for."
-              checked={config.chat.messageQuickActions.banEnabled}
-              onCheckedChange={(banEnabled) =>
-                updateConfig((current) => ({
-                  ...current,
-                  chat: {
-                    ...current.chat,
-                    messageQuickActions: {
-                      ...current.chat.messageQuickActions,
-                      banEnabled,
-                    },
-                  },
-                }))
-              }
-            />
-          ) : null}
         </SettingsGroup>
       </SettingsSection>
 
@@ -338,6 +210,28 @@ export function BehaviorTab() {
           </SettingsGroup>
         </SettingsSection>
       ) : null}
+
+      <SettingsDivider />
+
+      <SettingsSection
+        title="Player"
+        description="Playback behavior for the Peepochat Player."
+      >
+        <SettingsGroup>
+          <SettingsSwitchRow
+            icon={PlayIcon}
+            title="Continue playback in background"
+            description="Keep the stream playing when you switch back to a channel or split."
+            checked={config.player.backgroundPlaybackEnabled}
+            onCheckedChange={(backgroundPlaybackEnabled) =>
+              updateConfig((current) => ({
+                ...current,
+                player: { ...current.player, backgroundPlaybackEnabled },
+              }))
+            }
+          />
+        </SettingsGroup>
+      </SettingsSection>
 
       <SettingsDivider />
 

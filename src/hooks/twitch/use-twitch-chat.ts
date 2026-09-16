@@ -13,24 +13,25 @@ import { useRecentMessages } from "@/hooks/twitch/chat/use-recent-messages"
 import { useRoomStore } from "@/hooks/twitch/chat/use-room-store"
 import { useSevenTvLiveUpdates } from "@/hooks/twitch/chat/use-seventv-live-updates"
 import { useTimeline } from "@/hooks/twitch/chat/use-timeline"
+import { usePinnedMessages } from "@/hooks/twitch/chat/use-pinned-messages"
 import { useTwitchEventSub } from "@/hooks/twitch/chat/use-twitch-eventsub"
-import { useLazyRef } from "@/hooks/use-lazy-ref"
+import { useRetainedRef } from "@/hooks/use-retained-ref"
 import type {
   DeletedMessagesBehavior,
   TwitchAccount,
 } from "@/lib/peepochat/peepochat-config"
-import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
+import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 import type {
   TwitchChatClient,
   TwitchChatConnectOptions,
   TwitchChatMessage,
   TwitchSystemMessage,
-} from "@/lib/twitch/twitch-chat"
+} from "@/lib/twitch/chat/chat"
 import type {
   TwitchAutomodHeldMessage,
   TwitchSelfChatState,
   TwitchTimelineItem,
-} from "@/lib/twitch/twitch-chat-types"
+} from "@/lib/twitch/chat/types"
 
 export { isSyncChannelsSupersededError } from "@/hooks/twitch/chat/types"
 
@@ -55,11 +56,20 @@ export function useTwitchChat(options?: {
   >(() => false)
   const clearChatWhenInstructedRef = React.useRef(true)
   const showSuspiciousActivityRef = React.useRef(true)
-  const showChannelUpdatesRef = React.useRef(true)
 
-  const syncedChannelsRef = React.useRef<string[]>([])
-  const sendClientRef = React.useRef<TwitchChatClient | null>(null)
-  const selfStatesRef = useLazyRef(() => new Map<string, TwitchSelfChatState>())
+  const syncedChannelsRef = useRetainedRef(
+    "synced-channels",
+    () => [] as string[]
+  )
+  const visibleChannelsRef = React.useRef<string[]>([])
+  const sendClientRef = useRetainedRef(
+    "send-client",
+    () => null as TwitchChatClient | null
+  )
+  const selfStatesRef = useRetainedRef(
+    "self-states",
+    () => new Map<string, TwitchSelfChatState>()
+  )
   const getSendClientRef = React.useRef<() => TwitchChatClient>(() => {
     throw new Error("Send client is not ready")
   })
@@ -179,40 +189,82 @@ export function useTwitchChat(options?: {
     applySelfModerationRestriction: send.applySelfModerationRestriction,
     trimRoomTimeline: timeline.trimWithLimit,
     showSuspiciousActivityRef,
-    showChannelUpdatesRef,
     hideBlockedUsersRef,
     isUserBlockedRef,
+    visibleChannelsRef,
+  })
+  const pinnedMessages = usePinnedMessages({
+    account,
+    roomStore,
+    emotes,
+    chatterStore,
+    syncedChannelsRef,
+    visibleChannelsRef,
   })
 
-  const notifySelfStateChangedRef = React.useRef(
-    eventSub.notifySelfStateChanged
-  )
-  const notifyChannelsChangedRef = React.useRef(eventSub.notifyChannelsChanged)
+  const notifySelfStateChangedRef = React.useRef(() => {
+    eventSub.notifySelfStateChanged()
+    pinnedMessages.notifySelfStateChanged()
+  })
+  const notifyChannelsChangedRef = React.useRef(() => {
+    eventSub.notifyChannelsChanged()
+    pinnedMessages.notifyChannelsChanged()
+  })
   const notifySuspiciousSettingChangedRef = React.useRef(
     eventSub.notifySuspiciousSettingChanged
   )
-  const notifyChannelUpdatesSettingChangedRef = React.useRef(
-    eventSub.notifyChannelUpdatesSettingChanged
-  )
-  const notifyRoomReadyRef = React.useRef(eventSub.notifyRoomReady)
+  const notifyRoomReadyRef = React.useRef((login: string, roomId: string) => {
+    eventSub.notifyRoomReady(login, roomId)
+    pinnedMessages.notifyRoomReady(login)
+  })
+  const notifyVisibleChannelsChangedRef = React.useRef(() => {
+    eventSub.notifyVisibleChannelsChanged()
+    pinnedMessages.notifyVisibleChannelsChanged()
+  })
   const syncChannelsBaseRef = React.useRef(connection.syncChannels)
 
   React.useLayoutEffect(() => {
-    notifySelfStateChangedRef.current = eventSub.notifySelfStateChanged
-    notifyChannelsChangedRef.current = eventSub.notifyChannelsChanged
+    const notifyEventSubSelfStateChanged = eventSub.notifySelfStateChanged
+    const notifyPinnedSelfStateChanged = pinnedMessages.notifySelfStateChanged
+    const notifyEventSubChannelsChanged = eventSub.notifyChannelsChanged
+    const notifyPinnedChannelsChanged = pinnedMessages.notifyChannelsChanged
+    const notifyEventSubRoomReady = eventSub.notifyRoomReady
+    const notifyPinnedRoomReady = pinnedMessages.notifyRoomReady
+    const notifyEventSubVisibleChannelsChanged =
+      eventSub.notifyVisibleChannelsChanged
+    const notifyPinnedVisibleChannelsChanged =
+      pinnedMessages.notifyVisibleChannelsChanged
+
+    notifySelfStateChangedRef.current = () => {
+      notifyEventSubSelfStateChanged()
+      notifyPinnedSelfStateChanged()
+    }
+    notifyChannelsChangedRef.current = () => {
+      notifyEventSubChannelsChanged()
+      notifyPinnedChannelsChanged()
+    }
     notifySuspiciousSettingChangedRef.current =
       eventSub.notifySuspiciousSettingChanged
-    notifyChannelUpdatesSettingChangedRef.current =
-      eventSub.notifyChannelUpdatesSettingChanged
-    notifyRoomReadyRef.current = eventSub.notifyRoomReady
+    notifyRoomReadyRef.current = (login: string, roomId: string) => {
+      notifyEventSubRoomReady(login, roomId)
+      notifyPinnedRoomReady(login)
+    }
+    notifyVisibleChannelsChangedRef.current = () => {
+      notifyEventSubVisibleChannelsChanged()
+      notifyPinnedVisibleChannelsChanged()
+    }
     syncChannelsBaseRef.current = connection.syncChannels
   }, [
     connection.syncChannels,
-    eventSub.notifyChannelUpdatesSettingChanged,
     eventSub.notifyChannelsChanged,
     eventSub.notifyRoomReady,
     eventSub.notifySelfStateChanged,
     eventSub.notifySuspiciousSettingChanged,
+    eventSub.notifyVisibleChannelsChanged,
+    pinnedMessages.notifyChannelsChanged,
+    pinnedMessages.notifyRoomReady,
+    pinnedMessages.notifySelfStateChanged,
+    pinnedMessages.notifyVisibleChannelsChanged,
   ])
 
   const lastSelfModFlagsRef = React.useRef(
@@ -315,12 +367,19 @@ export function useTwitchChat(options?: {
     notifySuspiciousSettingChangedRef.current()
   }, [])
 
-  const setShowChannelUpdates = React.useCallback((enabled: boolean) => {
-    if (showChannelUpdatesRef.current === enabled) {
+  const setVisibleSharedChatChannels = React.useCallback((logins: string[]) => {
+    const next = logins
+      .map((login) => normalizeChannelLogin(login))
+      .filter(Boolean)
+    const previous = visibleChannelsRef.current
+    if (
+      next.length === previous.length &&
+      next.every((login, index) => login === previous[index])
+    ) {
       return
     }
-    showChannelUpdatesRef.current = enabled
-    notifyChannelUpdatesSettingChangedRef.current()
+    visibleChannelsRef.current = next
+    notifyVisibleChannelsChangedRef.current()
   }, [])
 
   const setIsUserBlocked = React.useCallback(
@@ -349,9 +408,12 @@ export function useTwitchChat(options?: {
     ]
   )
 
-  const isChannelSynced = React.useCallback((login: string) => {
-    return syncedChannelsRef.current.includes(normalizeChannelLogin(login))
-  }, [])
+  const isChannelSynced = React.useCallback(
+    (login: string) => {
+      return syncedChannelsRef.current.includes(normalizeChannelLogin(login))
+    },
+    [syncedChannelsRef]
+  )
 
   const { routeMessageToRoom, routeSystemMessage } = routing
   const { queueLiveRoomTimeline } = timeline
@@ -406,6 +468,10 @@ export function useTwitchChat(options?: {
     getRoom: roomStore.getRoom,
     getTimeline: roomStore.getTimeline,
     getRoomId: roomStore.getRoomId,
+    subscribeToPinnedMessage: pinnedMessages.subscribe,
+    getPinnedMessage: pinnedMessages.getPinnedMessage,
+    refreshPinnedMessage: pinnedMessages.refreshPinnedMessage,
+    clearPinnedMessage: pinnedMessages.clearPinnedMessage,
     subscribeToChatters: chatterStore.subscribe,
     getChatters: chatterStore.getChatters,
     getChatterByLogin: chatterStore.getChatterByLogin,
@@ -421,7 +487,7 @@ export function useTwitchChat(options?: {
     setClearChatWhenInstructed,
     setHideBlockedUsers,
     setShowSuspiciousActivity,
-    setShowChannelUpdates,
+    setVisibleSharedChatChannels,
     setIsUserBlocked,
     setChatCommandActions: send.setChatCommandActions,
     purgeMessagesFromBlockedUsers: timeline.purgeMessagesFromBlockedUsers,

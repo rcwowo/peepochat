@@ -5,7 +5,7 @@ import {
   buildMemberBadgeIndex,
   resolveMemberBadge,
   type ResolvedMemberBadge,
-} from "@/lib/chat/rcw-badges"
+} from "@/lib/rcw/badges"
 import {
   fetchRcwMemberAssignments,
   fetchRcwMemberBadgeDefinitions,

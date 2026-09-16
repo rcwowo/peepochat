@@ -2,10 +2,10 @@ import * as React from "react"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { SearchIcon, XIcon } from "lucide-react"
 
-import { ChatHoverTooltipProvider } from "@/components/chat/chat-hover-tooltip"
-import { ChatMessageRow } from "@/components/chat/chat-message-row"
-import { EmoteCardProvider } from "@/components/chat/emote-card-context"
-import { UserCardProvider } from "@/components/chat/user-card-context"
+import { ChatHoverTooltipProvider } from "@/components/chat/message/hover-tooltip"
+import { ChatMessageRow } from "@/components/chat/message/row"
+import { EmoteCardProvider } from "@/components/chat/emote-card/context"
+import { UserCardProvider } from "@/components/chat/user-card/context"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -22,13 +22,13 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { useChatFontFamily } from "@/hooks/chat-ui/use-chat-font"
-import { getChatPresentationStyle } from "@/lib/chat/chat-presentation-style"
-import { mergeComposerEmoteCatalogs } from "@/lib/chat/chat-emote-catalog"
+import { getChatPresentationStyle } from "@/lib/chat/presentation/presentation-style"
+import { mergeComposerEmoteCatalogs } from "@/lib/chat/emotes/catalog"
 import {
   updateMergedRecentUserMessageBuckets,
   type RecentUserMessageBucketCache,
-} from "@/lib/chat/recent-user-messages"
-import type { UserCardTarget } from "@/lib/chat/user-card"
+} from "@/lib/chat/threads/recent-user-messages"
+import type { UserCardTarget } from "@/lib/chat/user-card/user-card"
 import {
   collectRecentSearchUsernames,
   createChatSearchResultsCache,
@@ -47,13 +47,15 @@ import {
   type ChatSearchSuggestion,
   type ChatSearchUsername,
 } from "@/lib/search/chat-search"
+import { messageHasChatGifs } from "@/lib/twitch/chat/chat"
 import { useHotkeyRegistry } from "@/hooks/use-hotkey-registry"
 import { shouldPreventSearchDismiss } from "@/lib/search/search-portaled-layers"
-import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
-import type { TwitchTimelineItem } from "@/lib/twitch/twitch-chat-types"
+import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
+import type { TwitchTimelineItem } from "@/lib/twitch/chat/types"
 import {
   usePeepochatChat,
   usePeepochatLayout,
+  usePeepochatPlayer,
   usePeepochatSettings,
 } from "@/lib/peepochat/peepochat-context"
 import { cn } from "@/lib/utils"
@@ -202,6 +204,7 @@ function SearchResultsList({
     getScrollElement: () => parentRef.current,
     estimateSize: () => 52,
     overscan: 10,
+    useFlushSync: false,
     getItemKey: (index) => {
       const result = results[index]
       return result ? `${result.message.channel}:${result.message.id}` : index
@@ -253,6 +256,7 @@ function SearchResultsList({
                 showTwitchBadges={showTwitchBadges}
                 showMemberBadges={showMemberBadges}
                 searchHighlightRanges={result.highlightRanges}
+                usernameHighlightRanges={result.usernameHighlightRanges}
                 channelLabel={
                   showChannelLabels
                     ? (channelLabels.get(channelLogin) ?? channelLogin)
@@ -326,6 +330,7 @@ export function ChannelSearch() {
   const { channels, account, loginWithTwitch, config, activeChannelLogin } =
     usePeepochatSettings()
   const { visibleChannelLogins, isSplitView } = usePeepochatLayout()
+  const { playerChannelLogin, playerViewActive } = usePeepochatPlayer()
   const {
     getComposerEmoteCatalog,
     getRoomId,
@@ -346,13 +351,13 @@ export function ChannelSearch() {
       })),
     [channels]
   )
-  const defaultChannelLogins = React.useMemo(
-    () =>
-      visibleChannelLogins
-        .map((login) => normalizeChannelLogin(login))
-        .filter(Boolean),
-    [visibleChannelLogins]
-  )
+  const defaultChannelLogins = React.useMemo(() => {
+    const logins =
+      playerViewActive && playerChannelLogin
+        ? [playerChannelLogin]
+        : visibleChannelLogins
+    return logins.map((login) => normalizeChannelLogin(login)).filter(Boolean)
+  }, [playerChannelLogin, playerViewActive, visibleChannelLogins])
   const searchChannelLogins = React.useMemo(
     () =>
       resolveSearchChannelLogins(parsed, defaultChannelLogins, knownChannels),
@@ -392,12 +397,15 @@ export function ChannelSearch() {
         timelines,
         includeDeleted: config.chat.deletedMessagesBehavior !== "remove",
         hideBlockedUsers,
-        isHidden: hideBlockedUsers
-          ? (message) => isUserBlocked(message.userId, message.userName)
-          : undefined,
+        isHidden: (message) =>
+          (hideBlockedUsers &&
+            isUserBlocked(message.userId, message.userName)) ||
+          (config.chat.gifMessageAppearance === "disabled" &&
+            messageHasChatGifs(message)),
       }),
     [
       config.chat.deletedMessagesBehavior,
+      config.chat.gifMessageAppearance,
       hideBlockedUsers,
       isUserBlocked,
       open,
@@ -417,7 +425,12 @@ export function ChannelSearch() {
 
   const showChannelLabels = searchChannelLogins.length > 1
   const userCardChannelLogin =
-    searchChannelLogins[0] || normalizeChannelLogin(activeChannelLogin)
+    searchChannelLogins[0] ||
+    normalizeChannelLogin(
+      playerViewActive && playerChannelLogin
+        ? playerChannelLogin
+        : activeChannelLogin
+    )
   const emoteCatalog = React.useMemo(
     () =>
       mergeComposerEmoteCatalogs(

@@ -1,11 +1,25 @@
 import * as React from "react"
 import {
+  BanIcon,
+  ClockIcon,
+  CopyIcon,
+  CornerUpLeftIcon,
+  EyeIcon,
+  Gamepad2Icon,
   Link2Icon,
   MonitorIcon,
   MoonIcon,
+  PinIcon,
   SunIcon,
+  Trash2Icon,
+  TypeIcon,
   Unlink2Icon,
 } from "lucide-react"
+
+import {
+  canBanOrTimeoutUsers,
+  canDeleteChatMessages,
+} from "@/lib/chat/moderation/permissions"
 
 import {
   CHAT_EMOTE_SCALE_DEFAULT,
@@ -121,7 +135,9 @@ function FontFamilySettingRow({
 }
 
 export function AppearanceTab() {
-  const { config, updateConfig } = usePeepochatSettings()
+  const { config, updateConfig, account } = usePeepochatSettings()
+  const canConfigureChatMessages = canDeleteChatMessages(account)
+  const canConfigureBanOrTimeout = canBanOrTimeoutUsers(account)
   const { theme, setTheme } = useTheme()
   const scalesLinked = config.chat.linkEmoteScaleToFontSize
 
@@ -187,7 +203,7 @@ export function AppearanceTab() {
   return (
     <SettingsTab
       title="Appearance"
-      description="Theme, typography, badges, and timestamps."
+      description="Theme, typography, badges, timestamps, and composer."
     >
       <SettingsDivider className="mt-4 mb-4" />
 
@@ -267,6 +283,49 @@ export function AppearanceTab() {
               { value: "show-on-hover", label: "Show on hover" },
             ]}
           />
+          <SettingsSelectRow
+            title="GIF message appearance"
+            description="How Tier 2 and Tier 3 subscriber GIF messages appear in chat."
+            value={config.chat.gifMessageAppearance}
+            onChange={(gifMessageAppearance) =>
+              updateConfig((current) => ({
+                ...current,
+                chat: { ...current.chat, gifMessageAppearance },
+              }))
+            }
+            options={[
+              { value: "display", label: "Display GIFs in chat" },
+              { value: "links", label: "Only display GIF links" },
+              { value: "disabled", label: "Disabled" },
+            ]}
+          />
+        </SettingsGroup>
+      </SettingsSection>
+
+      <SettingsSection
+        title="Composer"
+        description="Controls that appear next to the message box."
+      >
+        <SettingsGroup>
+          <SettingsSelectRow
+            title="Chat modes button"
+            description="When the chat modes button appears next to the emote picker."
+            value={config.chat.chatModesVisibility}
+            onChange={(chatModesVisibility) =>
+              updateConfig((current) => ({
+                ...current,
+                chat: { ...current.chat, chatModesVisibility },
+              }))
+            }
+            options={[
+              { value: "always", label: "Always visible" },
+              {
+                value: "when-permitted",
+                label: "When permissions allow changes",
+              },
+              { value: "hidden", label: "Hidden" },
+            ]}
+          />
         </SettingsGroup>
       </SettingsSection>
 
@@ -333,6 +392,210 @@ export function AppearanceTab() {
                 chat: {
                   ...current.chat,
                   badges: { ...current.chat.badges, owoMemberEnabled: checked },
+                },
+              }))
+            }
+          />
+        </SettingsGroup>
+      </SettingsSection>
+
+      <SettingsSection
+        title="Message quick actions"
+        description="Buttons shown when you hover a message."
+      >
+        <SettingsGroup>
+          <SettingsSwitchRow
+            icon={CopyIcon}
+            title="Copy message"
+            description="Copy the message text to your clipboard."
+            checked={config.chat.messageQuickActions.copyEnabled}
+            onCheckedChange={(copyEnabled) =>
+              updateConfig((current) => ({
+                ...current,
+                chat: {
+                  ...current.chat,
+                  messageQuickActions: {
+                    ...current.chat.messageQuickActions,
+                    copyEnabled,
+                  },
+                },
+              }))
+            }
+          />
+          <SettingsSwitchRow
+            icon={CornerUpLeftIcon}
+            title="Reply"
+            description="Start a threaded reply to the message."
+            checked={config.chat.messageQuickActions.replyEnabled}
+            onCheckedChange={(replyEnabled) =>
+              updateConfig((current) => ({
+                ...current,
+                chat: {
+                  ...current.chat,
+                  messageQuickActions: {
+                    ...current.chat.messageQuickActions,
+                    replyEnabled,
+                  },
+                },
+              }))
+            }
+          />
+          {canConfigureChatMessages ? (
+            <SettingsSwitchRow
+              icon={PinIcon}
+              title="Pin message"
+              description="Pins the message in chats you have permissions for."
+              checked={config.chat.messageQuickActions.pinEnabled}
+              onCheckedChange={(pinEnabled) =>
+                updateConfig((current) => ({
+                  ...current,
+                  chat: {
+                    ...current.chat,
+                    messageQuickActions: {
+                      ...current.chat.messageQuickActions,
+                      pinEnabled,
+                    },
+                  },
+                }))
+              }
+            />
+          ) : null}
+          {canConfigureChatMessages ? (
+            <SettingsSwitchRow
+              icon={Trash2Icon}
+              title="Delete message"
+              description="Deletes the message in chats you have permissions for."
+              checked={config.chat.messageQuickActions.deleteEnabled}
+              onCheckedChange={(deleteEnabled) =>
+                updateConfig((current) => ({
+                  ...current,
+                  chat: {
+                    ...current.chat,
+                    messageQuickActions: {
+                      ...current.chat.messageQuickActions,
+                      deleteEnabled,
+                    },
+                  },
+                }))
+              }
+            />
+          ) : null}
+          {canConfigureBanOrTimeout ? (
+            <SettingsSwitchRow
+              icon={ClockIcon}
+              title="Timeout"
+              description="Timeout the user in chats you have permissions for."
+              checked={config.chat.messageQuickActions.timeoutEnabled}
+              onCheckedChange={(timeoutEnabled) =>
+                updateConfig((current) => ({
+                  ...current,
+                  chat: {
+                    ...current.chat,
+                    messageQuickActions: {
+                      ...current.chat.messageQuickActions,
+                      timeoutEnabled,
+                    },
+                  },
+                }))
+              }
+            />
+          ) : null}
+          {canConfigureBanOrTimeout ? (
+            <SettingsSwitchRow
+              icon={BanIcon}
+              title="Ban"
+              description="Bans the user in chats you have permissions for."
+              checked={config.chat.messageQuickActions.banEnabled}
+              onCheckedChange={(banEnabled) =>
+                updateConfig((current) => ({
+                  ...current,
+                  chat: {
+                    ...current.chat,
+                    messageQuickActions: {
+                      ...current.chat.messageQuickActions,
+                      banEnabled,
+                    },
+                  },
+                }))
+              }
+            />
+          ) : null}
+        </SettingsGroup>
+      </SettingsSection>
+
+      <SettingsSection
+        title="Stream info"
+        description="Details shown when you expand a channel's header."
+      >
+        <SettingsGroup>
+          <SettingsSwitchRow
+            icon={EyeIcon}
+            title="View count"
+            description="How many people are watching while live."
+            checked={config.chat.streamInfo.viewerCountEnabled}
+            onCheckedChange={(viewerCountEnabled) =>
+              updateConfig((current) => ({
+                ...current,
+                chat: {
+                  ...current.chat,
+                  streamInfo: {
+                    ...current.chat.streamInfo,
+                    viewerCountEnabled,
+                  },
+                },
+              }))
+            }
+          />
+          <SettingsSwitchRow
+            icon={TypeIcon}
+            title="Title"
+            description="The current stream title."
+            checked={config.chat.streamInfo.titleEnabled}
+            onCheckedChange={(titleEnabled) =>
+              updateConfig((current) => ({
+                ...current,
+                chat: {
+                  ...current.chat,
+                  streamInfo: {
+                    ...current.chat.streamInfo,
+                    titleEnabled,
+                  },
+                },
+              }))
+            }
+          />
+          <SettingsSwitchRow
+            icon={Gamepad2Icon}
+            title="Category"
+            description="The game or category, shown before the title when both are enabled."
+            checked={config.chat.streamInfo.categoryEnabled}
+            onCheckedChange={(categoryEnabled) =>
+              updateConfig((current) => ({
+                ...current,
+                chat: {
+                  ...current.chat,
+                  streamInfo: {
+                    ...current.chat.streamInfo,
+                    categoryEnabled,
+                  },
+                },
+              }))
+            }
+          />
+          <SettingsSwitchRow
+            icon={ClockIcon}
+            title="Uptime"
+            description="How long the current stream has been live."
+            checked={config.chat.streamInfo.uptimeEnabled}
+            onCheckedChange={(uptimeEnabled) =>
+              updateConfig((current) => ({
+                ...current,
+                chat: {
+                  ...current.chat,
+                  streamInfo: {
+                    ...current.chat.streamInfo,
+                    uptimeEnabled,
+                  },
                 },
               }))
             }

@@ -7,7 +7,7 @@ import {
   loadGlobalBadgeCatalog,
   mergeBadgeCatalogs,
   type ChatBadgeCatalog,
-} from "@/lib/chat/chat-badges"
+} from "@/lib/chat/presentation/badges"
 import type { TwitchAccount } from "@/lib/peepochat/peepochat-config"
 
 const EMPTY_BADGE_CATALOG = createEmptyBadgeCatalog()

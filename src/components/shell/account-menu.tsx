@@ -1,6 +1,7 @@
 import * as React from "react"
 import { LogOutIcon, UserIcon } from "lucide-react"
 
+import { fetchIvrTwitchUserProfile } from "@/lib/ivr/ivr-api"
 import { usePeepochatSettings } from "@/lib/peepochat/peepochat-context"
 import { Button } from "@/components/ui/button"
 import {
@@ -15,6 +16,30 @@ export function AccountMenu() {
     usePeepochatSettings()
 
   const [open, setOpen] = React.useState(false)
+  const [bannerImageUrl, setBannerImageUrl] = React.useState("")
+
+  React.useEffect(() => {
+    if (!open || !account) {
+      return
+    }
+
+    let cancelled = false
+    void fetchIvrTwitchUserProfile({ userLogin: account.login })
+      .then((profile) => {
+        if (!cancelled) {
+          setBannerImageUrl(profile?.bannerImageUrl ?? "")
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setBannerImageUrl("")
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [open, account])
 
   const handleLogout = () => {
     logout()
@@ -63,9 +88,9 @@ export function AccountMenu() {
         className="w-80 overflow-hidden p-0"
       >
         <div className="relative h-32 overflow-hidden bg-muted">
-          {account.bannerImageUrl ? (
+          {bannerImageUrl ? (
             <img
-              src={account.bannerImageUrl}
+              src={bannerImageUrl}
               alt=""
               className="size-full object-cover brightness-[0.50] saturate-95"
             />

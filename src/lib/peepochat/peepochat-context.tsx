@@ -1,70 +1,41 @@
 import * as React from "react"
-import { toast } from "sonner"
 
-import {
-  useChatLayout,
-  type CachedChatView,
-} from "@/hooks/chat-ui/use-chat-layout"
+import type { CachedChatView } from "@/hooks/chat-ui/use-chat-layout"
 import { usePeepochatConfig } from "@/hooks/peepochat/use-peepochat-config"
-import { useBlockedUsers } from "@/hooks/twitch/use-blocked-users"
-import { useTwitchAuth } from "@/hooks/twitch/use-twitch-auth"
-import { useTwitchChannels } from "@/hooks/twitch/use-twitch-channels"
-import { useChatBadges } from "@/hooks/chat-ui/use-chat-badges"
-import { useRcwBadges } from "@/hooks/chat-ui/use-rcw-badges"
-import { useHighlightActivity } from "@/hooks/chat-ui/use-highlight-activity"
-import { useStreamLiveStatus } from "@/hooks/twitch/use-stream-live-status"
-import {
-  useTwitchChat,
-  isSyncChannelsSupersededError,
-} from "@/hooks/twitch/use-twitch-chat"
-import type { TwitchChannelSendBlock } from "@/lib/chat/chat-send-notice"
 import type {
-  TwitchAutomodHeldMessage,
-  TwitchChatRoomState,
-  TwitchSelfChatState,
-  TwitchTimelineItem,
-} from "@/lib/twitch/twitch-chat-types"
+  SendOutcomeEvent,
+  TwitchChannelSendBlock,
+} from "@/lib/chat/send/send-notice"
+import type { ChatSendResult } from "@/lib/chat/send/send"
+import type { ComposerEmoteCatalog } from "@/lib/chat/emotes/catalog"
 import type {
-  TwitchChatMessage,
-  TwitchSystemMessage,
-} from "@/lib/twitch/twitch-chat"
-import {
-  canShowDesktopNotifications,
-  shouldShowDesktopNotification,
-  showDesktopNotification,
-} from "@/lib/highlights/desktop-notifications"
-import { playAlertSound } from "@/lib/highlights/alert-sounds"
-import {
-  addLiveNotification,
-  formatLiveNotificationText,
-} from "@/lib/highlights/notification-center"
-import type { ChatBadgeCatalog } from "@/lib/chat/chat-badges"
-import type { ResolvedMemberBadge } from "@/lib/chat/rcw-badges"
-import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
+  ChannelChatter,
+  ChatterSearchOptions,
+} from "@/lib/chat/chatters/store"
+import type { ChatBadgeCatalog } from "@/lib/chat/presentation/badges"
+import type { ResolvedMemberBadge } from "@/lib/rcw/badges"
 import type {
   AppConfig,
   ChatSplit,
   ChatSplitLayoutNode,
   SplitLayoutEdge,
-  MessageTimestampFormat,
   TwitchAccount,
   TwitchChannel,
 } from "@/lib/peepochat/peepochat-config"
-import { findSplitContainingChannel } from "@/lib/peepochat/peepochat-config"
-import {
-  setSeventvEmoteRenderOptions,
-  setThirdPartyEmoteFetchOptions,
-} from "@/lib/chat/chat-emotes"
-import type { ChatSendResult } from "@/lib/chat/chat-send"
-import type { SendOutcomeEvent } from "@/lib/chat/chat-send-notice"
-import type { ComposerEmoteCatalog } from "@/lib/chat/chat-emote-catalog"
+import type { ChannelPinnedMessage } from "@/lib/twitch/chat/pins"
 import type {
-  ChannelChatter,
-  ChatterSearchOptions,
-} from "@/lib/chat/chatter-store"
-import type { TwitchConnectionState } from "@/lib/twitch/twitch-chat"
+  TwitchAutomodHeldMessage,
+  TwitchChatRoomState,
+  TwitchSelfChatState,
+  TwitchTimelineItem,
+} from "@/lib/twitch/chat/types"
+import type {
+  TwitchChatMessage,
+  TwitchConnectionState,
+  TwitchSystemMessage,
+} from "@/lib/twitch/chat/chat"
 
-export type { TwitchTimelineItem } from "@/lib/twitch/twitch-chat-types"
+export type { TwitchTimelineItem } from "@/lib/twitch/chat/types"
 
 export type PeepochatConfigContextValue = {
   config: AppConfig
@@ -128,9 +99,17 @@ export type PeepochatSidebarHighlightsContextValue = {
   isChannelLive: (login: string) => boolean
   getChannelLiveStream: (
     login: string
-  ) => import("@/lib/twitch/twitch-api").TwitchLiveStream | null
+  ) => import("@/lib/twitch/auth/api").TwitchLiveStream | null
   isSplitLive: (channelLogins: string[]) => boolean
   liveIndicatorsEnabled: boolean
+}
+
+export type PeepochatPlayerContextValue = {
+  playerChannelLogin: string | null
+  playerViewActive: boolean
+  openPlayer: (login: string) => void
+  selectPlayer: () => void
+  closePlayer: () => void
 }
 
 export type PeepochatChatContextValue = {
@@ -141,6 +120,10 @@ export type PeepochatChatContextValue = {
   getTimeline: (login: string) => TwitchTimelineItem[]
   getRoom: (login: string) => TwitchChatRoomState | null
   getRoomId: (login: string) => string | null
+  subscribeToPinnedMessage: (login: string, listener: () => void) => () => void
+  getPinnedMessage: (login: string) => ChannelPinnedMessage | null
+  refreshPinnedMessage: (login: string) => void
+  clearPinnedMessage: (login: string) => void
   subscribeToChatters: (login: string, listener: () => void) => () => void
   getChatters: (login: string) => ChannelChatter[]
   getChatterByLogin: (
@@ -180,17 +163,17 @@ export type PeepochatChatContextValue = {
   sendChatMessage: (
     login: string,
     message: string,
-    reply?: import("@/lib/twitch/twitch-chat").TwitchChatReply | null
+    reply?: import("@/lib/twitch/chat/chat").TwitchChatReply | null
   ) => ChatSendResult
   sendActionMessage: (
     login: string,
     message: string,
-    reply?: import("@/lib/twitch/twitch-chat").TwitchChatReply | null
+    reply?: import("@/lib/twitch/chat/chat").TwitchChatReply | null
   ) => ChatSendResult
   executeChatCommand: (
     login: string,
     input: string
-  ) => Promise<import("@/lib/chat/chat-commands").ChatCommandResult>
+  ) => Promise<import("@/lib/chat/commands/commands").ChatCommandResult>
   markChatMessageDeleted: (login: string, messageId: string) => void
   injectChatMessage: (message: TwitchChatMessage) => boolean
   injectSystemMessage: (message: TwitchSystemMessage) => boolean
@@ -210,14 +193,16 @@ export type PeepochatContextValue = PeepochatConfigContextValue &
   PeepochatLayoutContextValue &
   PeepochatChatContextValue
 
-const PeepochatConfigContext =
+export const PeepochatConfigContext =
   React.createContext<PeepochatConfigContextValue | null>(null)
-const PeepochatLayoutContext =
+export const PeepochatLayoutContext =
   React.createContext<PeepochatLayoutContextValue | null>(null)
-const PeepochatChatContext =
+export const PeepochatChatContext =
   React.createContext<PeepochatChatContextValue | null>(null)
-const PeepochatSidebarHighlightsContext =
+export const PeepochatSidebarHighlightsContext =
   React.createContext<PeepochatSidebarHighlightsContextValue | null>(null)
+export const PeepochatPlayerContext =
+  React.createContext<PeepochatPlayerContextValue | null>(null)
 
 export function usePeepochatSettings() {
   const context = React.useContext(PeepochatConfigContext)
@@ -230,14 +215,13 @@ export function usePeepochatSettings() {
 }
 
 export function usePeepochatLayout() {
-  const config = React.useContext(PeepochatConfigContext)
   const layout = React.useContext(PeepochatLayoutContext)
-  if (!config || !layout) {
+  if (!layout) {
     throw new Error(
       "usePeepochatLayout must be used within a PeepochatProvider"
     )
   }
-  return { ...config, ...layout }
+  return layout
 }
 
 export function usePeepochatSidebarHighlights() {
@@ -245,6 +229,16 @@ export function usePeepochatSidebarHighlights() {
   if (!context) {
     throw new Error(
       "usePeepochatSidebarHighlights must be used within a PeepochatProvider"
+    )
+  }
+  return context
+}
+
+export function usePeepochatPlayer() {
+  const context = React.useContext(PeepochatPlayerContext)
+  if (!context) {
+    throw new Error(
+      "usePeepochatPlayer must be used within a PeepochatProvider"
     )
   }
   return context
@@ -267,769 +261,4 @@ export function usePeepochat() {
     throw new Error("usePeepochat must be used within a PeepochatProvider")
   }
   return { ...config, ...layout, ...chat, ...highlights }
-}
-
-export function PeepochatProvider({ children }: { children: React.ReactNode }) {
-  const {
-    config,
-    ready,
-    needsOnboarding,
-    completeOnboarding,
-    requireOnboarding,
-    updateConfig,
-    restoreBackup,
-  } = usePeepochatConfig()
-  const {
-    account,
-    oauthBusy,
-    login,
-    logout,
-    invalidateSession,
-    isOAuthConfigured,
-  } = useTwitchAuth({
-    config,
-    updateConfig,
-  })
-  const hasAccountValue = account !== null
-  const onChatMessageRef = React.useRef<
-    | ((message: import("@/lib/twitch/twitch-chat").TwitchChatMessage) => void)
-    | null
-  >(null)
-  const onHistoricalMessagesRef = React.useRef<
-    | ((
-        messages: import("@/lib/twitch/twitch-chat").TwitchChatMessage[]
-      ) => void)
-    | null
-  >(null)
-
-  const {
-    connectionState,
-    sendConnectionState,
-    logs,
-    subscribeToRoom,
-    syncChannels,
-    getTimeline,
-    getRoom,
-    getRoomId,
-    subscribeToChatters,
-    getChatters,
-    getChatterByLogin,
-    searchChatters,
-    isRecentMessagesLoading,
-    subscribeToRecentMessagesLoading,
-    getSelfChatState,
-    getChannelSendBlock,
-    registerSendOutcomeListener,
-    replayPendingComposerNotice,
-    dismissComposerNotice,
-    setEmoteLoadContext,
-    setRecentMessagesEnabled,
-    setLiveEmoteUpdatesEnabled,
-    setLiveMessageLimit,
-    setDeletedMessagesBehavior,
-    setClearChatWhenInstructed,
-    setHideBlockedUsers,
-    setShowSuspiciousActivity,
-    setShowChannelUpdates,
-    setIsUserBlocked,
-    setChatCommandActions,
-    purgeMessagesFromBlockedUsers,
-    purgeMessagesFromUser,
-    markChatMessageDeleted,
-    injectChatMessage,
-    injectSystemMessage,
-    injectAutomodHeldMessage,
-    getComposerEmoteCatalog,
-    ensureComposerEmotes,
-    isComposerEmotesLoading,
-    refreshEmotes,
-    rehydrateAllRoomTimelines,
-    sendMessage,
-    sendActionMessage,
-    runChatCommand,
-    ensureSharedChatSourceProfiles,
-  } = useTwitchChat({
-    account,
-    onAuthFailure: invalidateSession,
-    onChatMessageRef,
-    onHistoricalMessagesRef,
-  })
-  const {
-    isBlocked,
-    blockUser: blockUserBase,
-    unblockUser: unblockUserBase,
-  } = useBlockedUsers(account)
-  const {
-    getBadgeCatalog,
-    loadBadgesForRoom,
-    subscribeToBadgeCatalogs,
-    hasBadgeSupport,
-  } = useChatBadges(account)
-  const { getMemberBadge } = useRcwBadges()
-
-  const connectOptions = React.useMemo(
-    () => ({
-      accessToken: account?.accessToken,
-      nick: account?.login,
-    }),
-    [account?.accessToken, account?.login]
-  )
-
-  const syncAllChannels = React.useCallback(
-    (channelLogins: string[]) => {
-      return syncChannels(channelLogins, connectOptions)
-    },
-    [connectOptions, syncChannels]
-  )
-
-  const {
-    savedSplits,
-    activeSplitId,
-    activeSplitLayout,
-    sidebarOrder,
-    splitChannels,
-    isSplitView,
-    channelsInSplits,
-    visibleChannelLogins,
-    keepChatViewsMounted,
-    cachedChatViews,
-    activeChatViewKey,
-    mountedChannelLogins,
-    selectSplit,
-    openSplitView,
-    addSplitChannel,
-    removeSplitChannel,
-    unsplit,
-    reorderSidebar,
-    moveSplitPane,
-    resizeSplitPanePath,
-  } = useChatLayout({ config, updateConfig })
-
-  const {
-    channels,
-    activeChannelLogin,
-    setActiveChannel: setActiveChannelBase,
-    addChannel,
-    removeChannel,
-  } = useTwitchChannels({
-    config,
-    updateConfig,
-  })
-
-  const channelLogins = React.useMemo(
-    () => channels.map((channel) => channel.login),
-    [channels]
-  )
-
-  const focusChannelRef = React.useRef<(login: string) => void>((login) => {
-    setActiveChannelBase(login)
-  })
-
-  const visibleChannelLoginsRef = React.useRef(visibleChannelLogins)
-  React.useEffect(() => {
-    visibleChannelLoginsRef.current = visibleChannelLogins
-  }, [visibleChannelLogins])
-
-  const highlightActivity = useHighlightActivity({
-    config,
-    accountLogin: account?.login ?? null,
-    visibleChannelLogins,
-    isSplitView,
-    activeSplitId,
-    splits: savedSplits,
-    onFocusChannel: (login) => {
-      focusChannelRef.current(login)
-    },
-  })
-
-  React.useEffect(() => {
-    onChatMessageRef.current = highlightActivity.handleIncomingMessage
-  }, [highlightActivity.handleIncomingMessage])
-
-  React.useEffect(() => {
-    onHistoricalMessagesRef.current = highlightActivity.handleHistoricalMessages
-  }, [highlightActivity.handleHistoricalMessages])
-
-  const { isLive: isChannelLive, getLiveStream } = useStreamLiveStatus({
-    channelLogins,
-    enabled: config.highlights.liveIndicatorsEnabled && hasAccountValue,
-    accessToken: account?.accessToken,
-    clientId: account?.clientId,
-    onChannelWentLive: (login, title, gameName) => {
-      if (!config.highlights.livePushNotificationsEnabled) return
-
-      const normalizedLogin = normalizeChannelLogin(login)
-      const isVisible = visibleChannelLoginsRef.current.some(
-        (channelLogin) =>
-          normalizeChannelLogin(channelLogin) === normalizedLogin
-      )
-
-      addLiveNotification({
-        channelLogin: login,
-        title,
-        gameName,
-        wentLiveAt: new Date().toISOString(),
-        readAt: isVisible ? new Date().toISOString() : null,
-      })
-
-      if (config.highlights.doNotDisturbEnabled) return
-
-      if (!canShowDesktopNotifications()) return
-      if (!shouldShowDesktopNotification()) return
-
-      const channel = channels.find(
-        (entry) => normalizeChannelLogin(entry.login) === login
-      )
-      const channelName = channel?.displayName || channel?.login || login
-
-      showDesktopNotification({
-        title: `${channelName} just went live!`,
-        body: formatLiveNotificationText(gameName ?? "", title),
-        tag: `live:${login}`,
-        icon: channel?.profileImageUrl || undefined,
-        onClick: () => focusChannelRef.current(login),
-      })
-      void playAlertSound({
-        useDefaultSounds: config.highlights.useDefaultSounds,
-        customId: config.highlights.liveSoundCustomId,
-        kind: "live",
-      })
-    },
-  })
-
-  const setActiveChannel = React.useCallback(
-    (login: string) => {
-      const normalized = normalizeChannelLogin(login)
-      const split = findSplitContainingChannel(savedSplits, normalized)
-
-      if (split) {
-        highlightActivity.markSplitRead(split.id)
-        updateConfig((current) => ({
-          ...current,
-          twitch: {
-            ...current.twitch,
-            activeChannelLogin: normalized,
-          },
-          layout: { ...current.layout, activeSplitId: split.id },
-        }))
-        return
-      }
-
-      highlightActivity.markChannelRead(normalized)
-      setActiveChannelBase(normalized)
-    },
-    [highlightActivity, savedSplits, setActiveChannelBase, updateConfig]
-  )
-
-  React.useEffect(() => {
-    focusChannelRef.current = setActiveChannel
-  }, [setActiveChannel])
-
-  const selectSplitWithRead = React.useCallback(
-    (splitId: string) => {
-      highlightActivity.markSplitRead(splitId)
-      selectSplit(splitId)
-    },
-    [highlightActivity, selectSplit]
-  )
-
-  React.useEffect(() => {
-    setRecentMessagesEnabled(config.chat.recentMessagesEnabled)
-  }, [config.chat.recentMessagesEnabled, setRecentMessagesEnabled])
-
-  React.useEffect(() => {
-    setLiveEmoteUpdatesEnabled(
-      config.chat.emotes.seventvEnabled &&
-        config.chat.emotes.liveEmoteUpdatesEnabled
-    )
-  }, [
-    config.chat.emotes.liveEmoteUpdatesEnabled,
-    config.chat.emotes.seventvEnabled,
-    setLiveEmoteUpdatesEnabled,
-  ])
-
-  React.useEffect(() => {
-    setLiveMessageLimit(config.chat.maxLiveMessagesPerChannel)
-  }, [config.chat.maxLiveMessagesPerChannel, setLiveMessageLimit])
-
-  React.useEffect(() => {
-    setDeletedMessagesBehavior(config.chat.deletedMessagesBehavior)
-  }, [config.chat.deletedMessagesBehavior, setDeletedMessagesBehavior])
-
-  React.useEffect(() => {
-    setClearChatWhenInstructed(config.chat.clearChatWhenInstructed)
-  }, [config.chat.clearChatWhenInstructed, setClearChatWhenInstructed])
-
-  React.useEffect(() => {
-    setHideBlockedUsers(config.chat.hideBlockedUsers)
-  }, [config.chat.hideBlockedUsers, setHideBlockedUsers])
-
-  React.useEffect(() => {
-    setShowSuspiciousActivity(config.chat.showSuspiciousActivity)
-  }, [config.chat.showSuspiciousActivity, setShowSuspiciousActivity])
-
-  React.useEffect(() => {
-    setShowChannelUpdates(config.chat.showChannelUpdates)
-  }, [config.chat.showChannelUpdates, setShowChannelUpdates])
-
-  React.useEffect(() => {
-    setIsUserBlocked(isBlocked)
-  }, [isBlocked, setIsUserBlocked])
-
-  const blockUser = React.useCallback(
-    async (userId: string, login: string) => {
-      await blockUserBase(userId, login)
-      if (config.chat.hideBlockedUsers) {
-        purgeMessagesFromUser(userId, login)
-      }
-    },
-    [blockUserBase, config.chat.hideBlockedUsers, purgeMessagesFromUser]
-  )
-
-  const unblockUser = React.useCallback(
-    async (userId: string, login?: string) => {
-      await unblockUserBase(userId, login)
-    },
-    [unblockUserBase]
-  )
-
-  React.useEffect(() => {
-    setChatCommandActions({ blockUser, unblockUser })
-  }, [blockUser, setChatCommandActions, unblockUser])
-
-  React.useEffect(() => {
-    if (!config.chat.hideBlockedUsers) {
-      return
-    }
-
-    purgeMessagesFromBlockedUsers((message) =>
-      isBlocked(message.userId, message.userName)
-    )
-  }, [config.chat.hideBlockedUsers, isBlocked, purgeMessagesFromBlockedUsers])
-
-  React.useEffect(() => {
-    if (!ready || needsOnboarding) return
-    if (!hasAccountValue) return
-
-    void syncAllChannels(channelLogins).catch((error) => {
-      if (isSyncChannelsSupersededError(error)) {
-        return
-      }
-
-      toast.error(error instanceof Error ? error.message : "Connection failed")
-    })
-  }, [channelLogins, hasAccountValue, needsOnboarding, ready, syncAllChannels])
-
-  React.useEffect(() => {
-    for (const login of mountedChannelLogins) {
-      loadBadgesForRoom(getRoomId(login))
-    }
-  }, [getRoomId, loadBadgesForRoom, mountedChannelLogins])
-
-  const channelHints = React.useMemo(
-    () =>
-      channels.map((channel) => ({
-        login: channel.login,
-        displayName: channel.displayName,
-        profileImageUrl: channel.profileImageUrl,
-        roomId: getRoomId(channel.login) ?? undefined,
-      })),
-    [channels, getRoomId]
-  )
-
-  const channelLoginsRef = React.useRef(channelLogins)
-
-  const setEmoteLoadContextRef = React.useRef(setEmoteLoadContext)
-
-  React.useEffect(() => {
-    channelLoginsRef.current = channelLogins
-  }, [channelLogins])
-
-  React.useEffect(() => {
-    setEmoteLoadContextRef.current = setEmoteLoadContext
-  }, [setEmoteLoadContext])
-
-  React.useEffect(() => {
-    setEmoteLoadContextRef.current({
-      accessToken: account?.accessToken,
-      clientId: account?.clientId,
-      userId: account?.id,
-      userLogin: account?.login,
-      userDisplayName: account?.displayName,
-      channelHints,
-    })
-  }, [
-    account?.accessToken,
-    account?.clientId,
-    account?.id,
-    account?.login,
-    account?.displayName,
-    channelHints,
-  ])
-
-  const emotesOptionsReadyRef = React.useRef(false)
-  const emoteProviderFlagsRef = React.useRef("")
-  const zeroWidthEnabledRef = React.useRef(
-    config.chat.emotes.zeroWidthEmotesEnabled
-  )
-  const refreshEmotesRef = React.useRef(refreshEmotes)
-  const rehydrateAllRoomTimelinesRef = React.useRef(rehydrateAllRoomTimelines)
-
-  React.useEffect(() => {
-    refreshEmotesRef.current = refreshEmotes
-  }, [refreshEmotes])
-
-  React.useEffect(() => {
-    rehydrateAllRoomTimelinesRef.current = rehydrateAllRoomTimelines
-  }, [rehydrateAllRoomTimelines])
-
-  React.useEffect(() => {
-    setSeventvEmoteRenderOptions({
-      zeroWidthEnabled: config.chat.emotes.zeroWidthEmotesEnabled,
-    })
-
-    if (
-      emotesOptionsReadyRef.current &&
-      zeroWidthEnabledRef.current !== config.chat.emotes.zeroWidthEmotesEnabled
-    ) {
-      rehydrateAllRoomTimelinesRef.current()
-    }
-
-    zeroWidthEnabledRef.current = config.chat.emotes.zeroWidthEmotesEnabled
-  }, [config.chat.emotes.zeroWidthEmotesEnabled])
-
-  React.useEffect(() => {
-    const flagsKey = [
-      config.chat.emotes.bttvEnabled,
-      config.chat.emotes.ffzEnabled,
-      config.chat.emotes.seventvEnabled,
-      config.chat.emotes.showUnlistedEmotes,
-    ].join(":")
-
-    setThirdPartyEmoteFetchOptions({
-      bttvEnabled: config.chat.emotes.bttvEnabled,
-      ffzEnabled: config.chat.emotes.ffzEnabled,
-      seventvEnabled: config.chat.emotes.seventvEnabled,
-      showUnlistedEmotes: config.chat.emotes.showUnlistedEmotes,
-    })
-
-    if (!emotesOptionsReadyRef.current) {
-      emotesOptionsReadyRef.current = true
-      emoteProviderFlagsRef.current = flagsKey
-      return
-    }
-
-    if (emoteProviderFlagsRef.current === flagsKey) {
-      return
-    }
-
-    emoteProviderFlagsRef.current = flagsKey
-
-    for (const login of channelLoginsRef.current) {
-      void refreshEmotesRef.current(login)
-    }
-  }, [
-    config.chat.emotes.bttvEnabled,
-    config.chat.emotes.ffzEnabled,
-    config.chat.emotes.seventvEnabled,
-    config.chat.emotes.showUnlistedEmotes,
-  ])
-
-  const canSendChat = Boolean(
-    account?.accessToken &&
-    connectionState.connected &&
-    sendConnectionState.connected
-  )
-
-  const executeChatCommand = React.useCallback(
-    (login: string, input: string) => runChatCommand(login, input, account),
-    [account, runChatCommand]
-  )
-
-  const getBadgeCatalogForChannel = React.useCallback(
-    (login: string) => getBadgeCatalog(getRoomId(login)),
-    [getBadgeCatalog, getRoomId]
-  )
-
-  const handleLogout = React.useCallback(() => {
-    void syncChannels([])
-    logout()
-    requireOnboarding()
-  }, [logout, requireOnboarding, syncChannels])
-
-  const configValue = React.useMemo<PeepochatConfigContextValue>(
-    () => ({
-      config,
-      ready,
-      needsOnboarding,
-      completeOnboarding,
-      requireOnboarding,
-      updateConfig,
-      restoreBackup,
-      account,
-      oauthBusy,
-      isOAuthConfigured,
-      loginWithTwitch: login,
-      logout: handleLogout,
-      channels,
-      activeChannelLogin,
-      setActiveChannel,
-      addChannel,
-      removeChannel,
-    }),
-    [
-      config,
-      ready,
-      needsOnboarding,
-      completeOnboarding,
-      requireOnboarding,
-      updateConfig,
-      restoreBackup,
-      account,
-      oauthBusy,
-      isOAuthConfigured,
-      login,
-      handleLogout,
-      channels,
-      activeChannelLogin,
-      setActiveChannel,
-      addChannel,
-      removeChannel,
-    ]
-  )
-
-  const layoutValue = React.useMemo<PeepochatLayoutContextValue>(
-    () => ({
-      savedSplits,
-      activeSplitId,
-      activeSplitLayout,
-      sidebarOrder,
-      splitChannels,
-      isSplitView,
-      channelsInSplits,
-      visibleChannelLogins,
-      keepChatViewsMounted,
-      cachedChatViews,
-      activeChatViewKey,
-      mountedChannelLogins,
-      selectSplit: selectSplitWithRead,
-      openSplitView,
-      addSplitChannel,
-      removeSplitChannel,
-      unsplit,
-      reorderSidebar,
-      moveSplitPane,
-      resizeSplitPanePath,
-    }),
-    [
-      savedSplits,
-      activeSplitId,
-      activeSplitLayout,
-      sidebarOrder,
-      splitChannels,
-      isSplitView,
-      channelsInSplits,
-      visibleChannelLogins,
-      keepChatViewsMounted,
-      cachedChatViews,
-      activeChatViewKey,
-      mountedChannelLogins,
-      selectSplitWithRead,
-      openSplitView,
-      addSplitChannel,
-      removeSplitChannel,
-      unsplit,
-      reorderSidebar,
-      moveSplitPane,
-      resizeSplitPanePath,
-    ]
-  )
-
-  const isSplitLive = React.useCallback(
-    (logins: string[]) =>
-      config.highlights.liveIndicatorsEnabled &&
-      logins.some((login) => isChannelLive(login)),
-    [config.highlights.liveIndicatorsEnabled, isChannelLive]
-  )
-
-  const getChannelLiveStream = React.useCallback(
-    (login: string) => {
-      if (!config.highlights.liveIndicatorsEnabled) return null
-      if (!isChannelLive(login)) return null
-      return getLiveStream(login)
-    },
-    [config.highlights.liveIndicatorsEnabled, isChannelLive, getLiveStream]
-  )
-
-  const sidebarHighlightsValue =
-    React.useMemo<PeepochatSidebarHighlightsContextValue>(
-      () => ({
-        hasUnreadForChannel: highlightActivity.hasUnreadForChannel,
-        hasUnreadForSplit: highlightActivity.hasUnreadForSplit,
-        hasPingForChannel: highlightActivity.hasPingForChannel,
-        hasPingForSplit: highlightActivity.hasPingForSplit,
-        markChannelRead: highlightActivity.markChannelRead,
-        markSplitRead: highlightActivity.markSplitRead,
-        isChannelLive: (login) =>
-          config.highlights.liveIndicatorsEnabled && isChannelLive(login),
-        getChannelLiveStream,
-        isSplitLive,
-        liveIndicatorsEnabled: config.highlights.liveIndicatorsEnabled,
-      }),
-      [
-        config.highlights.liveIndicatorsEnabled,
-        highlightActivity.hasUnreadForChannel,
-        highlightActivity.hasUnreadForSplit,
-        highlightActivity.hasPingForChannel,
-        highlightActivity.hasPingForSplit,
-        highlightActivity.markChannelRead,
-        highlightActivity.markSplitRead,
-        isChannelLive,
-        getChannelLiveStream,
-        isSplitLive,
-      ]
-    )
-
-  const chatValue = React.useMemo<PeepochatChatContextValue>(
-    () => ({
-      connectionState,
-      sendConnectionState,
-      logs,
-      subscribeToRoom,
-      getTimeline,
-      getRoom,
-      getRoomId,
-      subscribeToChatters,
-      getChatters,
-      getChatterByLogin,
-      searchChatters,
-      isRecentMessagesLoading,
-      subscribeToRecentMessagesLoading,
-      getSelfChatState,
-      getChannelSendBlock,
-      registerSendOutcomeListener,
-      replayPendingComposerNotice,
-      dismissComposerNotice,
-      getBadgeCatalog: getBadgeCatalogForChannel,
-      getBadgeCatalogByRoomId: getBadgeCatalog,
-      subscribeToBadgeCatalogs,
-      loadBadgesForRoom,
-      ensureSharedChatSourceProfiles,
-      getMemberBadge,
-      getComposerEmoteCatalog,
-      ensureComposerEmotes,
-      isComposerEmotesLoading,
-      refreshEmotes,
-      sendChatMessage: sendMessage,
-      sendActionMessage,
-      executeChatCommand,
-      markChatMessageDeleted,
-      injectChatMessage,
-      injectSystemMessage,
-      injectAutomodHeldMessage,
-      canSendChat,
-      hasBadgeSupport,
-      hideBlockedUsers: config.chat.hideBlockedUsers,
-      isUserBlocked: isBlocked,
-      blockUser,
-      unblockUser,
-    }),
-    [
-      connectionState,
-      sendConnectionState,
-      logs,
-      subscribeToRoom,
-      getTimeline,
-      getRoom,
-      getRoomId,
-      subscribeToChatters,
-      getChatters,
-      getChatterByLogin,
-      searchChatters,
-      isRecentMessagesLoading,
-      subscribeToRecentMessagesLoading,
-      getSelfChatState,
-      getChannelSendBlock,
-      registerSendOutcomeListener,
-      replayPendingComposerNotice,
-      dismissComposerNotice,
-      getBadgeCatalogForChannel,
-      getBadgeCatalog,
-      subscribeToBadgeCatalogs,
-      loadBadgesForRoom,
-      ensureSharedChatSourceProfiles,
-      getMemberBadge,
-      getComposerEmoteCatalog,
-      ensureComposerEmotes,
-      isComposerEmotesLoading,
-      refreshEmotes,
-      sendMessage,
-      sendActionMessage,
-      executeChatCommand,
-      markChatMessageDeleted,
-      injectChatMessage,
-      injectSystemMessage,
-      injectAutomodHeldMessage,
-      canSendChat,
-      hasBadgeSupport,
-      config.chat.hideBlockedUsers,
-      isBlocked,
-      blockUser,
-      unblockUser,
-    ]
-  )
-
-  return (
-    <PeepochatConfigContext.Provider value={configValue}>
-      <PeepochatLayoutContext.Provider value={layoutValue}>
-        <PeepochatSidebarHighlightsContext.Provider
-          value={sidebarHighlightsValue}
-        >
-          <PeepochatChatContext.Provider value={chatValue}>
-            {children}
-          </PeepochatChatContext.Provider>
-        </PeepochatSidebarHighlightsContext.Provider>
-      </PeepochatLayoutContext.Provider>
-    </PeepochatConfigContext.Provider>
-  )
-}
-
-const timestamp24HourFormatter = new Intl.DateTimeFormat(undefined, {
-  hour: "2-digit",
-  minute: "2-digit",
-  hour12: false,
-})
-
-const timestamp12HourFormatter = new Intl.DateTimeFormat(undefined, {
-  hour: "numeric",
-  minute: "2-digit",
-  hour12: true,
-})
-
-export function formatMessageTimestamp(
-  value: string,
-  format: MessageTimestampFormat
-) {
-  if (format === "none") {
-    return null
-  }
-
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return value
-  }
-
-  if (format === "24-hour") {
-    return timestamp24HourFormatter.format(date)
-  }
-
-  if (format === "12-hour-meridiem") {
-    return timestamp12HourFormatter.format(date)
-  }
-
-  return timestamp12HourFormatter
-    .formatToParts(date)
-    .flatMap((part) => (part.type !== "dayPeriod" ? [part.value] : []))
-    .join("")
-    .trim()
 }

@@ -3,11 +3,12 @@ import { toast } from "sonner"
 
 import type { AppConfig, TwitchAccount } from "@/lib/peepochat/peepochat-config"
 import { getAccount } from "@/lib/peepochat/peepochat-config"
+import { fetchIvrTwitchUserProfile } from "@/lib/ivr/ivr-api"
 import {
   TwitchApiError,
   fetchTwitchUser,
   validateTwitchToken,
-} from "@/lib/twitch/twitch-api"
+} from "@/lib/twitch/auth/api"
 import {
   clearTwitchOAuthCallbackUrl,
   consumeTwitchOAuthReturnPath,
@@ -21,7 +22,7 @@ import {
   isTwitchOAuthConfigured,
   parseTwitchOAuthCallback,
   startTwitchOAuthLogin,
-} from "@/lib/twitch/twitch-oauth"
+} from "@/lib/twitch/auth/oauth"
 
 const SESSION_CHECK_INTERVAL_MS = 5 * 60 * 1000
 
@@ -101,12 +102,15 @@ export function useTwitchAuth({
       }
 
       const user = await fetchTwitchUser(accessToken, clientId)
+      const ivrProfile = await fetchIvrTwitchUserProfile({
+        userLogin: user.login,
+      }).catch(() => null)
       const nextAccount: TwitchAccount = {
         id: user.id,
         login: user.login,
         displayName: user.displayName,
         profileImageUrl: user.profileImageUrl,
-        bannerImageUrl: user.bannerImageUrl,
+        bannerImageUrl: ivrProfile?.bannerImageUrl ?? "",
         accessToken,
         clientId,
         scopes: validated.scopes,

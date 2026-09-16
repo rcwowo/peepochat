@@ -13,30 +13,65 @@ import type { RecentMessagesApi } from "@/hooks/twitch/chat/use-recent-messages"
 import type { RoomStore } from "@/hooks/twitch/chat/use-room-store"
 import type { TimelineApi } from "@/hooks/twitch/chat/use-timeline"
 import { useLazyRef } from "@/hooks/use-lazy-ref"
+import { useRetainedRef } from "@/hooks/use-retained-ref"
 import {
-  chatModesNoticeId,
   formatChatModesNotice,
   hasAnyChatModeEnabled,
   mergeChatModes,
-} from "@/lib/chat/chat-modes"
+} from "@/lib/chat/room/modes"
+import { retainDevRuntime } from "@/lib/dev/retain-runtime"
 import { devChatLogger } from "@/lib/dev-logger"
 import {
   buildSyncChannelsKey,
   createEmptySenderState,
   toSelfChatState,
   type SenderState,
-} from "@/lib/twitch/chat-timeline"
-import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
+} from "@/lib/twitch/chat/timeline"
+import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 import {
+  createChatModesSystemMessage,
   TwitchChatClient,
   type TwitchChatConnectOptions,
+  type TwitchChatEvent,
   type TwitchChatMessage,
   type TwitchClearChatEvent,
   type TwitchClearMsgEvent,
   type TwitchConnectionState,
   type TwitchSystemMessage,
-} from "@/lib/twitch/twitch-chat"
-import type { TwitchSelfChatState } from "@/lib/twitch/twitch-chat-types"
+} from "@/lib/twitch/chat/chat"
+import type { TwitchSelfChatState } from "@/lib/twitch/chat/types"
+
+type ClientSlot = {
+  client: TwitchChatClient | null
+}
+
+function getReadClientSlot(): ClientSlot {
+  return retainDevRuntime("twitch-read-client", () => ({
+    client: null as TwitchChatClient | null,
+  }))
+}
+
+function getSendClientSlot(): ClientSlot {
+  return retainDevRuntime("twitch-send-client", () => ({
+    client: null as TwitchChatClient | null,
+  }))
+}
+
+function releaseReadClient(
+  readClientRef: React.MutableRefObject<TwitchChatClient | null>
+) {
+  readClientRef.current?.close()
+  readClientRef.current = null
+  getReadClientSlot().client = null
+}
+
+function releaseSendClient(
+  sendClientRef: React.MutableRefObject<TwitchChatClient | null>
+) {
+  sendClientRef.current?.close()
+  sendClientRef.current = null
+  getSendClientSlot().client = null
+}
 
 export type ReadClientHandlers = {
   onMessage: (message: TwitchChatMessage) => void
@@ -63,10 +98,7 @@ type UseChatConnectionOptions = {
     RecentMessagesApi,
     "clearHistoryForLogins" | "clearAllHistoryState"
   >
-  send: Pick<
-    ChatSendApi,
-    "clearAllSendBlocks" | "resetRateLimiter" | "pushComposerNotice"
-  >
+  send: Pick<ChatSendApi, "clearAllSendBlocks" | "resetRateLimiter">
   readHandlersRef: React.MutableRefObject<ReadClientHandlers>
   sendHandlersRef: React.MutableRefObject<SendClientHandlers>
   syncedChannelsRef: React.MutableRefObject<string[]>
@@ -107,23 +139,31 @@ export function useChatConnection({
   const { flushPendingForLogins, flushAllPending } = timeline
   const { clearEmotesForRoomIds, clearAllEmoteState } = emotes
   const { clearHistoryForLogins, clearAllHistoryState } = recentMessages
-  const { clearAllSendBlocks, resetRateLimiter, pushComposerNotice } = send
+  const { clearAllSendBlocks, resetRateLimiter } = send
 
-  const readClientRef = React.useRef<TwitchChatClient | null>(null)
+  const readClientRef = React.useRef<TwitchChatClient | null>(
+    getReadClientSlot().client
+  )
   const pendingConnectRef = React.useRef<PendingReadConnect | null>(null)
   const pendingSendConnectRef = React.useRef<PendingConnect | null>(null)
-  const sendConnectKeyRef = React.useRef("")
-  const readJoinedChannelsRef = useLazyRef(() => new Set<string>())
+  const sendConnectKeyRef = useRetainedRef("send-connect-key", () => "")
+  const readJoinedChannelsRef = useRetainedRef(
+    "read-joined-channels",
+    () => new Set<string>()
+  )
   const connectionRecoveryRef = React.useRef<PendingConnectionRecovery | null>(
     null
   )
   const connectionRecoveryIdRef = React.useRef(0)
-  const wasFullySyncedRef = React.useRef(false)
+  const wasFullySyncedRef = useRetainedRef("was-fully-synced", () => false)
   const pendingSyncPromiseRef = React.useRef<{
     key: string
     promise: Promise<void>
   } | null>(null)
-  const hasAnnouncedConnectedRef = React.useRef(false)
+  const hasAnnouncedConnectedRef = useRetainedRef(
+    "has-announced-connected",
+    () => false
+  )
   const pendingChatModesNoticeRef = useLazyRef(() => new Set<string>())
   const onRoomsRemovedRef = React.useRef(onRoomsRemoved)
   const onAllRoomsClearedRef = React.useRef(onAllRoomsCleared)
@@ -135,20 +175,20 @@ export function useChatConnection({
   const senderStateRef = React.useRef<SenderState>(createEmptySenderState())
   const [selfStates, setSelfStates] = React.useState<
     Record<string, TwitchSelfChatState>
-  >({})
+  >(() => Object.fromEntries(selfStatesRef.current))
 
   const [connectionState, setConnectionState] =
-    React.useState<TwitchConnectionState>({
-      connected: false,
+    React.useState<TwitchConnectionState>(() => ({
+      connected: Boolean(getReadClientSlot().client?.isConnected),
       connecting: false,
       lastError: null,
-    })
+    }))
   const [sendConnectionState, setSendConnectionState] =
-    React.useState<TwitchConnectionState>({
-      connected: false,
+    React.useState<TwitchConnectionState>(() => ({
+      connected: Boolean(getSendClientSlot().client?.isConnected),
       connecting: false,
       lastError: null,
-    })
+    }))
 
   const updateSelfState = React.useCallback(
     (state: TwitchSelfChatState) => {
@@ -194,7 +234,7 @@ export function useChatConnection({
       isReadConnectionSynced() &&
       (!sendConnectionExpected || Boolean(sendClientRef.current?.isConnected))
     )
-  }, [isReadConnectionSynced, sendClientRef])
+  }, [isReadConnectionSynced, sendClientRef, sendConnectKeyRef])
 
   const finishConnectionRecovery = React.useCallback(() => {
     const recovery = connectionRecoveryRef.current
@@ -217,7 +257,7 @@ export function useChatConnection({
 
     wasFullySyncedRef.current = true
     finishConnectionRecovery()
-  }, [finishConnectionRecovery, isConnectionFullySynced])
+  }, [finishConnectionRecovery, isConnectionFullySynced, wasFullySyncedRef])
 
   const beginConnectionRecovery = React.useCallback(() => {
     if (
@@ -248,7 +288,7 @@ export function useChatConnection({
         duration: Infinity,
       }
     )
-  }, [syncedChannelsRef])
+  }, [syncedChannelsRef, wasFullySyncedRef])
 
   const handleReadConnectionLost = React.useCallback(
     (reason: string) => {
@@ -322,9 +362,7 @@ export function useChatConnection({
   }, [sendClientRef])
 
   const getReadClient = React.useCallback(() => {
-    if (readClientRef.current) return readClientRef.current
-
-    const client = new TwitchChatClient((event) => {
+    const handleEvent = (event: TwitchChatEvent) => {
       const handlers = readHandlersRef.current
       switch (event.type) {
         case "connection-lost":
@@ -345,9 +383,6 @@ export function useChatConnection({
           break
         case "disconnected":
           readJoinedChannelsRef.current.clear()
-          for (const login of syncedChannelsRef.current) {
-            pendingChatModesNoticeRef.current.add(login)
-          }
           senderStateRef.current = createEmptySenderState()
           selfStatesRef.current.clear()
           setSelfStates({})
@@ -387,7 +422,6 @@ export function useChatConnection({
           break
         case "channel-parted":
           readJoinedChannelsRef.current.delete(event.channel)
-          pendingChatModesNoticeRef.current.add(event.channel)
           updateRoom(event.channel, (room) => ({
             ...room,
             joined: false,
@@ -414,11 +448,13 @@ export function useChatConnection({
             if (hasAnyChatModeEnabled(nextModes)) {
               const message = formatChatModesNotice(nextModes)
               if (message) {
-                pushComposerNotice({
-                  channel: login,
-                  message,
-                  id: chatModesNoticeId(login),
-                })
+                handlers.onSystem(
+                  createChatModesSystemMessage({
+                    channel: login,
+                    roomId: roomId ?? null,
+                    text: message,
+                  })
+                )
                 pendingChatModesNoticeRef.current.delete(login)
                 if (roomId) {
                   handlers.onRoomReady?.(login, roomId)
@@ -470,10 +506,26 @@ export function useChatConnection({
           pendingConnectRef.current = null
           break
       }
-    }, "read")
+    }
 
-    readClientRef.current = client
-    return client
+    const attach = (client: TwitchChatClient) => {
+      client.setHandler(handleEvent)
+      readClientRef.current = client
+      return client
+    }
+
+    if (readClientRef.current) {
+      return attach(readClientRef.current)
+    }
+
+    const slot = getReadClientSlot()
+    if (slot.client) {
+      return attach(slot.client)
+    }
+
+    const client = new TwitchChatClient(handleEvent, "read")
+    slot.client = client
+    return attach(client)
   }, [
     appendLog,
     commitRooms,
@@ -484,7 +536,6 @@ export function useChatConnection({
     markConnectionSyncedIfReady,
     pendingConnectRef,
     pendingChatModesNoticeRef,
-    pushComposerNotice,
     readClientRef,
     readHandlersRef,
     readJoinedChannelsRef,
@@ -497,9 +548,7 @@ export function useChatConnection({
   ])
 
   const getSendClient = React.useCallback(() => {
-    if (sendClientRef.current) return sendClientRef.current
-
-    const client = new TwitchChatClient((event) => {
+    const handleEvent = (event: TwitchChatEvent) => {
       const handlers = sendHandlersRef.current
       switch (event.type) {
         case "connection-lost":
@@ -552,10 +601,26 @@ export function useChatConnection({
           pendingSendConnectRef.current = null
           break
       }
-    }, "send")
+    }
 
-    sendClientRef.current = client
-    return client
+    const attach = (client: TwitchChatClient) => {
+      client.setHandler(handleEvent)
+      sendClientRef.current = client
+      return client
+    }
+
+    if (sendClientRef.current) {
+      return attach(sendClientRef.current)
+    }
+
+    const slot = getSendClientSlot()
+    if (slot.client) {
+      return attach(slot.client)
+    }
+
+    const client = new TwitchChatClient(handleEvent, "send")
+    slot.client = client
+    return attach(client)
   }, [
     appendLog,
     handleSendConnectionLost,
@@ -564,6 +629,15 @@ export function useChatConnection({
     sendHandlersRef,
     updateSelfState,
   ])
+
+  React.useLayoutEffect(() => {
+    if (readClientRef.current || getReadClientSlot().client) {
+      getReadClient()
+    }
+    if (sendClientRef.current || getSendClientSlot().client) {
+      getSendClient()
+    }
+  }, [getReadClient, getSendClient, readClientRef, sendClientRef])
 
   React.useEffect(() => {
     const readClient = readClientRef
@@ -575,10 +649,8 @@ export function useChatConnection({
         return
       }
 
-      readClient.current?.close()
-      readClient.current = null
-      sendClient.current?.close()
-      sendClient.current = null
+      releaseReadClient(readClient)
+      releaseSendClient(sendClient)
     }
   }, [readClientRef, sendClientRef])
 
@@ -641,8 +713,7 @@ export function useChatConnection({
 
       if (!hasAuth || syncedChannelsRef.current.length === 0) {
         sendConnectKeyRef.current = ""
-        sendClientRef.current?.close()
-        sendClientRef.current = null
+        releaseSendClient(sendClientRef)
         setSendConnectionState({
           connected: false,
           connecting: false,
@@ -660,8 +731,7 @@ export function useChatConnection({
       }
 
       if (sendClientRef.current) {
-        sendClientRef.current.close()
-        sendClientRef.current = null
+        releaseSendClient(sendClientRef)
       }
 
       sendConnectKeyRef.current = connectKey
@@ -741,10 +811,8 @@ export function useChatConnection({
         readJoinedChannelsRef.current.clear()
         wasFullySyncedRef.current = false
         resolveConnectionRecovery()
-        readClientRef.current?.close()
-        readClientRef.current = null
-        sendClientRef.current?.close()
-        sendClientRef.current = null
+        releaseReadClient(readClientRef)
+        releaseSendClient(sendClientRef)
         resetRateLimiter()
         clearAllSendBlocks()
         hasAnnouncedConnectedRef.current = false

@@ -1,4 +1,4 @@
-import type { TwitchTimelineItem } from "@/lib/twitch/twitch-chat-types"
+import type { TwitchTimelineItem } from "@/lib/twitch/chat/types"
 
 export type PendingConnect = {
   resolve: () => void

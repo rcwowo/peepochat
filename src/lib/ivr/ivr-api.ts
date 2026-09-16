@@ -20,7 +20,6 @@ export type IvrTwitchSubage = {
   user: IvrTwitchIdentity
   channel: IvrTwitchIdentity
   statusHidden: boolean
-  followedAt: string | null
   streak: IvrTwitchSubagePeriod | null
   cumulative: IvrTwitchSubagePeriod | null
   meta: unknown

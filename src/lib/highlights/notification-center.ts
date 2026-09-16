@@ -1,7 +1,7 @@
 import * as React from "react"
 
 import { removeChannelMessageHighlight } from "@/lib/highlights/channel-message-highlights"
-import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
+import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 
 export const MAX_NOTIFICATIONS_PER_TAB = 100
 

@@ -21,7 +21,7 @@ import {
   moveSplitLayoutPane,
   normalizeSplitLayout,
   resizeSplitLayoutChildren,
-} from "@/lib/chat/chat-split-layout"
+} from "@/lib/chat/layout/split-layout"
 
 export type CachedChannelChatView = {
   key: string

@@ -36,16 +36,14 @@ import {
   type MissedPingNotification,
   type PingNotification,
 } from "@/lib/highlights/notification-center"
-import {
-  formatMessageTimestamp,
-  usePeepochatSettings,
-} from "@/lib/peepochat/peepochat-context"
-import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
+import { formatMessageTimestamp } from "@/lib/chat/presentation/timestamp"
+import { usePeepochatSettings } from "@/lib/peepochat/peepochat-context"
+import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 import {
   fetchUserAvatarUrl,
   getCachedUserAvatarUrl,
   subscribeToUserAvatars,
-} from "@/lib/twitch/twitch-user-avatars"
+} from "@/lib/twitch/channel/user-avatars"
 
 const notificationRelativeDateFormatter = new Intl.DateTimeFormat(undefined, {
   month: "short",

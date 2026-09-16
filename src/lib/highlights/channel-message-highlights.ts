@@ -1,7 +1,7 @@
 import * as React from "react"
 
 import type { PingMatchRange } from "@/lib/highlights/highlight-rules"
-import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
+import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 
 const MAX_HIGHLIGHTS_PER_CHANNEL = 250
 

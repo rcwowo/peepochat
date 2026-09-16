@@ -1,10 +1,10 @@
 import type { PingMatchRange } from "@/lib/highlights/highlight-rules"
 import { findMessageUrls } from "@/lib/peepochat/peepochat-config"
-import { textHasChatMention } from "@/lib/chat/chat-mentions"
-import { isTimelineAppend } from "@/lib/chat/timeline-prefix"
-import { normalizeChannelLogin } from "@/lib/twitch/twitch-channel"
-import type { TwitchChatMessage } from "@/lib/twitch/twitch-chat"
-import type { TwitchTimelineItem } from "@/lib/twitch/twitch-chat-types"
+import { textHasChatMention } from "@/lib/chat/presentation/mentions"
+import { isTimelineAppend } from "@/lib/chat/presentation/timeline-prefix"
+import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
+import type { TwitchChatMessage } from "@/lib/twitch/chat/chat"
+import type { TwitchTimelineItem } from "@/lib/twitch/chat/types"
 
 const FILTER_KEYS = new Set(["in", "from", "role", "has"] as const)
 
@@ -51,6 +51,7 @@ export type ChatSearchSuggestion = {
 export type ChatSearchResult = {
   message: TwitchChatMessage
   highlightRanges: PingMatchRange[]
+  usernameHighlightRanges: PingMatchRange[]
 }
 
 export type ChatSearchUsername = {
@@ -124,6 +125,12 @@ const HAS_SUGGESTIONS: ChatSearchSuggestion[] = [
     insert: "has:emote",
     label: "has:emote",
     description: "Contains an emote",
+  },
+  {
+    id: "has:gif",
+    insert: "has:gif",
+    label: "has:gif",
+    description: "Contains a GIF message",
   },
   {
     id: "has:mention",
@@ -494,12 +501,40 @@ function messageMatchesHas(message: TwitchChatMessage, value: string) {
     case "emote":
     case "emotes":
       return message.emotes.length > 0
+    case "gif":
+    case "gifs":
+      return message.gifs.length > 0
     case "mention":
     case "mentions":
       return textHasChatMention(message.text)
     default:
       return false
   }
+}
+
+function findKeywordRanges(text: string, keyword: string): PingMatchRange[] {
+  if (!keyword || !text) {
+    return []
+  }
+
+  const escaped = escapeRegExp(keyword)
+  let pattern: RegExp
+  try {
+    pattern = new RegExp(escaped, "giu")
+  } catch {
+    pattern = new RegExp(escaped, "gi")
+  }
+
+  const ranges: PingMatchRange[] = []
+  for (const match of text.matchAll(pattern)) {
+    const start = match.index ?? 0
+    ranges.push({
+      start,
+      end: start + match[0].length,
+    })
+  }
+
+  return ranges
 }
 
 export function findKeywordHighlightRanges(
@@ -517,27 +552,12 @@ export function findKeywordHighlightRanges(
       continue
     }
 
-    const escaped = escapeRegExp(keyword)
-    let pattern: RegExp
-    try {
-      pattern = new RegExp(escaped, "giu")
-    } catch {
-      pattern = new RegExp(escaped, "gi")
-    }
-
-    let found = false
-    for (const match of text.matchAll(pattern)) {
-      const start = match.index ?? 0
-      found = true
-      ranges.push({
-        start,
-        end: start + match[0].length,
-      })
-    }
-
-    if (!found) {
+    const found = findKeywordRanges(text, keyword)
+    if (found.length === 0) {
       return null
     }
+
+    ranges.push(...found)
   }
 
   return mergeHighlightRanges(ranges)
@@ -604,15 +624,50 @@ export function matchChatSearchMessage(
     return null
   }
 
-  const highlightRanges = findKeywordHighlightRanges(
-    message.text,
-    parsed.keywords
-  )
-  if (!highlightRanges) {
-    return null
+  if (parsed.keywords.length === 0) {
+    return {
+      message,
+      highlightRanges: [],
+      usernameHighlightRanges: [],
+    }
   }
 
-  return { message, highlightRanges }
+  const highlightRanges: PingMatchRange[] = []
+  const usernameHighlightRanges: PingMatchRange[] = []
+
+  for (const keyword of parsed.keywords) {
+    if (!keyword) {
+      continue
+    }
+
+    const textRanges = findKeywordRanges(message.text, keyword)
+    const displayRanges = findKeywordRanges(message.displayName, keyword)
+    const loginRanges = findKeywordRanges(message.userName, keyword)
+
+    if (
+      textRanges.length === 0 &&
+      displayRanges.length === 0 &&
+      loginRanges.length === 0
+    ) {
+      return null
+    }
+
+    highlightRanges.push(...textRanges)
+    if (displayRanges.length > 0) {
+      usernameHighlightRanges.push(...displayRanges)
+    } else if (loginRanges.length > 0 && message.displayName.length > 0) {
+      usernameHighlightRanges.push({
+        start: 0,
+        end: message.displayName.length,
+      })
+    }
+  }
+
+  return {
+    message,
+    highlightRanges: mergeHighlightRanges(highlightRanges),
+    usernameHighlightRanges: mergeHighlightRanges(usernameHighlightRanges),
+  }
 }
 
 function compareChatSearchResults(
