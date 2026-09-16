@@ -2,7 +2,6 @@ import * as React from "react"
 import {
   BanIcon,
   CalendarDaysIcon,
-  ClockIcon,
   CopyIcon,
   EllipsisIcon,
   GemIcon,
@@ -12,7 +11,6 @@ import {
   SparklesIcon,
   UserXIcon,
   UsersIcon,
-  VideoIcon,
   XIcon,
   ScrollTextIcon,
   UserSquare2Icon,
@@ -20,7 +18,6 @@ import {
 import { toast } from "sonner"
 
 import { ChatMessageBody } from "@/components/chat/message/body"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -123,54 +120,6 @@ function UserAvatar({
   )
 }
 
-function StatusPills({
-  isBroadcaster,
-  isModerator,
-  isVip,
-}: {
-  isBroadcaster: boolean
-  isModerator: boolean
-  isVip: boolean
-}) {
-  const hasStatus = isBroadcaster || isModerator || isVip
-
-  if (!hasStatus) {
-    return null
-  }
-
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {isBroadcaster ? (
-        <Badge
-          variant="outline"
-          className="gap-1 border-red-500/30 text-red-500"
-        >
-          <VideoIcon className="size-3" />
-          Broadcaster
-        </Badge>
-      ) : null}
-      {isModerator ? (
-        <Badge
-          variant="outline"
-          className="gap-1 border-emerald-500/30 text-emerald-500"
-        >
-          <ShieldIcon className="size-3" />
-          Moderator
-        </Badge>
-      ) : null}
-      {isVip ? (
-        <Badge
-          variant="outline"
-          className="gap-1 border-fuchsia-500/30 text-fuchsia-500"
-        >
-          <GemIcon className="size-3" />
-          VIP
-        </Badge>
-      ) : null}
-    </div>
-  )
-}
-
 function InfoTile({
   icon,
   label,
@@ -181,7 +130,7 @@ function InfoTile({
   value: string
 }) {
   return (
-    <div className="rounded-lg bg-muted/60 p-2">
+    <div className="rounded-lg bg-muted/60 p-2 text-xs">
       <div className="mb-1 flex items-center gap-1 text-muted-foreground">
         {icon}
         {label}
@@ -373,7 +322,6 @@ export function UserCardPanel({
   const userType = profile
     ? formatUserType(profile.type || profile.broadcasterType)
     : ""
-  const followedAt = subage?.followedAt ? formatDate(subage.followedAt) : null
   const subscriptionLabel = isChannelStatusLoading
     ? ""
     : subageUnavailable
@@ -730,19 +678,16 @@ export function UserCardPanel({
             <div
               className={cn("space-y-4 p-4", !profile?.description && "pt-3")}
             >
-              <StatusPills
-                isBroadcaster={isBroadcaster}
-                isModerator={isModerator}
-                isVip={isVip}
-              />
-
               {profile?.description ? (
-                <p className="text-sm leading-snug text-popover-foreground">
-                  {profile.description}
-                </p>
+                <InfoTile label="Bio" value={profile.description} />
               ) : null}
 
-              <div className="grid grid-cols-2 gap-2 text-xs">
+              <div
+                className={cn(
+                  "grid gap-2 text-xs",
+                  userType ? "grid-cols-3" : "grid-cols-2"
+                )}
+              >
                 {isProfileLoading ? (
                   <InfoTileSkeleton />
                 ) : createdAt ? (
@@ -759,21 +704,6 @@ export function UserCardPanel({
                     icon={<SparklesIcon className="size-3" />}
                     label="Subscription"
                     value={subscriptionLabel}
-                  />
-                )}
-                {isChannelStatusLoading ? (
-                  <InfoTileSkeleton />
-                ) : (
-                  <InfoTile
-                    icon={<ClockIcon className="size-3" />}
-                    label="Followage"
-                    value={
-                      subageUnavailable
-                        ? "Unavailable"
-                        : followedAt
-                          ? `Since ${followedAt}`
-                          : "Not following"
-                    }
                   />
                 )}
                 {isProfileLoading ? (

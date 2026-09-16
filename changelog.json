@@ -18,6 +18,7 @@
             "Changed the account menu to use the user's banner instead of offline image.",
             "Removed channel updates feature due to EventSub issues.",
             "Removed the /w whisper command due to limitations.",
+            "Removed followage from user cards due to Twitch removing any accessible view of it.",
             "Fixed a performance issue with resizing chat panes.",
             "Fixed a few performance issues with rendering/processing new messages.",
             "Fixed a styling bug where highlights and search matches looked off."
