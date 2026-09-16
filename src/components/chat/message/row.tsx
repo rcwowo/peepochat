@@ -81,6 +81,7 @@ function ChatMessageRowInner({
   pingHighlighted = false,
   pingMatchRange = null,
   searchHighlightRanges = null,
+  usernameHighlightRanges = null,
   channelLabel = null,
 }: {
   message: TwitchChatMessage
@@ -100,6 +101,7 @@ function ChatMessageRowInner({
   pingHighlighted?: boolean
   pingMatchRange?: PingMatchRange | null
   searchHighlightRanges?: PingMatchRange[] | null
+  usernameHighlightRanges?: PingMatchRange[] | null
   channelLabel?: string | null
 }) {
   const [pendingAction, setPendingAction] = React.useState<
@@ -357,7 +359,10 @@ function ChatMessageRowInner({
           showFallback={showTwitchBadges && showBadgeFallback}
           sourceChannel={sourceChannel}
         />
-        <UserCardPopover target={userCardTarget} />
+        <UserCardPopover
+          target={userCardTarget}
+          nameHighlightRanges={usernameHighlightRanges}
+        />
         {message.flags.isAction ? null : (
           <span className="chat-colon text-muted-foreground">: </span>
         )}

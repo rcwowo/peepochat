@@ -256,6 +256,7 @@ function SearchResultsList({
                 showTwitchBadges={showTwitchBadges}
                 showMemberBadges={showMemberBadges}
                 searchHighlightRanges={result.highlightRanges}
+                usernameHighlightRanges={result.usernameHighlightRanges}
                 channelLabel={
                   showChannelLabels
                     ? (channelLabels.get(channelLogin) ?? channelLogin)

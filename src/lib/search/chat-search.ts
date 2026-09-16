@@ -51,6 +51,7 @@ export type ChatSearchSuggestion = {
 export type ChatSearchResult = {
   message: TwitchChatMessage
   highlightRanges: PingMatchRange[]
+  usernameHighlightRanges: PingMatchRange[]
 }
 
 export type ChatSearchUsername = {
@@ -511,6 +512,31 @@ function messageMatchesHas(message: TwitchChatMessage, value: string) {
   }
 }
 
+function findKeywordRanges(text: string, keyword: string): PingMatchRange[] {
+  if (!keyword || !text) {
+    return []
+  }
+
+  const escaped = escapeRegExp(keyword)
+  let pattern: RegExp
+  try {
+    pattern = new RegExp(escaped, "giu")
+  } catch {
+    pattern = new RegExp(escaped, "gi")
+  }
+
+  const ranges: PingMatchRange[] = []
+  for (const match of text.matchAll(pattern)) {
+    const start = match.index ?? 0
+    ranges.push({
+      start,
+      end: start + match[0].length,
+    })
+  }
+
+  return ranges
+}
+
 export function findKeywordHighlightRanges(
   text: string,
   keywords: string[]
@@ -526,27 +552,12 @@ export function findKeywordHighlightRanges(
       continue
     }
 
-    const escaped = escapeRegExp(keyword)
-    let pattern: RegExp
-    try {
-      pattern = new RegExp(escaped, "giu")
-    } catch {
-      pattern = new RegExp(escaped, "gi")
-    }
-
-    let found = false
-    for (const match of text.matchAll(pattern)) {
-      const start = match.index ?? 0
-      found = true
-      ranges.push({
-        start,
-        end: start + match[0].length,
-      })
-    }
-
-    if (!found) {
+    const found = findKeywordRanges(text, keyword)
+    if (found.length === 0) {
       return null
     }
+
+    ranges.push(...found)
   }
 
   return mergeHighlightRanges(ranges)
@@ -613,15 +624,50 @@ export function matchChatSearchMessage(
     return null
   }
 
-  const highlightRanges = findKeywordHighlightRanges(
-    message.text,
-    parsed.keywords
-  )
-  if (!highlightRanges) {
-    return null
+  if (parsed.keywords.length === 0) {
+    return {
+      message,
+      highlightRanges: [],
+      usernameHighlightRanges: [],
+    }
   }
 
-  return { message, highlightRanges }
+  const highlightRanges: PingMatchRange[] = []
+  const usernameHighlightRanges: PingMatchRange[] = []
+
+  for (const keyword of parsed.keywords) {
+    if (!keyword) {
+      continue
+    }
+
+    const textRanges = findKeywordRanges(message.text, keyword)
+    const displayRanges = findKeywordRanges(message.displayName, keyword)
+    const loginRanges = findKeywordRanges(message.userName, keyword)
+
+    if (
+      textRanges.length === 0 &&
+      displayRanges.length === 0 &&
+      loginRanges.length === 0
+    ) {
+      return null
+    }
+
+    highlightRanges.push(...textRanges)
+    if (displayRanges.length > 0) {
+      usernameHighlightRanges.push(...displayRanges)
+    } else if (loginRanges.length > 0 && message.displayName.length > 0) {
+      usernameHighlightRanges.push({
+        start: 0,
+        end: message.displayName.length,
+      })
+    }
+  }
+
+  return {
+    message,
+    highlightRanges: mergeHighlightRanges(highlightRanges),
+    usernameHighlightRanges: mergeHighlightRanges(usernameHighlightRanges),
+  }
 }
 
 function compareChatSearchResults(

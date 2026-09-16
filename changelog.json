@@ -12,13 +12,15 @@
             "Moved the quick action settings to the appearance tab.",
             "Major redesign to the add channel dialog to show your following list.",
             "Minor redesign to context/dropdown menus.",
+            "Changed search behaviour to also search names in queries.",
             "Changed chat modes to be displayed as system messages instead.",
             "Changed shared chat sessions to be polled instead of using EventSub.",
             "Changed the account menu to use the user's banner instead of offline image.",
             "Removed channel updates feature due to EventSub issues.",
             "Removed the /w whisper command due to limitations.",
             "Fixed a performance issue with resizing chat panes.",
-            "Fixed a few performance issues with rendering/processing new messages."
+            "Fixed a few performance issues with rendering/processing new messages.",
+            "Fixed a styling bug where highlights and search matches looked off."
         ]
     },
     {

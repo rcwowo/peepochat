@@ -3,12 +3,18 @@ import * as React from "react"
 import { useResolvedUsernameColor } from "@/hooks/chat-ui/use-resolved-username-color"
 import { useUserCardContext } from "@/hooks/chat-ui/use-user-card-context"
 import type { UserCardTarget } from "@/lib/chat/user-card/user-card"
+import type { PingMatchRange } from "@/lib/highlights/highlight-rules"
+import { HighlightedText } from "@/lib/highlights/ping-match-mark"
 
 type UserCardPopoverProps = {
   target: UserCardTarget
+  nameHighlightRanges?: PingMatchRange[] | null
 }
 
-export function UserCardPopover({ target }: UserCardPopoverProps) {
+export function UserCardPopover({
+  target,
+  nameHighlightRanges,
+}: UserCardPopoverProps) {
   const context = useUserCardContext()
   const triggerRef = React.useRef<HTMLButtonElement>(null)
   const readableColor = useResolvedUsernameColor({
@@ -31,7 +37,10 @@ export function UserCardPopover({ target }: UserCardPopoverProps) {
         className="chat-username font-semibold"
         style={readableColor ? { color: readableColor } : undefined}
       >
-        {target.displayName}
+        <HighlightedText
+          text={target.displayName}
+          ranges={nameHighlightRanges}
+        />
       </span>
     )
   }
@@ -48,7 +57,7 @@ export function UserCardPopover({ target }: UserCardPopoverProps) {
       style={readableColor ? { color: readableColor } : undefined}
       onClick={handleTriggerClick}
     >
-      {target.displayName}
+      <HighlightedText text={target.displayName} ranges={nameHighlightRanges} />
     </button>
   )
 }

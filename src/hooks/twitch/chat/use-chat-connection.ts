@@ -383,9 +383,6 @@ export function useChatConnection({
           break
         case "disconnected":
           readJoinedChannelsRef.current.clear()
-          for (const login of syncedChannelsRef.current) {
-            pendingChatModesNoticeRef.current.add(login)
-          }
           senderStateRef.current = createEmptySenderState()
           selfStatesRef.current.clear()
           setSelfStates({})
@@ -425,7 +422,6 @@ export function useChatConnection({
           break
         case "channel-parted":
           readJoinedChannelsRef.current.delete(event.channel)
-          pendingChatModesNoticeRef.current.add(event.channel)
           updateRoom(event.channel, (room) => ({
             ...room,
             joined: false,
