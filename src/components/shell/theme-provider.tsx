@@ -3,6 +3,8 @@ import * as React from "react"
 
 type Theme = "dark" | "light" | "system"
 type ResolvedTheme = "dark" | "light"
+export type ColorScheme =
+  "gray" | "red" | "orange" | "yellow" | "green" | "blue" | "purple" | "pink"
 
 type ThemeProviderProps = {
   children: React.ReactNode
@@ -14,10 +16,24 @@ type ThemeProviderProps = {
 type ThemeProviderState = {
   theme: Theme
   setTheme: (theme: Theme) => void
+  colorScheme: ColorScheme
+  setColorScheme: (colorScheme: ColorScheme) => void
 }
 
 const COLOR_SCHEME_QUERY = "(prefers-color-scheme: dark)"
 const THEME_VALUES: Theme[] = ["dark", "light", "system"]
+const COLOR_SCHEME_STORAGE_KEY = "colorScheme"
+const DEFAULT_COLOR_SCHEME: ColorScheme = "gray"
+const COLOR_SCHEME_VALUES: ColorScheme[] = [
+  "gray",
+  "red",
+  "orange",
+  "yellow",
+  "green",
+  "blue",
+  "purple",
+  "pink",
+]
 
 const ThemeProviderContext = React.createContext<
   ThemeProviderState | undefined
@@ -29,6 +45,26 @@ function isTheme(value: string | null): value is Theme {
   }
 
   return THEME_VALUES.includes(value as Theme)
+}
+
+function isColorScheme(value: string | null): value is ColorScheme {
+  return value !== null && COLOR_SCHEME_VALUES.includes(value as ColorScheme)
+}
+
+function readStoredValue(key: string): string | null {
+  try {
+    return window.localStorage.getItem(key)
+  } catch {
+    return null
+  }
+}
+
+function writeStoredValue(key: string, value: string) {
+  try {
+    window.localStorage.setItem(key, value)
+  } catch {
+    return
+  }
 }
 
 function getSystemTheme(): ResolvedTheme {
@@ -66,7 +102,7 @@ export function ThemeProvider({
   ...props
 }: ThemeProviderProps) {
   const [theme, setThemeState] = React.useState<Theme>(() => {
-    const storedTheme = localStorage.getItem(storageKey)
+    const storedTheme = readStoredValue(storageKey)
     if (isTheme(storedTheme)) {
       return storedTheme
     }
@@ -74,13 +110,25 @@ export function ThemeProvider({
     return defaultTheme
   })
 
+  const [colorScheme, setColorSchemeState] = React.useState<ColorScheme>(() => {
+    const storedColorScheme = readStoredValue(COLOR_SCHEME_STORAGE_KEY)
+    return isColorScheme(storedColorScheme)
+      ? storedColorScheme
+      : DEFAULT_COLOR_SCHEME
+  })
+
   const setTheme = React.useCallback(
     (nextTheme: Theme) => {
-      localStorage.setItem(storageKey, nextTheme)
+      writeStoredValue(storageKey, nextTheme)
       setThemeState(nextTheme)
     },
     [storageKey]
   )
+
+  const setColorScheme = React.useCallback((nextColorScheme: ColorScheme) => {
+    writeStoredValue(COLOR_SCHEME_STORAGE_KEY, nextColorScheme)
+    setColorSchemeState(nextColorScheme)
+  }, [])
 
   const applyTheme = React.useCallback(
     (nextTheme: Theme) => {
@@ -93,12 +141,14 @@ export function ThemeProvider({
 
       root.classList.remove("light", "dark")
       root.classList.add(resolvedTheme)
+      root.style.colorScheme = resolvedTheme
+      root.dataset.colorScheme = colorScheme
 
       if (restoreTransitions) {
         restoreTransitions()
       }
     },
-    [disableTransitionOnChange]
+    [colorScheme, disableTransitionOnChange]
   )
 
   React.useEffect(() => {
@@ -122,20 +172,29 @@ export function ThemeProvider({
 
   React.useEffect(() => {
     const handleStorageChange = (event: StorageEvent) => {
-      if (event.storageArea !== localStorage) {
+      try {
+        if (event.storageArea !== window.localStorage) {
+          return
+        }
+      } catch {
         return
       }
 
-      if (event.key !== storageKey) {
-        return
+      if (event.key === null || event.key === storageKey) {
+        setThemeState(
+          event.key !== null && isTheme(event.newValue)
+            ? event.newValue
+            : defaultTheme
+        )
       }
 
-      if (isTheme(event.newValue)) {
-        setThemeState(event.newValue)
-        return
+      if (event.key === null || event.key === COLOR_SCHEME_STORAGE_KEY) {
+        setColorSchemeState(
+          event.key !== null && isColorScheme(event.newValue)
+            ? event.newValue
+            : DEFAULT_COLOR_SCHEME
+        )
       }
-
-      setThemeState(defaultTheme)
     }
 
     window.addEventListener("storage", handleStorageChange)
@@ -149,8 +208,10 @@ export function ThemeProvider({
     () => ({
       theme,
       setTheme,
+      colorScheme,
+      setColorScheme,
     }),
-    [theme, setTheme]
+    [theme, setTheme, colorScheme, setColorScheme]
   )
 
   return (

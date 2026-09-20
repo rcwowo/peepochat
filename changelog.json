@@ -1,5 +1,12 @@
 [
     {
+        "version": "1.3.0",
+        "date": "2026-10-01",
+        "items": [
+            "Added experimental support for other color schemes."
+        ]
+    },
+    {
         "version": "1.2.0",
         "date": "2026-09-16",
         "items": [

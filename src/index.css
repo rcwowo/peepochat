@@ -45,28 +45,105 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-:root {
+:root,
+[data-color-scheme] {
+  --scheme-chroma: 0;
+  --scheme-hue-shift: 0;
+}
+
+[data-color-scheme="red"] {
+  --scheme-chroma: 0.8;
+  --scheme-hue-shift: -278;
+}
+
+[data-color-scheme="orange"] {
+  --scheme-chroma: 0.7;
+  --scheme-hue-shift: -248;
+}
+
+[data-color-scheme="yellow"] {
+  --scheme-chroma: 0.5;
+  --scheme-hue-shift: -213;
+}
+
+[data-color-scheme="green"] {
+  --scheme-chroma: 0.65;
+  --scheme-hue-shift: -160;
+}
+
+[data-color-scheme="blue"] {
+  --scheme-chroma: 0.8;
+  --scheme-hue-shift: -48;
+}
+
+[data-color-scheme="purple"] {
+  --scheme-chroma: 1;
+  --scheme-hue-shift: 0;
+}
+
+[data-color-scheme="pink"] {
+  --scheme-chroma: 0.85;
+  --scheme-hue-shift: 42;
+}
+
+:root,
+[data-color-scheme] {
   --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0.008 326);
+  --foreground: oklch(
+    0.145 calc(0.008 * var(--scheme-chroma)) calc(326 + var(--scheme-hue-shift))
+  );
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0.008 326);
+  --card-foreground: var(--foreground);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0.008 326);
-  --primary: oklch(0.496 0.265 301.924);
-  --primary-foreground: oklch(0.977 0.014 308.299);
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.96 0.003 325.6);
-  --muted-foreground: oklch(0.542 0.034 322.5);
-  --accent: oklch(0.96 0.003 325.6);
-  --accent-foreground: oklch(0.212 0.019 322.12);
+  --popover-foreground: var(--foreground);
+  --primary: oklch(
+    0.496 calc(0.265 * var(--scheme-chroma))
+      calc(301.924 + var(--scheme-hue-shift))
+  );
+  --primary-foreground: oklch(
+    0.977 calc(0.014 * var(--scheme-chroma))
+      calc(308.299 + var(--scheme-hue-shift))
+  );
+  --secondary: oklch(
+    0.967 calc(0.001 * var(--scheme-chroma))
+      calc(286.375 + var(--scheme-hue-shift))
+  );
+  --secondary-foreground: oklch(
+    0.21 calc(0.006 * var(--scheme-chroma))
+      calc(285.885 + var(--scheme-hue-shift))
+  );
+  --muted: oklch(
+    0.96 calc(0.003 * var(--scheme-chroma))
+      calc(325.6 + var(--scheme-hue-shift))
+  );
+  --muted-foreground: oklch(
+    0.542 calc(0.034 * var(--scheme-chroma))
+      calc(322.5 + var(--scheme-hue-shift))
+  );
+  --accent: var(--muted);
+  --accent-foreground: oklch(
+    0.212 calc(0.019 * var(--scheme-chroma))
+      calc(322.12 + var(--scheme-hue-shift))
+  );
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0.005 325.62);
-  --input: oklch(0.922 0.005 325.62);
-  --ring: oklch(0.711 0.019 323.02);
+  --border: oklch(
+    0.922 calc(0.005 * var(--scheme-chroma))
+      calc(325.62 + var(--scheme-hue-shift))
+  );
+  --input: var(--border);
+  --ring: oklch(
+    0.711 calc(0.019 * var(--scheme-chroma))
+      calc(323.02 + var(--scheme-hue-shift))
+  );
   --radius: 0.625rem;
-  --shine-base: oklch(0.438 0.218 303.915);
-  --shine: oklch(0.54 0.194 307.972);
+  --shine-base: oklch(
+    0.438 calc(0.218 * var(--scheme-chroma))
+      calc(303.915 + var(--scheme-hue-shift))
+  );
+  --shine: oklch(
+    0.54 calc(0.194 * var(--scheme-chroma))
+      calc(307.972 + var(--scheme-hue-shift))
+  );
   --shine-foreground: oklch(1 0 0);
   --shine-gradient: linear-gradient(
     to bottom,
@@ -81,29 +158,59 @@
     var(--shine)
   );
   --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0.008 326);
-  --sidebar-primary: oklch(0.558 0.288 302.321);
-  --sidebar-primary-foreground: oklch(0.977 0.014 308.299);
-  --sidebar-accent: oklch(0.96 0.003 325.6);
-  --sidebar-accent-foreground: oklch(0.212 0.019 322.12);
-  --sidebar-border: oklch(0.922 0.005 325.62);
-  --sidebar-ring: oklch(0.711 0.019 323.02);
-  --chat-background: oklch(0.985 0.002 325.6);
-  --chat-row-alt: oklch(0.955 0.004 325.6);
-  --chat-row-separator: oklch(0.9 0.004 325.6 / 65%);
-  --chat-message-foreground: oklch(0.24 0.02 322.12);
-  --chat-timestamp: oklch(0.58 0.03 322.5 / 75%);
-  --chat-colon: oklch(0.58 0.03 322.5);
-  --chat-link: oklch(0.45 0.22 303);
-  --chat-link-hover: oklch(0.38 0.22 303);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: oklch(
+    0.558 calc(0.288 * var(--scheme-chroma))
+      calc(302.321 + var(--scheme-hue-shift))
+  );
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+  --chat-background: oklch(
+    0.985 calc(0.002 * var(--scheme-chroma))
+      calc(325.6 + var(--scheme-hue-shift))
+  );
+  --chat-row-alt: oklch(
+    0.955 calc(0.004 * var(--scheme-chroma))
+      calc(325.6 + var(--scheme-hue-shift))
+  );
+  --chat-row-separator: oklch(
+    0.9 calc(0.004 * var(--scheme-chroma))
+      calc(325.6 + var(--scheme-hue-shift)) / 65%
+  );
+  --chat-message-foreground: oklch(
+    0.24 calc(0.02 * var(--scheme-chroma))
+      calc(322.12 + var(--scheme-hue-shift))
+  );
+  --chat-timestamp: oklch(
+    0.58 calc(0.03 * var(--scheme-chroma))
+      calc(322.5 + var(--scheme-hue-shift)) / 75%
+  );
+  --chat-colon: oklch(
+    0.58 calc(0.03 * var(--scheme-chroma)) calc(322.5 + var(--scheme-hue-shift))
+  );
+  --chat-link: oklch(
+    0.45 calc(0.22 * var(--scheme-chroma)) calc(303 + var(--scheme-hue-shift))
+  );
+  --chat-link-hover: oklch(
+    0.38 calc(0.22 * var(--scheme-chroma)) calc(303 + var(--scheme-hue-shift))
+  );
   --chat-badge-size: 18px;
   --chat-emote-size: 28px;
   --chat-gif-max-height: 140px;
   --chat-emote-margin: -0.35rem;
   --chat-scrollbar-thumb: oklch(0 0 0 / 18%);
-  --chat-system-foreground: oklch(0.58 0.03 322.5);
-  --chat-notice-background: oklch(0.96 0.003 325.6 / 80%);
-  --chat-announcement-background: oklch(0.96 0.003 325.6 / 55%);
+  --chat-system-foreground: var(--chat-colon);
+  --chat-notice-background: oklch(
+    0.96 calc(0.003 * var(--scheme-chroma))
+      calc(325.6 + var(--scheme-hue-shift)) / 80%
+  );
+  --chat-announcement-background: oklch(
+    0.96 calc(0.003 * var(--scheme-chroma))
+      calc(325.6 + var(--scheme-hue-shift)) / 55%
+  );
   --chat-notice-sub-border: #9146ff;
   --chat-notice-raid-border: #eb0400;
   --chat-automod-border: #eb0400;
@@ -111,48 +218,123 @@
 }
 
 .dark {
-  --background: oklch(0.145 0.008 326);
+  --background: oklch(
+    0.145 calc(0.008 * var(--scheme-chroma)) calc(326 + var(--scheme-hue-shift))
+  );
   --foreground: oklch(0.985 0 0);
-  --card: oklch(0.212 0.019 322.12);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.212 0.019 322.12);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.438 0.218 303.724);
-  --primary-foreground: oklch(0.977 0.014 308.299);
-  --secondary: oklch(0.274 0.006 286.033);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.263 0.024 320.12);
-  --muted-foreground: oklch(0.711 0.019 323.02);
-  --accent: oklch(0.263 0.024 320.12);
-  --accent-foreground: oklch(0.985 0 0);
+  --card: oklch(
+    0.212 calc(0.019 * var(--scheme-chroma))
+      calc(322.12 + var(--scheme-hue-shift))
+  );
+  --card-foreground: var(--foreground);
+  --popover: var(--card);
+  --popover-foreground: var(--foreground);
+  --primary: oklch(
+    0.438 calc(0.218 * var(--scheme-chroma))
+      calc(303.724 + var(--scheme-hue-shift))
+  );
+  --primary-foreground: oklch(
+    0.977 calc(0.014 * var(--scheme-chroma))
+      calc(308.299 + var(--scheme-hue-shift))
+  );
+  --secondary: oklch(
+    0.274 calc(0.006 * var(--scheme-chroma))
+      calc(286.033 + var(--scheme-hue-shift))
+  );
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(
+    0.263 calc(0.024 * var(--scheme-chroma))
+      calc(320.12 + var(--scheme-hue-shift))
+  );
+  --muted-foreground: oklch(
+    0.711 calc(0.019 * var(--scheme-chroma))
+      calc(323.02 + var(--scheme-hue-shift))
+  );
+  --accent: var(--muted);
+  --accent-foreground: var(--foreground);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.542 0.034 322.5);
-  --sidebar: oklch(0.212 0.019 322.12);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.627 0.265 303.9);
-  --sidebar-primary-foreground: oklch(0.977 0.014 308.299);
-  --sidebar-accent: oklch(0.263 0.024 320.12);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.542 0.034 322.5);
-  --chat-background: oklch(0.17 0.014 322.12);
-  --chat-row-alt: oklch(0.215 0.017 322.12);
-  --chat-row-separator: oklch(0.28 0.018 322.12 / 70%);
-  --chat-message-foreground: oklch(0.93 0.004 325.6);
-  --chat-timestamp: oklch(0.68 0.02 323.02 / 70%);
-  --chat-colon: oklch(0.68 0.02 323.02);
-  --chat-link: oklch(0.72 0.16 303);
-  --chat-link-hover: oklch(0.8 0.14 303);
+  --ring: oklch(
+    0.542 calc(0.034 * var(--scheme-chroma))
+      calc(322.5 + var(--scheme-hue-shift))
+  );
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: oklch(
+    0.627 calc(0.265 * var(--scheme-chroma))
+      calc(303.9 + var(--scheme-hue-shift))
+  );
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+  --chat-background: oklch(
+    0.17 calc(0.014 * var(--scheme-chroma))
+      calc(322.12 + var(--scheme-hue-shift))
+  );
+  --chat-row-alt: oklch(
+    0.215 calc(0.017 * var(--scheme-chroma))
+      calc(322.12 + var(--scheme-hue-shift))
+  );
+  --chat-row-separator: oklch(
+    0.28 calc(0.018 * var(--scheme-chroma))
+      calc(322.12 + var(--scheme-hue-shift)) / 70%
+  );
+  --chat-message-foreground: oklch(
+    0.93 calc(0.004 * var(--scheme-chroma))
+      calc(325.6 + var(--scheme-hue-shift))
+  );
+  --chat-timestamp: oklch(
+    0.68 calc(0.02 * var(--scheme-chroma))
+      calc(323.02 + var(--scheme-hue-shift)) / 70%
+  );
+  --chat-colon: oklch(
+    0.68 calc(0.02 * var(--scheme-chroma))
+      calc(323.02 + var(--scheme-hue-shift))
+  );
+  --chat-link: oklch(
+    0.72 calc(0.16 * var(--scheme-chroma)) calc(303 + var(--scheme-hue-shift))
+  );
+  --chat-link-hover: oklch(
+    0.8 calc(0.14 * var(--scheme-chroma)) calc(303 + var(--scheme-hue-shift))
+  );
   --chat-scrollbar-thumb: oklch(1 0 0 / 18%);
-  --chat-system-foreground: oklch(0.68 0.02 323.02);
-  --chat-notice-background: oklch(0.22 0.018 322.12 / 90%);
-  --chat-announcement-background: oklch(0.22 0.018 322.12 / 55%);
+  --chat-system-foreground: var(--chat-colon);
+  --chat-notice-background: oklch(
+    0.22 calc(0.018 * var(--scheme-chroma))
+      calc(322.12 + var(--scheme-hue-shift)) / 90%
+  );
+  --chat-announcement-background: oklch(
+    0.22 calc(0.018 * var(--scheme-chroma))
+      calc(322.12 + var(--scheme-hue-shift)) / 55%
+  );
   --chat-notice-sub-border: #bf94ff;
   --chat-notice-raid-border: #ff6b6b;
   --chat-automod-border: #ff6b6b;
   --chat-first-message-border: #00db84;
+}
+
+[data-color-scheme="gray"] {
+  --shine-base: oklch(0.06 0 0);
+  --shine: oklch(0.36 0 0);
+  --shine-foreground: oklch(0.985 0 0);
+}
+
+.dark[data-color-scheme="gray"] {
+  --primary: oklch(0.85 0 0);
+  --primary-foreground: oklch(0.145 0 0);
+  --sidebar-primary: var(--primary);
+  --shine-base: oklch(0.68 0 0);
+  --shine: oklch(0.99 0 0);
+  --shine-foreground: oklch(0.145 0 0);
+}
+
+.landing-page.dark {
+  color-scheme: dark;
+  --primary: oklch(0.72 0.16 143.724);
+  --primary-foreground: oklch(0.145 0.008 166);
 }
 
 @layer base {
@@ -192,13 +374,14 @@
 
   .chat-presentation .chat-message-size {
     font-size: var(--chat-font-size, 13px);
-    line-height: var(--chat-line-height, calc(var(--chat-font-size, 13px) * 1.25));
+    line-height: var(
+      --chat-line-height,
+      calc(var(--chat-font-size, 13px) * 1.25)
+    );
   }
 
   .chat-presentation .chat-message {
-    padding-block: calc(
-      0.25rem + var(--chat-message-extra-padding-block, 0px)
-    );
+    padding-block: calc(0.25rem + var(--chat-message-extra-padding-block, 0px));
   }
 
   .chat-message {
@@ -307,7 +490,8 @@
     border-radius: 9999px;
     object-fit: cover;
     background-color: color-mix(in oklab, var(--muted) 80%, transparent);
-    box-shadow: 0 0 0 1px color-mix(in oklab, var(--foreground) 18%, transparent);
+    box-shadow: 0 0 0 1px
+      color-mix(in oklab, var(--foreground) 18%, transparent);
   }
 
   .chat-badge-fallback {

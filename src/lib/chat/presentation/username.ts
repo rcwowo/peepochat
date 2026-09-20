@@ -32,13 +32,13 @@ function ensureBackgroundObserver() {
   if (root) {
     backgroundObserver.observe(root, {
       attributes: true,
-      attributeFilter: ["class", "data-theme", "style"],
+      attributeFilter: ["class", "data-theme", "data-color-scheme", "style"],
     })
   }
   if (document.body) {
     backgroundObserver.observe(document.body, {
       attributes: true,
-      attributeFilter: ["class", "data-theme", "style"],
+      attributeFilter: ["class", "data-theme", "data-color-scheme", "style"],
     })
   }
 }

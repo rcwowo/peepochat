@@ -30,7 +30,7 @@ import {
   type MessageTimestampFormat,
 } from "@/lib/peepochat/peepochat-config"
 import { usePeepochatSettings } from "@/lib/peepochat/peepochat-context"
-import { useTheme } from "@/components/shell/theme-provider"
+import { useTheme, type ColorScheme } from "@/components/shell/theme-provider"
 import {
   SettingsDivider,
   SettingsGroup,
@@ -43,6 +43,21 @@ import {
   SettingsTab,
 } from "@/components/settings/settings-primitives"
 import { cn } from "@/lib/utils"
+
+const COLOR_SCHEME_OPTIONS: {
+  value: ColorScheme
+  label: string
+  color: string
+}[] = [
+  { value: "gray", label: "Gray", color: "#737373" },
+  { value: "red", label: "Red", color: "#ef4444" },
+  { value: "orange", label: "Orange", color: "#f97316" },
+  { value: "yellow", label: "Yellow", color: "#eab308" },
+  { value: "green", label: "Green", color: "#22c55e" },
+  { value: "blue", label: "Blue", color: "#3b82f6" },
+  { value: "purple", label: "Purple", color: "#a855f7" },
+  { value: "pink", label: "Pink", color: "#ec4899" },
+]
 
 const MESSAGE_TIMESTAMP_FORMAT_OPTIONS: {
   value: MessageTimestampFormat
@@ -138,7 +153,7 @@ export function AppearanceTab() {
   const { config, updateConfig, account } = usePeepochatSettings()
   const canConfigureChatMessages = canDeleteChatMessages(account)
   const canConfigureBanOrTimeout = canBanOrTimeoutUsers(account)
-  const { theme, setTheme } = useTheme()
+  const { theme, setTheme, colorScheme, setColorScheme } = useTheme()
   const scalesLinked = config.chat.linkEmoteScaleToFontSize
 
   const commitFontFamily = React.useCallback(
@@ -209,7 +224,7 @@ export function AppearanceTab() {
 
       <SettingsSection
         title="Theme"
-        description="Which color scheme the app uses."
+        description="Use light, dark, or your system's appearance."
       >
         <SettingsSegmented
           value={theme}
@@ -221,6 +236,39 @@ export function AppearanceTab() {
             { value: "dark", label: "Dark", icon: MoonIcon },
           ]}
         />
+      </SettingsSection>
+
+      <SettingsSection
+        title="Color scheme"
+        description="Choose a palette for both light and dark modes."
+      >
+        <div
+          role="group"
+          aria-label="Color scheme"
+          className="grid grid-cols-2 gap-2"
+        >
+          {COLOR_SCHEME_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              aria-pressed={colorScheme === option.value}
+              onClick={() => setColorScheme(option.value)}
+              className={cn(
+                "inline-flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/45",
+                colorScheme === option.value
+                  ? "border-primary bg-primary/10 text-foreground"
+                  : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <span
+                aria-hidden="true"
+                className="size-5 shrink-0 rounded-full border border-black/10"
+                style={{ backgroundColor: option.color }}
+              />
+              {option.label}
+            </button>
+          ))}
+        </div>
       </SettingsSection>
 
       <SettingsSection
