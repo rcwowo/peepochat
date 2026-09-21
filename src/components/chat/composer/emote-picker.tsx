@@ -163,17 +163,6 @@ export function EmotePicker({
         className="flex h-[min(19.5rem,62vh)] w-[min(23.5rem,calc(100vw-1rem))] flex-col overflow-hidden p-0"
         onWheel={(event) => event.stopPropagation()}
       >
-        <div className="relative shrink-0 border-b border-border/80">
-          <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search…"
-            className="h-8 rounded-none rounded-t-md border-0 py-0 pr-2.5 pl-8 text-sm shadow-none focus-visible:ring-0"
-          />
-        </div>
-
         {query.trim() ? (
           <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
             <EmoteGrid emotes={searchResults} onSelect={handleSelect} />
@@ -215,6 +204,17 @@ export function EmotePicker({
             ) : null}
           </Tabs>
         )}
+
+        <div className="relative shrink-0 border-t border-border/80">
+          <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search…"
+            className="h-8 rounded-none rounded-b-md border-0 py-0 pr-2.5 pl-8 text-sm shadow-none focus-visible:ring-0"
+          />
+        </div>
       </PopoverContent>
     </Popover>
   )
@@ -268,7 +268,7 @@ function CategoryNav({
 }) {
   return (
     <nav
-      className="flex w-10 shrink-0 flex-col gap-1 overflow-x-hidden overflow-y-auto overscroll-contain border-r border-border/80 p-1"
+      className="flex w-14 shrink-0 flex-col gap-1 overflow-x-hidden overflow-y-auto overscroll-contain border-r border-border/80 py-1.5"
       aria-label="Emote categories"
     >
       {categories.map((category) => {
