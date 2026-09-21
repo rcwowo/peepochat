@@ -63,9 +63,6 @@ function measureChatItem(
 function remeasureMountedItems(
   virtualizer: Virtualizer<HTMLDivElement, Element>
 ) {
-  virtualizer.measure()
-  virtualizer.getVirtualItems()
-
   for (const element of [...virtualizer.elementsCache.values()]) {
     if (element.isConnected) {
       virtualizer.resizeItem(
