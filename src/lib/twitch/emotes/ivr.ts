@@ -19,7 +19,15 @@ export type IvrTwitchEmote = {
   emoteTier: string | null
 }
 
-const emoteCache = new Map<string, Promise<IvrTwitchEmote | null>>()
+type IvrCacheEntry = {
+  request: Promise<IvrTwitchEmote | null>
+  settledAt: number
+  found: boolean
+}
+
+const NEGATIVE_TTL_MS = 60 * 1000
+
+const emoteCache = new Map<string, IvrCacheEntry>()
 
 export function clearTwitchEmoteIvrCache() {
   emoteCache.clear()
@@ -35,7 +43,12 @@ export async function fetchTwitchEmoteFromIvr(
 
   const cached = emoteCache.get(normalizedId)
   if (cached) {
-    return cached
+    const isStaleFailure =
+      !cached.found && Date.now() - cached.settledAt >= NEGATIVE_TTL_MS
+    if (!isStaleFailure) {
+      return cached.request
+    }
+    emoteCache.delete(normalizedId)
   }
 
   const request = devLoggedFetch(
@@ -49,6 +62,16 @@ export async function fetchTwitchEmoteFromIvr(
     })
     .catch(() => null)
 
-  emoteCache.set(normalizedId, request)
+  const entry: IvrCacheEntry = {
+    request,
+    settledAt: Date.now(),
+    found: false,
+  }
+  void request.then((value) => {
+    entry.found = value !== null
+    entry.settledAt = Date.now()
+  })
+
+  emoteCache.set(normalizedId, entry)
   return request
 }

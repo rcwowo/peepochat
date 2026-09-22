@@ -49,29 +49,29 @@ Verify each fix compiles with `bun run lint` and `bun run build` before marking 
 
 ## Cache & memory hygiene (#7, #10, #9, #11, #13)
 
-- [ ] **7. IndexedDB connections opened per operation, never closed** (medium)
+- [x] **7. IndexedDB connections opened per operation, never closed** (medium)
   - File: `src/lib/highlights/custom-sounds.ts:17-64`
   - Every sound read/write opens a fresh `IDBDatabase` and drops it without `close()`;
     `restoreEmbeddedCustomSounds` leaks one connection per sound during backup import.
   - Fix direction: close the database after each transaction completes, or cache a single
     connection.
 
-- [ ] **10. Failed IVR emote lookups cached permanently (no negative-cache TTL)** (low)
+- [x] **10. Failed IVR emote lookups cached permanently (no negative-cache TTL)** (low)
   - File: `src/lib/twitch/emotes/ivr.ts:30-45`
   - A transient IVR outage poisons the cache entry (null) for that emote id for the whole session;
     emote cards show fallback details until reload.
 
-- [ ] **9. Unbounded `dismissedMissedPingIds` set** (low)
+- [x] **9. Unbounded `dismissedMissedPingIds` set** (low)
   - File: `src/lib/highlights/notification-center.ts:55, 463, 483`
   - Every dismissed/removed/replaced missed-ping notification adds an id that is never pruned;
     slow unbounded growth for the session.
 
-- [ ] **11. User-card caches with no eviction/cap** (low)
+- [x] **11. User-card caches with no eviction/cap** (low)
   - File: `src/hooks/chat-ui/use-user-card.ts:82-85`
   - `profileCache` / `profileInflight` / `statusCache` maps are unbounded; TTL only checked on
     read, stale entries never deleted; token/scope changes add new keys without clearing old ones.
 
-- [ ] **13. Stale `Audio` elements referencing revoked blob URLs** (low)
+- [x] **13. Stale `Audio` elements referencing revoked blob URLs** (low)
   - Files: `src/lib/highlights/alert-sounds.ts:17-29`, `src/lib/highlights/custom-sounds.ts:131-139`
   - `revokeCustomSoundObjectUrl` revokes the blob URL but the cached `HTMLAudioElement` in
     `audioCache` still references it and is never evicted.

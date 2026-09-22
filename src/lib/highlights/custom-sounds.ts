@@ -14,6 +14,18 @@ export type StoredCustomSound = {
 
 const objectUrlCache = new Map<string, string>()
 
+type ObjectUrlRevokedListener = (url: string) => void
+const objectUrlRevokedListeners = new Set<ObjectUrlRevokedListener>()
+
+export function onCustomSoundObjectUrlRevoked(
+  listener: ObjectUrlRevokedListener
+) {
+  objectUrlRevokedListeners.add(listener)
+  return () => {
+    objectUrlRevokedListeners.delete(listener)
+  }
+}
+
 function openSoundDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION)
@@ -51,10 +63,12 @@ function runSoundStoreTransaction<T>(
         }
 
         transaction.oncomplete = () => {
+          database.close()
           resolve(request.result)
         }
 
-        transaction.onerror = () => {
+        transaction.onabort = () => {
+          database.close()
           reject(
             transaction.error ?? new Error("Sound store transaction failed")
           )
@@ -136,6 +150,10 @@ export function revokeCustomSoundObjectUrl(id: string) {
 
   URL.revokeObjectURL(cached)
   objectUrlCache.delete(id)
+
+  for (const listener of objectUrlRevokedListeners) {
+    listener(cached)
+  }
 }
 
 export type EmbeddedCustomSound = {

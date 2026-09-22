@@ -1,4 +1,7 @@
-import { getCustomSoundObjectUrl } from "@/lib/highlights/custom-sounds"
+import {
+  getCustomSoundObjectUrl,
+  onCustomSoundObjectUrlRevoked,
+} from "@/lib/highlights/custom-sounds"
 
 export type AlertSoundKind = "ping" | "live"
 
@@ -15,6 +18,18 @@ export function getDefaultAlertSoundUrl(kind: AlertSoundKind): string {
 }
 
 const audioCache = new Map<string, HTMLAudioElement>()
+
+onCustomSoundObjectUrlRevoked((url) => {
+  const audio = audioCache.get(url)
+  if (!audio) {
+    return
+  }
+
+  audioCache.delete(url)
+  audio.pause()
+  audio.removeAttribute("src")
+  audio.load()
+})
 
 function getAudioElement(url: string): HTMLAudioElement {
   const cached = audioCache.get(url)
