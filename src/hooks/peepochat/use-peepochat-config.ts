@@ -42,6 +42,10 @@ export function usePeepochatConfig() {
   )
   const pendingSaveRef = React.useRef<AppConfig | null>(null)
   const saveHandleRef = React.useRef<number | null>(null)
+  const configRef = React.useRef(config)
+  React.useEffect(() => {
+    configRef.current = config
+  }, [config])
 
   const needsOnboarding =
     forceOnboarding ||
@@ -120,11 +124,12 @@ export function usePeepochatConfig() {
       saveHandleRef.current = null
     }
 
-    let merged = restored
-    setConfig((current) => {
-      merged = mergeRestoredConfig(restored, current, getTwitchClientId())
-      return merged
-    })
+    const merged = mergeRestoredConfig(
+      restored,
+      configRef.current,
+      getTwitchClientId()
+    )
+    setConfig(merged)
     saveConfig(merged)
     setForceOnboarding(needsOnboardingForConfig(merged))
     return merged
