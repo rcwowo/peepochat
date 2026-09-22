@@ -137,3 +137,107 @@ export function revokeCustomSoundObjectUrl(id: string) {
   URL.revokeObjectURL(cached)
   objectUrlCache.delete(id)
 }
+
+export type EmbeddedCustomSound = {
+  id: string
+  name: string
+  mimeType: string
+  data: string
+}
+
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer)
+  let binary = ""
+  const chunkSize = 0x8000
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(
+      ...bytes.subarray(i, Math.min(i + chunkSize, bytes.length))
+    )
+  }
+  return btoa(binary)
+}
+
+function base64ToArrayBuffer(base64: string): ArrayBuffer {
+  const binary = atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i)
+  }
+  return bytes.buffer
+}
+
+/** Create a playable object URL from an embedded base64 sound. Caller revokes. */
+export function createEmbeddedSoundUrl(
+  mimeType: string,
+  base64: string
+): string {
+  const buffer = base64ToArrayBuffer(base64)
+  return URL.createObjectURL(new Blob([buffer], { type: mimeType }))
+}
+
+export async function listEmbeddedCustomSounds(
+  referencedIds: string[]
+): Promise<EmbeddedCustomSound[]> {
+  const embedded: EmbeddedCustomSound[] = []
+  const seen = new Set<string>()
+
+  for (const id of referencedIds) {
+    if (!id || seen.has(id)) continue
+    seen.add(id)
+
+    const record = await getCustomSound(id)
+    if (!record) continue
+
+    embedded.push({
+      id: record.id,
+      name: record.name,
+      mimeType: record.mimeType,
+      data: arrayBufferToBase64(record.data),
+    })
+  }
+
+  return embedded
+}
+
+export async function restoreEmbeddedCustomSounds(
+  embedded: unknown
+): Promise<void> {
+  if (!Array.isArray(embedded)) return
+
+  for (const entry of embedded) {
+    if (!entry || typeof entry !== "object") continue
+
+    const sound = entry as Partial<EmbeddedCustomSound>
+    if (
+      typeof sound.id !== "string" ||
+      typeof sound.name !== "string" ||
+      typeof sound.mimeType !== "string" ||
+      typeof sound.data !== "string" ||
+      !sound.data
+    ) {
+      continue
+    }
+
+    try {
+      const data = base64ToArrayBuffer(sound.data)
+      if (data.byteLength > MAX_CUSTOM_SOUND_BYTES) continue
+
+      const record: StoredCustomSound = {
+        id: sound.id,
+        name: sound.name.trim() || "Custom sound",
+        mimeType: sound.mimeType.startsWith("audio/")
+          ? sound.mimeType
+          : "audio/mpeg",
+        data,
+        createdAt: new Date().toISOString(),
+      }
+
+      await runSoundStoreTransaction("readwrite", (store) =>
+        store.put(record)
+      )
+      revokeCustomSoundObjectUrl(record.id)
+    } catch {
+      continue
+    }
+  }
+}

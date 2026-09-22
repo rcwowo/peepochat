@@ -5,6 +5,7 @@
         "items": [
             "Added experimental support for other color schemes.",
             "Added ability to hide the built-in stream info UI in the player.",
+            "Added ability to backup set custom sounds.",
             "Fixed a bug where the chat pane jittered on resize or opening certain panels."
         ]
     },

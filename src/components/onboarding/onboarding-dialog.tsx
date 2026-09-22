@@ -8,6 +8,8 @@ import {
   CloudUploadIcon,
   Columns2Icon,
   HashIcon,
+  Music2Icon,
+  PlayIcon,
   SparklesIcon,
   type LucideIcon,
 } from "lucide-react"
@@ -34,12 +36,14 @@ import {
   type OnboardingFlow,
 } from "@/lib/peepochat/onboarding-storage"
 import { usePeepochatSettings } from "@/lib/peepochat/peepochat-context"
+import { createEmbeddedSoundUrl } from "@/lib/highlights/custom-sounds"
 import {
   createDefaultConfig,
   isLoggedOutWithSavedSetup,
   loadConfig,
   parseBackupPreview,
   type BackupPreview,
+  type BackupPreviewSound,
 } from "@/lib/peepochat/peepochat-config"
 import { cn } from "@/lib/utils"
 
@@ -851,6 +855,52 @@ function ImportPreviewRow({
   )
 }
 
+function EmbeddedSoundPreviewRow({ sound }: { sound: BackupPreviewSound }) {
+  const audioRef = React.useRef<HTMLAudioElement | null>(null)
+  const objectUrlRef = React.useRef<string | null>(null)
+
+  React.useEffect(() => {
+    const objectUrl = createEmbeddedSoundUrl(sound.mimeType, sound.data)
+    objectUrlRef.current = objectUrl
+    audioRef.current = new Audio(objectUrl)
+
+    return () => {
+      audioRef.current?.pause()
+      audioRef.current = null
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current)
+        objectUrlRef.current = null
+      }
+    }
+  }, [sound])
+
+  const handlePlay = () => {
+    const audio = audioRef.current
+    if (!audio) return
+    audio.currentTime = 0
+    void audio.play().catch(() => undefined)
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-md bg-card px-2.5 py-1.5">
+      <div className="flex min-w-0 items-center gap-2">
+        <Music2Icon className="size-3 shrink-0 text-muted-foreground" aria-hidden />
+        <span className="truncate text-xs" title={sound.name}>
+          {sound.name}
+        </span>
+      </div>
+      <button
+        type="button"
+        onClick={handlePlay}
+        className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
+        aria-label={`Preview ${sound.name}`}
+      >
+        <PlayIcon className="size-3" aria-hidden />
+      </button>
+    </div>
+  )
+}
+
 function ImportReviewStepBody({ preview }: { preview: BackupPreview }) {
   const exportedLabel = formatBackupDate(preview.exportedAt)
   const metaParts = [
@@ -871,6 +921,19 @@ function ImportReviewStepBody({ preview }: { preview: BackupPreview }) {
       ) : null}
 
       <ImportPreviewRow label="Ping rules" value={preview.pingRuleCount} />
+
+      {preview.embeddedSounds.length > 0 ? (
+        <div>
+          <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+            Custom sounds
+          </p>
+          <div className="mt-1.5 flex flex-col gap-1.5">
+            {preview.embeddedSounds.map((sound) => (
+              <EmbeddedSoundPreviewRow key={sound.id} sound={sound} />
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <div>
         <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">

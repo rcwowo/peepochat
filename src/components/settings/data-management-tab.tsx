@@ -32,6 +32,11 @@ const INCLUDED_IN_BACKUP = [
       "Your appearance and behavior preferences, among other settings you've set are all included.",
   },
   {
+    title: "Custom Sounds",
+    description:
+      "Custom ping and live notification sounds are embedded as Base64 in backups.",
+  },
+  {
     title: "Metadata",
     description:
       "Human-readable metadata about the backup, like the date and time it was created.",
@@ -42,15 +47,21 @@ export function DataManagementTab() {
   const { config, restoreBackup } = usePeepochatSettings()
   const fileInputRef = React.useRef<HTMLInputElement | null>(null)
 
-  const downloadBackup = () => {
-    const backup = exportConfigBackup(config)
-    const blob = new Blob([backup], { type: "application/json" })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement("a")
-    link.href = url
-    link.download = `peepochat-backup-${new Date().toISOString().slice(0, 10)}.json`
-    link.click()
-    URL.revokeObjectURL(url)
+  const downloadBackup = async () => {
+    try {
+      const backup = await exportConfigBackup(config)
+      const blob = new Blob([backup], { type: "application/json" })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `peepochat-backup-${new Date().toISOString().slice(0, 10)}.json`
+      link.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Backup export failed"
+      )
+    }
   }
 
   const handleRestoreBackup = async (
@@ -101,7 +112,7 @@ export function DataManagementTab() {
         description="Download a snapshot now or replace your current settings from a previous export."
       >
         <SettingsActions>
-          <SettingsActionButton onClick={downloadBackup}>
+          <SettingsActionButton onClick={() => void downloadBackup()}>
             <CloudDownloadIcon className="size-3.5" />
             Export backup
           </SettingsActionButton>

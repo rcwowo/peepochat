@@ -13,6 +13,7 @@ import {
   SPLIT_ORDER_PREFIX,
 } from "@/lib/sidebar/sidebar-order"
 import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
+import { listEmbeddedCustomSounds } from "@/lib/highlights/custom-sounds"
 
 export const PEEPOCHAT_STORAGE_KEY = "peepochat::config"
 export const PEEPOCHAT_SCHEMA_VERSION = 1
@@ -247,6 +248,7 @@ const backupEnvelopeSchema = z.object({
   exportedAt: z.string().min(1),
   schemaVersion: z.number().int().positive(),
   data: z.unknown(),
+  embeddedSounds: z.array(z.unknown()).optional(),
 })
 
 export type HighlightPingRule = z.infer<typeof highlightPingRuleSchema>
@@ -621,25 +623,81 @@ export function saveConfig(config: AppConfig) {
   window.localStorage.setItem(PEEPOCHAT_STORAGE_KEY, JSON.stringify(normalized))
 }
 
-export function exportConfigBackup(config: AppConfig): string {
+export async function exportConfigBackup(config: AppConfig): Promise<string> {
+  const normalized = normalizeConfig(config)
+  const referencedSoundIds = [
+    normalized.highlights.pingSoundCustomId,
+    normalized.highlights.liveSoundCustomId,
+  ].filter((id): id is string => typeof id === "string" && id.length > 0)
+
+  const embeddedSounds =
+    referencedSoundIds.length > 0
+      ? await listEmbeddedCustomSounds(referencedSoundIds)
+      : []
+
   const envelope: BackupEnvelope = {
     app: "peepochat",
     appVersion: PEEPOCHAT_APP_VERSION,
     exportedAt: new Date().toISOString(),
     schemaVersion: PEEPOCHAT_SCHEMA_VERSION,
-    data: sanitizeConfigForExport(normalizeConfig(config)),
+    data: sanitizeConfigForExport(normalized),
+  }
+
+  if (embeddedSounds.length > 0) {
+    envelope.embeddedSounds = embeddedSounds
   }
 
   return JSON.stringify(envelope, null, 2)
 }
 
+export function parseBackupPayload(payload: string): {
+  config: AppConfig
+  embeddedSounds: BackupPreviewSound[]
+  exportedAt: string | null
+  appVersion: string | null
+} {
+  const parsed = JSON.parse(payload) as unknown
+
+  const envelopeResult = backupEnvelopeSchema.safeParse(parsed)
+  if (envelopeResult.success) {
+    return {
+      config: parseConfig(envelopeResult.data.data),
+      embeddedSounds:
+        envelopeResult.data.embeddedSounds?.filter(
+          (sound): sound is BackupPreviewSound =>
+            Boolean(sound) &&
+            typeof sound === "object" &&
+            typeof (sound as BackupPreviewSound).id === "string" &&
+            typeof (sound as BackupPreviewSound).name === "string" &&
+            typeof (sound as BackupPreviewSound).mimeType === "string" &&
+            typeof (sound as BackupPreviewSound).data === "string"
+        ) ?? [],
+      exportedAt: envelopeResult.data.exportedAt,
+      appVersion: envelopeResult.data.appVersion,
+    }
+  }
+
+  return {
+    config: parseConfig(parsed),
+    embeddedSounds: [],
+    exportedAt: null,
+    appVersion: null,
+  }
+}
+
 export function importConfigBackup(payload: string): AppConfig {
-  const parsed = JSON.parse(payload)
-  return parseConfig(parsed)
+  return parseBackupPayload(payload).config
 }
 
 export type BackupPreviewSidebarItem =
   { type: "channel"; name: string } | { type: "split"; names: string[] }
+
+export type BackupPreviewSound = {
+  id: string
+  name: string
+  mimeType: string
+  data: string
+}
 
 export type BackupPreview = {
   exportedAt: string | null
@@ -649,6 +707,7 @@ export type BackupPreview = {
   channelCount: number
   sidebarItems: BackupPreviewSidebarItem[]
   pingRuleCount: number
+  embeddedSounds: BackupPreviewSound[]
 }
 
 function buildBackupPreviewSidebarItems(
@@ -689,19 +748,12 @@ function buildBackupPreviewSidebarItems(
 }
 
 export function parseBackupPreview(payload: string): BackupPreview {
-  const parsed = JSON.parse(payload) as unknown
-  let config: AppConfig
-  let exportedAt: string | null = null
-  let appVersion: string | null = null
-
-  const envelopeResult = backupEnvelopeSchema.safeParse(parsed)
-  if (envelopeResult.success) {
-    exportedAt = envelopeResult.data.exportedAt
-    appVersion = envelopeResult.data.appVersion
-    config = parseConfig(envelopeResult.data.data)
-  } else {
-    config = parseConfig(parsed)
-  }
+  const {
+    config,
+    embeddedSounds,
+    exportedAt,
+    appVersion,
+  } = parseBackupPayload(payload)
 
   return {
     exportedAt,
@@ -711,6 +763,7 @@ export function parseBackupPreview(payload: string): BackupPreview {
     channelCount: config.twitch.channels.length,
     sidebarItems: buildBackupPreviewSidebarItems(config),
     pingRuleCount: config.highlights.pings.length,
+    embeddedSounds,
   }
 }
 

@@ -2,12 +2,13 @@ import * as React from "react"
 
 import {
   type AppConfig,
-  importConfigBackup,
   loadConfig,
   mergeRestoredConfig,
   needsOnboardingForConfig,
+  parseBackupPayload,
   saveConfig,
 } from "@/lib/peepochat/peepochat-config"
+import { restoreEmbeddedCustomSounds } from "@/lib/highlights/custom-sounds"
 import { isAwaitingOnboardingFinalStep } from "@/lib/peepochat/onboarding-storage"
 import { getTwitchClientId } from "@/lib/twitch/auth/oauth"
 
@@ -109,7 +110,10 @@ export function usePeepochatConfig() {
   )
 
   const restoreBackup = React.useCallback(async (payload: string) => {
-    const restored = importConfigBackup(payload)
+    const { config: restored, embeddedSounds } = parseBackupPayload(payload)
+    if (embeddedSounds.length > 0) {
+      await restoreEmbeddedCustomSounds(embeddedSounds)
+    }
     pendingSaveRef.current = null
     if (saveHandleRef.current !== null) {
       cancelIdle(saveHandleRef.current)
