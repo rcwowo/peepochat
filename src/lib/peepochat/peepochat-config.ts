@@ -16,6 +16,8 @@ import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 import { listEmbeddedCustomSounds } from "@/lib/highlights/custom-sounds"
 
 export const PEEPOCHAT_STORAGE_KEY = "peepochat::config"
+/** Copy of the previous known-good config, used to recover corrupt writes. */
+export const PEEPOCHAT_BACKUP_STORAGE_KEY = "peepochat::config-backup"
 export const PEEPOCHAT_SCHEMA_VERSION = 1
 
 export const LIVE_MESSAGES_PER_CHANNEL_MIN = 20
@@ -607,6 +609,16 @@ export function loadConfig(): AppConfig {
   try {
     return parseConfig(JSON.parse(raw))
   } catch {
+    // Fall back to the last known-good copy before wiping the session.
+    const backupRaw = window.localStorage.getItem(PEEPOCHAT_BACKUP_STORAGE_KEY)
+    if (backupRaw) {
+      try {
+        return parseConfig(JSON.parse(backupRaw))
+      } catch {
+        // Unrecoverable.
+      }
+    }
+
     return createDefaultConfig()
   }
 }
@@ -614,6 +626,11 @@ export function loadConfig(): AppConfig {
 export function saveConfig(config: AppConfig) {
   if (typeof window === "undefined") {
     return
+  }
+
+  const previousRaw = window.localStorage.getItem(PEEPOCHAT_STORAGE_KEY)
+  if (previousRaw !== null) {
+    window.localStorage.setItem(PEEPOCHAT_BACKUP_STORAGE_KEY, previousRaw)
   }
 
   const normalized = normalizeConfig({
@@ -815,6 +832,10 @@ export function mergeRestoredConfig(
   })
 }
 
+const MAX_CONFIG_REPAIR_ATTEMPTS = 50
+
+type ConfigSchemaIssue = { path: PropertyKey[] }
+
 function parseConfig(input: unknown): AppConfig {
   const envelopeResult = backupEnvelopeSchema.safeParse(input)
   if (envelopeResult.success) {
@@ -822,14 +843,117 @@ function parseConfig(input: unknown): AppConfig {
   }
 
   const object = input as Record<string, unknown>
+  const coerced = {
+    ...coerceConfigCredentials(object),
+    layout: coerceLayoutShape(object.layout),
+    schemaVersion: PEEPOCHAT_SCHEMA_VERSION,
+  }
 
-  return normalizeConfig(
-    appConfigSchema.parse({
-      ...coerceConfigCredentials(object),
-      layout: coerceLayoutShape(object.layout),
-      schemaVersion: PEEPOCHAT_SCHEMA_VERSION,
-    })
-  )
+  const parsed = appConfigSchema.safeParse(coerced)
+  if (parsed.success) {
+    return normalizeConfig(parsed.data)
+  }
+
+  const repaired = repairConfig(coerced)
+  if (!repaired) {
+    throw new Error("Failed to parse saved config")
+  }
+
+  return normalizeConfig(repaired)
+}
+
+/**
+ * Repair invalid values field-by-field (falling back to schema defaults)
+ * instead of discarding the whole config.
+ */
+function repairConfig(input: unknown): AppConfig | null {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    return null
+  }
+
+  const defaults = createDefaultConfig() as unknown
+  const repaired: Record<string, unknown> = {
+    ...(input as Record<string, unknown>),
+  }
+
+  for (let attempt = 0; attempt < MAX_CONFIG_REPAIR_ATTEMPTS; attempt++) {
+    const result = appConfigSchema.safeParse(repaired)
+    if (result.success) {
+      return result.data
+    }
+
+    const issue = result.error.issues[0]
+    if (!applyConfigRepair(repaired, defaults, issue)) {
+      return null
+    }
+  }
+
+  return null
+}
+
+function applyConfigRepair(
+  root: Record<string, unknown>,
+  defaults: unknown,
+  issue: ConfigSchemaIssue
+): boolean {
+  const path = issue.path
+
+  const fallback = getAtPath(defaults, path)
+  if (fallback !== undefined) {
+    setAtPath(root, path, fallback)
+    return true
+  }
+
+  // No default for this exact path; drop the offending array element.
+  for (let i = path.length - 1; i >= 0; i--) {
+    if (typeof path[i] !== "number") {
+      continue
+    }
+
+    const array = getAtPath(root, path.slice(0, i))
+    const index = path[i] as number
+    if (Array.isArray(array) && index < array.length) {
+      array.splice(index, 1)
+      return true
+    }
+
+    return false
+  }
+
+  return false
+}
+
+function getAtPath(root: unknown, path: PropertyKey[]): unknown {
+  if (path.length === 0) {
+    return root
+  }
+
+  let current: unknown = root
+  for (const key of path) {
+    if (!current || typeof current !== "object") {
+      return undefined
+    }
+
+    current = (current as Record<PropertyKey, unknown>)[key]
+  }
+  return current
+}
+
+function setAtPath(
+  root: Record<string, unknown>,
+  path: PropertyKey[],
+  value: unknown
+): void {
+  let current: unknown = root
+  for (let i = 0; i < path.length - 1; i++) {
+    const next = (current as Record<PropertyKey, unknown>)[path[i]]
+    if (!next || typeof next !== "object") {
+      return
+    }
+
+    current = next
+  }
+  ;(current as Record<PropertyKey, unknown>)[path[path.length - 1]] = value
 }
 
 function coerceConfigCredentials(
