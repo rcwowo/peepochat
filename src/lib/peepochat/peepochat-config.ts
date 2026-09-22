@@ -148,6 +148,7 @@ const highlightsSchema = z.object({
 const playerSchema = z
   .object({
     backgroundPlaybackEnabled: z.boolean().default(true),
+    hideStreamInfoEnabled: z.boolean().default(false),
     desktopSizePercent: z
       .number()
       .min(PLAYER_DESKTOP_SIZE_MIN)
@@ -156,6 +157,7 @@ const playerSchema = z
   })
   .default({
     backgroundPlaybackEnabled: true,
+    hideStreamInfoEnabled: false,
     desktopSizePercent: PLAYER_DESKTOP_SIZE_DEFAULT,
   })
 
@@ -362,6 +364,7 @@ export function createDefaultConfig(): AppConfig {
     },
     player: {
       backgroundPlaybackEnabled: true,
+      hideStreamInfoEnabled: false,
       desktopSizePercent: PLAYER_DESKTOP_SIZE_DEFAULT,
     },
   }

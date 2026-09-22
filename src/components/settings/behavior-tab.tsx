@@ -1,6 +1,7 @@
 import {
   EraserIcon,
   EyeIcon,
+  EyeOffIcon,
   HistoryIcon,
   LayersIcon,
   Layers2Icon,
@@ -218,18 +219,30 @@ export function BehaviorTab() {
         description="Playback behavior for the Peepochat Player."
       >
         <SettingsGroup>
-          <SettingsSwitchRow
-            icon={PlayIcon}
-            title="Continue playback in background"
-            description="Keep the stream playing when you switch back to a channel or split."
-            checked={config.player.backgroundPlaybackEnabled}
-            onCheckedChange={(backgroundPlaybackEnabled) =>
-              updateConfig((current) => ({
-                ...current,
-                player: { ...current.player, backgroundPlaybackEnabled },
-              }))
-            }
-          />
+            <SettingsSwitchRow
+              icon={PlayIcon}
+              title="Continue playback in background"
+              description="Keep the stream playing when you switch back to a channel or split."
+              checked={config.player.backgroundPlaybackEnabled}
+              onCheckedChange={(backgroundPlaybackEnabled) =>
+                updateConfig((current) => ({
+                  ...current,
+                  player: { ...current.player, backgroundPlaybackEnabled },
+                }))
+              }
+            />
+            <SettingsSwitchRow
+              icon={EyeOffIcon}
+              title="Hide stream info and bio"
+              description="Hides the built-in UI for stream info like title, game and user bio."
+              checked={config.player.hideStreamInfoEnabled}
+              onCheckedChange={(hideStreamInfoEnabled) =>
+                updateConfig((current) => ({
+                  ...current,
+                  player: { ...current.player, hideStreamInfoEnabled },
+                }))
+              }
+            />
         </SettingsGroup>
       </SettingsSection>
 

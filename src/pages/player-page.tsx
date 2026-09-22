@@ -11,6 +11,7 @@ import {
 import { formatViewerCount } from "@/lib/twitch/channel/stream-display"
 import { buildTwitchPlayerUrl } from "@/lib/player/twitch-player"
 import { ChatPage } from "@/pages/chat-page"
+import { cn } from "@/lib/utils"
 
 function PlayerDetails({
   channelLogin,
@@ -147,10 +148,18 @@ function PlayerPageContent({
   const profileImageUrl = user?.profileImageUrl || savedChannel?.profileImageUrl
   const title = stream?.title || channel?.title || ""
   const gameName = stream?.gameName || channel?.gameName || ""
+  const hideStreamInfo = config.player.hideStreamInfoEnabled
 
   const player = (
     <div className="h-full min-h-0 w-full overflow-y-auto overscroll-contain bg-background">
-      <div className="aspect-video w-full shrink-0 overflow-hidden bg-black">
+      <div
+        className={cn(
+          "w-full shrink-0 overflow-hidden bg-black",
+          hideStreamInfo
+            ? "aspect-video md:aspect-auto md:h-full"
+            : "aspect-video"
+        )}
+      >
         {iframeMounted && playerUrl ? (
           <iframe
             src={playerUrl}
@@ -161,18 +170,20 @@ function PlayerPageContent({
           />
         ) : null}
       </div>
-      <PlayerDetails
-        channelLogin={channelLogin}
-        displayName={displayName}
-        profileImageUrl={profileImageUrl}
-        description={user?.description ?? ""}
-        title={title}
-        gameName={gameName}
-        viewerCount={stream?.viewerCount ?? null}
-        startedAt={stream?.startedAt}
-        loading={loading}
-        error={error}
-      />
+      {hideStreamInfo ? null : (
+        <PlayerDetails
+          channelLogin={channelLogin}
+          displayName={displayName}
+          profileImageUrl={profileImageUrl}
+          description={user?.description ?? ""}
+          title={title}
+          gameName={gameName}
+          viewerCount={stream?.viewerCount ?? null}
+          startedAt={stream?.startedAt}
+          loading={loading}
+          error={error}
+        />
+      )}
     </div>
   )
 
