@@ -74,6 +74,12 @@ export function EmotePicker({
     }
   }
 
+  React.useEffect(() => {
+    if (disabled && open) {
+      onOpenChange(false)
+    }
+  }, [disabled, open, onOpenChange])
+
   const searchResults = React.useMemo(() => {
     const normalized = query.trim().toLowerCase()
     if (!normalized) return []
