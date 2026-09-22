@@ -544,7 +544,12 @@ export function useChatScroll<T extends TwitchTimelineItem>({
       chatContainer.removeEventListener("pointerdown", onPointerDown)
       chatContainer.removeEventListener("scrollend", onScrollEnd)
     }
-  }, [clearProgrammaticScroll, finishResumeScroll, pauseForUserScroll])
+  }, [
+    clearProgrammaticScroll,
+    displayedTimeline.length,
+    finishResumeScroll,
+    pauseForUserScroll,
+  ])
 
   const timelineScrollKey = React.useMemo(() => {
     if (timeline.length === 0) {
