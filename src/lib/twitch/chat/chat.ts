@@ -273,6 +273,7 @@ const ANONYMOUS_NICK = `justinfan${Math.floor(10000 + Math.random() * 90000)}`
 const HEARTBEAT_INTERVAL_MS = 5_000
 const HEARTBEAT_PONG_TIMEOUT_MS = 4_000
 const RECONNECT_DELAY_MS = 1_000
+const RECONNECT_MAX_MS = 60_000
 
 // ---------------------------------------------------------------------------
 // Client
@@ -299,6 +300,7 @@ export class TwitchChatClient {
   private welcomeReceived = false
   private mode: TwitchChatClientMode
   private statusProbeChannels = new Set<string>()
+  private reconnectAttempt = 0
 
   constructor(
     handler: TwitchChatEventHandler,
@@ -536,6 +538,9 @@ export class TwitchChatClient {
         for (const channel of parted) {
           this.emit({ type: "channel-parted", channel })
         }
+      } else {
+        this.joinedChannels.clear()
+        this.statusProbeChannels.clear()
       }
 
       if (!this.intentionalClose && this.sessionOpen) {
@@ -666,6 +671,7 @@ export class TwitchChatClient {
         devChatLogger.debug("irc:kind", "welcome")
       }
       this.welcomeReceived = true
+      this.reconnectAttempt = 0
       this.startHeartbeat()
       this.emit({ type: "connected" })
       if (this.mode === "read") {
@@ -853,9 +859,16 @@ export class TwitchChatClient {
     if (!this.sessionOpen || this.intentionalClose) return
     if (this.mode === "read" && this.desiredChannels.size === 0) return
 
+    const attempt = this.reconnectAttempt
+    this.reconnectAttempt += 1
+    const delay = Math.min(
+      RECONNECT_MAX_MS,
+      RECONNECT_DELAY_MS * 2 ** Math.min(attempt, 6)
+    )
+
     this.emit({
       type: "log",
-      text: `Reconnecting in ${RECONNECT_DELAY_MS / 1000}s...`,
+      text: `Reconnecting in ${Math.round(delay / 1000)}s...`,
     })
     this.reconnectTimer = setTimeout(() => {
       this.welcomeReceived = false
@@ -867,7 +880,7 @@ export class TwitchChatClient {
         return
       }
       this.open(this.connectOptions)
-    }, RECONNECT_DELAY_MS)
+    }, delay)
   }
 
   private clearTimers() {

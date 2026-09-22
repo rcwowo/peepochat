@@ -27,13 +27,13 @@ Verify each fix compiles with `bun run lint` and `bun run build` before marking 
 
 ## Connection lifecycle & reconnect (#4, #5, #12)
 
-- [ ] **4. IRC reconnect has no backoff → 1 Hz reconnect storm while offline** (medium)
+- [x] **4. IRC reconnect has no backoff → 1 Hz reconnect storm while offline** (medium)
   - File: `src/lib/twitch/chat/chat.ts:275, 851-871`
   - Fixed 1s `scheduleReconnect` forever, for both read and send clients. The 7TV and EventSub
     clients in this codebase implement capped exponential backoff; this one doesn't.
   - Fix direction: add attempt counter + capped exponential backoff, reset on successful open.
 
-- [ ] **5. Send-client probe state never cleared on unexpected disconnect** (medium)
+- [x] **5. Send-client probe state never cleared on unexpected disconnect** (medium)
   - File: `src/lib/twitch/chat/chat.ts:301, 438-467, 525-550`
   - The close handler cleans up read-mode state only. Channels stuck in `statusProbeChannels`
     mid-probe are skipped forever after reconnect (`probeSendStatus` checks `.has()`), so
@@ -42,7 +42,7 @@ Verify each fix compiles with `bun run lint` and `bun run build` before marking 
   - Fix direction: clear `statusProbeChannels` (and stale send-mode `joinedChannels`) in the close
     handler like read mode does.
 
-- [ ] **12. 7TV `reconnectAttempt` not reset on explicit disconnect** (low)
+- [x] **12. 7TV `reconnectAttempt` not reset on explicit disconnect** (low)
   - File: `src/lib/seventv/event-api.ts:139`
   - Counter only resets in `socket.onopen`. After a long offline stretch (capped 120s retries),
     `disconnect()` + later `retain()` makes the first failure wait up to ~120s instead of 1s.
