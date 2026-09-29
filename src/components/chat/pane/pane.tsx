@@ -545,10 +545,10 @@ function ChatPaneInner({
                       />
                       <MenuPanelItem
                         icon={ExternalLinkIcon}
-                        label="Open chatlogs"
+                        label="Open in Chatlogs"
                         onSelect={() =>
                           openExternalTool(
-                            `${CHATLOGS_URL}?c=${encodeURIComponent(channelLogin)}`
+                            `${CHATLOGS_URL}/?channel=${encodeURIComponent(channelLogin)}`
                           )
                         }
                       />
