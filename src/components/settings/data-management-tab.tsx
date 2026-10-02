@@ -8,7 +8,6 @@ import { exportConfigBackup } from "@/lib/peepochat/peepochat-config"
 import {
   SettingsActionButton,
   SettingsActions,
-  SettingsDivider,
   SettingsGroup,
   SettingsSection,
   SettingsTab,
@@ -84,10 +83,8 @@ export function DataManagementTab() {
 
   return (
     <SettingsTab
-      title="Data Management"
       description="Export, restore, or clear your local Peepochat configuration. Backups are human-readable JSON files on your device."
     >
-      <SettingsDivider className="mt-4 mb-4" />
 
       <SettingsSection
         title="What's included:"
@@ -132,8 +129,6 @@ export function DataManagementTab() {
           onChange={handleRestoreBackup}
         />
       </SettingsSection>
-
-      <SettingsDivider />
 
       <SettingsSection
         title="Danger zone"

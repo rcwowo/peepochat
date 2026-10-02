@@ -13,7 +13,6 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { PickerIcon } from "@/components/chat/composer/picker-icon"
-import { Separator } from "@/components/ui/separator"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
@@ -21,29 +20,6 @@ import { Textarea } from "@/components/ui/textarea"
 // ---------------------------------------------------------------------------
 // Tab & section headings
 // ---------------------------------------------------------------------------
-
-export function SettingsTabHeader({
-  title,
-  description,
-  className,
-}: {
-  title: string
-  description?: string
-  className?: string
-}) {
-  return (
-    <header className={className}>
-      <h2 className="text-base leading-tight font-semibold tracking-tight">
-        {title}
-      </h2>
-      {description && (
-        <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-          {description}
-        </p>
-      )}
-    </header>
-  )
-}
 
 export function SectionHeading({
   title,
@@ -774,25 +750,23 @@ export function SettingsCallout({
   )
 }
 
-export function SettingsDivider({ className }: { className?: string }) {
-  return <Separator className={cn("my-0 mt-6 mb-4", className)} />
-}
-
 export function SettingsTab({
-  title,
   description,
   children,
   className,
 }: {
-  title: string
   description?: string
   children?: React.ReactNode
   className?: string
 }) {
   return (
     <div className={cn("pb-2", className)}>
-      <SettingsTabHeader title={title} description={description} />
-      <div className="mt-5 space-y-6">{children}</div>
+      {description && (
+        <p className="pr-8 mb-6 text-[13px] leading-relaxed text-muted-foreground sm:pr-10">
+          {description}
+        </p>
+      )}
+      <div className="space-y-7">{children}</div>
     </div>
   )
 }

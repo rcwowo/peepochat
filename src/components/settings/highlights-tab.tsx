@@ -13,7 +13,6 @@ import { toast } from "sonner"
 
 import { AlertSoundSettingRow } from "@/components/settings/alert-sound-setting-row"
 import {
-  SettingsDivider,
   SettingsGroup,
   SettingsSection,
   SettingsSwitchRow,
@@ -168,9 +167,7 @@ export function HighlightsTab() {
   }
 
   return (
-    <SettingsTab title="Highlights">
-      <SettingsDivider className="mt-4 mb-4" />
-
+    <SettingsTab>
       <SettingsSection
         title="Notifications"
         description="Browser alerts and sounds when the tab is in the background."

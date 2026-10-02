@@ -15,16 +15,12 @@ import {
   Sheet,
   SheetClose,
   SheetContent,
-  SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+import { cn } from "@/lib/utils"
+import { APP_BRANDING } from "@/lib/branding"
+import { getAppVersion } from "@/lib/changelog"
 import { AboutTab } from "@/components/settings/about-tab"
 import { AppearanceTab } from "@/components/settings/appearance-tab"
 import { BehaviorTab } from "@/components/settings/behavior-tab"
@@ -61,7 +57,7 @@ type SettingsCategoryEntry = {
   icon: React.ComponentType<{ className?: string }>
 }
 
-const CORE_SETTINGS_CATEGORIES: SettingsCategoryEntry[] = [
+const PREFERENCE_CATEGORIES: SettingsCategoryEntry[] = [
   { id: "appearance", label: "Appearance", icon: PaintbrushIcon },
   { id: "behavior", label: "Behavior", icon: SlidersHorizontalIcon },
   { id: "highlights", label: "Highlights", icon: BellIcon },
@@ -71,83 +67,79 @@ const CORE_SETTINGS_CATEGORIES: SettingsCategoryEntry[] = [
     : []),
 ]
 
-const META_SETTINGS_CATEGORIES: SettingsCategoryEntry[] = [
+const RESOURCE_CATEGORIES: SettingsCategoryEntry[] = [
   { id: "changelog", label: "Changelog", icon: ScrollTextIcon },
   { id: "help", label: "Help", icon: CircleHelpIcon },
-  { id: "about", label: "About", icon: InfoIcon },
 ]
 
-function useTooltipPointerOnlyGuard(enabled: boolean) {
-  const [pointerMode, setPointerMode] = React.useState(false)
+const ABOUT_CATEGORY = {
+  id: "about",
+  label: "About",
+  icon: InfoIcon,
+} satisfies SettingsCategoryEntry
 
-  React.useEffect(() => {
-    if (!enabled) {
-      return
-    }
-
-    const onPointer = () => {
-      setPointerMode(true)
-    }
-    const onKeyDown = () => {
-      setPointerMode(false)
-    }
-
-    window.addEventListener("pointerdown", onPointer, { capture: true })
-    window.addEventListener("pointermove", onPointer, { capture: true })
-    window.addEventListener("keydown", onKeyDown, { capture: true })
-
-    return () => {
-      window.removeEventListener("pointerdown", onPointer, { capture: true })
-      window.removeEventListener("pointermove", onPointer, { capture: true })
-      window.removeEventListener("keydown", onKeyDown, { capture: true })
-    }
-  }, [enabled])
-
-  return enabled && pointerMode
-}
-
-function CategoryIconButton({
+function NavRowButton({
   category,
   selected,
   onSelect,
-  allowTooltipOpen,
 }: {
   category: SettingsCategoryEntry
   selected: boolean
   onSelect: () => void
-  allowTooltipOpen: boolean
 }) {
-  const [tooltipOpen, setTooltipOpen] = React.useState(false)
-
   return (
-    <Tooltip
-      open={tooltipOpen}
-      onOpenChange={(next) => {
-        if (next && !allowTooltipOpen) {
-          setTooltipOpen(false)
-          return
-        }
-        setTooltipOpen(next)
-      }}
+    <button
+      type="button"
+      aria-label={category.label}
+      aria-current={selected ? "page" : undefined}
+      onClick={onSelect}
+      className={cn(
+        "flex h-8 w-full shrink-0 items-center gap-2.5 rounded-md px-2.5 text-left text-[13px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/35 max-sm:h-9 max-sm:w-9 max-sm:justify-center max-sm:px-0",
+        selected
+          ? "bg-primary/10 text-foreground dark:bg-primary/20"
+          : "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground"
+      )}
     >
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          onClick={onSelect}
-          className={`flex h-10 w-10 items-center justify-center rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none ${
-            selected
-              ? "bg-primary/10 text-foreground shadow-sm ring-1 ring-primary/25 hover:bg-primary/12 dark:bg-primary/20 dark:ring-primary/35 dark:hover:bg-primary/24"
-              : "text-muted-foreground hover:bg-background/70 hover:text-foreground"
-          }`}
-        >
-          <category.icon className="size-4" />
-          <span className="sr-only">{category.label}</span>
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="right" sideOffset={8}>
+      <category.icon className="size-4 shrink-0" />
+      <span aria-hidden className="truncate max-sm:hidden">
         {category.label}
-      </TooltipContent>
-    </Tooltip>
+      </span>
+    </button>
+  )
+}
+
+function BrandFooter({
+  active,
+  onOpenAbout,
+}: {
+  active: boolean
+  onOpenAbout: () => void
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={`About ${APP_BRANDING.title}`}
+      aria-current={active ? "page" : undefined}
+      onClick={onOpenAbout}
+      className={cn(
+        "mx-2 mb-2 mt-auto flex shrink-0 items-center gap-2.5 rounded-lg border px-2.5 py-2 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary/35 max-sm:mx-auto max-sm:w-9 max-sm:justify-center max-sm:px-0 max-sm:border-transparent",
+        active
+          ? "border-primary/20 bg-primary/10 dark:bg-primary/20"
+          : "border-border/60 hover:bg-foreground/[0.04]"
+      )}
+    >
+      <img
+        src={APP_BRANDING.appIcon}
+        alt=""
+        className="size-7 shrink-0 rounded-md border border-border/40 object-cover"
+      />
+      <div aria-hidden className="min-w-0 leading-tight max-sm:hidden">
+        <p className="truncate text-xs font-semibold">{APP_BRANDING.title}</p>
+        <p className="mt-0.5 font-mono text-[10px] text-muted-foreground/80">
+          v{getAppVersion()}
+        </p>
+      </div>
+    </button>
   )
 }
 
@@ -166,7 +158,7 @@ export function SettingsDialog({
     open,
     initialCategory,
   })
-  const allowTooltipOpen = useTooltipPointerOnlyGuard(open)
+  const scrollRef = React.useRef<HTMLDivElement | null>(null)
 
   if (
     open !== openSnapshot.open ||
@@ -186,8 +178,21 @@ export function SettingsDialog({
     return installSettingsPortaledLayerPointerGuard()
   }, [open])
 
+  React.useEffect(() => {
+    scrollRef.current?.scrollTo(0, 0)
+  }, [activeCategory])
+
   const handleOpenChange = (nextOpen: boolean) => {
     onOpenChange(nextOpen)
+  }
+
+  const handleSelect = (
+    category: SettingsCategoryEntry,
+    element?: HTMLElement
+  ) => {
+    setActiveCategory(category.id)
+    // Keeps edge chips in view while paging through the mobile chip bar.
+    element?.scrollIntoView({ block: "nearest", inline: "nearest" })
   }
 
   return (
@@ -197,7 +202,7 @@ export function SettingsDialog({
         showCloseButton={false}
         showOverlay={false}
         data-hotkey-surface="settings"
-        className="h-svh gap-0 p-0 data-[side=right]:w-full max-sm:data-[side=right]:border-l-0 sm:max-w-md sm:data-[side=right]:border-l"
+        className="h-svh gap-0 p-0 data-[side=right]:w-full max-sm:data-[side=right]:border-l-0 data-[side=right]:sm:max-w-[34rem] sm:data-[side=right]:w-[34rem] sm:data-[side=right]:border-l"
         onInteractOutside={(event) => {
           if (shouldPreventSettingsDismiss(event.target)) {
             event.preventDefault()
@@ -214,58 +219,85 @@ export function SettingsDialog({
           }
         }}
       >
-        <SheetHeader className="h-11 shrink-0 flex-row items-center justify-between border-b border-border bg-sidebar px-4 py-0">
-          <SheetTitle>Settings</SheetTitle>
-          <SheetClose asChild>
-            <Button variant="ghost" size="icon-sm">
-              <XIcon />
-              <span className="sr-only">Close</span>
-            </Button>
-          </SheetClose>
-        </SheetHeader>
+        <SheetTitle className="sr-only">Settings</SheetTitle>
 
-        <div className="flex min-h-0 flex-1">
-          <nav className="flex w-14 shrink-0 flex-col border-r border-border bg-muted/20 p-2">
-            <div className="flex flex-col gap-0.5">
-              {CORE_SETTINGS_CATEGORIES.map((category) => (
-                <CategoryIconButton
-                  key={category.id}
-                  category={category}
-                  selected={activeCategory === category.id}
-                  onSelect={() => setActiveCategory(category.id)}
-                  allowTooltipOpen={allowTooltipOpen}
-                />
-              ))}
+        <div className="flex min-h-0 min-w-0 flex-1">
+          <div className="flex w-14 shrink-0 flex-col border-r border-border bg-sidebar sm:w-44">
+            <div className="min-h-0 flex-1 overflow-y-auto px-2 pt-3 pb-1">
+              <div
+                aria-hidden
+                className="px-2.5 pb-1 text-[11px] font-medium text-muted-foreground/60 max-sm:hidden"
+              >
+                Preferences
+              </div>
+              <div className="flex flex-col gap-0.5">
+                {PREFERENCE_CATEGORIES.map((category) => (
+                  <NavRowButton
+                    key={category.id}
+                    category={category}
+                    selected={activeCategory === category.id}
+                    onSelect={() => handleSelect(category)}
+                  />
+                ))}
+              </div>
+
+              <div
+                aria-hidden
+                className="px-2.5 pt-4 pb-1 text-[11px] font-medium text-muted-foreground/60 max-sm:hidden"
+              >
+                Resources
+              </div>
+              <div className="flex flex-col gap-0.5">
+                {RESOURCE_CATEGORIES.map((category) => (
+                  <NavRowButton
+                    key={category.id}
+                    category={category}
+                    selected={activeCategory === category.id}
+                    onSelect={() => handleSelect(category)}
+                  />
+                ))}
+              </div>
             </div>
 
-            <div className="mt-auto pt-2">
-              <Separator className="mb-2" />
-              {META_SETTINGS_CATEGORIES.map((category) => (
-                <CategoryIconButton
-                  key={category.id}
-                  category={category}
-                  selected={activeCategory === category.id}
-                  onSelect={() => setActiveCategory(category.id)}
-                  allowTooltipOpen={allowTooltipOpen}
-                />
-              ))}
-            </div>
-          </nav>
+            <BrandFooter
+              active={activeCategory === "about"}
+              onOpenAbout={() => handleSelect(ABOUT_CATEGORY)}
+            />
+          </div>
 
-          <div className="min-h-0 min-w-0 flex-1 overflow-auto">
-            <div className="p-4">
-              {activeCategory === "appearance" && <AppearanceTab />}
-              {activeCategory === "behavior" && <BehaviorTab />}
-              {activeCategory === "highlights" && <HighlightsTab />}
-              {activeCategory === "data" && <DataManagementTab />}
-              {activeCategory === "changelog" && <ChangelogTab />}
-              {activeCategory === "help" && <HelpTab />}
-              {activeCategory === "about" && <AboutTab />}
-              {IS_DEV && activeCategory === "developer" && DeveloperTab ? (
-                <React.Suspense fallback={null}>
-                  <DeveloperTab />
-                </React.Suspense>
-              ) : null}
+          <div className="relative min-h-0 min-w-0 flex-1">
+            <SheetClose asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="absolute top-2.5 right-2.5 z-10 bg-background/70 backdrop-blur-xs shadow-xs transition-colors hover:bg-background sm:top-3 sm:right-3"
+              >
+                <XIcon />
+                <span className="sr-only">Close</span>
+              </Button>
+            </SheetClose>
+
+            <div
+              ref={scrollRef}
+              className="h-full overflow-y-auto overscroll-contain p-4 sm:p-5"
+            >
+              <div
+                key={activeCategory}
+                className="animate-in fade-in-0 slide-in-from-bottom-1 duration-150 motion-reduce:animate-none"
+              >
+                {activeCategory === "appearance" && <AppearanceTab />}
+                {activeCategory === "behavior" && <BehaviorTab />}
+                {activeCategory === "highlights" && <HighlightsTab />}
+                {activeCategory === "data" && <DataManagementTab />}
+                {activeCategory === "changelog" && <ChangelogTab />}
+                {activeCategory === "help" && <HelpTab />}
+                {activeCategory === "about" && <AboutTab />}
+                {IS_DEV && activeCategory === "developer" && DeveloperTab ? (
+                  <React.Suspense fallback={null}>
+                    <DeveloperTab />
+                  </React.Suspense>
+                ) : null}
+              </div>
             </div>
           </div>
         </div>

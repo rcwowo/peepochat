@@ -235,7 +235,6 @@ export function DeveloperTab() {
 
   return (
     <SettingsTab
-      title="Developer"
       description="Local development tools. This tab is not included in production builds."
     >
       <SettingsSection

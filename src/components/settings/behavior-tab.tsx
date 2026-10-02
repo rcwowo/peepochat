@@ -16,7 +16,6 @@ import {
 } from "@/lib/peepochat/peepochat-config"
 import { usePeepochatSettings } from "@/lib/peepochat/peepochat-context"
 import {
-  SettingsDivider,
   SettingsGroup,
   SettingsSection,
   SettingsSliderRow,
@@ -59,9 +58,7 @@ export function BehaviorTab() {
   }
 
   return (
-    <SettingsTab title="Behavior">
-      <SettingsDivider className="mt-4 mb-4" />
-
+    <SettingsTab>
       <SettingsSection title="Chatbox">
         <SettingsGroup>
           <SettingsSliderRow
@@ -197,8 +194,6 @@ export function BehaviorTab() {
         </SettingsSection>
       ) : null}
 
-      <SettingsDivider />
-
       <SettingsSection title="Player">
         <SettingsGroup>
           <SettingsSwitchRow
@@ -227,8 +222,6 @@ export function BehaviorTab() {
           />
         </SettingsGroup>
       </SettingsSection>
-
-      <SettingsDivider />
 
       <SettingsSection title="Performance">
         <SettingsGroup>

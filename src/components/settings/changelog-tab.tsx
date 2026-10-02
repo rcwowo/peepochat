@@ -16,7 +16,6 @@ export function ChangelogTab() {
 
   return (
     <SettingsTab
-      title="Changelog"
       description={`You're on version ${getAppVersion()}. Here's what changed in recent releases.`}
     >
       <div className="space-y-5">

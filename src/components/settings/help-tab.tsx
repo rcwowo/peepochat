@@ -59,7 +59,7 @@ export function HelpTab() {
   const rows = getHotkeyHelpRows()
 
   return (
-    <SettingsTab title="Help">
+    <SettingsTab>
       <SettingsSection title="Peepochat Wiki">
         <HelpLinkList />
       </SettingsSection>

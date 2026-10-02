@@ -190,7 +190,7 @@ function DevelopedBySection() {
 export function AboutTab() {
   return (
     <div className="space-y-6 pb-2">
-      <div className="relative -mx-4 -mt-4">
+      <div className="relative -mx-4 -mt-4 sm:-mx-5 sm:-mt-5">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-x-0 top-0 bottom-0 overflow-hidden [mask-image:linear-gradient(to_bottom,black_0%,black_42%,transparent_100%)] [-webkit-mask-image:linear-gradient(to_bottom,black_0%,black_42%,transparent_100%)]"
@@ -211,7 +211,7 @@ export function AboutTab() {
           </div>
         </div>
 
-        <div className="relative flex flex-col items-center px-4 pt-6 pb-12 text-center">
+        <div className="relative flex flex-col items-center px-4 pt-8 pb-12 text-center sm:px-5">
           <div className="relative shrink-0">
             <div className="absolute inset-0 scale-110 rounded-2xl bg-primary/30 blur-md" />
             <img

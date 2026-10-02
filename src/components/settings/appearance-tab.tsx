@@ -32,7 +32,6 @@ import {
 import { usePeepochatSettings } from "@/lib/peepochat/peepochat-context"
 import { useTheme, type ColorScheme } from "@/components/shell/theme-provider"
 import {
-  SettingsDivider,
   SettingsGroup,
   SettingsInputRow,
   SettingsSelectRow,
@@ -216,9 +215,7 @@ export function AppearanceTab() {
   }, [updateConfig])
 
   return (
-    <SettingsTab title="Appearance">
-      <SettingsDivider className="mt-4 mb-4" />
-
+    <SettingsTab>
       <SettingsSection title="Theme">
         <SettingsSegmented
           value={theme}
