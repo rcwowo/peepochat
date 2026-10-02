@@ -168,16 +168,14 @@ export function HighlightsTab() {
   }
 
   return (
-    <SettingsTab
-      title="Highlights"
-      description="Notification alerts, indicators, and pings."
-    >
+    <SettingsTab title="Highlights">
       <SettingsDivider className="mt-4 mb-4" />
 
       <SettingsSection
         title="Notifications"
         description="Browser alerts and sounds when the tab is in the background."
       >
+        {" "}
         <SettingsGroup>
           {!notificationsReady && notificationPermission !== "unsupported" ? (
             <div className="flex items-center justify-between gap-3 px-3 py-2.5">
@@ -203,7 +201,6 @@ export function HighlightsTab() {
           <SettingsSwitchRow
             icon={BellIcon}
             title="Ping notifications"
-            description="When your pings are matched."
             checked={config.highlights.pingPushNotificationsEnabled}
             onCheckedChange={(checked) =>
               updateConfig((current) => ({
@@ -218,7 +215,6 @@ export function HighlightsTab() {
           <SettingsSwitchRow
             icon={BellRingIcon}
             title="Live notifications"
-            description="When an added channel goes live."
             checked={
               config.highlights.liveIndicatorsEnabled &&
               config.highlights.livePushNotificationsEnabled
@@ -238,7 +234,6 @@ export function HighlightsTab() {
           <SettingsSwitchRow
             icon={Volume2Icon}
             title="Use default sounds"
-            description="Built-in sounds for notifications."
             checked={config.highlights.useDefaultSounds}
             onCheckedChange={(checked) =>
               updateConfig((current) => ({
@@ -254,7 +249,6 @@ export function HighlightsTab() {
             <>
               <AlertSoundSettingRow
                 title="Ping sound"
-                description="Plays when a ping rule matches."
                 kind="ping"
                 customId={config.highlights.pingSoundCustomId}
                 otherCustomId={config.highlights.liveSoundCustomId}
@@ -270,7 +264,6 @@ export function HighlightsTab() {
               />
               <AlertSoundSettingRow
                 title="Live notification sound"
-                description="Plays when a channel goes live."
                 kind="live"
                 customId={config.highlights.liveSoundCustomId}
                 otherCustomId={config.highlights.pingSoundCustomId}
@@ -355,7 +348,6 @@ export function HighlightsTab() {
           <SettingsSwitchRow
             icon={HighlighterIcon}
             title="Highlight pinged messages"
-            description="Visually highlight messages in chat that triggered a ping."
             checked={config.highlights.highlightPingedMessages}
             onCheckedChange={(checked) =>
               updateConfig((current) => ({

@@ -59,11 +59,8 @@ export function HelpTab() {
   const rows = getHotkeyHelpRows()
 
   return (
-    <SettingsTab title="Help" description="Learn more about using Peepochat.">
-      <SettingsSection
-        title="Peepochat Wiki"
-        description="All the documentation regarding Peepochat."
-      >
+    <SettingsTab title="Help">
+      <SettingsSection title="Peepochat Wiki">
         <HelpLinkList />
       </SettingsSection>
 

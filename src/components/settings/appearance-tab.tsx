@@ -216,16 +216,10 @@ export function AppearanceTab() {
   }, [updateConfig])
 
   return (
-    <SettingsTab
-      title="Appearance"
-      description="Theme, typography, badges, timestamps, and composer."
-    >
+    <SettingsTab title="Appearance">
       <SettingsDivider className="mt-4 mb-4" />
 
-      <SettingsSection
-        title="Theme"
-        description="Use light, dark, or your system's appearance."
-      >
+      <SettingsSection title="Theme">
         <SettingsSegmented
           value={theme}
           onChange={setTheme}
@@ -238,10 +232,7 @@ export function AppearanceTab() {
         />
       </SettingsSection>
 
-      <SettingsSection
-        title="Color scheme"
-        description="Choose a palette for both light and dark modes."
-      >
+      <SettingsSection title="Color scheme">
         <div
           role="group"
           aria-label="Color scheme"
@@ -271,10 +262,7 @@ export function AppearanceTab() {
         </div>
       </SettingsSection>
 
-      <SettingsSection
-        title="Timestamps"
-        description="How timestamps appear in chat."
-      >
+      <SettingsSection title="Timestamps">
         <SettingsSegmented
           value={config.chat.messageTimestampFormat}
           size="lg"
@@ -288,14 +276,10 @@ export function AppearanceTab() {
         />
       </SettingsSection>
 
-      <SettingsSection
-        title="Message list"
-        description="How rows are laid out in the chat timeline."
-      >
+      <SettingsSection title="Message list">
         <SettingsGroup>
           <SettingsSwitchRow
             title="Alternating row backgrounds"
-            description="Use a subtle stripe on every other message for easier scanning."
             checked={config.chat.alternatingRowBackgrounds}
             onCheckedChange={(checked) =>
               updateConfig((current) => ({
@@ -306,7 +290,6 @@ export function AppearanceTab() {
           />
           <SettingsSwitchRow
             title="Separators between messages"
-            description="Draw a light border under each message row."
             checked={config.chat.messageSeparators}
             onCheckedChange={(checked) =>
               updateConfig((current) => ({
@@ -316,8 +299,7 @@ export function AppearanceTab() {
             }
           />
           <SettingsSelectRow
-            title="Deleted messages appearance"
-            description="How messages appear after they've been deleted."
+            title="Deleted messages"
             value={config.chat.deletedMessagesBehavior}
             onChange={(deletedMessagesBehavior) =>
               updateConfig((current) => ({
@@ -332,8 +314,8 @@ export function AppearanceTab() {
             ]}
           />
           <SettingsSelectRow
-            title="GIF message appearance"
-            description="How Tier 2 and Tier 3 subscriber GIF messages appear in chat."
+            title="GIF messages"
+            description="How Tier 2 and Tier 3 subscriber GIFs appear in chat."
             value={config.chat.gifMessageAppearance}
             onChange={(gifMessageAppearance) =>
               updateConfig((current) => ({
@@ -350,14 +332,10 @@ export function AppearanceTab() {
         </SettingsGroup>
       </SettingsSection>
 
-      <SettingsSection
-        title="Composer"
-        description="Controls that appear next to the message box."
-      >
+      <SettingsSection title="Composer">
         <SettingsGroup>
           <SettingsSelectRow
             title="Chat modes button"
-            description="When the chat modes button appears next to the emote picker."
             value={config.chat.chatModesVisibility}
             onChange={(chatModesVisibility) =>
               updateConfig((current) => ({
@@ -377,10 +355,7 @@ export function AppearanceTab() {
         </SettingsGroup>
       </SettingsSection>
 
-      <SettingsSection
-        title="Typography"
-        description="How chat messages are displayed."
-      >
+      <SettingsSection title="Typography">
         <SettingsGroup>
           <FontFamilySettingRow
             key={config.chat.fontFamily}
@@ -413,12 +388,11 @@ export function AppearanceTab() {
 
       <SettingsSection
         title="Badges"
-        description="Which badge types appear next to usernames in chat."
+        description="Badge types that appear next to usernames in chat."
       >
         <SettingsGroup>
           <SettingsSwitchRow
             title="Twitch badges"
-            description="Native badges provided by Twitch."
             checked={config.chat.badges.twitchEnabled}
             onCheckedChange={(checked) =>
               updateConfig((current) => ({
@@ -449,13 +423,16 @@ export function AppearanceTab() {
 
       <SettingsSection
         title="Message quick actions"
-        description="Buttons shown when you hover a message."
+        description={
+          canConfigureChatMessages || canConfigureBanOrTimeout
+            ? "Buttons shown when you hover a message. Some actions only appear in chats you have permissions for."
+            : "Buttons shown when you hover a message."
+        }
       >
         <SettingsGroup>
           <SettingsSwitchRow
             icon={CopyIcon}
             title="Copy message"
-            description="Copy the message text to your clipboard."
             checked={config.chat.messageQuickActions.copyEnabled}
             onCheckedChange={(copyEnabled) =>
               updateConfig((current) => ({
@@ -473,7 +450,6 @@ export function AppearanceTab() {
           <SettingsSwitchRow
             icon={CornerUpLeftIcon}
             title="Reply"
-            description="Start a threaded reply to the message."
             checked={config.chat.messageQuickActions.replyEnabled}
             onCheckedChange={(replyEnabled) =>
               updateConfig((current) => ({
@@ -492,7 +468,6 @@ export function AppearanceTab() {
             <SettingsSwitchRow
               icon={PinIcon}
               title="Pin message"
-              description="Pins the message in chats you have permissions for."
               checked={config.chat.messageQuickActions.pinEnabled}
               onCheckedChange={(pinEnabled) =>
                 updateConfig((current) => ({
@@ -512,7 +487,6 @@ export function AppearanceTab() {
             <SettingsSwitchRow
               icon={Trash2Icon}
               title="Delete message"
-              description="Deletes the message in chats you have permissions for."
               checked={config.chat.messageQuickActions.deleteEnabled}
               onCheckedChange={(deleteEnabled) =>
                 updateConfig((current) => ({
@@ -532,7 +506,6 @@ export function AppearanceTab() {
             <SettingsSwitchRow
               icon={ClockIcon}
               title="Timeout"
-              description="Timeout the user in chats you have permissions for."
               checked={config.chat.messageQuickActions.timeoutEnabled}
               onCheckedChange={(timeoutEnabled) =>
                 updateConfig((current) => ({
@@ -552,7 +525,6 @@ export function AppearanceTab() {
             <SettingsSwitchRow
               icon={BanIcon}
               title="Ban"
-              description="Bans the user in chats you have permissions for."
               checked={config.chat.messageQuickActions.banEnabled}
               onCheckedChange={(banEnabled) =>
                 updateConfig((current) => ({
@@ -579,7 +551,6 @@ export function AppearanceTab() {
           <SettingsSwitchRow
             icon={EyeIcon}
             title="View count"
-            description="How many people are watching while live."
             checked={config.chat.streamInfo.viewerCountEnabled}
             onCheckedChange={(viewerCountEnabled) =>
               updateConfig((current) => ({
@@ -597,7 +568,6 @@ export function AppearanceTab() {
           <SettingsSwitchRow
             icon={TypeIcon}
             title="Title"
-            description="The current stream title."
             checked={config.chat.streamInfo.titleEnabled}
             onCheckedChange={(titleEnabled) =>
               updateConfig((current) => ({
@@ -615,7 +585,6 @@ export function AppearanceTab() {
           <SettingsSwitchRow
             icon={Gamepad2Icon}
             title="Category"
-            description="The game or category, shown before the title when both are enabled."
             checked={config.chat.streamInfo.categoryEnabled}
             onCheckedChange={(categoryEnabled) =>
               updateConfig((current) => ({
@@ -633,7 +602,6 @@ export function AppearanceTab() {
           <SettingsSwitchRow
             icon={ClockIcon}
             title="Uptime"
-            description="How long the current stream has been live."
             checked={config.chat.streamInfo.uptimeEnabled}
             onCheckedChange={(uptimeEnabled) =>
               updateConfig((current) => ({

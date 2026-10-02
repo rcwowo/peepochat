@@ -14,7 +14,7 @@ const OWO_SUPPORTER_BADGE_IMAGE = "https://i.rcw.lol/u/VrPTF3.png"
 
 type CreditEntry = {
   name: string
-  description: string
+  description?: string
   href: string
 }
 
@@ -26,17 +26,14 @@ const SERVICE_CREDITS: CreditEntry[] = [
   },
   {
     name: "BetterTTV",
-    description: "Emote provider.",
     href: "https://betterttv.com",
   },
   {
     name: "FrankerFaceZ",
-    description: "Emote provider.",
     href: "https://www.frankerfacez.com",
   },
   {
     name: "7TV",
-    description: "Emote provider.",
     href: "https://7tv.app",
   },
   {
@@ -66,9 +63,11 @@ function CreditsList({ credits }: { credits: CreditEntry[] }) {
               <div className="text-sm leading-tight font-medium group-hover:text-foreground">
                 {credit.name}
               </div>
-              <p className="mt-0.5 text-xs leading-snug text-muted-foreground">
-                {credit.description}
-              </p>
+              {credit.description ? (
+                <p className="mt-0.5 text-xs leading-snug text-muted-foreground">
+                  {credit.description}
+                </p>
+              ) : null}
             </div>
             <ExternalLinkIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground/60 group-hover:text-muted-foreground" />
           </a>
@@ -234,10 +233,7 @@ export function AboutTab() {
       </div>
 
       <section className="space-y-2">
-        <SectionHeading
-          title="Developed by"
-          description="Who built this thing?"
-        />
+        <SectionHeading title="Developed by" />
         <DevelopedBySection />
       </section>
 
