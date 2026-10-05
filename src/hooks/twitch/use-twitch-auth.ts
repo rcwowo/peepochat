@@ -156,7 +156,12 @@ export function useTwitchAuth({
           validated.scopes.length !== current.scopes.length ||
           validated.scopes.some((scope) => !current.scopes.includes(scope))
 
-        if (scopesChanged) {
+        const validatedLogin = validated.login.trim().toLowerCase()
+        const loginChanged =
+          validatedLogin.length > 0 &&
+          validatedLogin !== current.login.trim().toLowerCase()
+
+        if (scopesChanged || loginChanged) {
           updateConfig((configValue) => {
             const existing = configValue.twitch.account
             if (!existing || existing.accessToken !== current.accessToken) {
@@ -168,7 +173,8 @@ export function useTwitchAuth({
                 ...configValue.twitch,
                 account: {
                   ...existing,
-                  scopes: validated.scopes,
+                  login: loginChanged ? validated.login : existing.login,
+                  scopes: scopesChanged ? validated.scopes : existing.scopes,
                 },
               },
             }
