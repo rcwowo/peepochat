@@ -82,10 +82,7 @@ export function DataManagementTab() {
   }
 
   return (
-    <SettingsTab
-      description="Export, restore, or clear your local Peepochat configuration. Backups are human-readable JSON files on your device."
-    >
-
+    <SettingsTab description="Export, restore, or clear your local Peepochat configuration. Backups are human-readable JSON files on your device.">
       <SettingsSection
         title="What's included:"
         description="Settings that are saved in exported backups."

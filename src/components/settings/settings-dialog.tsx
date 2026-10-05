@@ -1,9 +1,10 @@
 import * as React from "react"
 import {
-  SlidersHorizontalIcon,
   DatabaseIcon,
   InfoIcon,
   PaintbrushIcon,
+  MessageSquareIcon,
+  MonitorPlayIcon,
   ScrollTextIcon,
   CircleHelpIcon,
   BellIcon,
@@ -23,11 +24,12 @@ import { APP_BRANDING } from "@/lib/branding"
 import { getAppVersion } from "@/lib/changelog"
 import { AboutTab } from "@/components/settings/about-tab"
 import { AppearanceTab } from "@/components/settings/appearance-tab"
-import { BehaviorTab } from "@/components/settings/behavior-tab"
+import { ChatTab } from "@/components/settings/chat-tab"
 import { ChangelogTab } from "@/components/settings/changelog-tab"
 import { HelpTab } from "@/components/settings/help-tab"
 import { DataManagementTab } from "@/components/settings/data-management-tab"
 import { HighlightsTab } from "@/components/settings/highlights-tab"
+import { PlayerTab } from "@/components/settings/player-tab"
 import { IS_DEV } from "@/lib/dev/is-dev"
 import {
   installSettingsPortaledLayerPointerGuard,
@@ -43,8 +45,9 @@ const DeveloperTab = IS_DEV
 
 export type SettingsCategory =
   | "appearance"
-  | "behavior"
+  | "chat"
   | "highlights"
+  | "player"
   | "data"
   | "changelog"
   | "help"
@@ -59,7 +62,8 @@ type SettingsCategoryEntry = {
 
 const PREFERENCE_CATEGORIES: SettingsCategoryEntry[] = [
   { id: "appearance", label: "Appearance", icon: PaintbrushIcon },
-  { id: "behavior", label: "Behavior", icon: SlidersHorizontalIcon },
+  { id: "chat", label: "Chat", icon: MessageSquareIcon },
+  { id: "player", label: "Player", icon: MonitorPlayIcon },
   { id: "highlights", label: "Highlights", icon: BellIcon },
   { id: "data", label: "Data Management", icon: DatabaseIcon },
   ...(IS_DEV
@@ -94,7 +98,7 @@ function NavRowButton({
       aria-current={selected ? "page" : undefined}
       onClick={onSelect}
       className={cn(
-        "flex h-8 w-full shrink-0 items-center gap-2.5 rounded-md px-2.5 text-left text-[13px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/35 max-sm:h-9 max-sm:w-9 max-sm:justify-center max-sm:px-0",
+        "flex h-8 w-full shrink-0 items-center gap-2.5 rounded-md px-2.5 text-left text-[13px] font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary/35 max-sm:h-9 max-sm:w-9 max-sm:justify-center max-sm:px-0",
         selected
           ? "bg-primary/10 text-foreground dark:bg-primary/20"
           : "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground"
@@ -122,7 +126,7 @@ function BrandFooter({
       aria-current={active ? "page" : undefined}
       onClick={onOpenAbout}
       className={cn(
-        "mx-2 mb-2 mt-auto flex shrink-0 items-center gap-2.5 rounded-lg border px-2.5 py-2 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary/35 max-sm:mx-auto max-sm:w-9 max-sm:justify-center max-sm:px-0 max-sm:border-transparent",
+        "mx-2 mt-auto mb-2 flex shrink-0 items-center gap-2.5 rounded-lg border px-2.5 py-2 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary/35 max-sm:mx-auto max-sm:w-9 max-sm:justify-center max-sm:border-transparent max-sm:px-0",
         active
           ? "border-primary/20 bg-primary/10 dark:bg-primary/20"
           : "border-border/60 hover:bg-foreground/[0.04]"
@@ -202,7 +206,7 @@ export function SettingsDialog({
         showCloseButton={false}
         showOverlay={false}
         data-hotkey-surface="settings"
-        className="h-svh gap-0 p-0 data-[side=right]:w-full max-sm:data-[side=right]:border-l-0 data-[side=right]:sm:max-w-[34rem] sm:data-[side=right]:w-[34rem] sm:data-[side=right]:border-l"
+        className="h-svh gap-0 p-0 data-[side=right]:w-full max-sm:data-[side=right]:border-l-0 sm:data-[side=right]:w-[34rem] data-[side=right]:sm:max-w-[34rem] sm:data-[side=right]:border-l"
         onInteractOutside={(event) => {
           if (shouldPreventSettingsDismiss(event.target)) {
             event.preventDefault()
@@ -270,7 +274,7 @@ export function SettingsDialog({
               <Button
                 variant="ghost"
                 size="icon-sm"
-                className="absolute top-2.5 right-2.5 z-10 bg-background/70 backdrop-blur-xs shadow-xs transition-colors hover:bg-background sm:top-3 sm:right-3"
+                className="absolute top-2.5 right-2.5 z-10 bg-background/70 shadow-xs backdrop-blur-xs transition-colors hover:bg-background sm:top-3 sm:right-3"
               >
                 <XIcon />
                 <span className="sr-only">Close</span>
@@ -283,10 +287,11 @@ export function SettingsDialog({
             >
               <div
                 key={activeCategory}
-                className="animate-in fade-in-0 slide-in-from-bottom-1 duration-150 motion-reduce:animate-none"
+                className="animate-in duration-150 fade-in-0 slide-in-from-bottom-1 motion-reduce:animate-none"
               >
                 {activeCategory === "appearance" && <AppearanceTab />}
-                {activeCategory === "behavior" && <BehaviorTab />}
+                {activeCategory === "chat" && <ChatTab />}
+                {activeCategory === "player" && <PlayerTab />}
                 {activeCategory === "highlights" && <HighlightsTab />}
                 {activeCategory === "data" && <DataManagementTab />}
                 {activeCategory === "changelog" && <ChangelogTab />}

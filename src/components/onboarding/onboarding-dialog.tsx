@@ -884,7 +884,10 @@ function EmbeddedSoundPreviewRow({ sound }: { sound: BackupPreviewSound }) {
   return (
     <div className="flex items-center justify-between gap-3 rounded-md bg-card px-2.5 py-1.5">
       <div className="flex min-w-0 items-center gap-2">
-        <Music2Icon className="size-3 shrink-0 text-muted-foreground" aria-hidden />
+        <Music2Icon
+          className="size-3 shrink-0 text-muted-foreground"
+          aria-hidden
+        />
         <span className="truncate text-xs" title={sound.name}>
           {sound.name}
         </span>

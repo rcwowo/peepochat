@@ -250,9 +250,7 @@ export async function restoreEmbeddedCustomSounds(
         createdAt: new Date().toISOString(),
       }
 
-      await runSoundStoreTransaction("readwrite", (store) =>
-        store.put(record)
-      )
+      await runSoundStoreTransaction("readwrite", (store) => store.put(record))
       revokeCustomSoundObjectUrl(record.id)
     } catch {
       continue

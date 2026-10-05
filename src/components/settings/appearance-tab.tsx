@@ -1,25 +1,11 @@
 import * as React from "react"
 import {
-  BanIcon,
-  ClockIcon,
-  CopyIcon,
-  CornerUpLeftIcon,
-  EyeIcon,
-  Gamepad2Icon,
   Link2Icon,
   MonitorIcon,
   MoonIcon,
-  PinIcon,
   SunIcon,
-  Trash2Icon,
-  TypeIcon,
   Unlink2Icon,
 } from "lucide-react"
-
-import {
-  canBanOrTimeoutUsers,
-  canDeleteChatMessages,
-} from "@/lib/chat/moderation/permissions"
 
 import {
   CHAT_EMOTE_SCALE_DEFAULT,
@@ -34,10 +20,9 @@ import { useTheme, type ColorScheme } from "@/components/shell/theme-provider"
 import {
   SettingsGroup,
   SettingsInputRow,
-  SettingsSelectRow,
-  SettingsSliderRow,
   SettingsSection,
   SettingsSegmented,
+  SettingsSliderRow,
   SettingsSwitchRow,
   SettingsTab,
 } from "@/components/settings/settings-primitives"
@@ -149,9 +134,7 @@ function FontFamilySettingRow({
 }
 
 export function AppearanceTab() {
-  const { config, updateConfig, account } = usePeepochatSettings()
-  const canConfigureChatMessages = canDeleteChatMessages(account)
-  const canConfigureBanOrTimeout = canBanOrTimeoutUsers(account)
+  const { config, updateConfig } = usePeepochatSettings()
   const { theme, setTheme, colorScheme, setColorScheme } = useTheme()
   const scalesLinked = config.chat.linkEmoteScaleToFontSize
 
@@ -295,60 +278,6 @@ export function AppearanceTab() {
               }))
             }
           />
-          <SettingsSelectRow
-            title="Deleted messages"
-            value={config.chat.deletedMessagesBehavior}
-            onChange={(deletedMessagesBehavior) =>
-              updateConfig((current) => ({
-                ...current,
-                chat: { ...current.chat, deletedMessagesBehavior },
-              }))
-            }
-            options={[
-              { value: "remove", label: "Remove from list" },
-              { value: "strikethrough", label: "Strikethrough" },
-              { value: "show-on-hover", label: "Show on hover" },
-            ]}
-          />
-          <SettingsSelectRow
-            title="GIF messages"
-            description="How Tier 2 and Tier 3 subscriber GIFs appear in chat."
-            value={config.chat.gifMessageAppearance}
-            onChange={(gifMessageAppearance) =>
-              updateConfig((current) => ({
-                ...current,
-                chat: { ...current.chat, gifMessageAppearance },
-              }))
-            }
-            options={[
-              { value: "display", label: "Display GIFs in chat" },
-              { value: "links", label: "Only display GIF links" },
-              { value: "disabled", label: "Disabled" },
-            ]}
-          />
-        </SettingsGroup>
-      </SettingsSection>
-
-      <SettingsSection title="Composer">
-        <SettingsGroup>
-          <SettingsSelectRow
-            title="Chat modes button"
-            value={config.chat.chatModesVisibility}
-            onChange={(chatModesVisibility) =>
-              updateConfig((current) => ({
-                ...current,
-                chat: { ...current.chat, chatModesVisibility },
-              }))
-            }
-            options={[
-              { value: "always", label: "Always visible" },
-              {
-                value: "when-permitted",
-                label: "When permissions allow changes",
-              },
-              { value: "hidden", label: "Hidden" },
-            ]}
-          />
         </SettingsGroup>
       </SettingsSection>
 
@@ -411,204 +340,6 @@ export function AppearanceTab() {
                 chat: {
                   ...current.chat,
                   badges: { ...current.chat.badges, owoMemberEnabled: checked },
-                },
-              }))
-            }
-          />
-        </SettingsGroup>
-      </SettingsSection>
-
-      <SettingsSection
-        title="Message quick actions"
-        description={
-          canConfigureChatMessages || canConfigureBanOrTimeout
-            ? "Buttons shown when you hover a message. Some actions only appear in chats you have permissions for."
-            : "Buttons shown when you hover a message."
-        }
-      >
-        <SettingsGroup>
-          <SettingsSwitchRow
-            icon={CopyIcon}
-            title="Copy message"
-            checked={config.chat.messageQuickActions.copyEnabled}
-            onCheckedChange={(copyEnabled) =>
-              updateConfig((current) => ({
-                ...current,
-                chat: {
-                  ...current.chat,
-                  messageQuickActions: {
-                    ...current.chat.messageQuickActions,
-                    copyEnabled,
-                  },
-                },
-              }))
-            }
-          />
-          <SettingsSwitchRow
-            icon={CornerUpLeftIcon}
-            title="Reply"
-            checked={config.chat.messageQuickActions.replyEnabled}
-            onCheckedChange={(replyEnabled) =>
-              updateConfig((current) => ({
-                ...current,
-                chat: {
-                  ...current.chat,
-                  messageQuickActions: {
-                    ...current.chat.messageQuickActions,
-                    replyEnabled,
-                  },
-                },
-              }))
-            }
-          />
-          {canConfigureChatMessages ? (
-            <SettingsSwitchRow
-              icon={PinIcon}
-              title="Pin message"
-              checked={config.chat.messageQuickActions.pinEnabled}
-              onCheckedChange={(pinEnabled) =>
-                updateConfig((current) => ({
-                  ...current,
-                  chat: {
-                    ...current.chat,
-                    messageQuickActions: {
-                      ...current.chat.messageQuickActions,
-                      pinEnabled,
-                    },
-                  },
-                }))
-              }
-            />
-          ) : null}
-          {canConfigureChatMessages ? (
-            <SettingsSwitchRow
-              icon={Trash2Icon}
-              title="Delete message"
-              checked={config.chat.messageQuickActions.deleteEnabled}
-              onCheckedChange={(deleteEnabled) =>
-                updateConfig((current) => ({
-                  ...current,
-                  chat: {
-                    ...current.chat,
-                    messageQuickActions: {
-                      ...current.chat.messageQuickActions,
-                      deleteEnabled,
-                    },
-                  },
-                }))
-              }
-            />
-          ) : null}
-          {canConfigureBanOrTimeout ? (
-            <SettingsSwitchRow
-              icon={ClockIcon}
-              title="Timeout"
-              checked={config.chat.messageQuickActions.timeoutEnabled}
-              onCheckedChange={(timeoutEnabled) =>
-                updateConfig((current) => ({
-                  ...current,
-                  chat: {
-                    ...current.chat,
-                    messageQuickActions: {
-                      ...current.chat.messageQuickActions,
-                      timeoutEnabled,
-                    },
-                  },
-                }))
-              }
-            />
-          ) : null}
-          {canConfigureBanOrTimeout ? (
-            <SettingsSwitchRow
-              icon={BanIcon}
-              title="Ban"
-              checked={config.chat.messageQuickActions.banEnabled}
-              onCheckedChange={(banEnabled) =>
-                updateConfig((current) => ({
-                  ...current,
-                  chat: {
-                    ...current.chat,
-                    messageQuickActions: {
-                      ...current.chat.messageQuickActions,
-                      banEnabled,
-                    },
-                  },
-                }))
-              }
-            />
-          ) : null}
-        </SettingsGroup>
-      </SettingsSection>
-
-      <SettingsSection
-        title="Stream info"
-        description="Details shown when you expand a channel's header."
-      >
-        <SettingsGroup>
-          <SettingsSwitchRow
-            icon={EyeIcon}
-            title="View count"
-            checked={config.chat.streamInfo.viewerCountEnabled}
-            onCheckedChange={(viewerCountEnabled) =>
-              updateConfig((current) => ({
-                ...current,
-                chat: {
-                  ...current.chat,
-                  streamInfo: {
-                    ...current.chat.streamInfo,
-                    viewerCountEnabled,
-                  },
-                },
-              }))
-            }
-          />
-          <SettingsSwitchRow
-            icon={TypeIcon}
-            title="Title"
-            checked={config.chat.streamInfo.titleEnabled}
-            onCheckedChange={(titleEnabled) =>
-              updateConfig((current) => ({
-                ...current,
-                chat: {
-                  ...current.chat,
-                  streamInfo: {
-                    ...current.chat.streamInfo,
-                    titleEnabled,
-                  },
-                },
-              }))
-            }
-          />
-          <SettingsSwitchRow
-            icon={Gamepad2Icon}
-            title="Category"
-            checked={config.chat.streamInfo.categoryEnabled}
-            onCheckedChange={(categoryEnabled) =>
-              updateConfig((current) => ({
-                ...current,
-                chat: {
-                  ...current.chat,
-                  streamInfo: {
-                    ...current.chat.streamInfo,
-                    categoryEnabled,
-                  },
-                },
-              }))
-            }
-          />
-          <SettingsSwitchRow
-            icon={ClockIcon}
-            title="Uptime"
-            checked={config.chat.streamInfo.uptimeEnabled}
-            onCheckedChange={(uptimeEnabled) =>
-              updateConfig((current) => ({
-                ...current,
-                chat: {
-                  ...current.chat,
-                  streamInfo: {
-                    ...current.chat.streamInfo,
-                    uptimeEnabled,
-                  },
                 },
               }))
             }

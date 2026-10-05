@@ -762,7 +762,7 @@ export function SettingsTab({
   return (
     <div className={cn("pb-2", className)}>
       {description && (
-        <p className="pr-8 mb-6 text-[13px] leading-relaxed text-muted-foreground sm:pr-10">
+        <p className="mb-6 pr-8 text-[13px] leading-relaxed text-muted-foreground sm:pr-10">
           {description}
         </p>
       )}

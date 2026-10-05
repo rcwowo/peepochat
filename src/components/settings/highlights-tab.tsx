@@ -2,6 +2,7 @@ import * as React from "react"
 import {
   AtSignIcon,
   BellIcon,
+  BellOffIcon,
   BellRingIcon,
   CircleIcon,
   HighlighterIcon,
@@ -195,6 +196,21 @@ export function HighlightsTab() {
               </Button>
             </div>
           ) : null}
+          <SettingsSwitchRow
+            icon={BellOffIcon}
+            title="Do not disturb"
+            description="Silence notification sounds and desktop alerts, without affecting indicators."
+            checked={config.highlights.doNotDisturbEnabled}
+            onCheckedChange={(doNotDisturbEnabled) =>
+              updateConfig((current) => ({
+                ...current,
+                highlights: {
+                  ...current.highlights,
+                  doNotDisturbEnabled,
+                },
+              }))
+            }
+          />
           <SettingsSwitchRow
             icon={BellIcon}
             title="Ping notifications"

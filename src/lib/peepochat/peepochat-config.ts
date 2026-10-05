@@ -765,12 +765,8 @@ function buildBackupPreviewSidebarItems(
 }
 
 export function parseBackupPreview(payload: string): BackupPreview {
-  const {
-    config,
-    embeddedSounds,
-    exportedAt,
-    appVersion,
-  } = parseBackupPayload(payload)
+  const { config, embeddedSounds, exportedAt, appVersion } =
+    parseBackupPayload(payload)
 
   return {
     exportedAt,
