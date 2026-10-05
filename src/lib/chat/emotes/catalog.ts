@@ -707,16 +707,26 @@ function partitionTwitchEmotes(sources: {
     )
   )
 
-  pushDraft({
-    id: `twitch-channel-follower-${channelLogin}`,
-    label: `${channelLogin} follower`,
-    icon: { kind: "current-channel" },
-    emotes: userChannelEmotes.filter(
+  const followerEmotesById = new Map<string, TwitchChatEmote>()
+  for (const emote of [
+    ...channelEmotes.filter((emote) => isFollowerChannelEmote(emote)),
+    ...userChannelEmotes.filter(
       (emote) =>
         emote.ownerId === roomId &&
         (isFollowerChannelEmote(emote) ||
           followerCodesOnChannel.has(emote.name.toLowerCase()))
     ),
+  ]) {
+    if (!followerEmotesById.has(emote.id)) {
+      followerEmotesById.set(emote.id, emote)
+    }
+  }
+
+  pushDraft({
+    id: `twitch-channel-follower-${channelLogin}`,
+    label: `${channelLogin} follower`,
+    icon: { kind: "current-channel" },
+    emotes: [...followerEmotesById.values()],
   })
 
   pushDraft({
