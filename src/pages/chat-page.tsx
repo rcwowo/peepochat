@@ -69,6 +69,8 @@ function SingleChannelPane({
   onClosePlayer,
   streamInfoMode,
   liveStreamOverride,
+  displayNameOverride,
+  profileImageUrlOverride,
 }: {
   login: string
   bindings: ChatPaneBindings
@@ -76,6 +78,8 @@ function SingleChannelPane({
   onClosePlayer?: () => void
   streamInfoMode?: "interactive" | "mobile"
   liveStreamOverride?: TwitchLiveStream | null
+  displayNameOverride?: string
+  profileImageUrlOverride?: string
 }) {
   const resizeActive = useResizeActivity()
   const meta = bindings.channelMeta.get(login)
@@ -86,8 +90,8 @@ function SingleChannelPane({
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
       <ChatPane
         channelLogin={login}
-        displayName={meta?.displayName}
-        profileImageUrl={meta?.profileImageUrl}
+        displayName={displayNameOverride ?? meta?.displayName}
+        profileImageUrl={profileImageUrlOverride ?? meta?.profileImageUrl}
         timeline={room?.timeline ?? []}
         timestampFormat={bindings.timestampFormat}
         messageQuickActions={bindings.messageQuickActions}
@@ -276,12 +280,16 @@ export function ChatPage({
   onClosePlayer,
   streamInfoMode,
   liveStreamOverride,
+  displayNameOverride,
+  profileImageUrlOverride,
 }: {
   active?: boolean
   channelOverride?: string
   onClosePlayer?: () => void
   streamInfoMode?: "interactive" | "mobile"
   liveStreamOverride?: TwitchLiveStream | null
+  displayNameOverride?: string
+  profileImageUrlOverride?: string
 } = {}) {
   const { config, channels, activeChannelLogin, account, loginWithTwitch } =
     usePeepochatSettings()
@@ -379,6 +387,8 @@ export function ChatPage({
             onClosePlayer={onClosePlayer}
             streamInfoMode={streamInfoMode}
             liveStreamOverride={liveStreamOverride}
+            displayNameOverride={displayNameOverride}
+            profileImageUrlOverride={profileImageUrlOverride}
           />
         </ChatViewActiveProvider>
       </div>

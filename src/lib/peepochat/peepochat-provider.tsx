@@ -203,12 +203,18 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     () => channels.map((channel) => channel.login),
     [channels]
   )
-  const activePlayerChannelLogin =
-    playerChannelLogin && channelLogins.includes(playerChannelLogin)
-      ? playerChannelLogin
-      : null
+  const activePlayerChannelLogin = playerChannelLogin
   const isPlayerViewActive =
     playerViewActive && activePlayerChannelLogin !== null
+  const syncChannelLogins = React.useMemo(() => {
+    if (
+      activePlayerChannelLogin &&
+      !channelLogins.includes(activePlayerChannelLogin)
+    ) {
+      return [...channelLogins, activePlayerChannelLogin]
+    }
+    return channelLogins
+  }, [activePlayerChannelLogin, channelLogins])
 
   const focusChannelRef = React.useRef<(login: string) => void>((login) => {
     setActiveChannelBase(login)
@@ -451,14 +457,20 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     if (!ready || needsOnboarding) return
     if (!hasAccountValue) return
 
-    void syncAllChannels(channelLogins).catch((error) => {
+    void syncAllChannels(syncChannelLogins).catch((error) => {
       if (isSyncChannelsSupersededError(error)) {
         return
       }
 
       toast.error(error instanceof Error ? error.message : "Connection failed")
     })
-  }, [channelLogins, hasAccountValue, needsOnboarding, ready, syncAllChannels])
+  }, [
+    syncChannelLogins,
+    hasAccountValue,
+    needsOnboarding,
+    ready,
+    syncAllChannels,
+  ])
 
   const effectiveMountedChannelLogins = React.useMemo(
     () =>

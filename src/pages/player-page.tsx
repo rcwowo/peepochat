@@ -194,6 +194,8 @@ function PlayerPageContent({
       onClosePlayer={closePlayer}
       streamInfoMode="mobile"
       liveStreamOverride={stream}
+      displayNameOverride={displayName}
+      profileImageUrlOverride={profileImageUrl}
     />
   )
 

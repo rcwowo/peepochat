@@ -6,6 +6,8 @@
             "Added experimental support for other color schemes.",
             "Added ability to hide the built-in stream info UI in the player.",
             "Added ability to backup set custom sounds.",
+            "Added ability to watch a channel ephemerally to the add channel picker.",
+            "Added better navigation to the add channel picker.",
             "Added a do-not-disturb toggle to the notification center.",
             "Major redesign to how the settings panel is laid out.",
             "Changed missed notifications to be less important.",
