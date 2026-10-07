@@ -27,6 +27,7 @@ import type {
   TwitchAutomodHeldMessage,
   TwitchChatRoomState,
   TwitchSelfChatState,
+  TwitchSuspiciousUserMessage,
   TwitchTimelineItem,
 } from "@/lib/twitch/chat/types"
 import type {
@@ -180,6 +181,10 @@ export type PeepochatChatContextValue = {
   injectAutomodHeldMessage: (
     login: string,
     message: TwitchAutomodHeldMessage
+  ) => boolean
+  injectSuspiciousUserMessage: (
+    login: string,
+    message: TwitchSuspiciousUserMessage
   ) => boolean
   canSendChat: boolean
   hasBadgeSupport: boolean
