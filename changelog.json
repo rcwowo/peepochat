@@ -1,7 +1,7 @@
 [
     {
         "version": "1.3.0",
-        "date": "2026-10-01",
+        "date": "2026-10-07",
         "items": [
             "Added experimental support for other color schemes.",
             "Added ability to hide the built-in stream info UI in the player.",
@@ -10,6 +10,7 @@
             "Added better navigation to the add channel picker.",
             "Added a do-not-disturb toggle to the notification center.",
             "Major redesign to how the settings panel is laid out.",
+            "Minor layout change in the emote picker.",
             "Changed missed notifications to be less important.",
             "Changed chatlogs to open in my new chatlog project.",
             "Fixed a bug where the chat pane jittered on resize or opening certain panels.",
