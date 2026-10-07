@@ -15,6 +15,7 @@
             "Fixed a bug where the chat pane jittered on resize or opening certain panels.",
             "Fixed a bug where the username would become out of sync if the user changed it.",
             "Fixed a bug where third-party emotes wouldn't render in AutoMod and monitored-user messages.",
+            "Fixed a bug where cheermotes wouldn't render in AutoMod and monitored-user messages.",
             "Fixed a bug where follower emotes wouldn't properly appear in the emote picker."
         ]
     },

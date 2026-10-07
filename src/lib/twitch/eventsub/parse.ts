@@ -16,16 +16,37 @@ function twitchEmoteImageUrl(emoteId: string): string {
   return buildTwitchEmoteCdnUrl(emoteId)
 }
 
-export function emotesFromV2Fragments(fragments: unknown): {
+export type EventSubMessageBody = {
   text: string
   emotes: TwitchEmote[]
-} {
+  bits: number | null
+}
+
+function cheermoteFragmentBits(cheermote: unknown): number {
+  const record = asRecord(cheermote)
+  const raw = record?.bits
+  if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) {
+    return raw
+  }
+
+  if (typeof raw === "string") {
+    const parsed = Number.parseInt(raw, 10)
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed
+    }
+  }
+
+  return 0
+}
+
+export function emotesFromV2Fragments(fragments: unknown): EventSubMessageBody {
   if (!Array.isArray(fragments)) {
-    return { text: "", emotes: [] }
+    return { text: "", emotes: [], bits: null }
   }
 
   let text = ""
   const emotes: TwitchEmote[] = []
+  let bits = 0
 
   for (const fragment of fragments) {
     const record = asRecord(fragment)
@@ -34,12 +55,17 @@ export function emotesFromV2Fragments(fragments: unknown): {
     const fragmentText = asString(record.text)
     if (!fragmentText) continue
 
-    const type = asString(record.type)
+    if (asString(record.type) === "cheermote") {
+      bits += cheermoteFragmentBits(record.cheermote)
+      text += fragmentText
+      continue
+    }
+
     const start = text.length
     text += fragmentText
     const end = text.length - 1
 
-    if (type !== "emote") continue
+    if (asString(record.type) !== "emote") continue
 
     const emote = asRecord(record.emote)
     const emoteId = asString(emote?.id).trim()
@@ -55,7 +81,7 @@ export function emotesFromV2Fragments(fragments: unknown): {
     })
   }
 
-  return { text, emotes }
+  return { text, emotes, bits: bits > 0 ? bits : null }
 }
 
 function emotesFromV1Fragments(
@@ -94,32 +120,33 @@ function emotesFromV1Fragments(
   return emotes.sort((a, b) => a.start - b.start)
 }
 
-export function parseEventSubMessageBody(event: Record<string, unknown>): {
-  text: string
-  emotes: TwitchEmote[]
-} {
+export function parseEventSubMessageBody(
+  event: Record<string, unknown>
+): EventSubMessageBody {
   const message = event.message
   if (typeof message === "string") {
     return {
       text: message,
       emotes: emotesFromV1Fragments(message, event.fragments),
+      bits: null,
     }
   }
 
   const record = asRecord(message)
   if (!record) {
-    return { text: "", emotes: [] }
+    return { text: "", emotes: [], bits: null }
   }
 
   const fromFragments = emotesFromV2Fragments(record.fragments)
   const text = asString(record.text) || fromFragments.text
   if (fromFragments.emotes.length > 0) {
-    return { text, emotes: fromFragments.emotes }
+    return { text, emotes: fromFragments.emotes, bits: fromFragments.bits }
   }
 
   return {
     text,
     emotes: emotesFromV1Fragments(text, event.fragments),
+    bits: fromFragments.bits,
   }
 }
 

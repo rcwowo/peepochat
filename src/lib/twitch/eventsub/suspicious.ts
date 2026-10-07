@@ -18,10 +18,11 @@ function parseMessageBody(event: Record<string, unknown>): {
   messageId: string
   text: string
   emotes: ReturnType<typeof emotesFromV2Fragments>["emotes"]
+  bits: ReturnType<typeof emotesFromV2Fragments>["bits"]
 } {
   const record = asRecord(event.message)
   if (!record) {
-    return { messageId: "", text: "", emotes: [] }
+    return { messageId: "", text: "", emotes: [], bits: null }
   }
 
   const messageId = asString(record.message_id).trim()
@@ -32,6 +33,7 @@ function parseMessageBody(event: Record<string, unknown>): {
     messageId,
     text,
     emotes: fromFragments.emotes,
+    bits: fromFragments.bits,
   }
 }
 
@@ -77,7 +79,7 @@ export function parseSuspiciousUserMessage({
   const userId = asString(event.user_id).trim()
   const userName = asString(event.user_login).trim().toLowerCase()
   const displayName = asString(event.user_name).trim() || userName
-  const { messageId, text, emotes } = parseMessageBody(event)
+  const { messageId, text, emotes, bits } = parseMessageBody(event)
 
   if (
     !channel ||
@@ -102,6 +104,7 @@ export function parseSuspiciousUserMessage({
     emotes,
     badges: badgesFromEventSub(event.badges),
     color: null,
+    bits,
     receivedAt: receivedAt?.trim() || new Date().toISOString(),
     status,
     deletedAt: null,

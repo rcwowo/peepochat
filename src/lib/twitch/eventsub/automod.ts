@@ -56,7 +56,7 @@ export function parseAutomodHeldMessage({
     return null
   }
 
-  const { text, emotes } = parseEventSubMessageBody(event)
+  const { text, emotes, bits } = parseEventSubMessageBody(event)
   if (!text.trim()) return null
 
   const heldAt = asString(event.held_at).trim() || new Date().toISOString()
@@ -73,6 +73,7 @@ export function parseAutomodHeldMessage({
     emotes,
     badges: badgesFromEventSub(event.badges),
     color: null,
+    bits,
     receivedAt: heldAt,
     heldAt,
     status,
