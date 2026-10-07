@@ -56,6 +56,7 @@ export function EmotePicker({
   onSelect,
 }: EmotePickerProps) {
   const [query, setQuery] = React.useState("")
+  const searchInputRef = React.useRef<HTMLInputElement>(null)
   const [platformId, setPlatformId] =
     React.useState<EmotePickerPlatformId>("twitch")
   const [categoryId, setCategoryId] = React.useState("")
@@ -93,6 +94,11 @@ export function EmotePicker({
     () => catalog.platforms.find((platform) => platform.id === platformId),
     [catalog.platforms, platformId]
   )
+
+  const handleOpenAutoFocus = (event: Event) => {
+    event.preventDefault()
+    searchInputRef.current?.focus()
+  }
 
   const handleOpenChange = (next: boolean) => {
     if (next && disabled) {
@@ -166,6 +172,7 @@ export function EmotePicker({
         side="top"
         align="end"
         sideOffset={6}
+        onOpenAutoFocus={handleOpenAutoFocus}
         className="flex h-[min(19.5rem,62vh)] w-[min(23.5rem,calc(100vw-1rem))] flex-col overflow-hidden p-0"
         onWheel={(event) => event.stopPropagation()}
       >
@@ -214,6 +221,7 @@ export function EmotePicker({
         <div className="relative shrink-0 border-t border-border/80">
           <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
+            ref={searchInputRef}
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
