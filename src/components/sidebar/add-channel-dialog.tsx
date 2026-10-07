@@ -144,7 +144,6 @@ function FollowedChannelMeta({
 }
 
 function RowActions({
-  live,
   added,
   disabled,
   focus,
@@ -153,7 +152,6 @@ function RowActions({
   onWatch,
   onAdd,
 }: {
-  live?: boolean
   added?: boolean
   disabled: boolean
   focus: RowActionKind
@@ -162,7 +160,7 @@ function RowActions({
   onWatch?: () => void
   onAdd: () => void
 }) {
-  const canWatch = Boolean(live && onWatch)
+  const canWatch = Boolean(onWatch)
   const switchLabel = added ? "Switch to channel" : "Add channel"
   const switchText = added ? "Switch" : "Add"
 
@@ -428,6 +426,7 @@ function AddChannelList({
                       focus={actionFocus}
                       preview={preview}
                       onFocus={onActionFocus}
+                      onWatch={() => onWatch(row.login)}
                       onAdd={() => onAdd(row.login)}
                     />
                   ) : null}
@@ -478,7 +477,6 @@ function AddChannelList({
 
                 {isActive ? (
                   <RowActions
-                    live={channel.live}
                     added={added}
                     disabled={submitting}
                     focus={actionFocus}
@@ -654,7 +652,7 @@ export function AddChannelDialog({
         return
       }
 
-      if (actionFocus === "watch" && row.channel.live) {
+      if (actionFocus === "watch") {
         watchLogin(row.channel.login)
         return
       }
@@ -666,7 +664,7 @@ export function AddChannelDialog({
   const watchActiveLive = React.useCallback(() => {
     const row = getActiveRow()
     if (row) {
-      if (row.kind === "channel" && row.channel.live) {
+      if (row.kind === "channel") {
         watchLogin(row.channel.login)
         return
       }
@@ -680,11 +678,8 @@ export function AddChannelDialog({
     if (!query) {
       return
     }
-    const match = followed.rows.find(
-      (channel) => channel.live && channel.login === query
-    )
-    watchLogin(match ? match.login : query)
-  }, [draft, followed.rows, getActiveRow, watchLogin])
+    watchLogin(query)
+  }, [draft, getActiveRow, watchLogin])
 
   const moveActive = React.useCallback(
     (direction: 1 | -1) => {
@@ -734,10 +729,9 @@ export function AddChannelDialog({
       if (!row) {
         return
       }
-      const canWatch = row.kind === "channel" && row.channel.live
       event.preventDefault()
       if (event.key === "ArrowLeft") {
-        setActionFocus(canWatch ? "watch" : "add")
+        setActionFocus("watch")
       } else {
         setActionFocus("add")
       }
