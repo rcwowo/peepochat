@@ -47,6 +47,16 @@ export function useTwitchAuth({
     return stored
   }, [config])
 
+  const [expiredToken, setExpiredToken] = React.useState<string | null>(null)
+  const sessionExpired =
+    expiredToken !== null && account?.accessToken === expiredToken
+  const sessionExpiredRef = React.useRef(sessionExpired)
+  const accountRef = React.useRef(account)
+  React.useEffect(() => {
+    accountRef.current = account
+    sessionExpiredRef.current = sessionExpired
+  }, [account, sessionExpired])
+
   const clearAccount = React.useCallback(() => {
     updateConfig((current) => {
       if (!current.twitch.account) {
@@ -62,21 +72,53 @@ export function useTwitchAuth({
     })
   }, [updateConfig])
 
+  const login = React.useCallback(() => {
+    if (!isTwitchOAuthConfigured()) {
+      toast.error("Set VITE_TWITCH_CLIENT_ID to enable Twitch login.")
+      return
+    }
+
+    startTwitchOAuthLogin()
+  }, [])
+
+  const markSessionExpired = React.useCallback(() => {
+    if (sessionExpiredRef.current) {
+      return
+    }
+    const token = accountRef.current?.accessToken?.trim()
+    if (!token) {
+      return
+    }
+
+    sessionExpiredRef.current = true
+    setExpiredToken(token)
+    toast.error(
+      "Your session has expired, please log back in to send messages.",
+      {
+        id: "twitch-session-expired",
+        duration: Infinity,
+        action: {
+          label: "Log back in",
+          onClick: () => login(),
+        },
+      }
+    )
+  }, [login])
+
   const invalidateSession = React.useCallback(
     (reason: "expired" | "scopes") => {
-      clearAccount()
-      if (reason === "scopes") {
-        toast.error(
-          "Required Twitch permissions were updated. Please sign in again to continue.",
-          { id: "twitch-session-relogin" }
-        )
+      if (reason !== "scopes") {
+        markSessionExpired()
         return
       }
-      toast.error("Your Twitch session expired. You need to sign in again.", {
-        id: "twitch-session-relogin",
-      })
+
+      clearAccount()
+      toast.error(
+        "Required Twitch permissions were updated. Please sign in again to continue.",
+        { id: "twitch-session-relogin" }
+      )
     },
-    [clearAccount]
+    [clearAccount, markSessionExpired]
   )
 
   const setAccountFromToken = React.useCallback(
@@ -131,7 +173,7 @@ export function useTwitchAuth({
 
   const verifyStoredSession = React.useCallback(
     async (current: TwitchAccount) => {
-      if (sessionCheckInFlightRef.current) {
+      if (sessionCheckInFlightRef.current || sessionExpiredRef.current) {
         return
       }
       sessionCheckInFlightRef.current = true
@@ -251,7 +293,7 @@ export function useTwitchAuth({
   }, [setAccountFromToken])
 
   React.useEffect(() => {
-    if (!account || hasTwitchOAuthCallback()) {
+    if (!account || sessionExpired || hasTwitchOAuthCallback()) {
       return
     }
 
@@ -272,16 +314,13 @@ export function useTwitchAuth({
       window.clearInterval(intervalId)
       document.removeEventListener("visibilitychange", onVisibility)
     }
-  }, [account, verifyStoredSession])
+  }, [account, sessionExpired, verifyStoredSession])
 
-  const login = React.useCallback(() => {
-    if (!isTwitchOAuthConfigured()) {
-      toast.error("Set VITE_TWITCH_CLIENT_ID to enable Twitch login.")
-      return
+  React.useEffect(() => {
+    if (!sessionExpired) {
+      toast.dismiss("twitch-session-expired")
     }
-
-    startTwitchOAuthLogin()
-  }, [])
+  }, [sessionExpired])
 
   const logout = React.useCallback(() => {
     clearAccount()
@@ -293,6 +332,7 @@ export function useTwitchAuth({
     login,
     logout,
     invalidateSession,
+    sessionExpired,
     isOAuthConfigured: isTwitchOAuthConfigured(),
   }
 }

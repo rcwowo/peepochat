@@ -66,11 +66,13 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     login,
     logout,
     invalidateSession,
+    sessionExpired,
     isOAuthConfigured,
   } = useTwitchAuth({
     config,
     updateConfig,
   })
+  const effectiveAccount = sessionExpired ? null : account
   const hasAccountValue = account !== null
   const onChatMessageRef = React.useRef<
     | ((message: import("@/lib/twitch/chat/chat").TwitchChatMessage) => void)
@@ -133,7 +135,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     runChatCommand,
     ensureSharedChatSourceProfiles,
   } = useTwitchChat({
-    account,
+    account: effectiveAccount,
     onAuthFailure: invalidateSession,
     onChatMessageRef,
     onHistoricalMessagesRef,
@@ -142,21 +144,21 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     isBlocked,
     blockUser: blockUserBase,
     unblockUser: unblockUserBase,
-  } = useBlockedUsers(account)
+  } = useBlockedUsers(effectiveAccount)
   const {
     getBadgeCatalog,
     loadBadgesForRoom,
     subscribeToBadgeCatalogs,
     hasBadgeSupport,
-  } = useChatBadges(account)
+  } = useChatBadges(effectiveAccount)
   const { getMemberBadge } = useRcwBadges()
 
   const connectOptions = React.useMemo(
     () => ({
-      accessToken: account?.accessToken,
-      nick: account?.login,
+      accessToken: effectiveAccount?.accessToken,
+      nick: effectiveAccount?.login,
     }),
-    [account?.accessToken, account?.login]
+    [effectiveAccount?.accessToken, effectiveAccount?.login]
   )
 
   const syncAllChannels = React.useCallback(
@@ -259,9 +261,9 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
 
   const { isLive: isChannelLive, getLiveStream } = useStreamLiveStatus({
     channelLogins,
-    enabled: hasAccountValue,
-    accessToken: account?.accessToken,
-    clientId: account?.clientId,
+    enabled: effectiveAccount !== null,
+    accessToken: effectiveAccount?.accessToken,
+    clientId: effectiveAccount?.clientId,
     onChannelWentLive: (login, title, gameName) => {
       if (!isLiveNotificationsEnabledForChannel(config, login)) return
 
@@ -513,19 +515,19 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     setEmoteLoadContextRef.current({
-      accessToken: account?.accessToken,
-      clientId: account?.clientId,
-      userId: account?.id,
-      userLogin: account?.login,
-      userDisplayName: account?.displayName,
+      accessToken: effectiveAccount?.accessToken,
+      clientId: effectiveAccount?.clientId,
+      userId: effectiveAccount?.id,
+      userLogin: effectiveAccount?.login,
+      userDisplayName: effectiveAccount?.displayName,
       channelHints,
     })
   }, [
-    account?.accessToken,
-    account?.clientId,
-    account?.id,
-    account?.login,
-    account?.displayName,
+    effectiveAccount?.accessToken,
+    effectiveAccount?.clientId,
+    effectiveAccount?.id,
+    effectiveAccount?.login,
+    effectiveAccount?.displayName,
     channelHints,
   ])
 
@@ -598,14 +600,15 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
   ])
 
   const canSendChat = Boolean(
-    account?.accessToken &&
+    effectiveAccount?.accessToken &&
     connectionState.connected &&
     sendConnectionState.connected
   )
 
   const executeChatCommand = React.useCallback(
-    (login: string, input: string) => runChatCommand(login, input, account),
-    [account, runChatCommand]
+    (login: string, input: string) =>
+      runChatCommand(login, input, effectiveAccount),
+    [effectiveAccount, runChatCommand]
   )
 
   const getBadgeCatalogForChannel = React.useCallback(
@@ -630,7 +633,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       requireOnboarding,
       updateConfig,
       restoreBackup,
-      account,
+      account: effectiveAccount,
       oauthBusy,
       isOAuthConfigured,
       loginWithTwitch: login,
@@ -649,7 +652,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       requireOnboarding,
       updateConfig,
       restoreBackup,
-      account,
+      effectiveAccount,
       oauthBusy,
       isOAuthConfigured,
       login,

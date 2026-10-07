@@ -176,6 +176,7 @@ export function useTwitchChat(options?: {
     selfStatesRef,
     appendLog,
     onSelfStateChangedRef,
+    onAuthFailure,
     onRoomsRemoved: chatterStore.removeChannels,
     onAllRoomsCleared: chatterStore.clearAll,
   })

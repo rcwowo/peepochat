@@ -12,6 +12,7 @@ import {
   isIrcUsernoticeLine,
   isIrcUserStateLine,
   isIrcWelcomeLine,
+  parseIrcAuthFailureNotice,
   parseIrcJoinChannel,
   splitTaggedLine,
 } from "@/lib/twitch/chat/irc-line"
@@ -261,6 +262,7 @@ export type TwitchChatEvent =
   | { type: "system"; message: TwitchSystemMessage }
   | { type: "log"; text: string }
   | { type: "error"; text: string }
+  | { type: "auth-failure" }
 
 export type TwitchChatEventHandler = (event: TwitchChatEvent) => void
 
@@ -297,6 +299,7 @@ export class TwitchChatClient {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private intentionalClose = false
   private sessionOpen = false
+  private authFailed = false
   private welcomeReceived = false
   private mode: TwitchChatClientMode
   private statusProbeChannels = new Set<string>()
@@ -333,6 +336,7 @@ export class TwitchChatClient {
 
     this.intentionalClose = false
     this.sessionOpen = true
+    this.authFailed = false
     this.welcomeReceived = false
     this.connectOptions = options
     this.joinedChannels.clear()
@@ -354,6 +358,10 @@ export class TwitchChatClient {
       return
     }
 
+    if (this.authFailed && this.connectOptions.accessToken?.trim() === token) {
+      return
+    }
+
     this.connectOptions = options
 
     if (this.ws && this.ws.readyState <= WebSocket.OPEN) {
@@ -362,6 +370,7 @@ export class TwitchChatClient {
 
     this.intentionalClose = false
     this.sessionOpen = true
+    this.authFailed = false
     this.welcomeReceived = false
     this.openWebSocket(options)
   }
@@ -779,6 +788,12 @@ export class TwitchChatClient {
     }
 
     // NOTICE - e.g. "No such channel"
+    const authFailureText = parseIrcAuthFailureNotice(rest)
+    if (authFailureText !== null) {
+      this.handleAuthFailure(authFailureText)
+      return
+    }
+
     if (isIrcNoticeLine(rest)) {
       if (ircLogging) {
         devChatLogger.debug("irc:kind", "notice")
@@ -852,6 +867,19 @@ export class TwitchChatClient {
       })
       this.ws?.close()
     }, HEARTBEAT_PONG_TIMEOUT_MS)
+  }
+
+  private handleAuthFailure(text: string) {
+    if (this.intentionalClose) {
+      return
+    }
+
+    devChatLogger.warn("irc:auth-failure", text)
+    this.clearTimers()
+    this.authFailed = true
+    this.emit({ type: "auth-failure" })
+    this.intentionalClose = true
+    this.ws?.close(4000, "Authentication failed")
   }
 
   private scheduleReconnect() {
@@ -1717,6 +1745,8 @@ function summarizeChatEvent(event: TwitchChatEvent): Record<string, unknown> {
     case "log":
     case "error":
       return { type: event.type, text: event.text }
+    case "auth-failure":
+      return { type: event.type }
     default:
       return { type: (event as TwitchChatEvent).type }
   }
