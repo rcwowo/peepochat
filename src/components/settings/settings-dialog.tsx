@@ -126,7 +126,7 @@ function BrandFooter({
       aria-current={active ? "page" : undefined}
       onClick={onOpenAbout}
       className={cn(
-        "mx-2 mt-auto mb-2 flex shrink-0 items-center gap-2.5 rounded-lg border px-2.5 py-2 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary/35 max-sm:mx-auto max-sm:w-9 max-sm:justify-center max-sm:border-transparent max-sm:px-0",
+        "mt-auto flex shrink-0 items-center gap-2.5 border-t px-2.5 py-2 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary/35 max-sm:justify-center",
         active
           ? "border-primary/20 bg-primary/10 dark:bg-primary/20"
           : "border-border/60 hover:bg-foreground/[0.04]"
