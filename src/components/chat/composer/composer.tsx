@@ -1045,6 +1045,7 @@ function ChatComposerInner({
         channelLogin?: string
         text?: string
       }>
+      if (!active) return
       if (!custom.detail || custom.detail.channelLogin !== channelLogin) return
       const text = custom.detail.text ?? ""
       if (!text) return
@@ -1064,7 +1065,7 @@ function ChatComposerInner({
     window.addEventListener("peepochat:composer-insert", handler)
     return () =>
       window.removeEventListener("peepochat:composer-insert", handler)
-  }, [channelLogin])
+  }, [channelLogin, active])
 
   React.useEffect(() => {
     const handler = (event: Event) => {
@@ -1091,6 +1092,7 @@ function ChatComposerInner({
         channelLogin?: string
         reply?: TwitchChatReply | null
       }>
+      if (!active) return
       if (!custom.detail || custom.detail.channelLogin !== channelLogin) return
       if (!custom.detail.reply) return
       setReply(custom.detail.reply)
@@ -1099,7 +1101,7 @@ function ChatComposerInner({
 
     window.addEventListener("peepochat:composer-reply", handler)
     return () => window.removeEventListener("peepochat:composer-reply", handler)
-  }, [channelLogin])
+  }, [channelLogin, active])
 
   const sendCurrentMessage = () => {
     const message = value.trim()

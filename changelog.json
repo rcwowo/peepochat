@@ -16,7 +16,8 @@
             "Fixed a bug where the username would become out of sync if the user changed it.",
             "Fixed a bug where third-party emotes wouldn't render in AutoMod and monitored-user messages.",
             "Fixed a bug where cheermotes wouldn't render in AutoMod and monitored-user messages.",
-            "Fixed a bug where follower emotes wouldn't properly appear in the emote picker."
+            "Fixed a bug where follower emotes wouldn't properly appear in the emote picker.",
+            "Fixed a bug where opening a reply thread in the player would carry over to the channel's chat."
         ]
     },
     {
