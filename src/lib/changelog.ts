@@ -28,12 +28,16 @@ export function getAppVersion(): string {
   return APP_VERSION
 }
 
+let versionSeen = false
+
 /**
  * Returns `true` when the current build version is newer than the last
- * version the user acknowledged. On the very first visit (no stored
- * version) it returns `false` so the onboarding flow isn't disrupted.
+ * version the user acknowledged and hasn't been acknowledged yet in this
+ * session. On the very first visit (no stored version) it returns `false`
+ * so the onboarding flow isn't disrupted.
  */
 export function hasNewVersion(): boolean {
+  if (versionSeen) return false
   const lastSeen = localStorage.getItem(LAST_SEEN_KEY)
   if (!lastSeen) return false // first visit – skip toast
   return lastSeen !== APP_VERSION
@@ -44,6 +48,7 @@ export function hasNewVersion(): boolean {
  * next version bump.
  */
 export function markVersionSeen(): void {
+  versionSeen = true
   localStorage.setItem(LAST_SEEN_KEY, APP_VERSION)
 }
 
