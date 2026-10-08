@@ -7,6 +7,7 @@ import { fetchIvrTwitchUserProfile } from "@/lib/ivr/ivr-api"
 import {
   TwitchApiError,
   fetchTwitchUser,
+  revokeTwitchToken,
   validateTwitchToken,
 } from "@/lib/twitch/auth/api"
 import {
@@ -25,6 +26,8 @@ import {
 } from "@/lib/twitch/auth/oauth"
 
 const SESSION_CHECK_INTERVAL_MS = 5 * 60 * 1000
+const TOKEN_EXPIRY_BUFFER_MS = 60 * 1000
+const TOKEN_EXPIRY_UPDATE_TOLERANCE_MS = 5 * 60 * 1000
 
 export function useTwitchAuth({
   config,
@@ -56,6 +59,15 @@ export function useTwitchAuth({
     accountRef.current = account
     sessionExpiredRef.current = sessionExpired
   }, [account, sessionExpired])
+
+  const revokeAccountToken = React.useCallback(() => {
+    const current = accountRef.current
+    if (!current) {
+      return
+    }
+
+    void revokeTwitchToken(current.accessToken, current.clientId)
+  }, [])
 
   const clearAccount = React.useCallback(() => {
     updateConfig((current) => {
@@ -113,12 +125,13 @@ export function useTwitchAuth({
       }
 
       clearAccount()
+      revokeAccountToken()
       toast.error(
         "Required Twitch permissions were updated. Please sign in again to continue.",
         { id: "twitch-session-relogin" }
       )
     },
-    [clearAccount, markSessionExpired]
+    [clearAccount, markSessionExpired, revokeAccountToken]
   )
 
   const setAccountFromToken = React.useCallback(
@@ -156,6 +169,7 @@ export function useTwitchAuth({
         accessToken,
         clientId,
         scopes: validated.scopes,
+        accessTokenExpiresAt: Date.now() + validated.expiresIn * 1000,
       }
 
       updateConfig((current) => ({
@@ -178,11 +192,21 @@ export function useTwitchAuth({
       }
       sessionCheckInFlightRef.current = true
       try {
+        const expiresAt = current.accessTokenExpiresAt
+        if (
+          typeof expiresAt === "number" &&
+          Date.now() >= expiresAt - TOKEN_EXPIRY_BUFFER_MS
+        ) {
+          invalidateSession("expired")
+          return
+        }
+
         if (!hasRequiredTwitchOAuthScopes(current.scopes)) {
           invalidateSession("scopes")
           return
         }
 
+        const validationStartedAt = Date.now()
         const validated = await validateTwitchToken(current.accessToken)
         if (validated.clientId !== current.clientId) {
           invalidateSession("expired")
@@ -203,7 +227,14 @@ export function useTwitchAuth({
           validatedLogin.length > 0 &&
           validatedLogin !== current.login.trim().toLowerCase()
 
-        if (scopesChanged || loginChanged) {
+        const nextExpiresAt = validationStartedAt + validated.expiresIn * 1000
+        const storedExpiresAt = current.accessTokenExpiresAt
+        const expiryChanged =
+          typeof storedExpiresAt !== "number" ||
+          Math.abs(nextExpiresAt - storedExpiresAt) >
+            TOKEN_EXPIRY_UPDATE_TOLERANCE_MS
+
+        if (scopesChanged || loginChanged || expiryChanged) {
           updateConfig((configValue) => {
             const existing = configValue.twitch.account
             if (!existing || existing.accessToken !== current.accessToken) {
@@ -217,6 +248,7 @@ export function useTwitchAuth({
                   ...existing,
                   login: loginChanged ? validated.login : existing.login,
                   scopes: scopesChanged ? validated.scopes : existing.scopes,
+                  accessTokenExpiresAt: nextExpiresAt,
                 },
               },
             }
@@ -324,7 +356,8 @@ export function useTwitchAuth({
 
   const logout = React.useCallback(() => {
     clearAccount()
-  }, [clearAccount])
+    revokeAccountToken()
+  }, [clearAccount, revokeAccountToken])
 
   return {
     account,

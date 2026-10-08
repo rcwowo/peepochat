@@ -90,6 +90,31 @@ export async function validateTwitchToken(
   }
 }
 
+export async function revokeTwitchToken(
+  accessToken: string,
+  clientId: string
+): Promise<boolean> {
+  try {
+    const response = await devLoggedFetch(
+      "https://id.twitch.tv/oauth2/revoke",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          client_id: clientId,
+          token: accessToken,
+        }),
+      }
+    )
+
+    return response.ok
+  } catch {
+    return false
+  }
+}
+
 export async function fetchTwitchUser(
   accessToken: string,
   clientId: string

@@ -206,6 +206,7 @@ export const twitchAccountSchema = z.object({
   accessToken: z.string(),
   clientId: z.string(),
   scopes: z.array(z.string()).default([]),
+  accessTokenExpiresAt: z.number().optional(),
 })
 
 export const twitchChannelSchema = z.object({
@@ -986,6 +987,11 @@ function coerceConfigCredentials(
               (scope): scope is string => typeof scope === "string"
             )
           : [],
+        accessTokenExpiresAt:
+          typeof accountRecord.accessTokenExpiresAt === "number" &&
+          Number.isFinite(accountRecord.accessTokenExpiresAt)
+            ? accountRecord.accessTokenExpiresAt
+            : undefined,
       },
     },
   }
@@ -1189,6 +1195,7 @@ function sanitizeConfigForExport(config: AppConfig): AppConfigBackup {
   const {
     accessToken: _accessToken,
     clientId: _clientId,
+    accessTokenExpiresAt: _accessTokenExpiresAt,
     ...accountExport
   } = account
 
