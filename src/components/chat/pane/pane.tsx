@@ -3,8 +3,6 @@ import {
   EllipsisIcon,
   ExternalLinkIcon,
   MessagesSquareIcon,
-  PinIcon,
-  PinOffIcon,
   PlayIcon,
   RefreshCcwIcon,
   UsersIcon,
@@ -15,7 +13,6 @@ import { ChatComposer } from "@/components/chat/composer/composer"
 import { ChatChattersPanel } from "@/components/chat/panels/chatters-panel"
 import { ChatHoverTooltipProvider } from "@/components/chat/message/hover-tooltip"
 import { useChatViewActive } from "@/hooks/chat-ui/use-chat-view-active"
-import { useChannelPinnedMessage } from "@/hooks/chat-ui/use-channel-pinned-message"
 import { EmoteCardProvider } from "@/components/chat/emote-card/context"
 import { UserCardProvider } from "@/components/chat/user-card/context"
 import type { UserCardTarget } from "@/lib/chat/user-card/user-card"
@@ -28,18 +25,12 @@ import {
   ChatPaneLiveInfoBar,
   ChatPaneStreamInfoToggle,
 } from "@/components/chat/pane/pane-live"
-import { ChatPinnedMessageBar } from "@/components/chat/pane/pinned-message"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
 import {
   MenuPanelActions,
   MenuPanelItem,
@@ -243,9 +234,6 @@ function ChatPaneInner({
   const [liveInfoExpanded, setLiveInfoExpanded] = React.useState(false)
   const [chattersOpen, setChattersOpen] = React.useState(false)
   const [emotePickerOpen, setEmotePickerOpen] = React.useState(false)
-  const [pinVisible, setPinVisible] = React.useState(true)
-  const pinnedMessage = useChannelPinnedMessage(channelLogin)
-  const lastPinnedMessageIdRef = React.useRef<string | null>(null)
   const emotePickerOpenRef = React.useRef(false)
   const chattersOpenRef = React.useRef(false)
   const composerInputRef = React.useRef<HTMLTextAreaElement | null>(null)
@@ -277,14 +265,6 @@ function ChatPaneInner({
     chattersOpenRef.current = chattersOpen
   }, [chattersOpen, emotePickerOpen])
 
-  React.useEffect(() => {
-    const nextId = pinnedMessage?.message.id ?? null
-    if (nextId !== lastPinnedMessageIdRef.current) {
-      lastPinnedMessageIdRef.current = nextId
-      setPinVisible(true)
-    }
-  }, [pinnedMessage?.message.id])
-
   const toggleEmotePicker = React.useCallback(() => {
     const next = !emotePickerOpenRef.current
     emotePickerOpenRef.current = next
@@ -314,12 +294,6 @@ function ChatPaneInner({
       : isChannelLive(channelLogin)
   const streamInfo = config.chat.streamInfo
   const streamInfoHiddenOnDesktop = streamInfoMode === "mobile"
-  const displayPinnedMessage =
-    hideBlockedUsers &&
-    pinnedMessage &&
-    isUserBlocked(pinnedMessage.message.userId, pinnedMessage.message.userName)
-      ? null
-      : pinnedMessage
   const visibleTimeline = React.useMemo(() => {
     const hideGifs = gifMessageAppearance === "disabled"
     if (!hideBlockedUsers && showSuspiciousActivity && !hideGifs) {
@@ -564,38 +538,6 @@ function ChatPaneInner({
                     </MenuPanelProvider>
                   </DropdownMenuContent>
                 </DropdownMenu>
-                {displayPinnedMessage ? (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="inline-flex">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-xs"
-                          className="text-muted-foreground hover:text-foreground"
-                          aria-label={
-                            pinVisible
-                              ? "Hide pinned message"
-                              : "Show pinned message"
-                          }
-                          aria-pressed={pinVisible}
-                          onClick={() => setPinVisible((visible) => !visible)}
-                        >
-                          {pinVisible ? (
-                            <PinIcon className="size-3.5" />
-                          ) : (
-                            <PinOffIcon className="size-3.5" />
-                          )}
-                        </Button>
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {pinVisible
-                        ? "Hide pinned message"
-                        : "Show pinned message"}
-                    </TooltipContent>
-                  </Tooltip>
-                ) : null}
                 {showRemoveSplit && onRemoveSplit ? (
                   <Button
                     type="button"
@@ -638,21 +580,6 @@ function ChatPaneInner({
                 ref={chatMessagesRef}
                 className="relative min-h-0 flex-1 overflow-hidden"
               >
-                {pinVisible && displayPinnedMessage ? (
-                  <ChatPinnedMessageBar
-                    pin={displayPinnedMessage}
-                    timestampFormat={timestampFormat}
-                    deletedMessagesBehavior={deletedMessagesBehavior}
-                    account={account}
-                    channelRoomId={channelRoomId}
-                    selfChatState={selfChatState}
-                    badgeCatalog={badgeCatalog}
-                    getMemberBadge={getMemberBadge}
-                    showBadgeFallback={showBadgeFallback}
-                    showTwitchBadges={showTwitchBadges}
-                    showMemberBadges={showMemberBadges}
-                  />
-                ) : null}
                 {displayedTimeline.length === 0 ? (
                   <div className="flex h-full items-center justify-center p-4">
                     <EmptyState

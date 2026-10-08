@@ -22,7 +22,6 @@ import type {
   TwitchAccount,
   TwitchChannel,
 } from "@/lib/peepochat/peepochat-config"
-import type { ChannelPinnedMessage } from "@/lib/twitch/chat/pins"
 import type {
   TwitchAutomodHeldMessage,
   TwitchChatRoomState,
@@ -121,10 +120,6 @@ export type PeepochatChatContextValue = {
   getTimeline: (login: string) => TwitchTimelineItem[]
   getRoom: (login: string) => TwitchChatRoomState | null
   getRoomId: (login: string) => string | null
-  subscribeToPinnedMessage: (login: string, listener: () => void) => () => void
-  getPinnedMessage: (login: string) => ChannelPinnedMessage | null
-  refreshPinnedMessage: (login: string) => void
-  clearPinnedMessage: (login: string) => void
   subscribeToChatters: (login: string, listener: () => void) => () => void
   getChatters: (login: string) => ChannelChatter[]
   getChatterByLogin: (

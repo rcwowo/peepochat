@@ -1,5 +1,12 @@
 [
     {
+        "version": "1.3.1",
+        "date": "2026-10-08",
+        "items": [
+            "Removed experimental pinned chat messages due to Twitch limitations."
+        ]
+    },
+    {
         "version": "1.3.0",
         "date": "2026-10-08",
         "items": [

@@ -13,7 +13,6 @@ import { useRecentMessages } from "@/hooks/twitch/chat/use-recent-messages"
 import { useRoomStore } from "@/hooks/twitch/chat/use-room-store"
 import { useSevenTvLiveUpdates } from "@/hooks/twitch/chat/use-seventv-live-updates"
 import { useTimeline } from "@/hooks/twitch/chat/use-timeline"
-import { usePinnedMessages } from "@/hooks/twitch/chat/use-pinned-messages"
 import { useTwitchEventSub } from "@/hooks/twitch/chat/use-twitch-eventsub"
 import { useRetainedRef } from "@/hooks/use-retained-ref"
 import type {
@@ -198,65 +197,44 @@ export function useTwitchChat(options?: {
     isUserBlockedRef,
     visibleChannelsRef,
   })
-  const pinnedMessages = usePinnedMessages({
-    account,
-    roomStore,
-    emotes,
-    chatterStore,
-    syncedChannelsRef,
-    visibleChannelsRef,
-  })
 
   const notifySelfStateChangedRef = React.useRef(() => {
     eventSub.notifySelfStateChanged()
-    pinnedMessages.notifySelfStateChanged()
   })
   const notifyChannelsChangedRef = React.useRef(() => {
     eventSub.notifyChannelsChanged()
-    pinnedMessages.notifyChannelsChanged()
   })
   const notifySuspiciousSettingChangedRef = React.useRef(
     eventSub.notifySuspiciousSettingChanged
   )
   const notifyRoomReadyRef = React.useRef((login: string, roomId: string) => {
     eventSub.notifyRoomReady(login, roomId)
-    pinnedMessages.notifyRoomReady(login)
   })
   const notifyVisibleChannelsChangedRef = React.useRef(() => {
     eventSub.notifyVisibleChannelsChanged()
-    pinnedMessages.notifyVisibleChannelsChanged()
   })
   const syncChannelsBaseRef = React.useRef(connection.syncChannels)
 
   React.useLayoutEffect(() => {
     const notifyEventSubSelfStateChanged = eventSub.notifySelfStateChanged
-    const notifyPinnedSelfStateChanged = pinnedMessages.notifySelfStateChanged
     const notifyEventSubChannelsChanged = eventSub.notifyChannelsChanged
-    const notifyPinnedChannelsChanged = pinnedMessages.notifyChannelsChanged
     const notifyEventSubRoomReady = eventSub.notifyRoomReady
-    const notifyPinnedRoomReady = pinnedMessages.notifyRoomReady
     const notifyEventSubVisibleChannelsChanged =
       eventSub.notifyVisibleChannelsChanged
-    const notifyPinnedVisibleChannelsChanged =
-      pinnedMessages.notifyVisibleChannelsChanged
 
     notifySelfStateChangedRef.current = () => {
       notifyEventSubSelfStateChanged()
-      notifyPinnedSelfStateChanged()
     }
     notifyChannelsChangedRef.current = () => {
       notifyEventSubChannelsChanged()
-      notifyPinnedChannelsChanged()
     }
     notifySuspiciousSettingChangedRef.current =
       eventSub.notifySuspiciousSettingChanged
     notifyRoomReadyRef.current = (login: string, roomId: string) => {
       notifyEventSubRoomReady(login, roomId)
-      notifyPinnedRoomReady(login)
     }
     notifyVisibleChannelsChangedRef.current = () => {
       notifyEventSubVisibleChannelsChanged()
-      notifyPinnedVisibleChannelsChanged()
     }
     syncChannelsBaseRef.current = connection.syncChannels
   }, [
@@ -266,10 +244,6 @@ export function useTwitchChat(options?: {
     eventSub.notifySelfStateChanged,
     eventSub.notifySuspiciousSettingChanged,
     eventSub.notifyVisibleChannelsChanged,
-    pinnedMessages.notifyChannelsChanged,
-    pinnedMessages.notifyRoomReady,
-    pinnedMessages.notifySelfStateChanged,
-    pinnedMessages.notifyVisibleChannelsChanged,
   ])
 
   const lastSelfModFlagsRef = React.useRef(
@@ -509,10 +483,6 @@ export function useTwitchChat(options?: {
     getRoom: roomStore.getRoom,
     getTimeline: roomStore.getTimeline,
     getRoomId: roomStore.getRoomId,
-    subscribeToPinnedMessage: pinnedMessages.subscribe,
-    getPinnedMessage: pinnedMessages.getPinnedMessage,
-    refreshPinnedMessage: pinnedMessages.refreshPinnedMessage,
-    clearPinnedMessage: pinnedMessages.clearPinnedMessage,
     subscribeToChatters: chatterStore.subscribe,
     getChatters: chatterStore.getChatters,
     getChatterByLogin: chatterStore.getChatterByLogin,
