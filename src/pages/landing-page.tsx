@@ -61,7 +61,10 @@ const FEATURES = [
 
 export function LandingPage() {
   return (
-    <div className="landing-page dark min-h-svh overflow-x-clip bg-background text-foreground">
+    <div
+      data-color-scheme="green"
+      className="landing-page dark min-h-svh overflow-x-clip bg-background text-foreground"
+    >
       <div
         className="landing-grain pointer-events-none fixed inset-0 z-0"
         aria-hidden

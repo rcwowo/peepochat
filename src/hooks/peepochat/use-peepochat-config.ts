@@ -2,12 +2,13 @@ import * as React from "react"
 
 import {
   type AppConfig,
-  importConfigBackup,
   loadConfig,
   mergeRestoredConfig,
   needsOnboardingForConfig,
+  parseBackupPayload,
   saveConfig,
 } from "@/lib/peepochat/peepochat-config"
+import { restoreEmbeddedCustomSounds } from "@/lib/highlights/custom-sounds"
 import { isAwaitingOnboardingFinalStep } from "@/lib/peepochat/onboarding-storage"
 import { getTwitchClientId } from "@/lib/twitch/auth/oauth"
 
@@ -41,6 +42,10 @@ export function usePeepochatConfig() {
   )
   const pendingSaveRef = React.useRef<AppConfig | null>(null)
   const saveHandleRef = React.useRef<number | null>(null)
+  const configRef = React.useRef(config)
+  React.useEffect(() => {
+    configRef.current = config
+  }, [config])
 
   const needsOnboarding =
     forceOnboarding ||
@@ -109,18 +114,22 @@ export function usePeepochatConfig() {
   )
 
   const restoreBackup = React.useCallback(async (payload: string) => {
-    const restored = importConfigBackup(payload)
+    const { config: restored, embeddedSounds } = parseBackupPayload(payload)
+    if (embeddedSounds.length > 0) {
+      await restoreEmbeddedCustomSounds(embeddedSounds)
+    }
     pendingSaveRef.current = null
     if (saveHandleRef.current !== null) {
       cancelIdle(saveHandleRef.current)
       saveHandleRef.current = null
     }
 
-    let merged = restored
-    setConfig((current) => {
-      merged = mergeRestoredConfig(restored, current, getTwitchClientId())
-      return merged
-    })
+    const merged = mergeRestoredConfig(
+      restored,
+      configRef.current,
+      getTwitchClientId()
+    )
+    setConfig(merged)
     saveConfig(merged)
     setForceOnboarding(needsOnboardingForConfig(merged))
     return merged

@@ -7,6 +7,7 @@ import {
   BellRingIcon,
   CheckCheckIcon,
   CheckIcon,
+  ChevronUpIcon,
   HistoryIcon,
   RadioIcon,
   Trash2Icon,
@@ -545,6 +546,141 @@ function NotificationList({
   )
 }
 
+function MissedPingSection({
+  isExpanded,
+  onExpandedChange,
+  missedCount,
+  onMarkAllRead,
+  onClear,
+  children,
+}: {
+  isExpanded: boolean
+  onExpandedChange: (isExpanded: boolean) => void
+  missedCount: number
+  onMarkAllRead: () => void
+  onClear: () => void
+  children: React.ReactNode
+}) {
+  const toggle = React.useCallback(() => {
+    onExpandedChange(!isExpanded)
+  }, [isExpanded, onExpandedChange])
+
+  return (
+    <div className="shrink-0">
+      {isExpanded ? (
+        <div
+          id="notifications-missed-section"
+          className="max-h-80 shrink-0 overflow-y-auto overscroll-y-contain border-y border-border"
+        >
+          {children}
+        </div>
+      ) : null}
+      <div
+        className={
+          isExpanded
+            ? "flex shrink-0 items-center transition-colors hover:bg-muted/40"
+            : "flex shrink-0 items-center border-t border-border transition-colors hover:bg-muted/40"
+        }
+      >
+        <button
+          type="button"
+          className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 px-4 py-2.5 text-left"
+          aria-expanded={isExpanded}
+          aria-controls="notifications-missed-section"
+          onClick={toggle}
+        >
+          <HistoryIcon className="size-3.5 shrink-0 text-muted-foreground" />
+          <span className="truncate text-sm font-medium text-foreground">
+            Missed pings
+          </span>
+          <NotificationTabCount count={missedCount} />
+        </button>
+        {isExpanded ? (
+          <div className="flex shrink-0 items-center">
+            {missedCount > 0 ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                className="text-muted-foreground"
+                onClick={onMarkAllRead}
+              >
+                <CheckCheckIcon className="size-3.5" />
+                <span className="sr-only">Mark all missed pings as read</span>
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              className="text-muted-foreground"
+              onClick={onClear}
+            >
+              <Trash2Icon className="size-3.5" />
+              <span className="sr-only">Clear missed pings</span>
+            </Button>
+          </div>
+        ) : null}
+        <button
+          type="button"
+          className="flex shrink-0 cursor-pointer items-center self-stretch px-3.5"
+          aria-expanded={isExpanded}
+          aria-controls="notifications-missed-section"
+          aria-label={
+            isExpanded ? "Collapse missed pings" : "Expand missed pings"
+          }
+          onClick={toggle}
+        >
+          <ChevronUpIcon
+            className={`size-3.5 text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`}
+          />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function DoNotDisturbToggle({
+  enabled,
+  onEnabledChange,
+}: {
+  enabled: boolean
+  onEnabledChange: (enabled: boolean) => void
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={enabled}
+          aria-label="Do not disturb"
+          data-state={enabled ? "checked" : "unchecked"}
+          onClick={() => onEnabledChange(!enabled)}
+          className="group/dnd relative inline-flex h-[22px] w-[40px] shrink-0 cursor-pointer items-center rounded-full border border-transparent transition-all outline-none after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 data-[state=checked]:bg-destructive data-[state=unchecked]:bg-input dark:data-[state=unchecked]:bg-input/80"
+        >
+          <span className="pointer-events-none relative block size-5 rounded-full bg-background ring-0 transition-transform group-data-[state=checked]/dnd:translate-x-[calc(100%-2px)] dark:group-data-[state=unchecked]/dnd:bg-foreground">
+            {enabled ? (
+              <BellOffIcon
+                strokeWidth={2.5}
+                className="absolute inset-0 m-auto size-4 text-destructive"
+              />
+            ) : (
+              <BellIcon
+                strokeWidth={2.5}
+                className="absolute inset-0 m-auto size-4 text-foreground dark:text-background"
+              />
+            )}
+          </span>
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">
+        {enabled ? "Do not disturb is on" : "Do not disturb is off"}
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
 function useChannelMetaByLogin() {
   const { channels } = usePeepochatSettings()
 
@@ -600,9 +736,9 @@ export function NotificationCenter({
     config.highlights.livePushNotificationsEnabled
   const ignoreNextClickRef = React.useRef(false)
 
-  const [activeTab, setActiveTab] = React.useState<"pings" | "live" | "missed">(
-    "pings"
-  )
+  const [activeTab, setActiveTab] = React.useState<"pings" | "live">("pings")
+  const [isMissedSectionExpanded, setIsMissedSectionExpanded] =
+    React.useState(false)
 
   const resolvedTab =
     !liveNotificationsEnabled && activeTab === "live" ? "pings" : activeTab
@@ -615,87 +751,83 @@ export function NotificationCenter({
     [onOpenChange, setActiveChannel]
   )
 
-  const unreadCount =
-    resolvedTab === "pings"
-      ? pingCount
-      : resolvedTab === "live"
-        ? liveCount
-        : missedCount
+  const unreadCount = resolvedTab === "live" ? liveCount : pingCount
   const historyCount =
-    resolvedTab === "pings"
-      ? pingNotifications.length
-      : resolvedTab === "live"
-        ? liveNotifications.length
-        : missedPingNotifications.length
+    resolvedTab === "live" ? liveNotifications.length : pingNotifications.length
   const handleMarkAllRead =
-    resolvedTab === "pings"
-      ? markAllPingsRead
-      : resolvedTab === "live"
-        ? markAllLiveRead
-        : markAllMissedRead
+    resolvedTab === "live" ? markAllLiveRead : markAllPingsRead
   const handleClearHistory =
-    resolvedTab === "pings"
-      ? dismissAllPings
-      : resolvedTab === "live"
-        ? dismissAllLive
-        : dismissAllMissed
+    resolvedTab === "live" ? dismissAllLive : dismissAllPings
+
+  const handleSetDoNotDisturb = React.useCallback(
+    (nextEnabled: boolean) => {
+      updateConfig((current) => ({
+        ...current,
+        highlights: {
+          ...current.highlights,
+          doNotDisturbEnabled: nextEnabled,
+        },
+      }))
+    },
+    [updateConfig]
+  )
 
   const handleToggleDoNotDisturb = React.useCallback(() => {
     const nextEnabled = !doNotDisturbEnabled
-    updateConfig((current) => ({
-      ...current,
-      highlights: {
-        ...current.highlights,
-        doNotDisturbEnabled: nextEnabled,
-      },
-    }))
+    handleSetDoNotDisturb(nextEnabled)
     toast(nextEnabled ? "Do not disturb is on" : "Do not disturb is off")
-  }, [doNotDisturbEnabled, updateConfig])
+  }, [doNotDisturbEnabled, handleSetDoNotDisturb])
 
   const pingList = (
-    <NotificationList
-      emptyMessage="No ping notifications yet."
-      isEmpty={pingNotifications.length === 0}
-    >
-      {pingNotifications.map((notification) => {
-        const channelMeta = channelMetaByLogin.get(notification.channelLogin)
+    <div className="flex min-h-0 flex-1 flex-col">
+      <NotificationList
+        emptyMessage="No ping notifications yet."
+        isEmpty={pingNotifications.length === 0}
+      >
+        {pingNotifications.map((notification) => {
+          const channelMeta = channelMetaByLogin.get(notification.channelLogin)
 
-        return (
-          <PingNotificationRow
-            key={notification.id}
-            notification={notification}
-            channelLabel={channelMeta?.label ?? notification.channelLogin}
-            onMarkRead={markPingRead}
-            onMarkUnread={markPingUnread}
-            onRemove={dismissPing}
-            onNavigate={handleNavigate}
-          />
-        )
-      })}
-    </NotificationList>
-  )
+          return (
+            <PingNotificationRow
+              key={notification.id}
+              notification={notification}
+              channelLabel={channelMeta?.label ?? notification.channelLogin}
+              onMarkRead={markPingRead}
+              onMarkUnread={markPingUnread}
+              onRemove={dismissPing}
+              onNavigate={handleNavigate}
+            />
+          )
+        })}
+      </NotificationList>
+      {missedPingNotifications.length > 0 ? (
+        <MissedPingSection
+          isExpanded={isMissedSectionExpanded}
+          onExpandedChange={setIsMissedSectionExpanded}
+          missedCount={missedCount}
+          onMarkAllRead={markAllMissedRead}
+          onClear={dismissAllMissed}
+        >
+          {missedPingNotifications.map((notification) => {
+            const channelMeta = channelMetaByLogin.get(
+              notification.channelLogin
+            )
 
-  const missedList = (
-    <NotificationList
-      emptyMessage="No missed pings from before you connected to chat."
-      isEmpty={missedPingNotifications.length === 0}
-    >
-      {missedPingNotifications.map((notification) => {
-        const channelMeta = channelMetaByLogin.get(notification.channelLogin)
-
-        return (
-          <MissedPingNotificationRow
-            key={notification.id}
-            notification={notification}
-            channelLabel={channelMeta?.label ?? notification.channelLogin}
-            onMarkRead={markMissedRead}
-            onMarkUnread={markMissedUnread}
-            onRemove={dismissMissed}
-            onNavigate={handleNavigate}
-          />
-        )
-      })}
-    </NotificationList>
+            return (
+              <MissedPingNotificationRow
+                key={notification.id}
+                notification={notification}
+                channelLabel={channelMeta?.label ?? notification.channelLogin}
+                onMarkRead={markMissedRead}
+                onMarkUnread={markMissedUnread}
+                onRemove={dismissMissed}
+                onNavigate={handleNavigate}
+              />
+            )
+          })}
+        </MissedPingSection>
+      ) : null}
+    </div>
   )
 
   const liveList = (
@@ -819,19 +951,25 @@ export function NotificationCenter({
         >
           <SheetHeader className="h-11 shrink-0 flex-row items-center justify-between border-b border-border bg-sidebar px-4 py-0">
             <SheetTitle>Notifications</SheetTitle>
-            <SheetClose asChild>
-              <Button variant="ghost" size="icon-sm">
-                <XIcon />
-                <span className="sr-only">Close</span>
-              </Button>
-            </SheetClose>
+            <div className="flex items-center gap-1">
+              <DoNotDisturbToggle
+                enabled={doNotDisturbEnabled}
+                onEnabledChange={handleSetDoNotDisturb}
+              />
+              <SheetClose asChild>
+                <Button variant="ghost" size="icon-sm">
+                  <XIcon />
+                  <span className="sr-only">Close</span>
+                </Button>
+              </SheetClose>
+            </div>
           </SheetHeader>
 
           {liveNotificationsEnabled ? (
             <Tabs
               value={resolvedTab}
               onValueChange={(value) => {
-                setActiveTab(value as "pings" | "live" | "missed")
+                setActiveTab(value as "pings" | "live")
               }}
               className="flex min-h-0 flex-1 flex-col gap-0"
             >
@@ -848,12 +986,6 @@ export function NotificationCenter({
                     icon={RadioIcon}
                     label="Live"
                     count={liveCount}
-                  />
-                  <NotificationTabTrigger
-                    value="missed"
-                    icon={HistoryIcon}
-                    label="Missed"
-                    count={missedCount}
                   />
                 </TabsList>
               </div>
@@ -872,53 +1004,12 @@ export function NotificationCenter({
               >
                 {liveList}
               </TabsContent>
-              <TabsContent
-                value="missed"
-                className="mt-0 flex min-h-0 flex-1 flex-col"
-              >
-                {missedList}
-              </TabsContent>
             </Tabs>
           ) : (
-            <Tabs
-              value={resolvedTab === "missed" ? "missed" : "pings"}
-              onValueChange={(value) => {
-                setActiveTab(value as "pings" | "missed")
-              }}
-              className="flex min-h-0 flex-1 flex-col gap-0"
-            >
-              <div className="shrink-0 border-b border-border px-4 py-2">
-                <TabsList className="w-full">
-                  <NotificationTabTrigger
-                    value="pings"
-                    icon={BellRingIcon}
-                    label="Pings"
-                    count={pingCount}
-                  />
-                  <NotificationTabTrigger
-                    value="missed"
-                    icon={HistoryIcon}
-                    label="Missed"
-                    count={missedCount}
-                  />
-                </TabsList>
-              </div>
-
+            <div className="flex min-h-0 flex-1 flex-col gap-0">
               {bulkActions}
-
-              <TabsContent
-                value="pings"
-                className="mt-0 flex min-h-0 flex-1 flex-col"
-              >
-                {pingList}
-              </TabsContent>
-              <TabsContent
-                value="missed"
-                className="mt-0 flex min-h-0 flex-1 flex-col"
-              >
-                {missedList}
-              </TabsContent>
-            </Tabs>
+              {pingList}
+            </div>
           )}
         </SheetContent>
       </Sheet>

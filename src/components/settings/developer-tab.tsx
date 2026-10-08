@@ -62,6 +62,7 @@ export function DeveloperTab() {
     injectChatMessage,
     injectSystemMessage,
     injectAutomodHeldMessage,
+    injectSuspiciousUserMessage,
   } = usePeepochatChat()
   const { settings: logSettings, setEnabled: setLogEnabled } =
     useDevLogSettings()
@@ -207,7 +208,12 @@ export function DeveloperTab() {
           ? injectChatMessage(payload.message)
           : payload.kind === "system"
             ? injectSystemMessage(payload.message)
-            : injectAutomodHeldMessage(payload.channelLogin, payload.message)
+            : payload.kind === "suspicious"
+              ? injectSuspiciousUserMessage(
+                  payload.channelLogin,
+                  payload.message
+                )
+              : injectAutomodHeldMessage(payload.channelLogin, payload.message)
       if (injected) {
         injectedCount += 1
       }
@@ -234,10 +240,7 @@ export function DeveloperTab() {
   } as const
 
   return (
-    <SettingsTab
-      title="Developer"
-      description="Local development tools. This tab is not included in production builds."
-    >
+    <SettingsTab description="Local development tools. This tab is not included in production builds.">
       <SettingsSection
         title="Notification center"
         description="Inject sample notifications without waiting for real chat or stream events."

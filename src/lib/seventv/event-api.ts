@@ -198,6 +198,7 @@ export class SevenTvEventApi {
 
   disconnect() {
     this.shouldReconnect = false
+    this.reconnectAttempt = 0
     this.connectGeneration += 1
     this.sessionReady = false
     this.sessionId = ""

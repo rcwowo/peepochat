@@ -15,7 +15,7 @@ import {
 
 type AlertSoundSettingRowProps = {
   title: string
-  description: string
+  description?: string
   kind: AlertSoundKind
   customId: string | null
   onCustomIdChange: (customId: string | null) => void
@@ -95,12 +95,14 @@ export function AlertSoundSettingRow({
   const soundLabel = customId ? (customName ?? "Custom sound") : "Default sound"
 
   return (
-    <div className="px-2.5 py-2.5">
+    <div className="px-3 py-2.5">
       <div className="mb-2">
         <p className="text-sm leading-tight font-medium">{title}</p>
-        <p className="mt-0.5 text-xs leading-snug text-muted-foreground">
-          {description}
-        </p>
+        {description ? (
+          <p className="mt-0.5 text-xs leading-snug text-muted-foreground">
+            {description}
+          </p>
+        ) : null}
       </div>
 
       <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-border bg-muted/25 px-2.5 py-2">

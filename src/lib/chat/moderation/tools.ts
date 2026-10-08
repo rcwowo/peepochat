@@ -15,7 +15,7 @@ export const PIN_MESSAGE_DURATION_PRESETS = [
   { label: "10m", seconds: 600 },
 ] as const
 
-export const CHATLOGS_URL = "https://tv.supa.sh/logs"
+export const CHATLOGS_URL = "https://logs.rcw.lol"
 
 export function twitchViewerCardUrl(
   channelLogin: string,
@@ -28,7 +28,7 @@ export function chatlogsUserUrl(
   channelLogin: string,
   username: string
 ): string {
-  return `${CHATLOGS_URL}?c=${encodeURIComponent(channelLogin)}&u=${encodeURIComponent(username)}`
+  return `${CHATLOGS_URL}/?channel=${encodeURIComponent(channelLogin)}&user=${encodeURIComponent(username)}`
 }
 
 export function openExternalTool(url: string) {

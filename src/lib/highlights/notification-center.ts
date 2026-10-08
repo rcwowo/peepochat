@@ -5,6 +5,19 @@ import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 
 export const MAX_NOTIFICATIONS_PER_TAB = 100
 
+const MAX_DISMISSED_MISSED_PING_IDS = 500
+
+function rememberDismissedMissedPingId(id: string) {
+  store.dismissedMissedPingIds.add(id)
+  while (store.dismissedMissedPingIds.size > MAX_DISMISSED_MISSED_PING_IDS) {
+    const oldest = store.dismissedMissedPingIds.values().next().value
+    if (oldest === undefined) {
+      break
+    }
+    store.dismissedMissedPingIds.delete(oldest)
+  }
+}
+
 export type PingNotification = {
   id: string
   channelLogin: string
@@ -80,7 +93,7 @@ function removeMissedPingForMessage(channelLogin: string, messageId: string) {
     return
   }
 
-  store.dismissedMissedPingIds.add(missedId)
+  rememberDismissedMissedPingId(missedId)
   store.missedPingNotifications = next
 }
 
@@ -460,7 +473,7 @@ export function dismissMissedPingNotification(id: string) {
     return null
   }
 
-  store.dismissedMissedPingIds.add(id)
+  rememberDismissedMissedPingId(id)
   store.missedPingNotifications = next
   notifyListeners()
 
@@ -480,7 +493,7 @@ export function dismissAllMissedPingNotifications() {
   }
 
   for (const notification of store.missedPingNotifications) {
-    store.dismissedMissedPingIds.add(notification.id)
+    rememberDismissedMissedPingId(notification.id)
     removeChannelMessageHighlight(
       notification.channelLogin,
       notification.messageId

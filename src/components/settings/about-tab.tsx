@@ -14,7 +14,7 @@ const OWO_SUPPORTER_BADGE_IMAGE = "https://i.rcw.lol/u/VrPTF3.png"
 
 type CreditEntry = {
   name: string
-  description: string
+  description?: string
   href: string
 }
 
@@ -26,17 +26,14 @@ const SERVICE_CREDITS: CreditEntry[] = [
   },
   {
     name: "BetterTTV",
-    description: "Emote provider.",
     href: "https://betterttv.com",
   },
   {
     name: "FrankerFaceZ",
-    description: "Emote provider.",
     href: "https://www.frankerfacez.com",
   },
   {
     name: "7TV",
-    description: "Emote provider.",
     href: "https://7tv.app",
   },
   {
@@ -66,9 +63,11 @@ function CreditsList({ credits }: { credits: CreditEntry[] }) {
               <div className="text-sm leading-tight font-medium group-hover:text-foreground">
                 {credit.name}
               </div>
-              <p className="mt-0.5 text-xs leading-snug text-muted-foreground">
-                {credit.description}
-              </p>
+              {credit.description ? (
+                <p className="mt-0.5 text-xs leading-snug text-muted-foreground">
+                  {credit.description}
+                </p>
+              ) : null}
             </div>
             <ExternalLinkIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground/60 group-hover:text-muted-foreground" />
           </a>
@@ -191,7 +190,7 @@ function DevelopedBySection() {
 export function AboutTab() {
   return (
     <div className="space-y-6 pb-2">
-      <div className="relative -mx-4 -mt-4">
+      <div className="relative -mx-4 -mt-4 sm:-mx-5 sm:-mt-5">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-x-0 top-0 bottom-0 overflow-hidden [mask-image:linear-gradient(to_bottom,black_0%,black_42%,transparent_100%)] [-webkit-mask-image:linear-gradient(to_bottom,black_0%,black_42%,transparent_100%)]"
@@ -212,7 +211,7 @@ export function AboutTab() {
           </div>
         </div>
 
-        <div className="relative flex flex-col items-center px-4 pt-6 pb-12 text-center">
+        <div className="relative flex flex-col items-center px-4 pt-8 pb-12 text-center sm:px-5">
           <div className="relative shrink-0">
             <div className="absolute inset-0 scale-110 rounded-2xl bg-primary/30 blur-md" />
             <img
@@ -234,10 +233,7 @@ export function AboutTab() {
       </div>
 
       <section className="space-y-2">
-        <SectionHeading
-          title="Developed by"
-          description="Who built this thing?"
-        />
+        <SectionHeading title="Developed by" />
         <DevelopedBySection />
       </section>
 

@@ -108,6 +108,7 @@ type UseChatConnectionOptions = {
   onSelfStateChangedRef?: React.RefObject<
     ((state: TwitchSelfChatState) => void) | null
   >
+  onAuthFailure?: (reason: "expired" | "scopes") => void
   onRoomsRemoved?: (logins: string[]) => void
   onAllRoomsCleared?: () => void
 }
@@ -125,6 +126,7 @@ export function useChatConnection({
   selfStatesRef,
   appendLog,
   onSelfStateChangedRef,
+  onAuthFailure,
   onRoomsRemoved,
   onAllRoomsCleared,
 }: UseChatConnectionOptions) {
@@ -167,10 +169,12 @@ export function useChatConnection({
   const pendingChatModesNoticeRef = useLazyRef(() => new Set<string>())
   const onRoomsRemovedRef = React.useRef(onRoomsRemoved)
   const onAllRoomsClearedRef = React.useRef(onAllRoomsCleared)
+  const onAuthFailureRef = React.useRef(onAuthFailure)
   React.useLayoutEffect(() => {
     onRoomsRemovedRef.current = onRoomsRemoved
     onAllRoomsClearedRef.current = onAllRoomsCleared
-  }, [onAllRoomsCleared, onRoomsRemoved])
+    onAuthFailureRef.current = onAuthFailure
+  }, [onAllRoomsCleared, onAuthFailure, onRoomsRemoved])
 
   const senderStateRef = React.useRef<SenderState>(createEmptySenderState())
   const [selfStates, setSelfStates] = React.useState<
@@ -496,6 +500,9 @@ export function useChatConnection({
         case "log":
           appendLog(event.text)
           break
+        case "auth-failure":
+          onAuthFailureRef.current?.("expired")
+          break
         case "error":
           appendLog(event.text)
           setConnectionState((prev) => ({
@@ -591,6 +598,10 @@ export function useChatConnection({
         case "log":
           appendLog(event.text)
           break
+        case "auth-failure":
+          resolveConnectionRecovery()
+          onAuthFailureRef.current?.("expired")
+          break
         case "error":
           appendLog(event.text)
           setSendConnectionState((prev) => ({
@@ -625,6 +636,7 @@ export function useChatConnection({
     appendLog,
     handleSendConnectionLost,
     markConnectionSyncedIfReady,
+    resolveConnectionRecovery,
     sendClientRef,
     sendHandlersRef,
     updateSelfState,

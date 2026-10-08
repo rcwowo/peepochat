@@ -6,7 +6,10 @@ import {
   type TwitchEmote,
   type TwitchSystemMessage,
 } from "@/lib/twitch/chat/chat"
-import type { TwitchAutomodHeldMessage } from "@/lib/twitch/chat/types"
+import type {
+  TwitchAutomodHeldMessage,
+  TwitchSuspiciousUserMessage,
+} from "@/lib/twitch/chat/types"
 import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 import { buildTwitchEmoteCdnUrl } from "@/lib/twitch/auth/api"
 
@@ -29,6 +32,8 @@ export type FakeMessageKind =
   | "notice"
   | "status"
   | "automod"
+  | "monitored_user"
+  | "restricted_user"
 
 export const FAKE_MESSAGE_KIND_OPTIONS: {
   value: FakeMessageKind
@@ -52,6 +57,8 @@ export const FAKE_MESSAGE_KIND_OPTIONS: {
   { value: "notice", label: "Notice" },
   { value: "status", label: "Status / ritual" },
   { value: "automod", label: "AutoMod held" },
+  { value: "monitored_user", label: "Monitored user" },
+  { value: "restricted_user", label: "Restricted user" },
 ]
 
 export type FakeAnnouncementTheme =
@@ -103,6 +110,11 @@ type FakeTimelinePayload =
       kind: "automod"
       channelLogin: string
       message: TwitchAutomodHeldMessage
+    }
+  | {
+      kind: "suspicious"
+      channelLogin: string
+      message: TwitchSuspiciousUserMessage
     }
 
 type FakeTimelineBatch = FakeTimelinePayload[]
@@ -226,6 +238,10 @@ function defaultTextForKind(kind: FakeMessageKind): string {
       return "FakeUser is new here! Say hello!"
     case "automod":
       return "This held message has some spicy words"
+    case "monitored_user":
+      return "This monitored message is flagged for review"
+    case "restricted_user":
+      return "This restricted message is flagged for review"
     case "chat":
     default:
       return "Hello chat, this is a test message!"
@@ -621,9 +637,49 @@ function buildAutomodMessage(
       { set: "premium", version: "1" },
     ],
     color: options.color ?? "#ff7f50",
+    bits: null,
     receivedAt: heldAt,
     heldAt,
     status: "pending",
+  }
+}
+
+function buildSuspiciousMessage(
+  status: "monitored" | "restricted",
+  options: FakeMessageOptions
+): TwitchSuspiciousUserMessage {
+  const kindText = status === "monitored" ? "monitored_user" : "restricted_user"
+  const channel = normalizeChannelLogin(options.channelLogin)
+  const { displayName, userName } = normalizeActorName(
+    options.displayName ?? "FakeUser",
+    options.userName ?? ""
+  )
+  const baseText = options.text?.trim() || defaultTextForKind(kindText)
+  const withEmotes = options.includeEmotes
+    ? appendSampleEmotes(baseText)
+    : { text: baseText, emotes: [] as TwitchEmote[] }
+  const receivedAt = new Date().toISOString()
+  const id = nextFakeId(kindText)
+
+  return {
+    id,
+    messageId: id,
+    channel,
+    roomId: options.roomId ?? null,
+    userId: `dev-${userName}`,
+    userName,
+    displayName,
+    text: withEmotes.text,
+    emotes: withEmotes.emotes,
+    badges: [
+      { set: "subscriber", version: "0" },
+      { set: "premium", version: "1" },
+    ],
+    color: options.color ?? "#ff7f50",
+    bits: null,
+    receivedAt,
+    status,
+    deletedAt: null,
   }
 }
 
@@ -800,6 +856,16 @@ function buildFakeTimelineItem(
         channelLogin: normalizeChannelLogin(options.channelLogin),
         message: buildAutomodMessage(options),
       }
+    case "monitored_user":
+    case "restricted_user":
+      return {
+        kind: "suspicious",
+        channelLogin: normalizeChannelLogin(options.channelLogin),
+        message: buildSuspiciousMessage(
+          kind === "monitored_user" ? "monitored" : "restricted",
+          options
+        ),
+      }
     default:
       return { kind: "system", message: buildSystemMessage(kind, options) }
   }
@@ -873,6 +939,8 @@ export function supportsFakeEmotes(kind: FakeMessageKind) {
     kind === "deleted" ||
     kind === "subscription" ||
     kind === "announcement" ||
-    kind === "automod"
+    kind === "automod" ||
+    kind === "monitored_user" ||
+    kind === "restricted_user"
   )
 }

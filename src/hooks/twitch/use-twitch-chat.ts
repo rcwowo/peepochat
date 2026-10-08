@@ -25,13 +25,16 @@ import type {
   TwitchChatClient,
   TwitchChatConnectOptions,
   TwitchChatMessage,
+  TwitchEmote,
   TwitchSystemMessage,
 } from "@/lib/twitch/chat/chat"
 import type {
   TwitchAutomodHeldMessage,
   TwitchSelfChatState,
+  TwitchSuspiciousUserMessage,
   TwitchTimelineItem,
 } from "@/lib/twitch/chat/types"
+import { hydrateMessageEmotes } from "@/lib/chat/emotes/emotes"
 
 export { isSyncChannelsSupersededError } from "@/hooks/twitch/chat/types"
 
@@ -173,6 +176,7 @@ export function useTwitchChat(options?: {
     selfStatesRef,
     appendLog,
     onSelfStateChangedRef,
+    onAuthFailure,
     onRoomsRemoved: chatterStore.removeChannels,
     onAllRoomsCleared: chatterStore.clearAll,
   })
@@ -188,6 +192,7 @@ export function useTwitchChat(options?: {
     dismissComposerNotice: send.dismissComposerNotice,
     applySelfModerationRestriction: send.applySelfModerationRestriction,
     trimRoomTimeline: timeline.trimWithLimit,
+    emotes,
     showSuspiciousActivityRef,
     hideBlockedUsersRef,
     isUserBlockedRef,
@@ -417,6 +422,25 @@ export function useTwitchChat(options?: {
 
   const { routeMessageToRoom, routeSystemMessage } = routing
   const { queueLiveRoomTimeline } = timeline
+  const { emoteCatalogsRef, getTwitchHydration } = emotes
+
+  const hydrateInjectedMessage = React.useCallback(
+    <T extends { roomId: string | null; text: string; emotes: TwitchEmote[] }>(
+      message: T
+    ): T => {
+      const roomId = message.roomId
+      if (!roomId) {
+        return message
+      }
+
+      return hydrateMessageEmotes(
+        message,
+        emoteCatalogsRef.current.get(roomId) ?? null,
+        getTwitchHydration(roomId)
+      )
+    },
+    [emoteCatalogsRef, getTwitchHydration]
+  )
 
   const injectChatMessage = React.useCallback(
     (message: TwitchChatMessage) => {
@@ -453,10 +477,27 @@ export function useTwitchChat(options?: {
         return false
       }
 
-      queueLiveRoomTimeline(normalized, [{ kind: "automod", message }])
+      queueLiveRoomTimeline(normalized, [
+        { kind: "automod", message: hydrateInjectedMessage(message) },
+      ])
       return true
     },
-    [isChannelSynced, queueLiveRoomTimeline]
+    [hydrateInjectedMessage, isChannelSynced, queueLiveRoomTimeline]
+  )
+
+  const injectSuspiciousUserMessage = React.useCallback(
+    (login: string, message: TwitchSuspiciousUserMessage) => {
+      const normalized = normalizeChannelLogin(login)
+      if (!isChannelSynced(normalized)) {
+        return false
+      }
+
+      queueLiveRoomTimeline(normalized, [
+        { kind: "suspicious", message: hydrateInjectedMessage(message) },
+      ])
+      return true
+    },
+    [hydrateInjectedMessage, isChannelSynced, queueLiveRoomTimeline]
   )
 
   return {
@@ -496,6 +537,7 @@ export function useTwitchChat(options?: {
     injectChatMessage,
     injectSystemMessage,
     injectAutomodHeldMessage,
+    injectSuspiciousUserMessage,
     getComposerEmoteCatalog: emotes.getComposerEmoteCatalog,
     ensureComposerEmotes: emotes.ensureComposerEmotes,
     isComposerEmotesLoading: emotes.isComposerEmotesLoading,

@@ -1,5 +1,6 @@
 import * as React from "react"
 
+import type { ChatEmotesApi } from "@/hooks/twitch/chat/use-chat-emotes"
 import type { RoomStore } from "@/hooks/twitch/chat/use-room-store"
 import type { TwitchAccount } from "@/lib/peepochat/peepochat-config"
 import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
@@ -11,6 +12,7 @@ import type {
 } from "@/lib/twitch/chat/types"
 import {
   isAnonymousBanTimeoutSystemMessage,
+  type TwitchEmote,
   type TwitchSystemMessage,
 } from "@/lib/twitch/chat/chat"
 import {
@@ -47,6 +49,7 @@ import {
 } from "@/lib/twitch/eventsub/moderate"
 import type { SelfModerationRestriction } from "@/lib/chat/send/send-notice"
 import { extractModerateTargetNames } from "@/lib/twitch/eventsub/parse"
+import { hydrateMessageEmotes } from "@/lib/chat/emotes/emotes"
 import {
   createSystemMessageFromSuspiciousUserUpdate,
   parseSuspiciousUserMessage,
@@ -77,6 +80,7 @@ type UseTwitchEventSubOptions = {
     restriction: SelfModerationRestriction
   ) => void
   trimRoomTimeline: (timeline: TwitchTimelineItem[]) => TwitchTimelineItem[]
+  emotes: Pick<ChatEmotesApi, "emoteCatalogsRef" | "getTwitchHydration">
   showSuspiciousActivityRef: React.RefObject<boolean>
   hideBlockedUsersRef: React.RefObject<boolean>
   isUserBlockedRef: React.RefObject<
@@ -149,6 +153,7 @@ export function useTwitchEventSub({
   dismissComposerNotice,
   applySelfModerationRestriction,
   trimRoomTimeline,
+  emotes,
   showSuspiciousActivityRef,
   hideBlockedUsersRef,
   isUserBlockedRef,
@@ -164,6 +169,7 @@ export function useTwitchEventSub({
     applySelfModerationRestriction
   )
   const trimRoomTimelineRef = React.useRef(trimRoomTimeline)
+  const emotesApiRef = React.useRef(emotes)
   const onTimelineItemsRef = React.useRef(onTimelineItems)
   React.useLayoutEffect(() => {
     onTimelineItemsRef.current = onTimelineItems
@@ -205,6 +211,29 @@ export function useTwitchEventSub({
   React.useLayoutEffect(() => {
     trimRoomTimelineRef.current = trimRoomTimeline
   }, [trimRoomTimeline])
+
+  React.useLayoutEffect(() => {
+    emotesApiRef.current = emotes
+  }, [emotes])
+
+  const hydrateEventSubMessageEmotes = React.useCallback(
+    <T extends { roomId: string | null; text: string; emotes: TwitchEmote[] }>(
+      channelLogin: string,
+      message: T
+    ): T => {
+      const roomId = roomsRef.current[channelLogin]?.roomId ?? message.roomId
+      if (!roomId) {
+        return message
+      }
+
+      return hydrateMessageEmotes(
+        message,
+        emotesApiRef.current.emoteCatalogsRef.current.get(roomId) ?? null,
+        emotesApiRef.current.getTwitchHydration(roomId)
+      )
+    },
+    [emotesApiRef, roomsRef]
+  )
 
   const rememberSourceProfiles = React.useCallback(
     (profiles: SharedChatSourceProfile[]) => {
@@ -580,9 +609,10 @@ export function useTwitchEventSub({
       held: ReturnType<typeof parseAutomodHeldMessage>
     ) => {
       if (!held) return
+      const message = hydrateEventSubMessageEmotes(channelLogin, held)
       updateRoom(channelLogin, (room) => {
         const existingIndex = room.timeline.findIndex(
-          (entry) => entry.kind === "automod" && entry.message.id === held.id
+          (entry) => entry.kind === "automod" && entry.message.id === message.id
         )
         if (existingIndex >= 0) {
           const existing = room.timeline[existingIndex]
@@ -591,7 +621,7 @@ export function useTwitchEventSub({
             return room
           }
           const next = room.timeline.slice()
-          next[existingIndex] = { kind: "automod", message: held }
+          next[existingIndex] = { kind: "automod", message }
           return { ...room, timeline: trimRoomTimelineRef.current(next) }
         }
 
@@ -599,15 +629,13 @@ export function useTwitchEventSub({
           ...room,
           timeline: trimRoomTimelineRef.current([
             ...room.timeline,
-            { kind: "automod" as const, message: held },
+            { kind: "automod" as const, message },
           ]),
         }
       })
-      onTimelineItemsRef.current?.(channelLogin, [
-        { kind: "automod", message: held },
-      ])
+      onTimelineItemsRef.current?.(channelLogin, [{ kind: "automod", message }])
     },
-    [updateRoom]
+    [updateRoom, hydrateEventSubMessageEmotes]
   )
 
   const resolveAutomodHeldMessageStatus = React.useCallback(
@@ -677,7 +705,8 @@ export function useTwitchEventSub({
   ])
 
   const upsertSuspiciousUserMessage = React.useCallback(
-    (channelLogin: string, message: TwitchSuspiciousUserMessage) => {
+    (channelLogin: string, rawMessage: TwitchSuspiciousUserMessage) => {
+      const message = hydrateEventSubMessageEmotes(channelLogin, rawMessage)
       updateRoom(channelLogin, (room) => {
         const existingIndex = room.timeline.findIndex(
           (entry) =>
@@ -723,7 +752,7 @@ export function useTwitchEventSub({
         { kind: "suspicious", message },
       ])
     },
-    [updateRoom]
+    [updateRoom, hydrateEventSubMessageEmotes]
   )
 
   const upsertSuspiciousUserMessageRef = React.useRef(

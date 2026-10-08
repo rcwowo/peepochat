@@ -110,6 +110,19 @@ export function useFollowedChannels(
     getFollowedChannelsSnapshot
   )
 
+  const [cacheTick, setCacheTick] = React.useState(0)
+
+  React.useEffect(() => {
+    const bump = () => setCacheTick((value) => value + 1)
+    const interval = window.setInterval(bump, 15_000)
+    document.addEventListener("visibilitychange", bump)
+
+    return () => {
+      window.clearInterval(interval)
+      document.removeEventListener("visibilitychange", bump)
+    }
+  }, [])
+
   React.useEffect(() => {
     if (!enabled || !account || !hasFollowsReadScope(account)) {
       return
@@ -249,7 +262,7 @@ export function useFollowedChannels(
         }
       }
     })()
-  }, [account, enabled])
+  }, [account, enabled, cacheTick])
 
   if (!enabled || !account) {
     return EMPTY_STATE

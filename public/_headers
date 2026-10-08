@@ -5,3 +5,8 @@
 # Pages shouldn't be cached so that updates are actually pushed when they come out.
 /index.html
   Cache-Control: no-cache, no-store, must-revalidate
+
+# Don't allow the client to be framed by third-party sites.
+/*
+  Content-Security-Policy: frame-ancestors 'none'
+  X-Frame-Options: DENY

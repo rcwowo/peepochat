@@ -403,7 +403,7 @@ export function EmoteShowcaseSection() {
 
         <div className="relative z-3 mx-auto max-w-120 px-[clamp(1.25rem,5vw,2.75rem)] py-[clamp(1.5rem,4.5vw,2.5rem)] text-center">
           <div
-            className="pointer-events-none absolute top-[46%] left-1/2 aspect-square w-[min(52rem,220%)] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle_at_center,oklch(0.12_0.02_320/88%)_0%,oklch(0.12_0.02_320/55%)_28%,oklch(0.12_0.02_320/22%)_48%,transparent_68%)]"
+            className="pointer-events-none absolute top-[46%] left-1/2 aspect-square w-[min(52rem,220%)] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle_at_center,color-mix(in_oklch,var(--background)_88%,transparent)_0%,color-mix(in_oklch,var(--background)_55%,transparent)_28%,color-mix(in_oklch,var(--background)_22%,transparent)_48%,transparent_68%)]"
             aria-hidden
           />
 

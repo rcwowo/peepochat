@@ -1,8 +1,10 @@
 import * as React from "react"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import {
+  ArrowRightLeftIcon,
   CheckIcon,
   EyeIcon,
+  PlayIcon,
   PlusIcon,
   SearchIcon,
   UsersIcon,
@@ -21,7 +23,10 @@ import {
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import { useFollowedChannels } from "@/hooks/twitch/use-followed-channels"
-import { usePeepochatSettings } from "@/lib/peepochat/peepochat-context"
+import {
+  usePeepochatPlayer,
+  usePeepochatSettings,
+} from "@/lib/peepochat/peepochat-context"
 import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 import {
   buildFollowedChannelListRows,
@@ -37,6 +42,8 @@ import {
   subscribeToUserAvatars,
 } from "@/lib/twitch/channel/user-avatars"
 import { cn } from "@/lib/utils"
+
+type RowActionKind = "watch" | "add"
 
 function FollowedChannelAvatar({
   login,
@@ -87,80 +94,203 @@ function FollowedChannelAvatar({
   )
 }
 
-function FollowedChannelLiveMeta({
-  channel,
-  added,
-}: {
-  channel: FollowedChannelRow
-  added: boolean
-}) {
-  const subtitle = [channel.gameName, channel.title]
-    .filter((value) => value.trim().length > 0)
-    .join(" · ")
-
+function AddedIndicator() {
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-2">
-      <span className="min-w-0 flex-1">
-        <span className="flex min-w-0 items-center gap-1.5">
-          <span className="truncate font-medium">{channel.displayName}</span>
-          {added ? (
-            <CheckIcon className="size-3 shrink-0 text-muted-foreground" />
-          ) : null}
-        </span>
-        {subtitle ? (
-          <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-            {subtitle}
-          </span>
-        ) : null}
-      </span>
-      <span className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-red-500 tabular-nums">
-        <EyeIcon className="size-3" aria-hidden />
-        {formatCompactViewerCount(channel.viewerCount)}
-      </span>
-    </div>
+    <span
+      title="Already added"
+      aria-label="Already added"
+      className="inline-flex shrink-0 items-center text-muted-foreground"
+    >
+      <CheckIcon className="size-3.5" aria-hidden />
+    </span>
   )
 }
 
-function FollowedChannelOfflineMeta({
+function FollowedChannelMeta({
   channel,
   added,
 }: {
   channel: FollowedChannelRow
   added: boolean
 }) {
+  const gameName = channel.gameName.trim()
+  const title = channel.title.trim()
+
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-2">
-      <span className="min-w-0 flex-1 truncate font-medium">
-        {channel.displayName}
+    <div className="min-w-0 flex-1">
+      <span className="flex min-w-0 items-center gap-1.5">
+        <span className="min-w-0 truncate font-medium">
+          {channel.displayName}
+        </span>
+        {added ? <AddedIndicator /> : null}
       </span>
-      {added ? (
-        <span className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
-          <CheckIcon className="size-3" aria-hidden />
-          Added
+      {channel.live && (gameName || title) ? (
+        <span className="mt-0.5 flex min-w-0 items-baseline gap-2 text-xs text-muted-foreground">
+          {gameName ? (
+            <span className="max-w-[45%] shrink-0 truncate">{gameName}</span>
+          ) : null}
+          {gameName && title ? (
+            <span aria-hidden="true" className="shrink-0">
+              ·
+            </span>
+          ) : null}
+          {title ? (
+            <span className="min-w-0 flex-1 truncate">{title}</span>
+          ) : null}
         </span>
       ) : null}
     </div>
   )
 }
 
+function RowActions({
+  added,
+  disabled,
+  focus,
+  preview,
+  onFocus,
+  onWatch,
+  onAdd,
+}: {
+  added?: boolean
+  disabled: boolean
+  focus: RowActionKind
+  preview: RowActionKind | null
+  onFocus: (action: RowActionKind) => void
+  onWatch?: () => void
+  onAdd: () => void
+}) {
+  const canWatch = Boolean(onWatch)
+  const switchLabel = added ? "Switch to channel" : "Add channel"
+  const switchText = added ? "Switch" : "Add"
+
+  if (preview === "watch" && canWatch) {
+    return (
+      <span
+        className="flex shrink-0 items-center gap-1.5 rounded-md bg-background/80 py-0.5 pr-2.5 pl-1 shadow-sm ring-1 ring-border/40 backdrop-blur-sm"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          tabIndex={-1}
+          aria-label="Watch channel"
+          disabled={disabled}
+          className="cursor-pointer text-foreground"
+          onClick={onWatch}
+        >
+          <PlayIcon className="size-3.5" />
+        </Button>
+        <span className="text-xs font-medium text-foreground">Watch</span>
+      </span>
+    )
+  }
+
+  if (preview === "add") {
+    return (
+      <span
+        className="flex shrink-0 items-center gap-1.5 rounded-md bg-background/80 py-0.5 pr-2.5 pl-1 shadow-sm ring-1 ring-border/40 backdrop-blur-sm"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          tabIndex={-1}
+          aria-label={switchLabel}
+          disabled={disabled}
+          className="cursor-pointer text-foreground"
+          onClick={onAdd}
+        >
+          {added ? (
+            <ArrowRightLeftIcon className="size-3.5" />
+          ) : (
+            <PlusIcon className="size-3.5" />
+          )}
+        </Button>
+        <span className="text-xs font-medium text-foreground">
+          {switchText}
+        </span>
+      </span>
+    )
+  }
+
+  const buttonClass = (isFocused: boolean) =>
+    cn(
+      "cursor-pointer",
+      isFocused
+        ? "bg-muted text-foreground"
+        : "text-muted-foreground hover:text-foreground"
+    )
+
+  return (
+    <span
+      className="flex shrink-0 items-center gap-1 rounded-md bg-background/80 p-0.5 shadow-sm ring-1 ring-border/40 backdrop-blur-sm"
+      onClick={(event) => event.stopPropagation()}
+    >
+      {canWatch ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          tabIndex={-1}
+          aria-label="Watch channel"
+          disabled={disabled}
+          className={buttonClass(focus === "watch")}
+          onMouseEnter={() => onFocus("watch")}
+          onClick={onWatch}
+        >
+          <PlayIcon className="size-3.5" />
+        </Button>
+      ) : null}
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-xs"
+        tabIndex={-1}
+        aria-label={switchLabel}
+        disabled={disabled}
+        className={buttonClass(focus === "add")}
+        onMouseEnter={() => onFocus("add")}
+        onClick={onAdd}
+      >
+        {added ? (
+          <ArrowRightLeftIcon className="size-3.5" />
+        ) : (
+          <PlusIcon className="size-3.5" />
+        )}
+      </Button>
+    </span>
+  )
+}
+
 function AddChannelList({
   rows,
   activeKey,
+  actionFocus,
+  preview,
   addedLogins,
   savedAvatars,
   submitting,
   scrollKey,
   onHover,
-  onSelect,
+  onActionFocus,
+  onWatch,
+  onAdd,
 }: {
   rows: FollowedChannelListRow[]
   activeKey: string | null
+  actionFocus: RowActionKind
+  preview: RowActionKind | null
   addedLogins: Set<string>
   savedAvatars: Map<string, string>
   submitting: boolean
   scrollKey: string
   onHover: (key: string) => void
-  onSelect: (login: string) => void
+  onActionFocus: (action: RowActionKind) => void
+  onWatch: (login: string) => void
+  onAdd: (login: string) => void
 }) {
   const parentRef = React.useRef<HTMLDivElement>(null)
 
@@ -232,6 +362,81 @@ function AddChannelList({
           }
 
           const key = followedChannelListRowKey(row)
+          const isActive = activeKey === key
+
+          if (row.kind === "header") {
+            return (
+              <div
+                key={virtualItem.key}
+                data-index={virtualItem.index}
+                ref={virtualizer.measureElement}
+                className="absolute top-0 left-0 flex w-full items-baseline gap-1.5 px-4 pt-3 pb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase"
+                style={{
+                  transform: `translateY(${virtualItem.start}px)`,
+                }}
+              >
+                {row.id === "live" ? (
+                  <span
+                    aria-hidden="true"
+                    className="size-2 rounded-full bg-red-500"
+                  />
+                ) : null}
+                {row.label}
+                <span className="font-normal normal-case tabular-nums">
+                  {row.count}
+                </span>
+              </div>
+            )
+          }
+
+          if (row.kind === "add") {
+            return (
+              <div
+                key={virtualItem.key}
+                data-index={virtualItem.index}
+                ref={virtualizer.measureElement}
+                className="absolute top-0 left-0 w-full"
+                style={{
+                  transform: `translateY(${virtualItem.start}px)`,
+                }}
+              >
+                <div
+                  role="option"
+                  aria-selected={isActive}
+                  aria-disabled={submitting}
+                  className={cn(
+                    "flex w-full cursor-pointer items-center gap-3 px-4 py-1.5 text-left text-sm transition-colors",
+                    isActive
+                      ? "bg-accent text-accent-foreground"
+                      : "hover:bg-muted"
+                  )}
+                  onMouseMove={() => onHover(key)}
+                  onClick={submitting ? undefined : () => onAdd(row.login)}
+                >
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-full border border-dashed border-border text-muted-foreground">
+                    <PlusIcon className="size-4" />
+                  </span>
+                  <span className="min-w-0 flex-1 truncate font-medium">
+                    Add {row.login}
+                  </span>
+                  {isActive ? (
+                    <RowActions
+                      added={addedLogins.has(row.login)}
+                      disabled={submitting}
+                      focus={actionFocus}
+                      preview={preview}
+                      onFocus={onActionFocus}
+                      onWatch={() => onWatch(row.login)}
+                      onAdd={() => onAdd(row.login)}
+                    />
+                  ) : null}
+                </div>
+              </div>
+            )
+          }
+
+          const channel = row.channel
+          const added = addedLogins.has(channel.login)
 
           return (
             <div
@@ -243,69 +448,45 @@ function AddChannelList({
                 transform: `translateY(${virtualItem.start}px)`,
               }}
             >
-              {row.kind === "header" ? (
-                <div className="flex items-baseline gap-1.5 px-4 pt-3 pb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                  {row.label}
-                  <span aria-hidden="true">—</span>
-                  <span className="font-normal normal-case tabular-nums">
-                    {row.count}
+              <div
+                role="option"
+                aria-selected={isActive}
+                aria-disabled={submitting}
+                className={cn(
+                  "flex w-full cursor-pointer items-center gap-3 px-4 py-1.5 text-left text-sm transition-colors",
+                  isActive
+                    ? "bg-accent text-accent-foreground"
+                    : "hover:bg-muted"
+                )}
+                onMouseMove={() => onHover(key)}
+                onClick={submitting ? undefined : () => onAdd(channel.login)}
+              >
+                <FollowedChannelAvatar
+                  login={channel.login}
+                  displayName={channel.displayName}
+                  profileImageUrl={savedAvatars.get(channel.login)}
+                />
+                <FollowedChannelMeta channel={channel} added={added} />
+
+                {channel.live && !isActive ? (
+                  <span className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-red-500 tabular-nums">
+                    <EyeIcon className="size-3" aria-hidden />
+                    {formatCompactViewerCount(channel.viewerCount)}
                   </span>
-                </div>
-              ) : row.kind === "add" ? (
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={activeKey === key}
-                  disabled={submitting}
-                  className={cn(
-                    "flex w-full cursor-pointer items-center gap-3 px-4 py-1.5 text-left text-sm",
-                    activeKey === key
-                      ? "bg-accent text-accent-foreground"
-                      : "hover:bg-muted"
-                  )}
-                  onMouseMove={() => onHover(key)}
-                  onClick={() => onSelect(row.login)}
-                >
-                  <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
-                    <PlusIcon className="size-4" />
-                  </span>
-                  <span className="min-w-0 truncate font-medium">
-                    Add {row.login}
-                  </span>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={activeKey === key}
-                  disabled={submitting}
-                  className={cn(
-                    "flex w-full cursor-pointer items-center gap-3 px-4 py-1.5 text-left text-sm",
-                    activeKey === key
-                      ? "bg-accent text-accent-foreground"
-                      : "hover:bg-muted"
-                  )}
-                  onMouseMove={() => onHover(key)}
-                  onClick={() => onSelect(row.channel.login)}
-                >
-                  <FollowedChannelAvatar
-                    login={row.channel.login}
-                    displayName={row.channel.displayName}
-                    profileImageUrl={savedAvatars.get(row.channel.login)}
+                ) : null}
+
+                {isActive ? (
+                  <RowActions
+                    added={added}
+                    disabled={submitting}
+                    focus={actionFocus}
+                    preview={preview}
+                    onFocus={onActionFocus}
+                    onWatch={() => onWatch(channel.login)}
+                    onAdd={() => onAdd(channel.login)}
                   />
-                  {row.channel.live ? (
-                    <FollowedChannelLiveMeta
-                      channel={row.channel}
-                      added={addedLogins.has(row.channel.login)}
-                    />
-                  ) : (
-                    <FollowedChannelOfflineMeta
-                      channel={row.channel}
-                      added={addedLogins.has(row.channel.login)}
-                    />
-                  )}
-                </button>
-              )}
+                ) : null}
+              </div>
             </div>
           )
         })}
@@ -323,10 +504,17 @@ export function AddChannelDialog({
 }) {
   const { account, addChannel, channels, loginWithTwitch } =
     usePeepochatSettings()
+  const { openPlayer } = usePeepochatPlayer()
   const followed = useFollowedChannels(account, open)
   const [draft, setDraft] = React.useState("")
   const [submitting, setSubmitting] = React.useState(false)
   const [activeKey, setActiveKey] = React.useState<string | null>(null)
+  const [actionFocusOverride, setActionFocusOverride] = React.useState<{
+    key: string
+    action: RowActionKind
+  } | null>(null)
+  const [actionPreview, setActionPreview] =
+    React.useState<RowActionKind | null>(null)
   const [wasOpen, setWasOpen] = React.useState(open)
   const inputRef = React.useRef<HTMLInputElement>(null)
 
@@ -336,6 +524,8 @@ export function AddChannelDialog({
       setDraft("")
       setSubmitting(false)
       setActiveKey(null)
+      setActionFocusOverride(null)
+      setActionPreview(null)
     }
   }
 
@@ -370,8 +560,41 @@ export function AddChannelDialog({
       ? activeKey
       : (selectableKeys[0] ?? null)
 
+  const getActiveRow = React.useCallback(() => {
+    if (!resolvedActiveKey) {
+      return null
+    }
+    const row = listRows.find(
+      (entry) => followedChannelListRowKey(entry) === resolvedActiveKey
+    )
+    return row && isSelectableFollowedChannelListRow(row) ? row : null
+  }, [listRows, resolvedActiveKey])
+
+  const actionFocus =
+    actionFocusOverride?.key === resolvedActiveKey
+      ? actionFocusOverride.action
+      : "add"
+  const setActionFocus = React.useCallback(
+    (action: RowActionKind) => {
+      if (!resolvedActiveKey) {
+        return
+      }
+      setActionFocusOverride({ key: resolvedActiveKey, action })
+    },
+    [resolvedActiveKey]
+  )
+
+  const refocusInputRef = React.useRef(false)
+
+  React.useEffect(() => {
+    if (refocusInputRef.current && !submitting && open) {
+      refocusInputRef.current = false
+      inputRef.current?.focus()
+    }
+  }, [open, submitting])
+
   const addLogin = React.useCallback(
-    async (login: string) => {
+    async (login: string, options?: { keepOpen?: boolean }) => {
       const value = normalizeChannelLogin(login)
       if (!value || submitting) {
         return
@@ -380,7 +603,12 @@ export function AddChannelDialog({
       setSubmitting(true)
       try {
         await addChannel(value)
-        onOpenChange(false)
+        if (options?.keepOpen) {
+          setDraft("")
+          refocusInputRef.current = true
+        } else {
+          onOpenChange(false)
+        }
       } catch (error) {
         toast.error(
           error instanceof Error ? error.message : "Could not add channel"
@@ -392,19 +620,66 @@ export function AddChannelDialog({
     [addChannel, onOpenChange, submitting]
   )
 
-  const addActiveOrDraft = React.useCallback(() => {
-    if (resolvedActiveKey) {
-      const row = listRows.find(
-        (entry) => followedChannelListRowKey(entry) === resolvedActiveKey
-      )
-      if (row && isSelectableFollowedChannelListRow(row)) {
-        void addLogin(row.kind === "add" ? row.login : row.channel.login)
+  const watchLogin = React.useCallback(
+    (login: string) => {
+      const value = normalizeChannelLogin(login)
+      if (!value || submitting) {
+        return
+      }
+
+      openPlayer(value)
+      onOpenChange(false)
+    },
+    [onOpenChange, openPlayer, submitting]
+  )
+
+  const confirmActive = React.useCallback(
+    (options?: { keepOpen?: boolean }) => {
+      const row = getActiveRow()
+      if (!row) {
+        void addLogin(draft, options)
+        return
+      }
+
+      const login = row.kind === "add" ? row.login : row.channel.login
+      if (options?.keepOpen) {
+        void addLogin(login, options)
+        return
+      }
+
+      if (row.kind === "add") {
+        void addLogin(login, options)
+        return
+      }
+
+      if (actionFocus === "watch") {
+        watchLogin(row.channel.login)
+        return
+      }
+      void addLogin(login, options)
+    },
+    [actionFocus, addLogin, draft, getActiveRow, watchLogin]
+  )
+
+  const watchActiveLive = React.useCallback(() => {
+    const row = getActiveRow()
+    if (row) {
+      if (row.kind === "channel") {
+        watchLogin(row.channel.login)
+        return
+      }
+      if (row.kind === "add") {
+        watchLogin(row.login)
         return
       }
     }
 
-    void addLogin(draft)
-  }, [addLogin, draft, listRows, resolvedActiveKey])
+    const query = normalizeChannelLogin(draft)
+    if (!query) {
+      return
+    }
+    watchLogin(query)
+  }, [draft, getActiveRow, watchLogin])
 
   const moveActive = React.useCallback(
     (direction: 1 | -1) => {
@@ -430,6 +705,10 @@ export function AddChannelDialog({
       return
     }
 
+    setActionPreview(
+      event.shiftKey ? "watch" : event.ctrlKey || event.metaKey ? "add" : null
+    )
+
     if (event.key === "ArrowDown") {
       event.preventDefault()
       moveActive(1)
@@ -442,10 +721,43 @@ export function AddChannelDialog({
       return
     }
 
+    if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+      if (event.shiftKey || event.ctrlKey || event.metaKey) {
+        return
+      }
+      const row = getActiveRow()
+      if (!row) {
+        return
+      }
+      event.preventDefault()
+      if (event.key === "ArrowLeft") {
+        setActionFocus("watch")
+      } else {
+        setActionFocus("add")
+      }
+      return
+    }
+
     if (event.key === "Enter") {
       event.preventDefault()
-      addActiveOrDraft()
+      if (event.shiftKey) {
+        watchActiveLive()
+      } else if (event.ctrlKey || event.metaKey) {
+        confirmActive({ keepOpen: true })
+      } else {
+        confirmActive()
+      }
     }
+  }
+
+  const handleInputKeyUp = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    setActionPreview(
+      event.shiftKey ? "watch" : event.ctrlKey || event.metaKey ? "add" : null
+    )
+  }
+
+  const handleInputBlur = () => {
+    setActionPreview(null)
   }
 
   const query = normalizeChannelLogin(draft)
@@ -465,15 +777,17 @@ export function AddChannelDialog({
       <DialogContent
         data-hotkey-surface="add-channel"
         showCloseButton={false}
-        className="flex h-[min(36rem,80vh)] w-[calc(100%-1rem)] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-md"
+        className="flex h-[min(40rem,86vh)] w-[calc(100%-1rem)] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-lg"
         onOpenAutoFocus={(event) => {
           event.preventDefault()
           inputRef.current?.focus()
         }}
       >
-        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border py-2 pr-2 pl-4">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border p-3 pr-2.5 pl-4">
           <div className="min-w-0">
-            <DialogTitle className="truncate text-sm">Add channel</DialogTitle>
+            <DialogTitle className="truncate text-base">
+              Add channel
+            </DialogTitle>
             <DialogDescription className="sr-only">
               Search the channels you follow or enter a username to join.
             </DialogDescription>
@@ -481,18 +795,18 @@ export function AddChannelDialog({
           <DialogClose asChild>
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
               size="icon-sm"
               aria-label="Close add channel"
             >
-              <XIcon className="size-4" />
+              <XIcon />
             </Button>
           </DialogClose>
         </div>
 
-        <div className="shrink-0 border-b border-border px-4 py-3">
+        <div className="shrink-0 px-4 pt-3.5 pb-3">
           <div className="relative">
-            <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+            <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               ref={inputRef}
               id="add-channel-input"
@@ -504,29 +818,31 @@ export function AddChannelDialog({
               spellCheck={false}
               aria-autocomplete="list"
               onKeyDown={handleInputKeyDown}
-              className="h-9 pr-8 pl-8 text-sm"
+              onKeyUp={handleInputKeyUp}
+              onBlur={handleInputBlur}
+              className="h-10 pr-9 pl-9 text-sm"
             />
             {draft ? (
               <Button
                 type="button"
                 variant="ghost"
                 size="icon-xs"
-                className="absolute top-1/2 right-1 -translate-y-1/2 text-muted-foreground"
+                className="absolute top-1/2 right-1.5 -translate-y-1/2 text-muted-foreground"
                 aria-label="Clear search"
                 onClick={() => {
                   setDraft("")
                   inputRef.current?.focus()
                 }}
               >
-                <XIcon className="size-3.5" />
+                <XIcon />
               </Button>
             ) : null}
           </div>
         </div>
 
         {followed.missingScope ? (
-          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-2.5">
-            <p className="text-xs text-muted-foreground">
+          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3">
+            <p className="text-xs leading-relaxed text-muted-foreground">
               Sign in again to search channels you follow.
             </p>
             <Button
@@ -541,7 +857,7 @@ export function AddChannelDialog({
         ) : null}
 
         {followed.error && followed.rows.length === 0 ? (
-          <div className="shrink-0 border-b border-border px-4 py-2 text-xs text-muted-foreground">
+          <div className="shrink-0 border-b border-border px-4 py-2.5 text-xs leading-relaxed text-muted-foreground">
             {followed.error}
           </div>
         ) : null}
@@ -549,7 +865,7 @@ export function AddChannelDialog({
         {followed.refreshing && followed.rows.length > 0 ? (
           <div
             role="status"
-            className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-2 text-xs text-muted-foreground"
+            className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-2.5 text-xs text-muted-foreground"
           >
             <Spinner className="size-3.5" />
             Loading follows...
@@ -561,12 +877,16 @@ export function AddChannelDialog({
             <AddChannelList
               rows={listRows}
               activeKey={resolvedActiveKey}
+              actionFocus={actionFocus}
+              preview={actionPreview}
               addedLogins={addedLogins}
               savedAvatars={savedAvatars}
               submitting={submitting}
               scrollKey={query}
               onHover={setActiveKey}
-              onSelect={(login) => void addLogin(login)}
+              onActionFocus={setActionFocus}
+              onWatch={watchLogin}
+              onAdd={(login) => void addLogin(login)}
             />
           ) : null}
 
@@ -581,13 +901,13 @@ export function AddChannelDialog({
               </p>
             </div>
           ) : showEmpty ? (
-            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-popover px-4 text-center">
-              <div className="flex size-10 items-center justify-center rounded-full bg-muted">
-                <UsersIcon className="size-4 text-muted-foreground" />
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2.5 bg-popover px-4 text-center">
+              <div className="flex size-12 items-center justify-center rounded-full bg-muted">
+                <UsersIcon className="size-5 text-muted-foreground" />
               </div>
               <p className="text-sm text-muted-foreground">{emptyMessage}</p>
               {showTypeHint ? (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs leading-relaxed text-muted-foreground">
                   Type a channel name to add it.
                 </p>
               ) : null}

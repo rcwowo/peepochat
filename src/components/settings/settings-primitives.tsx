@@ -13,7 +13,6 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { PickerIcon } from "@/components/chat/composer/picker-icon"
-import { Separator } from "@/components/ui/separator"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
@@ -21,29 +20,6 @@ import { Textarea } from "@/components/ui/textarea"
 // ---------------------------------------------------------------------------
 // Tab & section headings
 // ---------------------------------------------------------------------------
-
-export function SettingsTabHeader({
-  title,
-  description,
-  className,
-}: {
-  title: string
-  description?: string
-  className?: string
-}) {
-  return (
-    <header className={className}>
-      <h2 className="text-base leading-tight font-semibold tracking-tight">
-        {title}
-      </h2>
-      {description && (
-        <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-          {description}
-        </p>
-      )}
-    </header>
-  )
-}
 
 export function SectionHeading({
   title,
@@ -122,7 +98,7 @@ export function SettingsRow({
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-3 px-2.5 py-2",
+        "flex items-center justify-between gap-3 px-3 py-2.5",
         className
       )}
     >
@@ -161,17 +137,22 @@ export function SettingsSwitchRow({
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-3 px-2.5 py-2",
+        "flex items-center justify-between gap-3 px-3 py-2.5",
         disabled && "opacity-60"
       )}
     >
-      <div className="flex min-w-0 flex-1 items-start gap-2.5">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
         {showLeading ? (
-          <div className="flex shrink-0 items-center justify-center rounded-md border border-border bg-muted/40 p-1">
+          <div
+            className={cn(
+              "flex shrink-0 items-center justify-center text-muted-foreground",
+              description && "mt-0.5 self-start"
+            )}
+          >
             {iconSrc ? (
-              <PickerIcon src={iconSrc} className="size-3.5" />
+              <PickerIcon src={iconSrc} className="size-4" />
             ) : Icon ? (
-              <Icon className="size-3.5 text-muted-foreground" />
+              <Icon className="size-4" />
             ) : null}
           </div>
         ) : null}
@@ -207,7 +188,7 @@ export function SettingsCheckboxRow({
   onCheckedChange: (checked: boolean) => void
 }) {
   return (
-    <label className="flex cursor-pointer items-center justify-between gap-3 px-2.5 py-2">
+    <label className="flex cursor-pointer items-center justify-between gap-3 px-3 py-2.5">
       <div className="min-w-0 flex-1">
         <div className="text-sm leading-tight font-medium">{title}</div>
         {description && (
@@ -236,20 +217,20 @@ function SettingsIconCardBody({
 }: {
   icon: React.ComponentType<{ className?: string }>
   title: string
-  description: string
+  description?: string
   control: React.ReactNode
 }) {
   return (
     <>
-      <div className="flex min-w-0 items-start gap-2.5">
-        <div className="rounded-md border border-border bg-muted/40 p-1">
-          <Icon className="size-3.5 text-muted-foreground" />
-        </div>
+      <div className="flex min-w-0 items-center gap-3">
+        <Icon className="size-4 shrink-0 text-muted-foreground" />
         <div className="min-w-0">
           <div className="text-sm leading-tight font-medium">{title}</div>
-          <div className="mt-0.5 text-xs leading-snug text-muted-foreground">
-            {description}
-          </div>
+          {description ? (
+            <div className="mt-0.5 text-xs leading-snug text-muted-foreground">
+              {description}
+            </div>
+          ) : null}
         </div>
       </div>
       <div className="shrink-0">{control}</div>
@@ -258,7 +239,7 @@ function SettingsIconCardBody({
 }
 
 const settingsIconCardClassName =
-  "flex items-center justify-between gap-3 rounded-lg border border-border bg-background px-2.5 py-2"
+  "flex items-center justify-between gap-3 rounded-lg border border-border bg-background px-3 py-2.5"
 
 export function SettingsToggle({
   icon: Icon,
@@ -270,7 +251,7 @@ export function SettingsToggle({
 }: {
   icon: React.ComponentType<{ className?: string }>
   title: string
-  description: string
+  description?: string
   checked: boolean
   onCheckedChange: (checked: boolean) => void
   className?: string
@@ -297,7 +278,7 @@ export function SettingsCheckbox({
 }: {
   icon?: React.ComponentType<{ className?: string }>
   title: string
-  description: string
+  description?: string
   checked: boolean
   onCheckedChange: (checked: boolean) => void
   className?: string
@@ -476,7 +457,7 @@ export function SettingsSliderRow({
   max: number
 }) {
   return (
-    <div className="px-2.5 py-2">
+    <div className="px-3 py-2.5">
       <div className="flex items-start justify-between gap-2 text-sm">
         <div className="min-w-0">
           <span className="leading-tight font-medium">{title}</span>
@@ -549,7 +530,7 @@ export function SettingsSelectRow<T extends string>({
   placeholder?: string
 }) {
   return (
-    <div className="px-2.5 py-2">
+    <div className="px-3 py-2.5">
       <div>
         <div className="text-sm leading-tight font-medium">{title}</div>
         {description ? (
@@ -598,7 +579,7 @@ export function SettingsInputRow({
   onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>
 }) {
   return (
-    <div className="space-y-1.5 px-2.5 py-2">
+    <div className="space-y-1.5 px-3 py-2.5">
       <div>
         <Label className="text-sm">{label}</Label>
         {description && (
@@ -633,7 +614,7 @@ export function SettingsTextareaRow({
   rows?: number
 }) {
   return (
-    <div className="space-y-1.5 px-2.5 py-2">
+    <div className="space-y-1.5 px-3 py-2.5">
       <div>
         <Label className="text-sm">{label}</Label>
         {description && (
@@ -769,25 +750,23 @@ export function SettingsCallout({
   )
 }
 
-export function SettingsDivider({ className }: { className?: string }) {
-  return <Separator className={cn("my-0 mt-6 mb-4", className)} />
-}
-
 export function SettingsTab({
-  title,
   description,
   children,
   className,
 }: {
-  title: string
   description?: string
   children?: React.ReactNode
   className?: string
 }) {
   return (
     <div className={cn("pb-2", className)}>
-      <SettingsTabHeader title={title} description={description} />
-      <div className="mt-5 space-y-6">{children}</div>
+      {description && (
+        <p className="mb-6 pr-8 text-[13px] leading-relaxed text-muted-foreground sm:pr-10">
+          {description}
+        </p>
+      )}
+      <div className="space-y-7">{children}</div>
     </div>
   )
 }

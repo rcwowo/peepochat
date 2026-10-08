@@ -69,6 +69,24 @@ export function isIrcNoticeLine(rest: string): boolean {
   return /^:\S+ NOTICE #\S+/i.test(rest)
 }
 
+/**
+ * Global NOTICE carrying an authentication failure, e.g.
+ * `:tmi.twitch.tv NOTICE * :Login authentication failed`. Returns the notice
+ * text when the line is an auth failure, otherwise null.
+ */
+export function parseIrcAuthFailureNotice(rest: string): string | null {
+  const match = rest.match(/^:\S+ NOTICE \* :(.*)$/i)
+  if (!match) {
+    return null
+  }
+
+  return /login authentication failed|invalid oauth token|failed to authenticate/i.test(
+    match[1]
+  )
+    ? match[1]
+    : null
+}
+
 export function isIrcClearMsgLine(rest: string): boolean {
   return /^:\S+ CLEARMSG #\S+/i.test(rest)
 }

@@ -84,6 +84,43 @@ const profileInflight = new Map<string, Promise<TwitchUser>>()
 const statusCache = new Map<string, CachedValue<UserCardChannelStatus>>()
 const statusInflight = new Map<string, Promise<UserCardChannelStatus>>()
 
+const MAX_PROFILE_CACHE_ENTRIES = 100
+const MAX_STATUS_CACHE_ENTRIES = 50
+
+function insertOldestFirst<T>(
+  cache: Map<string, CachedValue<T>>,
+  maxEntries: number
+) {
+  if (cache.size <= maxEntries) {
+    return
+  }
+
+  const oldest = [...cache.entries()]
+    .sort((left, right) => left[1].cachedAt - right[1].cachedAt)
+    .slice(0, cache.size - maxEntries)
+  for (const [key] of oldest) {
+    cache.delete(key)
+  }
+}
+
+function pruneProfileCache() {
+  for (const [key, cached] of profileCache) {
+    if (!isFresh(cached.cachedAt, PROFILE_TTL_MS)) {
+      profileCache.delete(key)
+    }
+  }
+  insertOldestFirst(profileCache, MAX_PROFILE_CACHE_ENTRIES)
+}
+
+function pruneStatusCache() {
+  for (const [key, cached] of statusCache) {
+    if (!isFresh(cached.cachedAt, STATUS_TTL_MS)) {
+      statusCache.delete(key)
+    }
+  }
+  insertOldestFirst(statusCache, MAX_STATUS_CACHE_ENTRIES)
+}
+
 function hasScope(account: TwitchAccount | null, scope: string) {
   return Boolean(account?.scopes?.includes(scope))
 }
@@ -114,6 +151,7 @@ function rememberProfile(user: TwitchUser) {
   const cached = { value: user, cachedAt: Date.now() }
   profileCache.set(`id:${user.id}`, cached)
   profileCache.set(`login:${user.login.toLowerCase()}`, cached)
+  pruneProfileCache()
 }
 
 async function loadUserProfile(
@@ -125,6 +163,9 @@ async function loadUserProfile(
     const cached = profileCache.get(key)
     if (cached && isFresh(cached.cachedAt, PROFILE_TTL_MS)) {
       return cached.value
+    }
+    if (cached) {
+      profileCache.delete(key)
     }
   }
 
@@ -238,6 +279,9 @@ async function loadChannelStatus({
   if (cached && isFresh(cached.cachedAt, STATUS_TTL_MS)) {
     return cached.value
   }
+  if (cached) {
+    statusCache.delete(key)
+  }
 
   const inflight = statusInflight.get(key)
   if (inflight) {
@@ -320,6 +364,7 @@ async function loadChannelStatus({
       subage,
       ivrProfile,
     }
+    pruneStatusCache()
     statusCache.set(key, { value: status, cachedAt: Date.now() })
     return status
   })().finally(() => {
