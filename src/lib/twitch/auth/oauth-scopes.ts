@@ -59,9 +59,8 @@ export const TWITCH_OAUTH_SCOPE_GROUPS: TwitchOAuthScopeGroup[] = [
       },
       {
         scope: "moderator:manage:chat_messages",
-        label: "Delete & pin messages",
-        description:
-          "Remove individual chat messages and pin messages as a moderator.",
+        label: "Delete messages",
+        description: "Remove individual chat messages as a moderator.",
       },
       {
         scope: "moderator:manage:chat_settings",

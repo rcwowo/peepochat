@@ -1080,6 +1080,27 @@ export function createChatModesSystemMessage(input: {
   }
 }
 
+export function createChannelConnectFailureSystemMessage(
+  channel: string
+): TwitchSystemMessage {
+  const normalized = normalizeChannelLogin(channel)
+  const text = `Couldn't connect to #${normalized}. The channel may have been removed or renamed on Twitch.`
+
+  return {
+    id: stableSystemMessageId(normalized, "notice", text),
+    channel: normalized,
+    roomId: null,
+    text,
+    headline: text,
+    details: null,
+    receivedAt: new Date().toISOString(),
+    event: "notice",
+    level: "warning",
+    accentColor: null,
+    ...EMPTY_SYSTEM_MESSAGE_META,
+  }
+}
+
 export function createClearChatModActionMessage(
   event: TwitchClearChatEvent,
   receivedAt = new Date().toISOString()

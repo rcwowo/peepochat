@@ -29,6 +29,7 @@ import {
 } from "@/lib/twitch/chat/timeline"
 import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 import {
+  createChannelConnectFailureSystemMessage,
   createChatModesSystemMessage,
   TwitchChatClient,
   type TwitchChatConnectOptions,
@@ -44,6 +45,8 @@ import type { TwitchSelfChatState } from "@/lib/twitch/chat/types"
 type ClientSlot = {
   client: TwitchChatClient | null
 }
+
+const READ_SYNC_TIMEOUT_MS = 15_000
 
 function getReadClientSlot(): ClientSlot {
   return retainDevRuntime("twitch-read-client", () => ({
@@ -325,7 +328,6 @@ export function useChatConnection({
     if (!pending || !readClientRef.current?.isConnected) {
       return
     }
-
     if (
       pending.expectedChannels.some(
         (login) => !readJoinedChannelsRef.current.has(login)
@@ -337,6 +339,25 @@ export function useChatConnection({
     pendingConnectRef.current = null
     pending.resolve()
   }, [pendingConnectRef, readClientRef, readJoinedChannelsRef])
+
+  const notifyUnjoinedChannels = React.useCallback(
+    (logins: string[]) => {
+      if (!readClientRef.current?.isConnected) {
+        return
+      }
+
+      for (const login of logins) {
+        if (readJoinedChannelsRef.current.has(login)) {
+          continue
+        }
+
+        readHandlersRef.current.onSystem(
+          createChannelConnectFailureSystemMessage(login)
+        )
+      }
+    },
+    [readClientRef, readHandlersRef, readJoinedChannelsRef]
+  )
 
   const resolveConnectionRecovery = React.useCallback(() => {
     const recovery = connectionRecoveryRef.current
@@ -879,10 +900,25 @@ export function useChatConnection({
         }
         getReadClient().setChannels(normalized, {})
       })
+      const readSyncTimeout = setTimeout(() => {
+        const pending = pendingConnectRef.current
+        if (!pending || pending.key !== syncKey) {
+          return
+        }
+
+        pendingConnectRef.current = null
+        pending.resolve()
+        notifyUnjoinedChannels(pending.expectedChannels)
+      }, READ_SYNC_TIMEOUT_MS)
+      readSyncPromise.then(
+        () => clearTimeout(readSyncTimeout),
+        () => clearTimeout(readSyncTimeout)
+      )
       completePendingReadSyncIfReady()
 
+      const sendSyncPromise = syncSendConnection(options)
       const promise = readSyncPromise.then(() =>
-        syncSendConnection(options).then(() => {
+        sendSyncPromise.then(() => {
           markConnectionSyncedIfReady()
         })
       )
@@ -914,6 +950,7 @@ export function useChatConnection({
       pendingSendConnectRef,
       pendingSyncPromiseRef,
       pendingChatModesNoticeRef,
+      notifyUnjoinedChannels,
       pruneRemovedChannelState,
       readClientRef,
       readHandlersRef,

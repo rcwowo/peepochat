@@ -9,7 +9,6 @@ import {
   HistoryIcon,
   LayersIcon,
   Layers2Icon,
-  PinIcon,
   RadioIcon,
   ShieldAlertIcon,
   Trash2Icon,
@@ -243,25 +242,6 @@ export function ChatTab() {
               }))
             }
           />
-          {canConfigureChatMessages ? (
-            <SettingsSwitchRow
-              icon={PinIcon}
-              title="Pin message"
-              checked={config.chat.messageQuickActions.pinEnabled}
-              onCheckedChange={(pinEnabled) =>
-                updateConfig((current) => ({
-                  ...current,
-                  chat: {
-                    ...current.chat,
-                    messageQuickActions: {
-                      ...current.chat.messageQuickActions,
-                      pinEnabled,
-                    },
-                  },
-                }))
-              }
-            />
-          ) : null}
           {canConfigureChatMessages ? (
             <SettingsSwitchRow
               icon={Trash2Icon}
