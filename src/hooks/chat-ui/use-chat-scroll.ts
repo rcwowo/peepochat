@@ -16,6 +16,7 @@ const NEAR_BOTTOM_PX = 24
 const STICK_TO_END_PX = 1
 const LIST_EDGE_PADDING_PX = 4
 const USER_SCROLL_INTENT_PX = 2
+const RESIZE_SCROLL_GUARD_MS = 400
 
 export type ChatScrollLayout = Omit<
   ChatListLayout,
@@ -97,6 +98,8 @@ export function useChatScroll<T extends TwitchTimelineItem>({
   const pendingScrollBehaviorRef = React.useRef<ScrollBehavior | null>(null)
   const listPaddingStartRef = React.useRef(LIST_EDGE_PADDING_PX)
   const lastScrollTopRef = React.useRef(0)
+  const lastClientHeightRef = React.useRef(0)
+  const resizeScrollGuardUntilRef = React.useRef(0)
   const touchStartYRef = React.useRef<number | null>(null)
   const userPauseIntentRef = React.useRef(false)
   const [isScrollPaused, setIsScrollPaused] = React.useState(false)
@@ -237,11 +240,7 @@ export function useChatScroll<T extends TwitchTimelineItem>({
       options: { adjustments?: number; behavior?: ScrollBehavior },
       instance: Virtualizer<HTMLDivElement, Element>
     ) => {
-      if (options.adjustments == null || options.adjustments === 0) {
-        markProgrammaticScroll(
-          options.behavior === "smooth" ? "smooth" : "auto"
-        )
-      }
+      markProgrammaticScroll(options.behavior === "smooth" ? "smooth" : "auto")
       elementScroll(offset, options, instance)
     },
     [markProgrammaticScroll]
@@ -307,7 +306,8 @@ export function useChatScroll<T extends TwitchTimelineItem>({
 
   const syncListPadding = React.useCallback(() => {
     const chatContainer = chatContainerRef.current
-    if (!chatContainer || displayedTimeline.length === 0) {
+    const currentTimeline = displayedTimelineRef.current
+    if (!chatContainer || currentTimeline.length === 0) {
       return false
     }
 
@@ -327,7 +327,7 @@ export function useChatScroll<T extends TwitchTimelineItem>({
     listPaddingStartRef.current = nextPaddingStart
     setListPaddingStart(nextPaddingStart)
     return true
-  }, [displayedTimeline.length, virtualizer])
+  }, [virtualizer])
 
   const finishResumeScroll = React.useCallback(() => {
     if (!isScrollPausedRef.current) {
@@ -406,6 +406,12 @@ export function useChatScroll<T extends TwitchTimelineItem>({
       const scrollingUp = scrollTop < lastScrollTopRef.current
       lastScrollTopRef.current = scrollTop
 
+      const clientHeight = chatContainer.clientHeight
+      const viewportResized =
+        clientHeight !== lastClientHeightRef.current ||
+        performance.now() < resizeScrollGuardUntilRef.current
+      lastClientHeightRef.current = clientHeight
+
       const distanceFromBottom = getDistanceFromBottom(chatContainer)
       const isNearBottom = distanceFromBottom <= NEAR_BOTTOM_PX
 
@@ -438,12 +444,16 @@ export function useChatScroll<T extends TwitchTimelineItem>({
           return
         }
 
-        if (scrollingUp && userPauseIntentRef.current) {
+        if (!viewportResized && scrollingUp && userPauseIntentRef.current) {
           pauseForUserScroll()
           return
         }
 
         isPinnedRef.current = true
+        return
+      }
+
+      if (viewportResized) {
         return
       }
 
@@ -478,6 +488,14 @@ export function useChatScroll<T extends TwitchTimelineItem>({
       }
 
       cancelResumeScroll()
+
+      if (
+        isScrollPausedRef.current &&
+        !isResumeScrollRef.current &&
+        getDistanceFromBottom(chatContainer) <= NEAR_BOTTOM_PX
+      ) {
+        resumeScroll("auto")
+      }
     }
 
     const onTouchStart = (event: TouchEvent) => {
@@ -549,6 +567,7 @@ export function useChatScroll<T extends TwitchTimelineItem>({
     displayedTimeline.length,
     finishResumeScroll,
     pauseForUserScroll,
+    resumeScroll,
   ])
 
   const timelineScrollKey = React.useMemo(() => {
@@ -694,6 +713,13 @@ export function useChatScroll<T extends TwitchTimelineItem>({
 
   const onChatContainerResize = React.useEffectEvent(
     (chatContainer: HTMLDivElement) => {
+      resizeScrollGuardUntilRef.current =
+        performance.now() + RESIZE_SCROLL_GUARD_MS
+
+      if (!isScrollPausedRef.current) {
+        userPauseIntentRef.current = false
+      }
+
       if (resizeActive) {
         resizeDirtyRef.current = true
         return
