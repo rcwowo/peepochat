@@ -501,6 +501,7 @@ export function useTwitchChat(options?: {
     setVisibleSharedChatChannels,
     setIsUserBlocked,
     setChatCommandActions: send.setChatCommandActions,
+    setNicknameMentions: send.setNicknameMentions,
     purgeMessagesFromBlockedUsers: timeline.purgeMessagesFromBlockedUsers,
     purgeMessagesFromUser: timeline.purgeMessagesFromUser,
     markChatMessageDeleted: routing.markChatMessageDeleted,

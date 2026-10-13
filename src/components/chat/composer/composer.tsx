@@ -61,6 +61,7 @@ import {
   chatterMentionValue,
   createChatterCompleterState,
   findAtChatterSuggestions,
+  findNicknameChatterMatches,
   getChatterSuggestionIndices,
   resetChatterCompleter,
   toChatterSuggestion,
@@ -68,6 +69,7 @@ import {
   type ChatterSuggestion,
   type ChatterTabCompleterState,
 } from "@/lib/chat/chatters/completion"
+import type { ChannelChatter } from "@/lib/chat/chatters/store"
 import {
   applyCommandSuggestion,
   createCommandCompleterState,
@@ -138,6 +140,7 @@ function ChatComposerInner({
     hideBlockedUsers,
     isUserBlocked,
     searchChatters,
+    getChatters,
     getBadgeCatalog,
     getMemberBadge,
     hasBadgeSupport,
@@ -148,6 +151,48 @@ function ChatComposerInner({
     actorCanModerate(account, channelRoomId, selfChatState, channelLogin)
   )
   const badgeCatalog = getBadgeCatalog(channelLogin)
+
+  const nicknameEntries = config.nicknames.entries
+  const nicknameByLogin = React.useMemo(() => {
+    const map = new Map<string, string>()
+    for (const entry of nicknameEntries) {
+      map.set(entry.login.toLowerCase(), entry.nickname)
+    }
+    return map
+  }, [nicknameEntries])
+  const getNicknameByLogin = React.useCallback(
+    (login: string) => nicknameByLogin.get(login.toLowerCase()) ?? null,
+    [nicknameByLogin]
+  )
+  const buildAtChatterCandidates = React.useCallback(
+    (query: string): ChannelChatter[] => {
+      const isBlocked = hideBlockedUsers ? isUserBlocked : undefined
+      const base = searchChatters(channelLogin, query, { isBlocked })
+      const nicknameMatches = findNicknameChatterMatches({
+        chatters: getChatters(channelLogin),
+        query,
+        nicknames: nicknameByLogin,
+        isBlocked,
+      })
+      if (nicknameMatches.length === 0) {
+        return base
+      }
+
+      const promoted = new Set(nicknameMatches.map((chatter) => chatter.login))
+      return [
+        ...nicknameMatches,
+        ...base.filter((chatter) => !promoted.has(chatter.login)),
+      ]
+    },
+    [
+      channelLogin,
+      getChatters,
+      hideBlockedUsers,
+      isUserBlocked,
+      nicknameByLogin,
+      searchChatters,
+    ]
+  )
 
   const userCardContext = useUserCardContext()
   const chatVisible = active
@@ -632,10 +677,10 @@ function ChatComposerInner({
       const query = wordAtCursor.word.endsWith(" ")
         ? wordAtCursor.word.slice(1, -1)
         : wordAtCursor.word.slice(1)
-      const chatters = searchChatters(channelLogin, query, {
-        isBlocked: hideBlockedUsers ? isUserBlocked : undefined,
+      const chatters = buildAtChatterCandidates(query)
+      const result = findAtChatterSuggestions(text, cursor, chatters, {
+        getNicknameByLogin,
       })
-      const result = findAtChatterSuggestions(text, cursor, chatters)
 
       setChatterCompleter((current) => {
         const tab = isTabStateCurrent(current.tab, text, cursor)
@@ -660,7 +705,7 @@ function ChatComposerInner({
         }
       })
     },
-    [channelLogin, hideBlockedUsers, isUserBlocked, searchChatters]
+    [buildAtChatterCandidates, getNicknameByLogin]
   )
 
   const updateCompleters = React.useCallback(
@@ -892,13 +937,14 @@ function ChatComposerInner({
             matches =
               activeChatterCompleter.suggestions.length > 0
                 ? activeChatterCompleter.suggestions
-                : searchChatters(
-                    channelLogin,
-                    word.endsWith(" ") ? word.slice(1, -1) : word.slice(1),
-                    {
-                      isBlocked: hideBlockedUsers ? isUserBlocked : undefined,
-                    }
-                  ).map(toChatterSuggestion)
+                : buildAtChatterCandidates(
+                    word.endsWith(" ") ? word.slice(1, -1) : word.slice(1)
+                  ).map((chatter) =>
+                    toChatterSuggestion(
+                      chatter,
+                      getNicknameByLogin(chatter.login)
+                    )
+                  )
             if (matches.length === 0) return
 
             matchIndex = Math.min(
@@ -969,13 +1015,11 @@ function ChatComposerInner({
     [
       applyChatterTabMatch,
       applyTabMatch,
-      channelLogin,
+      buildAtChatterCandidates,
       completeCommandSuggestion,
       completeSuggestion,
       emoteList,
-      hideBlockedUsers,
-      isUserBlocked,
-      searchChatters,
+      getNicknameByLogin,
       value,
     ]
   )

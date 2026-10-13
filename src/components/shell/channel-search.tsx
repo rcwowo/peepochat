@@ -22,6 +22,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { useChatFontFamily } from "@/hooks/chat-ui/use-chat-font"
+import { createNicknameByLoginMap } from "@/lib/chat/nicknames"
 import { getChatPresentationStyle } from "@/lib/chat/presentation/presentation-style"
 import { mergeComposerEmoteCatalogs } from "@/lib/chat/emotes/catalog"
 import {
@@ -389,6 +390,18 @@ export function ChannelSearch() {
   )
 
   const [searchResultsCache] = React.useState(createChatSearchResultsCache)
+  const nicknameEntries = config.nicknames.entries
+  const nicknamesKey = React.useMemo(
+    () =>
+      nicknameEntries
+        .map((entry) => `${entry.login}:${entry.nickname.toLowerCase()}`)
+        .join("\0"),
+    [nicknameEntries]
+  )
+  const getNicknameByLogin = React.useMemo(() => {
+    const map = createNicknameByLoginMap(nicknameEntries)
+    return (userName: string) => map.get(userName.trim().toLowerCase()) ?? null
+  }, [nicknameEntries])
   const results = React.useMemo(
     () =>
       updateChatSearchResults(searchResultsCache, {
@@ -397,6 +410,8 @@ export function ChannelSearch() {
         timelines,
         includeDeleted: config.chat.deletedMessagesBehavior !== "remove",
         hideBlockedUsers,
+        getNicknameByLogin,
+        nicknamesKey,
         isHidden: (message) =>
           (hideBlockedUsers &&
             isUserBlocked(message.userId, message.userName)) ||
@@ -406,8 +421,10 @@ export function ChannelSearch() {
     [
       config.chat.deletedMessagesBehavior,
       config.chat.gifMessageAppearance,
+      getNicknameByLogin,
       hideBlockedUsers,
       isUserBlocked,
+      nicknamesKey,
       open,
       parsed,
       searchResultsCache,

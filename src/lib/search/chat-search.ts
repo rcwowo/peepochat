@@ -616,9 +616,20 @@ function messageMatchesFilters(
   return true
 }
 
+export type ChatSearchNicknameResolver = (userName: string) => string | null
+
+function getChatSearchDisplayName(
+  message: TwitchChatMessage,
+  options: { getNicknameByLogin?: ChatSearchNicknameResolver } | undefined
+) {
+  const nickname = options?.getNicknameByLogin?.(message.userName) ?? null
+  return nickname || message.displayName
+}
+
 export function matchChatSearchMessage(
   message: TwitchChatMessage,
-  parsed: ParsedChatSearchQuery
+  parsed: ParsedChatSearchQuery,
+  options?: { getNicknameByLogin?: ChatSearchNicknameResolver }
 ): ChatSearchResult | null {
   if (!messageMatchesFilters(message, parsed)) {
     return null
@@ -632,6 +643,7 @@ export function matchChatSearchMessage(
     }
   }
 
+  const datasetDisplayName = getChatSearchDisplayName(message, options)
   const highlightRanges: PingMatchRange[] = []
   const usernameHighlightRanges: PingMatchRange[] = []
 
@@ -641,7 +653,7 @@ export function matchChatSearchMessage(
     }
 
     const textRanges = findKeywordRanges(message.text, keyword)
-    const displayRanges = findKeywordRanges(message.displayName, keyword)
+    const displayRanges = findKeywordRanges(datasetDisplayName, keyword)
     const loginRanges = findKeywordRanges(message.userName, keyword)
 
     if (
@@ -655,10 +667,10 @@ export function matchChatSearchMessage(
     highlightRanges.push(...textRanges)
     if (displayRanges.length > 0) {
       usernameHighlightRanges.push(...displayRanges)
-    } else if (loginRanges.length > 0 && message.displayName.length > 0) {
+    } else if (loginRanges.length > 0 && datasetDisplayName.length > 0) {
       usernameHighlightRanges.push({
         start: 0,
-        end: message.displayName.length,
+        end: datasetDisplayName.length,
       })
     }
   }
@@ -683,7 +695,8 @@ function compareChatSearchResults(
 
 export function searchChatMessages(
   messages: TwitchChatMessage[],
-  parsed: ParsedChatSearchQuery
+  parsed: ParsedChatSearchQuery,
+  options?: { getNicknameByLogin?: ChatSearchNicknameResolver }
 ): ChatSearchResult[] {
   if (!isChatSearchQueryActive(parsed)) {
     return []
@@ -691,7 +704,7 @@ export function searchChatMessages(
 
   const results: ChatSearchResult[] = []
   for (const message of messages) {
-    const match = matchChatSearchMessage(message, parsed)
+    const match = matchChatSearchMessage(message, parsed, options)
     if (match) {
       results.push(match)
     }
@@ -734,6 +747,7 @@ export type ChatSearchResultsCache = {
   timelines: TwitchTimelineItem[][]
   includeDeleted: boolean
   hideBlockedUsers: boolean
+  nicknamesKey: string | null
   results: ChatSearchResult[]
 }
 
@@ -743,6 +757,7 @@ export function createChatSearchResultsCache(): ChatSearchResultsCache {
     timelines: [],
     includeDeleted: true,
     hideBlockedUsers: false,
+    nicknamesKey: null,
     results: [],
   }
 }
@@ -755,6 +770,8 @@ export function updateChatSearchResults(
     timelines: TwitchTimelineItem[][]
     includeDeleted: boolean
     hideBlockedUsers: boolean
+    getNicknameByLogin?: ChatSearchNicknameResolver
+    nicknamesKey?: string | null
     isHidden?: (message: TwitchChatMessage) => boolean
   }
 ) {
@@ -764,6 +781,8 @@ export function updateChatSearchResults(
     timelines,
     includeDeleted,
     hideBlockedUsers,
+    getNicknameByLogin,
+    nicknamesKey,
     isHidden,
   } = input
 
@@ -775,10 +794,12 @@ export function updateChatSearchResults(
   }
 
   const collectOptions = { includeDeleted, isHidden }
+  const effectiveNicknamesKey = nicknamesKey ?? null
   const canAppend =
     cache.parsed === parsed &&
     cache.includeDeleted === includeDeleted &&
     cache.hideBlockedUsers === hideBlockedUsers &&
+    cache.nicknamesKey === effectiveNicknamesKey &&
     cache.timelines.length === timelines.length &&
     cache.timelines.every((timeline, index) => {
       const next = timelines[index]
@@ -805,12 +826,13 @@ export function updateChatSearchResults(
     }
     results = mergeChatSearchResults(
       cache.results,
-      searchChatMessages(appended, parsed)
+      searchChatMessages(appended, parsed, { getNicknameByLogin })
     )
   } else {
     results = searchChatMessages(
       collectChatMessagesFromTimelines(timelines, collectOptions),
-      parsed
+      parsed,
+      { getNicknameByLogin }
     )
   }
 
@@ -818,6 +840,7 @@ export function updateChatSearchResults(
   cache.timelines = timelines
   cache.includeDeleted = includeDeleted
   cache.hideBlockedUsers = hideBlockedUsers
+  cache.nicknamesKey = effectiveNicknamesKey
   cache.results = results
   return results
 }

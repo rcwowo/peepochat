@@ -24,6 +24,7 @@ import {
   addLiveNotification,
   formatLiveNotificationText,
 } from "@/lib/highlights/notification-center"
+import { createNicknameMentionMap } from "@/lib/chat/nicknames"
 import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 import {
   findSplitContainingChannel,
@@ -114,6 +115,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     setVisibleSharedChatChannels,
     setIsUserBlocked,
     setChatCommandActions,
+    setNicknameMentions,
     purgeMessagesFromBlockedUsers,
     purgeMessagesFromUser,
     markChatMessageDeleted,
@@ -420,6 +422,14 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     setIsUserBlocked(isBlocked)
   }, [isBlocked, setIsUserBlocked])
+
+  const nicknameMentions = React.useMemo(
+    () => createNicknameMentionMap(config.nicknames.entries),
+    [config.nicknames.entries]
+  )
+  React.useEffect(() => {
+    setNicknameMentions(nicknameMentions)
+  }, [setNicknameMentions, nicknameMentions])
 
   const blockUser = React.useCallback(
     async (userId: string, login: string) => {

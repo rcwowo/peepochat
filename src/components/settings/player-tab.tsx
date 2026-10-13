@@ -12,7 +12,7 @@ export function PlayerTab() {
   const { config, updateConfig } = usePeepochatSettings()
 
   return (
-    <SettingsTab description="Playback and layout options for watching streams.">
+    <SettingsTab>
       <SettingsSection title="Playback">
         <SettingsGroup>
           <SettingsSwitchRow

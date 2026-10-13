@@ -1,5 +1,6 @@
 import * as React from "react"
 
+import { useNicknameForLogin } from "@/hooks/chat-ui/use-nickname-for-login"
 import { useResolvedUsernameColor } from "@/hooks/chat-ui/use-resolved-username-color"
 import { useUserCardContext } from "@/hooks/chat-ui/use-user-card-context"
 import type { UserCardTarget } from "@/lib/chat/user-card/user-card"
@@ -17,6 +18,8 @@ export function UserCardPopover({
 }: UserCardPopoverProps) {
   const context = useUserCardContext()
   const triggerRef = React.useRef<HTMLButtonElement>(null)
+  const nickname = useNicknameForLogin(target.userName)
+  const displayedName = nickname ?? target.displayName
   const readableColor = useResolvedUsernameColor({
     channelLogin: target.channelLogin,
     userName: target.userName,
@@ -37,10 +40,7 @@ export function UserCardPopover({
         className="chat-username font-semibold"
         style={readableColor ? { color: readableColor } : undefined}
       >
-        <HighlightedText
-          text={target.displayName}
-          ranges={nameHighlightRanges}
-        />
+        <HighlightedText text={displayedName} ranges={nameHighlightRanges} />
       </span>
     )
   }
@@ -57,7 +57,7 @@ export function UserCardPopover({
       style={readableColor ? { color: readableColor } : undefined}
       onClick={handleTriggerClick}
     >
-      <HighlightedText text={target.displayName} ranges={nameHighlightRanges} />
+      <HighlightedText text={displayedName} ranges={nameHighlightRanges} />
     </button>
   )
 }
