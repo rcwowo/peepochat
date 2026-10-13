@@ -1,5 +1,12 @@
 [
     {
+        "version": "1.3.2",
+        "date": "2026-10-20",
+        "items": [
+            "Minor redesign to the player indicator in the sidebar to show who's playing."
+        ]
+    },
+    {
         "version": "1.3.1",
         "date": "2026-10-08",
         "items": [

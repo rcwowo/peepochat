@@ -19,6 +19,7 @@ import {
   SidebarChannelRow,
   SidebarIconTile,
   SidebarPingBadge,
+  SidebarPlayingBadge,
   SidebarSplitAvatarCluster,
 } from "@/components/sidebar/sidebar-channel-icon"
 import {
@@ -202,18 +203,28 @@ function PlayerSidebarButton({
         <Tooltip open={tooltipOpen} onOpenChange={handleTooltipOpenChange}>
           <ContextMenuTrigger asChild>
             <TooltipTrigger asChild>
-              <Button
-                type="button"
-                size="icon"
-                aria-current={isActive ? "true" : undefined}
-                aria-label="Open Peepochat Player"
-                className="size-11 shrink-0 rounded-full shine border-2 bg-transparent hover:bg-transparent hover:brightness-110"
-                onClick={onSelect}
-                onContextMenu={suppressTooltip}
-                onPointerLeave={handlePointerLeave}
-              >
-                <PlayIcon className="size-5 fill-current" />
-              </Button>
+              <span className="relative block size-11 shrink-0">
+                <Button
+                  type="button"
+                  size="icon"
+                  aria-current={isActive ? "true" : undefined}
+                  aria-label="Open Peepochat Player"
+                  data-player-button=""
+                  className="size-11 shrink-0 rounded-full bg-secondary ring-2 ring-primary hover:brightness-110"
+                  onClick={onSelect}
+                  onContextMenu={suppressTooltip}
+                  onPointerLeave={handlePointerLeave}
+                >
+                  <SidebarChannelAvatar
+                    className="overflow-hidden"
+                    login={login}
+                    profileImageUrl={
+                      user?.profileImageUrl || savedChannel?.profileImageUrl
+                    }
+                  />
+                </Button>
+                <SidebarPlayingBadge />
+              </span>
             </TooltipTrigger>
           </ContextMenuTrigger>
           <TooltipContent
@@ -727,6 +738,7 @@ export function ChannelSidebar({ onAddChannel }: { onAddChannel: () => void }) {
     <Button
       variant="outline"
       size="icon"
+      data-add-channel=""
       className="size-11 shrink-0 rounded-full"
       onClick={onAddChannel}
     >
