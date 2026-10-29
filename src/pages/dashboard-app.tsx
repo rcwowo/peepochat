@@ -31,7 +31,7 @@ import { cn } from "@/lib/utils"
 
 function DashboardLayout() {
   const { ready, needsOnboarding, completeOnboarding } = usePeepochatSettings()
-  const { playerChannelLogin, playerViewActive } = usePeepochatPlayer()
+  const { watchedChannelLogins, playerViewActive } = usePeepochatPlayer()
   const { channelSidebarVisible, toggleChannelSidebar } =
     useChannelSidebarVisibility()
   const [settingsOpen, setSettingsOpen] = React.useState(false)
@@ -157,7 +157,7 @@ function DashboardLayout() {
           >
             <ChatPage active={!playerViewActive} />
           </div>
-          {playerChannelLogin ? (
+          {watchedChannelLogins.length > 0 ? (
             <div
               className={cn(
                 "absolute inset-0 flex min-h-0 min-w-0",

@@ -61,18 +61,30 @@ export function useAppHotkeys({
     visibleChannelLogins,
   } = usePeepochatLayout()
   const { refreshEmotes } = usePeepochatChat()
-  const { playerChannelLogin, playerViewActive, selectPlayer } =
-    usePeepochatPlayer()
+  const {
+    playerMode,
+    watchedChannelLogins,
+    playerChatLogin,
+    playerViewActive,
+    selectPlayer,
+  } = usePeepochatPlayer()
 
   const selectSidebarIndex = React.useCallback(
     (index: number) => {
-      if (playerChannelLogin) {
-        if (index === 0) {
-          selectPlayer()
-          return playerChannelLogin
+      const playerEntries =
+        playerMode === "sidebar"
+          ? watchedChannelLogins
+          : watchedChannelLogins.slice(0, 1)
+      if (index < playerEntries.length) {
+        const login = playerEntries[index]
+        if (playerMode === "sidebar") {
+          selectPlayer(login)
+          return login
         }
-        index -= 1
+        selectPlayer()
+        return playerChatLogin ?? login
       }
+      index -= playerEntries.length
 
       const entries = getSidebarEntries(
         sidebarOrder,
@@ -96,12 +108,14 @@ export function useAppHotkeys({
     [
       channels,
       channelsInSplits,
-      playerChannelLogin,
+      playerChatLogin,
+      playerMode,
       savedSplits,
       selectPlayer,
       selectSplit,
       setActiveChannel,
       sidebarOrder,
+      watchedChannelLogins,
     ]
   )
 
@@ -231,8 +245,8 @@ export function useAppHotkeys({
           }
           return
         case "composer.focus": {
-          if (playerViewActive && playerChannelLogin) {
-            requestComposerFocus(playerChannelLogin)
+          if (playerViewActive && playerChatLogin) {
+            requestComposerFocus(playerChatLogin)
             return
           }
           const login = getLastFocusedLogin()
@@ -255,7 +269,7 @@ export function useAppHotkeys({
     getLastFocusedLogin,
     getSearch,
     getTargetPane,
-    playerChannelLogin,
+    playerChatLogin,
     playerViewActive,
     requestComposerFocus,
     setActiveChannel,

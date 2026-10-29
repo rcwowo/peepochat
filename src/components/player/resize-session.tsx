@@ -49,7 +49,7 @@ export function ResizeSeparator({
       aria-valuemax={valueMax}
       aria-valuenow={valueNow}
       className={cn(
-        "group relative z-20 shrink-0 touch-none bg-border transition-colors outline-none hover:bg-primary/60 focus-visible:bg-primary/60",
+        "group pointer-events-auto relative z-20 shrink-0 touch-none bg-border transition-colors outline-none hover:bg-primary/60 focus-visible:bg-primary/60",
         direction === "row"
           ? "h-full w-px cursor-col-resize"
           : "h-px w-full cursor-row-resize"

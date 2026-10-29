@@ -3,6 +3,7 @@ import * as React from "react"
 import { ChatPane } from "@/components/chat/pane/pane"
 import { ChatViewActiveProvider } from "@/components/chat/pane/view-active"
 import { ChatSplitLayout } from "@/components/chat/pane/split-layout"
+import type { ChatSwitcherConfig } from "@/components/player/chat-switcher"
 import { useChannelRoom } from "@/hooks/chat-ui/use-channel-room"
 import { useBadgeCatalog } from "@/hooks/chat-ui/use-badge-catalog"
 import { useChatViewActive } from "@/hooks/chat-ui/use-chat-view-active"
@@ -66,7 +67,9 @@ function SingleChannelPane({
   login,
   bindings,
   active = true,
+  allowWatch = true,
   onClosePlayer,
+  chatSwitcher,
   streamInfoMode,
   liveStreamOverride,
   displayNameOverride,
@@ -75,7 +78,9 @@ function SingleChannelPane({
   login: string
   bindings: ChatPaneBindings
   active?: boolean
+  allowWatch?: boolean
   onClosePlayer?: () => void
+  chatSwitcher?: ChatSwitcherConfig
   streamInfoMode?: "interactive" | "mobile"
   liveStreamOverride?: TwitchLiveStream | null
   displayNameOverride?: string
@@ -112,8 +117,9 @@ function SingleChannelPane({
         messageSeparators={bindings.messageSeparators}
         chatModes={room?.chatModes}
         joined={room?.joined ?? false}
-        onWatchPlayer={bindings.openPlayer}
+        onWatchPlayer={allowWatch ? bindings.openPlayer : undefined}
         onClosePlayer={onClosePlayer}
+        chatSwitcher={chatSwitcher}
         streamInfoMode={streamInfoMode}
         liveStreamOverride={liveStreamOverride}
       />
@@ -278,6 +284,7 @@ export function ChatPage({
   active = true,
   channelOverride,
   onClosePlayer,
+  chatSwitcher,
   streamInfoMode,
   liveStreamOverride,
   displayNameOverride,
@@ -286,6 +293,7 @@ export function ChatPage({
   active?: boolean
   channelOverride?: string
   onClosePlayer?: () => void
+  chatSwitcher?: ChatSwitcherConfig
   streamInfoMode?: "interactive" | "mobile"
   liveStreamOverride?: TwitchLiveStream | null
   displayNameOverride?: string
@@ -384,7 +392,9 @@ export function ChatPage({
             login={channelOverride}
             bindings={bindings}
             active={active}
+            allowWatch={false}
             onClosePlayer={onClosePlayer}
+            chatSwitcher={chatSwitcher}
             streamInfoMode={streamInfoMode}
             liveStreamOverride={liveStreamOverride}
             displayNameOverride={displayNameOverride}

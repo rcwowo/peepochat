@@ -152,8 +152,13 @@ const highlightsSchema = z.object({
   pings: z.array(highlightPingRuleSchema).default([]),
 })
 
+const playerModeSchema = z.enum(["multi", "sidebar"])
+const playerMultiAudioSchema = z.enum(["first", "all", "muted"])
+
 const playerSchema = z
   .object({
+    mode: playerModeSchema.default("multi"),
+    multiAudio: playerMultiAudioSchema.default("first"),
     backgroundPlaybackEnabled: z.boolean().default(true),
     hideStreamInfoEnabled: z.boolean().default(false),
     desktopSizePercent: z
@@ -163,6 +168,8 @@ const playerSchema = z
       .default(PLAYER_DESKTOP_SIZE_DEFAULT),
   })
   .default({
+    mode: "multi",
+    multiAudio: "first",
     backgroundPlaybackEnabled: true,
     hideStreamInfoEnabled: false,
     desktopSizePercent: PLAYER_DESKTOP_SIZE_DEFAULT,
@@ -279,6 +286,8 @@ const backupEnvelopeSchema = z.object({
 export type HighlightPingRule = z.infer<typeof highlightPingRuleSchema>
 export type HighlightsConfig = z.infer<typeof highlightsSchema>
 export type PlayerConfig = z.infer<typeof playerSchema>
+export type PlayerMode = z.infer<typeof playerModeSchema>
+export type PlayerMultiAudio = z.infer<typeof playerMultiAudioSchema>
 export type MessageTimestampFormat = z.infer<
   typeof messageTimestampFormatSchema
 >
@@ -391,6 +400,8 @@ export function createDefaultConfig(): AppConfig {
       pings: [],
     },
     player: {
+      mode: "multi",
+      multiAudio: "first",
       backgroundPlaybackEnabled: true,
       hideStreamInfoEnabled: false,
       desktopSizePercent: PLAYER_DESKTOP_SIZE_DEFAULT,

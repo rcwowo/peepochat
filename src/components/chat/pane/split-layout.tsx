@@ -34,6 +34,7 @@ type ChatSplitLayoutProps = {
     label: string
     profileImageUrl?: string
   }
+  renderDragPreview?: (login: string) => React.ReactNode
   renderPane: (
     login: string,
     dragHandleProps: React.HTMLAttributes<HTMLDivElement>
@@ -45,6 +46,8 @@ type ChatSplitLayoutProps = {
     edge: SplitLayoutEdge
   ) => void
   onResizePath: (splitId: string, path: number[], sizes: number[]) => void
+  resizeLabel?: string
+  onInteractionActiveChange?: (active: boolean) => void
 }
 
 type DragOverlayPreviewProps = {
@@ -92,7 +95,7 @@ function distanceToRect(point: { x: number; y: number }, rect: DOMRect) {
   return Math.hypot(dx, dy)
 }
 
-function DragOverlayPreview({
+export function DragOverlayPreview({
   login,
   label,
   profileImageUrl,
@@ -240,6 +243,7 @@ function SplitResizeSlot({
 function SplitNodeView({
   node,
   path,
+  resizeLabel,
   activeChannel,
   overChannel,
   dropEdge,
@@ -252,6 +256,7 @@ function SplitNodeView({
 }: {
   node: ChatSplitLayoutNode
   path: number[]
+  resizeLabel: string
   activeChannel: string | null
   overChannel: string | null
   dropEdge: SplitLayoutEdge | null
@@ -313,6 +318,7 @@ function SplitNodeView({
             <SplitNodeView
               node={entry.node}
               path={[...path, index]}
+              resizeLabel={resizeLabel}
               activeChannel={activeChannel}
               overChannel={overChannel}
               dropEdge={dropEdge}
@@ -327,7 +333,7 @@ function SplitNodeView({
           {index < node.children.length - 1 ? (
             <ResizeSeparator
               direction={node.direction}
-              label="Resize chat panes"
+              label={resizeLabel}
               valueNow={Math.round(sizes[index] ?? 0)}
               onPointerDown={(event) =>
                 onResizeStart(event, path, index, node.direction, sizes)
@@ -351,9 +357,12 @@ export const ChatSplitLayout = React.memo(function ChatSplitLayout({
   channels,
   layout,
   getPanePreview,
+  renderDragPreview,
   renderPane,
   onMovePane,
   onResizePath,
+  resizeLabel = "Resize chat panes",
+  onInteractionActiveChange,
 }: ChatSplitLayoutProps) {
   const normalizedLayout = React.useMemo(
     () => normalizeSplitLayout(layout, channels),
@@ -370,6 +379,15 @@ export const ChatSplitLayout = React.memo(function ChatSplitLayout({
   const [activeChannel, setActiveChannel] = React.useState<string | null>(null)
   const [overChannel, setOverChannel] = React.useState<string | null>(null)
   const [dropEdge, setDropEdge] = React.useState<SplitLayoutEdge | null>(null)
+
+  const interactionActive = activeChannel !== null || resizeSession.active
+  const onInteractionActiveChangeRef = React.useRef(onInteractionActiveChange)
+  React.useLayoutEffect(() => {
+    onInteractionActiveChangeRef.current = onInteractionActiveChange
+  })
+  React.useEffect(() => {
+    onInteractionActiveChangeRef.current?.(interactionActive)
+  }, [interactionActive])
 
   const registerPane = React.useCallback(
     (login: string, node: HTMLElement | null) => {
@@ -604,11 +622,12 @@ export const ChatSplitLayout = React.memo(function ChatSplitLayout({
     return null
   }
 
-  const activePreview = activeChannel
-    ? (getPanePreview?.(activeChannel) ?? {
-        label: activeChannel,
-      })
-    : null
+  const activePreview =
+    activeChannel && !renderDragPreview
+      ? (getPanePreview?.(activeChannel) ?? {
+          label: activeChannel,
+        })
+      : null
 
   return (
     <ResizeActivityProvider active={resizeSession.active}>
@@ -622,6 +641,7 @@ export const ChatSplitLayout = React.memo(function ChatSplitLayout({
         <SplitNodeView
           node={normalizedLayout}
           path={[]}
+          resizeLabel={resizeLabel}
           activeChannel={activeChannel}
           overChannel={overChannel}
           dropEdge={dropEdge}
@@ -633,7 +653,9 @@ export const ChatSplitLayout = React.memo(function ChatSplitLayout({
           onResizeKeyDown={handleResizeKeyDown}
         />
         <DragOverlay dropAnimation={null}>
-          {activeChannel && activePreview ? (
+          {activeChannel && renderDragPreview ? (
+            renderDragPreview(activeChannel)
+          ) : activeChannel && activePreview ? (
             <DragOverlayPreview
               login={activeChannel}
               label={activePreview.label}

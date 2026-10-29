@@ -18,10 +18,12 @@ import type {
   AppConfig,
   ChatSplit,
   ChatSplitLayoutNode,
+  PlayerMode,
   SplitLayoutEdge,
   TwitchAccount,
   TwitchChannel,
 } from "@/lib/peepochat/peepochat-config"
+import type { WatchInstance } from "@/lib/player/watch-state"
 import type {
   TwitchAutomodHeldMessage,
   TwitchChatRoomState,
@@ -105,11 +107,25 @@ export type PeepochatSidebarHighlightsContextValue = {
 }
 
 export type PeepochatPlayerContextValue = {
-  playerChannelLogin: string | null
+  playerMode: PlayerMode
+  watchedInstances: WatchInstance[]
+  watchedChannelLogins: string[]
+  playerLayout: ChatSplitLayoutNode | undefined
+  playerChatLogin: string | null
+  focusedPlayerLogin: string | null
   playerViewActive: boolean
   openPlayer: (login: string) => void
-  selectPlayer: () => void
-  closePlayer: () => void
+  selectPlayer: (login?: string) => void
+  closePlayer: (login: string) => void
+  closeAllPlayers: () => void
+  setPlayerChat: (login: string) => void
+  movePlayerPane: (
+    sourceLogin: string,
+    targetLogin: string,
+    edge: SplitLayoutEdge
+  ) => void
+  resizePlayerPanePath: (path: number[], sizes: number[]) => void
+  reportPlayerMuted: (login: string, muted: boolean) => void
 }
 
 export type PeepochatChatContextValue = {

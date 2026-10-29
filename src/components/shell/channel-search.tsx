@@ -331,7 +331,7 @@ export function ChannelSearch() {
   const { channels, account, loginWithTwitch, config, activeChannelLogin } =
     usePeepochatSettings()
   const { visibleChannelLogins, isSplitView } = usePeepochatLayout()
-  const { playerChannelLogin, playerViewActive } = usePeepochatPlayer()
+  const { playerChatLogin, playerViewActive } = usePeepochatPlayer()
   const {
     getComposerEmoteCatalog,
     getRoomId,
@@ -354,11 +354,11 @@ export function ChannelSearch() {
   )
   const defaultChannelLogins = React.useMemo(() => {
     const logins =
-      playerViewActive && playerChannelLogin
-        ? [playerChannelLogin]
+      playerViewActive && playerChatLogin
+        ? [playerChatLogin]
         : visibleChannelLogins
     return logins.map((login) => normalizeChannelLogin(login)).filter(Boolean)
-  }, [playerChannelLogin, playerViewActive, visibleChannelLogins])
+  }, [playerChatLogin, playerViewActive, visibleChannelLogins])
   const searchChannelLogins = React.useMemo(
     () =>
       resolveSearchChannelLogins(parsed, defaultChannelLogins, knownChannels),
@@ -444,9 +444,7 @@ export function ChannelSearch() {
   const userCardChannelLogin =
     searchChannelLogins[0] ||
     normalizeChannelLogin(
-      playerViewActive && playerChannelLogin
-        ? playerChannelLogin
-        : activeChannelLogin
+      playerViewActive && playerChatLogin ? playerChatLogin : activeChannelLogin
     )
   const emoteCatalog = React.useMemo(
     () =>

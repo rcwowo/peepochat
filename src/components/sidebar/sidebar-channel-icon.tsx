@@ -197,11 +197,13 @@ function splitClusterAvatarPosition(index: number, count: number) {
 
 export function SidebarSplitAvatarCluster({
   channels,
+  renderAvatar,
 }: {
   channels: Array<{
     login: string
     profileImageUrl?: string
   }>
+  renderAvatar?: (login: string) => React.ReactNode
 }) {
   const visible = channels.slice(0, 4)
   const count = visible.length
@@ -218,10 +220,14 @@ export function SidebarSplitAvatarCluster({
             splitClusterAvatarPosition(index, count)
           )}
         >
-          <SidebarChannelAvatar
-            login={channel.login}
-            profileImageUrl={channel.profileImageUrl}
-          />
+          {renderAvatar ? (
+            renderAvatar(channel.login)
+          ) : (
+            <SidebarChannelAvatar
+              login={channel.login}
+              profileImageUrl={channel.profileImageUrl}
+            />
+          )}
         </span>
       ))}
     </span>

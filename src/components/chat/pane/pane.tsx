@@ -25,6 +25,10 @@ import {
   ChatPaneLiveInfoBar,
   ChatPaneStreamInfoToggle,
 } from "@/components/chat/pane/pane-live"
+import {
+  ChatSwitcherMenu,
+  type ChatSwitcherConfig,
+} from "@/components/player/chat-switcher"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -169,6 +173,7 @@ type ChatPaneProps = {
   onRemoveSplit?: (channelLogin: string) => void
   onWatchPlayer?: (channelLogin: string) => void
   onClosePlayer?: () => void
+  chatSwitcher?: ChatSwitcherConfig
   streamInfoMode?: "interactive" | "mobile"
   liveStreamOverride?: TwitchLiveStream | null
   dragHandleProps?: React.HTMLAttributes<HTMLDivElement>
@@ -203,6 +208,7 @@ function ChatPaneInner({
   onRemoveSplit,
   onWatchPlayer,
   onClosePlayer,
+  chatSwitcher,
   streamInfoMode = "interactive",
   liveStreamOverride,
   dragHandleProps,
@@ -220,8 +226,8 @@ function ChatPaneInner({
   const gifMessageAppearance = config.chat.gifMessageAppearance
   const { isChannelLive, getChannelLiveStream } =
     usePeepochatSidebarHighlights()
-  const { playerChannelLogin } = usePeepochatPlayer()
-  const isWatching = playerChannelLogin === channelLogin
+  const { watchedChannelLogins } = usePeepochatPlayer()
+  const isWatching = watchedChannelLogins.includes(channelLogin)
   const messageHighlights = useChannelMessageHighlights(channelLogin)
   const composerCatalog = getComposerEmoteCatalog(channelLogin)
   const [rowStripeCache] = React.useState(() => new Map<string, boolean>())
@@ -460,6 +466,13 @@ function ChatPaneInner({
                     Connecting…
                   </span>
                 ) : null}
+                {chatSwitcher ? (
+                  <ChatSwitcherMenu
+                    logins={chatSwitcher.logins}
+                    selectedLogin={chatSwitcher.selectedLogin}
+                    onSelect={chatSwitcher.onSelect}
+                  />
+                ) : null}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
@@ -493,8 +506,7 @@ function ChatPaneInner({
                             ? [
                                 {
                                   icon: PlayIcon,
-                                  label: "Watch",
-                                  disabled: isWatching,
+                                  label: isWatching ? "Go to stream" : "Watch",
                                   onSelect: () => onWatchPlayer(channelLogin),
                                 },
                               ]

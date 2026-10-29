@@ -26,6 +26,8 @@ import {
 } from "@/lib/highlights/notification-center"
 import { createNicknameMentionMap } from "@/lib/chat/nicknames"
 import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
+import { EMPTY_WATCH_STATE, watchReducer } from "@/lib/player/watch-state"
+import type { SplitLayoutEdge } from "@/lib/chat/layout/split-layout"
 import {
   findSplitContainingChannel,
   isLiveNotificationsEnabledForChannel,
@@ -57,10 +59,12 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     updateConfig,
     restoreBackup,
   } = usePeepochatConfig()
-  const [playerChannelLogin, setPlayerChannelLogin] = React.useState<
-    string | null
-  >(null)
-  const [playerViewActive, setPlayerViewActive] = React.useState(false)
+  const [watchState, dispatchWatch] = React.useReducer(
+    watchReducer,
+    EMPTY_WATCH_STATE
+  )
+  const playerMode = config.player.mode
+  const playerMultiAudio = config.player.multiAudio
   const {
     account,
     oauthBusy,
@@ -204,18 +208,21 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     () => channels.map((channel) => channel.login),
     [channels]
   )
-  const activePlayerChannelLogin = playerChannelLogin
+  const watchedInstances = watchState.instances
+  const watchedChannelLogins = React.useMemo(
+    () => watchedInstances.map((instance) => instance.login),
+    [watchedInstances]
+  )
   const isPlayerViewActive =
-    playerViewActive && activePlayerChannelLogin !== null
+    watchState.viewActive && watchedChannelLogins.length > 0
+  const playerChatLogin =
+    playerMode === "sidebar" ? watchState.focusedLogin : watchState.chatLogin
   const syncChannelLogins = React.useMemo(() => {
-    if (
-      activePlayerChannelLogin &&
-      !channelLogins.includes(activePlayerChannelLogin)
-    ) {
-      return [...channelLogins, activePlayerChannelLogin]
-    }
-    return channelLogins
-  }, [activePlayerChannelLogin, channelLogins])
+    const missing = watchedChannelLogins.filter(
+      (login) => !channelLogins.includes(login)
+    )
+    return missing.length > 0 ? [...channelLogins, ...missing] : channelLogins
+  }, [channelLogins, watchedChannelLogins])
 
   const focusChannelRef = React.useRef<(login: string) => void>((login) => {
     setActiveChannelBase(login)
@@ -223,10 +230,10 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
 
   const effectiveVisibleChannelLogins = React.useMemo(
     () =>
-      isPlayerViewActive && activePlayerChannelLogin
-        ? [activePlayerChannelLogin]
+      isPlayerViewActive && playerChatLogin
+        ? [playerChatLogin]
         : visibleChannelLogins,
-    [activePlayerChannelLogin, isPlayerViewActive, visibleChannelLogins]
+    [isPlayerViewActive, playerChatLogin, visibleChannelLogins]
   )
   const visibleChannelLoginsRef = React.useRef(effectiveVisibleChannelLogins)
   React.useEffect(() => {
@@ -306,7 +313,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
 
   const setActiveChannel = React.useCallback(
     (login: string) => {
-      setPlayerViewActive(false)
+      dispatchWatch({ type: "hide" })
       const normalized = normalizeChannelLogin(login)
       const split = findSplitContainingChannel(savedSplits, normalized)
 
@@ -335,7 +342,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
 
   const selectSplitWithRead = React.useCallback(
     (splitId: string) => {
-      setPlayerViewActive(false)
+      dispatchWatch({ type: "hide" })
       highlightActivity.markSplitRead(splitId)
       selectSplit(splitId)
     },
@@ -344,7 +351,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
 
   const addChannel = React.useCallback(
     async (login: string) => {
-      setPlayerViewActive(false)
+      dispatchWatch({ type: "hide" })
       return addChannelBase(login)
     },
     [addChannelBase]
@@ -353,36 +360,71 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
   const removeChannel = React.useCallback(
     (login: string) => {
       const normalized = normalizeChannelLogin(login)
-      if (normalized === playerChannelLogin) {
-        setPlayerChannelLogin(null)
-        setPlayerViewActive(false)
-      }
+      dispatchWatch({ type: "close", login: normalized })
       removeChannelBase(normalized)
     },
-    [playerChannelLogin, removeChannelBase]
+    [removeChannelBase]
   )
 
   const openPlayer = React.useCallback(
     (login: string) => {
       const normalized = normalizeChannelLogin(login)
       if (!normalized) return
-      highlightActivity.markChannelRead(normalized)
-      setPlayerChannelLogin(normalized)
-      setPlayerViewActive(true)
+      dispatchWatch({
+        type: "open",
+        login: normalized,
+        mode: playerMode,
+        multiAudio: playerMultiAudio,
+      })
     },
-    [highlightActivity]
+    [playerMode, playerMultiAudio]
   )
 
-  const selectPlayer = React.useCallback(() => {
-    if (!playerChannelLogin) return
-    highlightActivity.markChannelRead(playerChannelLogin)
-    setPlayerViewActive(true)
-  }, [highlightActivity, playerChannelLogin])
-
-  const closePlayer = React.useCallback(() => {
-    setPlayerChannelLogin(null)
-    setPlayerViewActive(false)
+  const selectPlayer = React.useCallback((login?: string) => {
+    const normalized = login ? normalizeChannelLogin(login) : undefined
+    dispatchWatch({ type: "show", login: normalized || undefined })
   }, [])
+
+  const closePlayer = React.useCallback((login: string) => {
+    dispatchWatch({ type: "close", login: normalizeChannelLogin(login) })
+  }, [])
+
+  const closeAllPlayers = React.useCallback(() => {
+    dispatchWatch({ type: "closeAll" })
+  }, [])
+
+  const setPlayerChat = React.useCallback((login: string) => {
+    dispatchWatch({ type: "setChat", login: normalizeChannelLogin(login) })
+  }, [])
+
+  const movePlayerPane = React.useCallback(
+    (sourceLogin: string, targetLogin: string, edge: SplitLayoutEdge) => {
+      dispatchWatch({ type: "move", sourceLogin, targetLogin, edge })
+    },
+    []
+  )
+
+  const resizePlayerPanePath = React.useCallback(
+    (path: number[], sizes: number[]) => {
+      dispatchWatch({ type: "resize", path, sizes })
+    },
+    []
+  )
+
+  const reportPlayerMuted = React.useCallback(
+    (login: string, muted: boolean) => {
+      dispatchWatch({ type: "reportMuted", login, muted })
+    },
+    []
+  )
+
+  const markReadChatLogin = isPlayerViewActive ? playerChatLogin : null
+  const markChannelRead = highlightActivity.markChannelRead
+  React.useEffect(() => {
+    if (markReadChatLogin) {
+      markChannelRead(markReadChatLogin)
+    }
+  }, [markChannelRead, markReadChatLogin])
 
   React.useEffect(() => {
     setRecentMessagesEnabled(config.chat.recentMessagesEnabled)
@@ -481,14 +523,14 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     syncAllChannels,
   ])
 
-  const effectiveMountedChannelLogins = React.useMemo(
-    () =>
-      activePlayerChannelLogin &&
-      !mountedChannelLogins.includes(activePlayerChannelLogin)
-        ? [...mountedChannelLogins, activePlayerChannelLogin]
-        : mountedChannelLogins,
-    [activePlayerChannelLogin, mountedChannelLogins]
-  )
+  const effectiveMountedChannelLogins = React.useMemo(() => {
+    const missing = watchedChannelLogins.filter(
+      (login) => !mountedChannelLogins.includes(login)
+    )
+    return missing.length > 0
+      ? [...mountedChannelLogins, ...missing]
+      : mountedChannelLogins
+  }, [mountedChannelLogins, watchedChannelLogins])
 
   React.useEffect(() => {
     for (const login of effectiveMountedChannelLogins) {
@@ -623,8 +665,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
   )
 
   const handleLogout = React.useCallback(() => {
-    setPlayerChannelLogin(null)
-    setPlayerViewActive(false)
+    dispatchWatch({ type: "closeAll" })
     void syncChannels([])
     logout()
     requireOnboarding()
@@ -761,18 +802,38 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
 
   const playerValue = React.useMemo<PeepochatPlayerContextValue>(
     () => ({
-      playerChannelLogin: activePlayerChannelLogin,
+      playerMode,
+      watchedInstances,
+      watchedChannelLogins,
+      playerLayout: watchState.layout,
+      playerChatLogin,
+      focusedPlayerLogin: watchState.focusedLogin,
       playerViewActive: isPlayerViewActive,
       openPlayer,
       selectPlayer,
       closePlayer,
+      closeAllPlayers,
+      setPlayerChat,
+      movePlayerPane,
+      resizePlayerPanePath,
+      reportPlayerMuted,
     }),
     [
-      closePlayer,
-      openPlayer,
-      activePlayerChannelLogin,
+      playerMode,
+      watchedInstances,
+      watchedChannelLogins,
+      watchState.layout,
+      playerChatLogin,
+      watchState.focusedLogin,
       isPlayerViewActive,
+      openPlayer,
       selectPlayer,
+      closePlayer,
+      closeAllPlayers,
+      setPlayerChat,
+      movePlayerPane,
+      resizePlayerPanePath,
+      reportPlayerMuted,
     ]
   )
 
