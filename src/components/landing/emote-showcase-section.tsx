@@ -1,450 +1,263 @@
-import * as React from "react"
+import type * as React from "react"
 
-import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion"
+import { useIntersectionVisible } from "@/hooks/use-intersection-visible"
 import {
   LANDING_EMOTES,
   LANDING_EMOTE_PROVIDERS,
-  type LandingEmote,
   type LandingEmoteKey,
 } from "@/lib/landing/landing-emotes"
-import { clamp, cn } from "@/lib/utils"
 
-type SplashEmoteLayout = {
+type FlyingEmote = {
   key: LandingEmoteKey
-  x: number
-  y: number
-  scale: number
+  top: number
+  height: number
+  duration: number
+  phase: number
+  blur: number
+  opacity: number
   rotate: number
-  heightRem: number
-  widthRem?: number
-  floatDuration: number
-  floatAmplitude: number
 }
 
-const SPLASH_EMOTES: SplashEmoteLayout[] = [
+const FLYING_EMOTES: FlyingEmote[] = [
   {
     key: "KEKW",
-    x: -30,
-    y: -28,
-    scale: 1.1,
-    rotate: -14,
-    heightRem: 5,
-    floatDuration: 4.6,
-    floatAmplitude: 7,
+    top: 8,
+    height: 4.5,
+    duration: 26,
+    phase: 0.05,
+    blur: 3,
+    opacity: 0.5,
+    rotate: -10,
   },
   {
     key: "buh",
-    x: 34,
-    y: -30,
-    scale: 1,
-    rotate: 11,
-    heightRem: 4.6,
-    floatDuration: 4.1,
-    floatAmplitude: 6,
+    top: 62,
+    height: 5.5,
+    duration: 22,
+    phase: 0.18,
+    blur: 2.5,
+    opacity: 0.55,
+    rotate: 8,
   },
   {
     key: "om",
-    x: 38,
-    y: -8,
-    scale: 0.95,
-    rotate: 7,
-    heightRem: 4.4,
-    floatDuration: 3.7,
-    floatAmplitude: 5,
-  },
-  {
-    key: "jakeS",
-    x: 36,
-    y: 20,
-    scale: 1.05,
-    rotate: -9,
-    heightRem: 4.8,
-    floatDuration: 4.4,
-    floatAmplitude: 6,
-  },
-  {
-    key: "widepeepoHappy",
-    x: 14,
-    y: 36,
-    scale: 1,
-    rotate: 4,
-    heightRem: 3.6,
-    widthRem: 9.5,
-    floatDuration: 5.1,
-    floatAmplitude: 8,
-  },
-  {
-    key: "ewphop",
-    x: -6,
-    y: 38,
-    scale: 1,
-    rotate: -7,
-    heightRem: 4.5,
-    floatDuration: 3.9,
-    floatAmplitude: 6,
-  },
-  {
-    key: "MikuStare",
-    x: -26,
-    y: 32,
-    scale: 1,
-    rotate: 13,
-    heightRem: 4.8,
-    floatDuration: 4.3,
-    floatAmplitude: 7,
+    top: 32,
+    height: 3,
+    duration: 38,
+    phase: 0.31,
+    blur: 5,
+    opacity: 0.3,
+    rotate: 6,
   },
   {
     key: "catJAM",
-    x: -38,
-    y: 12,
-    scale: 1.05,
-    rotate: -11,
-    heightRem: 4.9,
-    floatDuration: 4.8,
-    floatAmplitude: 6,
+    top: 78,
+    height: 3.5,
+    duration: 34,
+    phase: 0.44,
+    blur: 4.5,
+    opacity: 0.35,
+    rotate: -6,
+  },
+  {
+    key: "MikuStare",
+    top: 14,
+    height: 3.25,
+    duration: 36,
+    phase: 0.58,
+    blur: 5,
+    opacity: 0.3,
+    rotate: 12,
+  },
+  {
+    key: "jakeS",
+    top: 46,
+    height: 5,
+    duration: 24,
+    phase: 0.72,
+    blur: 3,
+    opacity: 0.5,
+    rotate: -8,
   },
   {
     key: "Sadge",
-    x: -36,
-    y: -6,
-    scale: 0.92,
-    rotate: 9,
-    heightRem: 4.2,
-    floatDuration: 3.6,
-    floatAmplitude: 5,
+    top: 70,
+    height: 4.5,
+    duration: 27,
+    phase: 0.86,
+    blur: 3,
+    opacity: 0.45,
+    rotate: 10,
+  },
+  {
+    key: "ewphop",
+    top: 4,
+    height: 3.5,
+    duration: 33,
+    phase: 0.97,
+    blur: 4.5,
+    opacity: 0.35,
+    rotate: -12,
+  },
+  {
+    key: "widepeepoHappy",
+    top: 40,
+    height: 3.25,
+    duration: 40,
+    phase: 0.63,
+    blur: 5.5,
+    opacity: 0.28,
+    rotate: 3,
   },
   {
     key: "Jackass",
-    x: -18,
-    y: -36,
-    scale: 1,
-    rotate: -6,
-    heightRem: 4.6,
-    floatDuration: 4.2,
-    floatAmplitude: 6,
+    top: 22,
+    height: 5.25,
+    duration: 23,
+    phase: 0.38,
+    blur: 2.5,
+    opacity: 0.5,
+    rotate: 7,
+  },
+  {
+    key: "KEKW",
+    top: 84,
+    height: 3,
+    duration: 39,
+    phase: 0.12,
+    blur: 5.5,
+    opacity: 0.28,
+    rotate: 9,
+  },
+  {
+    key: "buh",
+    top: 52,
+    height: 3,
+    duration: 37,
+    phase: 0.92,
+    blur: 5,
+    opacity: 0.3,
+    rotate: -5,
   },
 ]
 
-function LandingEmoteImg({
-  emote,
-  wide,
-}: {
-  emote: LandingEmote
-  wide?: boolean
-}) {
-  return (
-    <img
-      src={emote.url}
-      alt={emote.name}
-      title={emote.name}
-      className={cn(
-        "max-h-full max-w-full object-contain drop-shadow-lg",
-        wide ? "h-full w-full" : "size-full"
-      )}
-      loading="lazy"
-      draggable={false}
-    />
-  )
-}
-
-// Fast out of the gate, then decelerates smoothly toward a plateau.
-const SPRING_RATE = 4.8
-const SPRING_PLATEAU = 1 - Math.exp(-SPRING_RATE)
-
-function springMotion(linear: number) {
-  if (linear <= 0) return 0
-  if (linear >= 1) return 1
-  return (1 - Math.exp(-SPRING_RATE * linear)) / SPRING_PLATEAU
-}
-
-const SPLASH_SPREAD_FILL = 0.96
-
-const MAX_SPLASH_AXIS = Math.max(
-  ...SPLASH_EMOTES.flatMap((layout) => [Math.abs(layout.x), Math.abs(layout.y)])
-)
-
-function getEmoteSizeScale(stageWidth: number) {
-  if (stageWidth < 400) return 0.58
-  if (stageWidth < 560) return 0.7
-  if (stageWidth < 768) return 0.84
-  return 1
-}
-
-function getCenterKeepout(stageWidth: number, rootFontSize: number) {
-  if (stageWidth < 400) {
-    return {
-      halfWidth: 7.25 * rootFontSize,
-      halfHeight: 6.5 * rootFontSize,
-    }
-  }
-  if (stageWidth < 640) {
-    return {
-      halfWidth: 8.5 * rootFontSize,
-      halfHeight: 7.25 * rootFontSize,
-    }
-  }
-  return {
-    halfWidth: 10.5 * rootFontSize,
-    halfHeight: 8.5 * rootFontSize,
-  }
-}
-
-function getMaxEmoteHalfSizes(rootFontSize: number, sizeScale: number) {
-  let halfWidth = 0
-  let halfHeight = 0
-
-  for (const layout of SPLASH_EMOTES) {
-    halfWidth = Math.max(
-      halfWidth,
-      ((layout.widthRem ?? layout.heightRem) *
-        rootFontSize *
-        layout.scale *
-        sizeScale) /
-        2
-    )
-    halfHeight = Math.max(
-      halfHeight,
-      (layout.heightRem * rootFontSize * layout.scale * sizeScale) / 2
-    )
-  }
-
-  return { halfWidth, halfHeight }
-}
-
-function getSplashSpread(stageRect: DOMRect, rootFontSize: number) {
-  const sizeScale = getEmoteSizeScale(stageRect.width)
-  const { halfWidth, halfHeight } = getMaxEmoteHalfSizes(
-    rootFontSize,
-    sizeScale
-  )
-  const keepout = getCenterKeepout(stageRect.width, rootFontSize)
-  const edgePadding = stageRect.width < 560 ? 8 : 12
-
-  const maxTravelX = Math.max(0, stageRect.width / 2 - halfWidth - edgePadding)
-  const maxTravelY = Math.max(
-    0,
-    stageRect.height / 2 - halfHeight - edgePadding
-  )
-
-  const spreadX = Math.min(
-    maxTravelX,
-    Math.max(
-      keepout.halfWidth + halfWidth * 0.2,
-      maxTravelX * SPLASH_SPREAD_FILL
-    )
-  )
-  const spreadY = Math.min(
-    maxTravelY,
-    Math.max(
-      keepout.halfHeight + halfHeight * 0.2,
-      maxTravelY * SPLASH_SPREAD_FILL
-    )
-  )
-
-  return { spreadX, spreadY, sizeScale }
-}
-
-function getViewportSplashMotion(stageRect: DOMRect, viewportHeight: number) {
-  const stageTop = stageRect.top
-  const stageHeight = stageRect.height
-
-  const motionStart = viewportHeight
-  const motionEnd = -stageHeight * 0.55
-  const travel = motionStart - motionEnd
-
-  const linear =
-    travel <= 0
-      ? stageTop <= motionEnd
-        ? 1
-        : 0
-      : clamp((motionStart - stageTop) / travel, 0, 1)
-
-  return springMotion(linear)
-}
-
-function applySplashMotionVars(
-  stage: HTMLElement,
-  motion: number,
-  spreadX: number,
-  spreadY: number,
-  sizeScale: number
-) {
-  stage.style.setProperty("--splash-motion", String(motion))
-  stage.style.setProperty("--spread-x", `${spreadX}px`)
-  stage.style.setProperty("--spread-y", `${spreadY}px`)
-  stage.style.setProperty("--emote-size-scale", String(sizeScale))
-}
-
-function useScrollSplashMotion(
-  stageRef: React.RefObject<HTMLElement | null>,
-  reducedMotion: boolean
-) {
-  React.useEffect(() => {
-    const stage = stageRef.current
-    if (!stage) return
-
-    let rootFontSize =
-      Number.parseFloat(getComputedStyle(document.documentElement).fontSize) ||
-      16
-    let frame = 0
-
-    const update = () => {
-      frame = 0
-      const rect = stage.getBoundingClientRect()
-      const viewportHeight = window.innerHeight
-      const { spreadX, spreadY, sizeScale } = getSplashSpread(
-        rect,
-        rootFontSize
-      )
-
-      if (reducedMotion) {
-        const inView = rect.top < viewportHeight && rect.bottom > 0
-        applySplashMotionVars(
-          stage,
-          inView ? 1 : 0,
-          spreadX,
-          spreadY,
-          sizeScale
-        )
-        return
-      }
-
-      applySplashMotionVars(
-        stage,
-        getViewportSplashMotion(rect, viewportHeight),
-        spreadX,
-        spreadY,
-        sizeScale
-      )
-    }
-
-    const scheduleUpdate = () => {
-      if (frame !== 0) return
-      frame = window.requestAnimationFrame(update)
-    }
-
-    const handleResize = () => {
-      rootFontSize =
-        Number.parseFloat(
-          getComputedStyle(document.documentElement).fontSize
-        ) || 16
-      scheduleUpdate()
-    }
-
-    update()
-    window.addEventListener("scroll", scheduleUpdate, { passive: true })
-    window.addEventListener("resize", handleResize, { passive: true })
-
-    return () => {
-      window.cancelAnimationFrame(frame)
-      window.removeEventListener("scroll", scheduleUpdate)
-      window.removeEventListener("resize", handleResize)
-    }
-  }, [reducedMotion, stageRef])
-}
-
-function SplashEmote({ layout }: { layout: SplashEmoteLayout }) {
-  const emote = LANDING_EMOTES[layout.key]
-  const provider = LANDING_EMOTE_PROVIDERS.find(
-    (entry) => entry.id === emote.provider
-  )
-  const isWide = layout.widthRem !== undefined
+function FlyingEmoteLane({ emote }: { emote: FlyingEmote }) {
+  const data = LANDING_EMOTES[emote.key]
 
   return (
     <div
-      className={cn(
-        "landing-emote-splash-item",
-        isWide && "flex items-center justify-center"
-      )}
+      className="landing-emote-flyer pointer-events-none absolute inset-x-0"
       style={
         {
-          "--burst-nx": layout.x / MAX_SPLASH_AXIS,
-          "--burst-ny": layout.y / MAX_SPLASH_AXIS,
-          "--burst-scale": layout.scale,
-          "--burst-rotate": `${layout.rotate}deg`,
-          "--emote-height": `${layout.heightRem}rem`,
-          "--emote-width": `${layout.widthRem ?? layout.heightRem}rem`,
-          "--float-duration": `${layout.floatDuration}s`,
-          "--float-amplitude": `${layout.floatAmplitude}px`,
-          "--provider-accent": provider?.accent ?? "var(--primary)",
+          top: `${emote.top}%`,
+          "--flyer-duration": `${emote.duration}s`,
+          "--flyer-delay": `${-emote.duration * emote.phase}s`,
+          "--flyer-rest": `${-(10 + emote.phase * 80)}%`,
         } as React.CSSProperties
       }
     >
-      <div className="landing-emote-splash-float">
-        <div className="landing-emote-splash-glow" aria-hidden />
-        <LandingEmoteImg emote={emote} wide={isWide} />
-      </div>
+      <img
+        src={data.url}
+        alt=""
+        draggable={false}
+        decoding="async"
+        className="absolute left-full w-auto max-w-none object-contain"
+        style={{
+          height: `min(${emote.height}rem, ${emote.height * 3.2}vw)`,
+          opacity: emote.opacity,
+          filter: `blur(${emote.blur}px)`,
+          rotate: `${emote.rotate}deg`,
+        }}
+      />
     </div>
   )
 }
 
+function ProviderLogos() {
+  return (
+    <ul className="flex items-end gap-6 sm:gap-8">
+      {LANDING_EMOTE_PROVIDERS.map((provider) => (
+        <li
+          key={provider.id}
+          className="flex flex-col items-center gap-2"
+          title={provider.name}
+        >
+          <span
+            className="block size-8 bg-white"
+            style={{
+              maskImage: `url(${provider.iconSrc})`,
+              maskSize: "contain",
+              maskRepeat: "no-repeat",
+              maskPosition: "center",
+              WebkitMaskImage: `url(${provider.iconSrc})`,
+              WebkitMaskSize: "contain",
+              WebkitMaskRepeat: "no-repeat",
+              WebkitMaskPosition: "center",
+            }}
+            aria-hidden
+          />
+          <span className="text-[0.65rem] font-semibold tracking-widest text-white/80 uppercase">
+            {provider.shortName}
+          </span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 export function EmoteShowcaseSection() {
-  const stageRef = React.useRef<HTMLDivElement>(null)
-  const reducedMotion = usePrefersReducedMotion()
-  useScrollSplashMotion(stageRef, reducedMotion)
+  const { ref, visible } = useIntersectionVisible<HTMLElement>({
+    rootMargin: "120px",
+  })
 
   return (
     <section
+      ref={ref}
       id="emotes"
-      className="relative overflow-hidden border-y border-[color-mix(in_oklch,var(--border)_60%,transparent)]"
+      data-paused={!visible}
+      className="landing-emote-flyers relative overflow-hidden border-t border-white/8"
     >
       <div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_55%_65%_at_50%_50%,color-mix(in_oklch,var(--primary)_18%,transparent),transparent_70%),radial-gradient(ellipse_40%_50%_at_12%_42%,color-mix(in_oklch,#e91916_5%,transparent),transparent_62%),radial-gradient(ellipse_38%_48%_at_88%_38%,color-mix(in_oklch,#00b5ad_6%,transparent),transparent_60%),radial-gradient(ellipse_36%_44%_at_52%_88%,color-mix(in_oklch,#9b59b6_4%,transparent),transparent_58%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_80%_at_50%_50%,color-mix(in_oklch,var(--primary)_14%,transparent),transparent_70%),radial-gradient(ellipse_30%_60%_at_10%_50%,color-mix(in_oklch,#e91916_5%,transparent),transparent_62%),radial-gradient(ellipse_30%_60%_at_90%_50%,color-mix(in_oklch,#00b5ad_6%,transparent),transparent_60%)]"
         aria-hidden
       />
 
-      <div
-        ref={stageRef}
-        className="landing-emote-splash-stage relative mx-auto flex min-h-[min(44rem,94svh)] w-full max-w-304 items-center justify-center px-[clamp(1rem,4vw,2rem)] py-[clamp(3rem,8vh,5rem)] max-sm:min-h-[min(36rem,90svh)]"
-      >
-        {SPLASH_EMOTES.map((layout) => (
-          <SplashEmote key={layout.key} layout={layout} />
+      <div className="pointer-events-none absolute inset-0" aria-hidden>
+        {FLYING_EMOTES.map((emote) => (
+          <FlyingEmoteLane key={`${emote.key}-${emote.top}`} emote={emote} />
         ))}
+      </div>
 
-        <div className="relative z-3 mx-auto max-w-120 px-[clamp(1.25rem,5vw,2.75rem)] py-[clamp(1.5rem,4.5vw,2.5rem)] text-center">
+      <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-14 md:flex-row md:items-center md:justify-between lg:py-16">
+        <div className="relative max-w-md">
           <div
-            className="pointer-events-none absolute top-[46%] left-1/2 aspect-square w-[min(52rem,220%)] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle_at_center,color-mix(in_oklch,var(--background)_88%,transparent)_0%,color-mix(in_oklch,var(--background)_55%,transparent)_28%,color-mix(in_oklch,var(--background)_22%,transparent)_48%,transparent_68%)]"
+            className="pointer-events-none absolute -inset-x-12 -inset-y-10 bg-[radial-gradient(ellipse_at_center,color-mix(in_oklch,var(--background)_85%,transparent)_0%,color-mix(in_oklch,var(--background)_50%,transparent)_40%,transparent_72%)]"
             aria-hidden
           />
-
           <div className="relative">
             <h2 className="font-landing-display text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
               Support for
               <br />
               <span className="text-primary">ALL of the emotes.</span>
             </h2>
-
-            <ul className="mt-[1.35rem] flex items-end justify-center gap-[clamp(1rem,4vw,2rem)] max-[480px]:gap-3">
-              {LANDING_EMOTE_PROVIDERS.map((provider) => (
-                <li
-                  key={provider.id}
-                  className="flex min-w-0 flex-1 flex-col items-center gap-2.5 p-0"
-                >
-                  <span
-                    className="block size-10 bg-white max-[480px]:size-8"
-                    style={{
-                      maskImage: `url(${provider.iconSrc})`,
-                      maskSize: "contain",
-                      maskRepeat: "no-repeat",
-                      maskPosition: "center",
-                      WebkitMaskImage: `url(${provider.iconSrc})`,
-                      WebkitMaskSize: "contain",
-                      WebkitMaskRepeat: "no-repeat",
-                      WebkitMaskPosition: "center",
-                    }}
-                    aria-hidden
-                  />
-                  <span className="text-[0.65rem] font-semibold tracking-widest text-white/80 uppercase">
-                    {provider.shortName}
-                  </span>
-                </li>
-              ))}
-            </ul>
-
-            <p className="mt-6 text-[0.7rem] leading-relaxed text-white/70">
-              Peepochat has no association with any of the services shown above.
+            <p className="mt-4 text-base leading-relaxed text-muted-foreground">
+              Native Twitch emotes alongside BetterTTV, FrankerFaceZ, and 7TV,
+              with 7TV sets updating live.
             </p>
           </div>
+        </div>
+
+        <div className="relative flex flex-col items-start gap-4 md:items-end">
+          <div
+            className="pointer-events-none absolute -inset-x-12 -inset-y-10 bg-[radial-gradient(ellipse_at_center,color-mix(in_oklch,var(--background)_85%,transparent)_0%,color-mix(in_oklch,var(--background)_50%,transparent)_40%,transparent_72%)]"
+            aria-hidden
+          />
+          <div className="relative">
+            <ProviderLogos />
+          </div>
+          <p className="relative text-[0.7rem] leading-relaxed text-white/60">
+            Peepochat has no association with any of the services shown.
+          </p>
         </div>
       </div>
     </section>

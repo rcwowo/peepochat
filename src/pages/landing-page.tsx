@@ -5,14 +5,17 @@ import {
   CloudOffIcon,
   Columns2Icon,
   HistoryIcon,
+  MonitorPlayIcon,
   PaintRollerIcon,
+  SearchIcon,
+  ShieldIcon,
   SmileIcon,
 } from "lucide-react"
 
 import { EmoteShowcaseSection } from "@/components/landing/emote-showcase-section"
-import { LayoutShowcaseSection } from "@/components/landing/layout-showcase-section"
+import { FeatureShowcaseGroup } from "@/components/landing/feature-showcase-group"
 import { LearnMoreSection } from "@/components/landing/learn-more-section"
-import { NotificationsShowcaseSection } from "@/components/landing/notifications-showcase-section"
+import { StreamsShowcaseSection } from "@/components/landing/streams-showcase-section"
 import { HeroChatMockup } from "@/components/landing/hero-chat-mockup"
 import { LandingFooter } from "@/components/landing/landing-footer"
 import { Button } from "@/components/ui/button"
@@ -25,7 +28,13 @@ const FEATURES = [
     icon: Columns2Icon,
     title: "Splits & Layouts",
     description:
-      "Arrange channels in any way you like horizontal or vertical splits, that you can resize and rearrange as you please.",
+      "Arrange channels however you like with horizontal or vertical splits that you can resize and rearrange as you please.",
+  },
+  {
+    icon: MonitorPlayIcon,
+    title: "Watch Streams",
+    description:
+      "Watch streams right next to chat, or watch several at once side by side in a resizable layout.",
   },
   {
     icon: SmileIcon,
@@ -40,16 +49,28 @@ const FEATURES = [
       "With the app open, you can get browser notifications for custom keywords and phrases that you define.",
   },
   {
+    icon: SearchIcon,
+    title: "Search Everything",
+    description:
+      "Filter chat by user, channel, role, links, and more, then jump straight to the message you were looking for.",
+  },
+  {
     icon: HistoryIcon,
     title: "Message History",
     description:
       "Missed out on the conversation? No worries! Peepochat integrates with APIs to show chat messages from before you even connected.",
   },
   {
+    icon: ShieldIcon,
+    title: "Built For Mods",
+    description:
+      "Handle AutoMod and held messages, take moderation actions, and manage chat modes without leaving the client.",
+  },
+  {
     icon: PaintRollerIcon,
     title: "Make It Yours",
     description:
-      "Customize your experience to your liking with settings for appearance, behavior, pings, backups, and more to come.",
+      "Pick a color scheme, give users nicknames, set custom sounds, and tweak just about everything else to your liking.",
   },
   {
     icon: CloudOffIcon,
@@ -116,9 +137,9 @@ export function LandingPage() {
                   style={{ animationDelay: "80ms" }}
                 >
                   Peepochat is a fully-featured Twitch chat client that runs
-                  entirely within your browser. Customizable layouts,
-                  third-party emotes, message history, and more. Everything
-                  stays in your browser.
+                  entirely within your browser. Customizable layouts, built-in
+                  stream watching, third-party emotes, message history, and
+                  more.
                 </p>
 
                 <div
@@ -187,11 +208,11 @@ export function LandingPage() {
             </div>
           </section>
 
-          <LayoutShowcaseSection />
-
           <EmoteShowcaseSection />
 
-          <NotificationsShowcaseSection />
+          <FeatureShowcaseGroup />
+
+          <StreamsShowcaseSection />
 
           <LearnMoreSection />
 

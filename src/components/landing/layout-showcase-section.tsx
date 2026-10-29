@@ -1,7 +1,7 @@
 import * as React from "react"
 import { Columns2Icon, LayoutGridIcon, MoveIcon } from "lucide-react"
 
-import { Skeleton } from "@/components/ui/skeleton"
+import { LandingChatSkeleton } from "@/components/landing/landing-chat-skeleton"
 import { useIntersectionVisible } from "@/hooks/use-intersection-visible"
 import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion"
 import { LANDING_CHANNELS } from "@/lib/landing/landing-channels"
@@ -48,9 +48,7 @@ const PANES: Record<PaneId, { displayName: string; profileImageUrl: string }> =
     c: LANDING_CHANNELS.toastercat,
   }
 
-const SKELETON_LINE_WIDTHS = [
-  0.78, 0.62, 0.88, 0.54, 0.71, 0.48, 0.83, 0.59, 0.67, 0.52, 0.74, 0.61,
-] as const
+const PANE_SKELETON_SEEDS: Record<PaneId, number> = { a: 11, b: 23, c: 37 }
 
 // Header is h-7; center of drag handle as a fraction of pane height.
 const PANE_HEADER_CENTER_Y = 0.038
@@ -699,28 +697,6 @@ function rectToInsetStyle(rect: Rect): React.CSSProperties {
   }
 }
 
-function ShowcasePaneSkeletons() {
-  return (
-    <div className="flex h-full flex-col justify-start gap-1 px-2 py-1.5">
-      {SKELETON_LINE_WIDTHS.map((width, lineIndex) => (
-        <div
-          key={width}
-          className={cn(
-            "flex items-center gap-1.5 rounded-sm px-1 py-0.5",
-            lineIndex % 2 === 1 && "bg-foreground/4"
-          )}
-        >
-          <Skeleton className="h-2.5 w-8 shrink-0 rounded-sm" />
-          <Skeleton
-            className="h-2.5 rounded-sm"
-            style={{ width: `${width * 100}%` }}
-          />
-        </div>
-      ))}
-    </div>
-  )
-}
-
 function ShowcasePane({
   paneId,
   rect,
@@ -776,7 +752,7 @@ function ShowcasePane({
       </div>
 
       <div className="min-h-0 flex-1 overflow-hidden">
-        <ShowcasePaneSkeletons />
+        <LandingChatSkeleton seed={PANE_SKELETON_SEEDS[paneId]} />
       </div>
     </div>
   )
@@ -933,16 +909,13 @@ const HIGHLIGHTS = [
 
 export function LayoutShowcaseSection() {
   return (
-    <section
-      id="layouts"
-      className="relative overflow-hidden border-t border-white/8 bg-card/20"
-    >
+    <section id="layouts" className="relative">
       <div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_50%_55%_at_78%_42%,color-mix(in_oklch,var(--primary)_14%,transparent),transparent_68%),radial-gradient(ellipse_42%_48%_at_12%_72%,color-mix(in_oklch,var(--primary)_8%,transparent),transparent_62%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_40%_50%_at_75%_50%,color-mix(in_oklch,var(--primary)_13%,transparent),transparent_70%)]"
         aria-hidden
       />
 
-      <div className="relative mx-auto w-full max-w-6xl px-6 py-20 lg:py-40">
+      <div className="relative mx-auto w-full max-w-6xl px-6 py-16 lg:py-24">
         <div className="grid items-center gap-12 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:gap-16">
           <div className="max-w-xl">
             <h2 className="font-landing-display text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
