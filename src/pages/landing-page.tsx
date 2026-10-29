@@ -106,6 +106,15 @@ export function LandingPage() {
           </Link>
           <nav className="flex items-center gap-3">
             <Button variant="ghost" size="sm" asChild>
+              <a
+                href="https://patreon.com/rcwowo"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Patreon
+              </a>
+            </Button>
+            <Button variant="ghost" size="sm" asChild>
               <a href="#features">Features</a>
             </Button>
             <Button size="sm" asChild>
