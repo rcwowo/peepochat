@@ -5,8 +5,10 @@
         "items": [
             "Added the ability to watch multiple streams at once, either side by side in a resizable layout or as separate players in the sidebar.",
             "Added nicknames, letting you set unique custom names for users in chat.",
+            "Added the ability to jump to a message from search.",
             "Readded the header bar to settings.",
-            "Minor redesign to the player indicator in the sidebar to show who's playing."
+            "Minor redesign to the player indicator in the sidebar to show who's playing.",
+            "Minor redesign to the layout in the search menu."
         ]
     },
     {

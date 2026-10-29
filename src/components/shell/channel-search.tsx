@@ -6,6 +6,13 @@ import { ChatHoverTooltipProvider } from "@/components/chat/message/hover-toolti
 import { ChatMessageRow } from "@/components/chat/message/row"
 import { EmoteCardProvider } from "@/components/chat/emote-card/context"
 import { UserCardProvider } from "@/components/chat/user-card/context"
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarGroup,
+  AvatarGroupCount,
+  AvatarImage,
+} from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -23,6 +30,7 @@ import {
 } from "@/components/ui/tooltip"
 import { useChatFontFamily } from "@/hooks/chat-ui/use-chat-font"
 import { createNicknameByLoginMap } from "@/lib/chat/nicknames"
+import { requestChatMessageJump } from "@/lib/chat/threads/message-jump"
 import { getChatPresentationStyle } from "@/lib/chat/presentation/presentation-style"
 import { mergeComposerEmoteCatalogs } from "@/lib/chat/emotes/catalog"
 import {
@@ -35,7 +43,6 @@ import {
   createChatSearchResultsCache,
   getChatSearchSuggestions,
   getChatSearchTokenAtCursor,
-  isAllChannelsSearchValue,
   isChatSearchQueryActive,
   parseChatSearchQuery,
   replaceChatSearchToken,
@@ -48,7 +55,10 @@ import {
   type ChatSearchSuggestion,
   type ChatSearchUsername,
 } from "@/lib/search/chat-search"
-import { messageHasChatGifs } from "@/lib/twitch/chat/chat"
+import {
+  messageHasChatGifs,
+  type TwitchChatMessage,
+} from "@/lib/twitch/chat/chat"
 import { useHotkeyRegistry } from "@/hooks/use-hotkey-registry"
 import { shouldPreventSearchDismiss } from "@/lib/search/search-portaled-layers"
 import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
@@ -63,6 +73,15 @@ import { cn } from "@/lib/utils"
 
 const EMPTY_TIMELINES: TwitchTimelineItem[][] = []
 const EMPTY_SEARCH_USERNAMES: ChatSearchUsername[] = []
+const MAX_SCOPE_AVATARS = 4
+const MAX_SCOPE_TOOLTIP_CHANNELS = 8
+const SEARCH_RESULTS_PADDING_START_PX = 16
+
+type SearchScopeChannel = {
+  login: string
+  displayName: string
+  profileImageUrl?: string
+}
 
 function useSearchTimelines(logins: string[], enabled: boolean) {
   const { subscribeToRoom, getTimeline } = usePeepochatChat()
@@ -138,37 +157,109 @@ function SearchSuggestions({
   }
 
   return (
-    <ul
-      ref={listRef}
-      className="max-h-48 shrink-0 overflow-y-auto overscroll-contain border-b border-border py-1"
-      role="listbox"
-      aria-label="Search filters"
-    >
-      {suggestions.map((suggestion, index) => (
-        <li key={suggestion.id}>
-          <button
-            type="button"
-            role="option"
-            aria-selected={index === activeIndex}
-            className={cn(
-              "flex w-full items-center gap-2 px-4 py-1.5 text-left text-sm",
-              index === activeIndex
-                ? "bg-accent text-accent-foreground"
-                : "hover:bg-muted"
-            )}
-            onMouseDown={(event) => {
-              event.preventDefault()
-              onSelect(suggestion)
-            }}
-          >
-            <span className="font-medium">{suggestion.label}</span>
-            <span className="ml-auto truncate text-xs text-muted-foreground">
-              {suggestion.description}
+    <div className="absolute inset-x-4 top-full z-20 -mt-1.5 animate-in overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-lg ring-1 ring-foreground/10 duration-100 fade-in-0 zoom-in-95">
+      <ul
+        ref={listRef}
+        className="max-h-64 overflow-y-auto overscroll-contain p-1"
+        role="listbox"
+        aria-label="Search filters"
+      >
+        {suggestions.map((suggestion, index) => (
+          <li key={suggestion.id}>
+            <button
+              type="button"
+              role="option"
+              aria-selected={index === activeIndex}
+              className={cn(
+                "flex w-full cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 text-left text-sm",
+                index === activeIndex
+                  ? "bg-accent text-accent-foreground"
+                  : "hover:bg-muted"
+              )}
+              onMouseDown={(event) => {
+                event.preventDefault()
+                onSelect(suggestion)
+              }}
+            >
+              <span className="shrink-0 font-mono text-xs font-medium">
+                {suggestion.label}
+              </span>
+              <span className="ml-auto min-w-0 truncate text-xs text-muted-foreground">
+                {suggestion.description}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      <div className="flex items-center gap-3 border-t border-border px-3 py-1.5 text-[11px] text-muted-foreground">
+        <span>
+          <kbd className="font-sans">↑↓</kbd> to navigate
+        </span>
+        <span>
+          <kbd className="font-sans">Tab</kbd> or{" "}
+          <kbd className="font-sans">Enter</kbd> to select
+        </span>
+        <span>
+          <kbd className="font-sans">Esc</kbd> to dismiss
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function SearchScopeAvatar({ channel }: { channel: SearchScopeChannel }) {
+  return (
+    <Avatar size="sm">
+      {channel.profileImageUrl ? (
+        <AvatarImage src={channel.profileImageUrl} alt="" draggable={false} />
+      ) : null}
+      <AvatarFallback className="bg-primary/15 text-[10px] font-semibold text-primary uppercase">
+        {channel.login.slice(0, 2)}
+      </AvatarFallback>
+    </Avatar>
+  )
+}
+
+function SearchScope({
+  channels,
+  emptyLabel,
+  description,
+}: {
+  channels: SearchScopeChannel[]
+  emptyLabel: string | null
+  description: string
+}) {
+  const visibleChannels = channels.slice(0, MAX_SCOPE_AVATARS)
+  const hiddenCount = channels.length - visibleChannels.length
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div
+          className="flex min-w-0 shrink-0 items-center rounded-md px-1 py-1"
+          tabIndex={0}
+          aria-label={description}
+        >
+          {visibleChannels.length > 0 ? (
+            <AvatarGroup className="shrink-0 -space-x-1.5">
+              {visibleChannels.map((channel) => (
+                <SearchScopeAvatar key={channel.login} channel={channel} />
+              ))}
+              {hiddenCount > 0 ? (
+                <AvatarGroupCount className="size-6 text-[10px] font-medium">
+                  +{hiddenCount}
+                </AvatarGroupCount>
+              ) : null}
+            </AvatarGroup>
+          ) : (
+            <span className="truncate text-xs text-muted-foreground">
+              {emptyLabel}
             </span>
-          </button>
-        </li>
-      ))}
-    </ul>
+          )}
+        </div>
+      </TooltipTrigger>
+      <TooltipContent>{description}</TooltipContent>
+    </Tooltip>
   )
 }
 
@@ -177,11 +268,13 @@ function SearchResultsList({
   showChannelLabels,
   channelLabels,
   scrollKey,
+  onJumpToMessage,
 }: {
   results: ChatSearchResult[]
   showChannelLabels: boolean
   channelLabels: Map<string, string>
   scrollKey: string
+  onJumpToMessage: (message: TwitchChatMessage) => void
 }) {
   const parentRef = React.useRef<HTMLDivElement>(null)
   const {
@@ -205,6 +298,7 @@ function SearchResultsList({
     getScrollElement: () => parentRef.current,
     estimateSize: () => 52,
     overscan: 10,
+    paddingStart: SEARCH_RESULTS_PADDING_START_PX,
     useFlushSync: false,
     getItemKey: (index) => {
       const result = results[index]
@@ -263,6 +357,7 @@ function SearchResultsList({
                     ? (channelLabels.get(channelLogin) ?? channelLogin)
                     : null
                 }
+                onJumpToMessage={onJumpToMessage}
               />
             </div>
           )
@@ -328,10 +423,25 @@ export function ChannelSearch() {
   const [suggestionIndex, setSuggestionIndex] = React.useState(0)
   const inputRef = React.useRef<HTMLInputElement>(null)
   const { registerSearch } = useHotkeyRegistry()
-  const { channels, account, loginWithTwitch, config, activeChannelLogin } =
-    usePeepochatSettings()
-  const { visibleChannelLogins, isSplitView } = usePeepochatLayout()
-  const { playerChatLogin, playerViewActive } = usePeepochatPlayer()
+  const [inputFocused, setInputFocused] = React.useState(false)
+  const [suggestionsDismissed, setSuggestionsDismissed] = React.useState(false)
+  const {
+    channels,
+    account,
+    loginWithTwitch,
+    config,
+    activeChannelLogin,
+    setActiveChannel,
+  } = usePeepochatSettings()
+  const { visibleChannelLogins } = usePeepochatLayout()
+  const {
+    playerChatLogin,
+    playerViewActive,
+    playerMode,
+    watchedChannelLogins,
+    selectPlayer,
+    setPlayerChat,
+  } = usePeepochatPlayer()
   const {
     getComposerEmoteCatalog,
     getRoomId,
@@ -499,39 +609,79 @@ export function ChannelSearch() {
     config.chat.messageSeparators && "chat-presentation--message-separators"
   )
 
-  const scopeLabel = React.useMemo(() => {
-    const inFilters = parsed.filters.filter((filter) => filter.key === "in")
-    if (inFilters.some((filter) => isAllChannelsSearchValue(filter.value))) {
-      return "Searching all channels"
+  const channelProfileImages = React.useMemo(() => {
+    const map = new Map<string, string>()
+    for (const channel of channels) {
+      if (channel.profileImageUrl) {
+        map.set(normalizeChannelLogin(channel.login), channel.profileImageUrl)
+      }
     }
-    if (inFilters.length > 0 && searchChannelLogins.length === 0) {
-      return "No matching channel"
+    return map
+  }, [channels])
+
+  const scope = React.useMemo(() => {
+    const scopeChannels = searchChannelLogins.map((login) => ({
+      login,
+      displayName: channelLabels.get(login) ?? login,
+      profileImageUrl: channelProfileImages.get(login),
+    }))
+    const names = scopeChannels.map((channel) => channel.displayName)
+    const listedNames = names.slice(0, MAX_SCOPE_TOOLTIP_CHANNELS).join(", ")
+    const remainingNames = names.length - MAX_SCOPE_TOOLTIP_CHANNELS
+    const description =
+      remainingNames > 0
+        ? `Searching ${listedNames} and ${remainingNames} more`
+        : `Searching ${listedNames}`
+    const hasInFilter = parsed.filters.some((filter) => filter.key === "in")
+
+    if (scopeChannels.length === 0) {
+      return {
+        channels: scopeChannels,
+        emptyLabel: hasInFilter ? "No matching channel" : "No channels",
+        description: hasInFilter
+          ? "No channel matches this in: filter"
+          : "Add a channel to search chat",
+      }
     }
-    if (inFilters.length === 1) {
-      const login = searchChannelLogins[0]
-      const label = login
-        ? (channelLabels.get(login) ?? login)
-        : inFilters[0]!.value
-      return `Searching #${label}`
-    }
-    if (inFilters.length > 1) {
-      return `Searching ${searchChannelLogins.length} channels`
-    }
-    if (isSplitView && defaultChannelLogins.length > 1) {
-      return `Searching ${defaultChannelLogins.length} channels in this split`
-    }
-    const login = defaultChannelLogins[0]
-    if (!login) {
-      return "Add a channel to search chat"
-    }
-    return `Searching #${channelLabels.get(login) ?? login}`
-  }, [
-    channelLabels,
-    defaultChannelLogins,
-    isSplitView,
-    parsed.filters,
-    searchChannelLogins,
-  ])
+
+    return { channels: scopeChannels, emptyLabel: null, description }
+  }, [channelLabels, channelProfileImages, parsed.filters, searchChannelLogins])
+
+  const jumpToMessage = React.useCallback(
+    (message: TwitchChatMessage) => {
+      const login = normalizeChannelLogin(message.channel)
+      if (!login) {
+        return
+      }
+
+      if (!defaultChannelLogins.includes(login)) {
+        if (playerViewActive && watchedChannelLogins.includes(login)) {
+          if (playerMode === "sidebar") {
+            selectPlayer(login)
+          } else {
+            setPlayerChat(login)
+          }
+        } else if (channelLabels.has(login)) {
+          setActiveChannel(login)
+        } else {
+          return
+        }
+      }
+
+      setOpen(false)
+      requestChatMessageJump(login, message.id)
+    },
+    [
+      channelLabels,
+      defaultChannelLogins,
+      playerMode,
+      playerViewActive,
+      selectPlayer,
+      setActiveChannel,
+      setPlayerChat,
+      watchedChannelLogins,
+    ]
+  )
 
   const focusInput = React.useCallback((select = false) => {
     const input = inputRef.current
@@ -553,6 +703,7 @@ export function ChannelSearch() {
 
   const applyRemainderText = React.useCallback(
     (text: string, nextCursor?: number) => {
+      setSuggestionsDismissed(false)
       const split = splitCommittedSearchQuery(text)
       if (split.filters.length > 0) {
         setFilters((current) => [...current, ...split.filters])
@@ -626,10 +777,12 @@ export function ChannelSearch() {
     })
   }, [open, openSearch, registerSearch])
 
+  const visibleSuggestions =
+    inputFocused && !suggestionsDismissed ? suggestions : []
   const activeSuggestionIndex =
-    suggestions.length === 0
+    visibleSuggestions.length === 0
       ? 0
-      : Math.min(suggestionIndex, suggestions.length - 1)
+      : Math.min(suggestionIndex, visibleSuggestions.length - 1)
 
   const handleInputKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.nativeEvent.isComposing) {
@@ -647,35 +800,39 @@ export function ChannelSearch() {
       return
     }
 
-    if (suggestions.length > 0) {
-      if (event.key === "ArrowDown") {
+    if (visibleSuggestions.length === 0) {
+      if (
+        suggestions.length > 0 &&
+        event.key === "ArrowDown" &&
+        suggestionsDismissed
+      ) {
         event.preventDefault()
-        setSuggestionIndex((current) => {
-          if (suggestions.length === 0) {
-            return 0
-          }
-          const clamped = Math.min(current, suggestions.length - 1)
-          return clamped + 1 >= suggestions.length ? 0 : clamped + 1
-        })
-        return
+        setSuggestionsDismissed(false)
       }
-      if (event.key === "ArrowUp") {
+      return
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault()
+      setSuggestionIndex((current) => {
+        const clamped = Math.min(current, visibleSuggestions.length - 1)
+        return clamped + 1 >= visibleSuggestions.length ? 0 : clamped + 1
+      })
+      return
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault()
+      setSuggestionIndex((current) => {
+        const clamped = Math.min(current, visibleSuggestions.length - 1)
+        return clamped - 1 < 0 ? visibleSuggestions.length - 1 : clamped - 1
+      })
+      return
+    }
+    if (event.key === "Enter" || event.key === "Tab") {
+      const suggestion = visibleSuggestions[activeSuggestionIndex]
+      if (suggestion) {
         event.preventDefault()
-        setSuggestionIndex((current) => {
-          if (suggestions.length === 0) {
-            return 0
-          }
-          const clamped = Math.min(current, suggestions.length - 1)
-          return clamped - 1 < 0 ? suggestions.length - 1 : clamped - 1
-        })
-        return
-      }
-      if (event.key === "Enter" || event.key === "Tab") {
-        const suggestion = suggestions[activeSuggestionIndex]
-        if (suggestion) {
-          event.preventDefault()
-          applySuggestion(suggestion)
-        }
+        applySuggestion(suggestion)
       }
     }
   }
@@ -707,6 +864,12 @@ export function ChannelSearch() {
         data-hotkey-surface="search"
         showCloseButton={false}
         className="flex h-[calc(100dvh-1rem)] w-[calc(100%-1rem)] max-w-none flex-col gap-0 overflow-hidden p-0 sm:h-[min(36rem,70vh)] sm:w-[min(42rem,80vw)] sm:max-w-none"
+        onEscapeKeyDown={(event) => {
+          if (visibleSuggestions.length > 0) {
+            event.preventDefault()
+            setSuggestionsDismissed(true)
+          }
+        }}
         onOpenAutoFocus={(event) => {
           event.preventDefault()
           inputRef.current?.focus()
@@ -735,10 +898,21 @@ export function ChannelSearch() {
               and has:.
             </DialogDescription>
           </div>
-          <div className="flex min-w-0 items-center gap-1.5">
-            <p className="truncate text-xs text-muted-foreground">
-              {scopeLabel}
-            </p>
+          <div className="flex min-w-0 items-center gap-2">
+            {hasQuery ? (
+              <p
+                className="truncate text-xs text-muted-foreground tabular-nums"
+                aria-live="polite"
+              >
+                {results.length.toLocaleString()}{" "}
+                {results.length === 1 ? "result" : "results"}
+              </p>
+            ) : null}
+            <SearchScope
+              channels={scope.channels}
+              emptyLabel={scope.emptyLabel}
+              description={scope.description}
+            />
             <DialogClose asChild>
               <Button
                 type="button"
@@ -752,7 +926,7 @@ export function ChannelSearch() {
           </div>
         </div>
 
-        <div className="shrink-0 border-b border-border px-4 py-3">
+        <div className="relative z-10 shrink-0 border-b border-border px-4 py-3">
           <div
             className="flex min-h-9 cursor-text flex-wrap items-center gap-1 rounded-lg border border-input bg-transparent px-2 py-1 transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 dark:bg-input/30"
             onClick={() => inputRef.current?.focus()}
@@ -787,7 +961,7 @@ export function ChannelSearch() {
               role="combobox"
               aria-label="Search messages"
               aria-autocomplete="list"
-              aria-expanded={suggestions.length > 0}
+              aria-expanded={visibleSuggestions.length > 0}
               autoComplete="off"
               spellCheck={false}
               onChange={(event) => {
@@ -800,7 +974,13 @@ export function ChannelSearch() {
                 setRemainder(nextValue)
                 setCursor(event.target.selectionStart ?? nextValue.length)
                 setSuggestionIndex(0)
+                setSuggestionsDismissed(false)
               }}
+              onFocus={() => {
+                setInputFocused(true)
+                setSuggestionsDismissed(false)
+              }}
+              onBlur={() => setInputFocused(false)}
               onClick={(event) => {
                 event.stopPropagation()
                 setCursor(event.currentTarget.selectionStart ?? 0)
@@ -826,13 +1006,12 @@ export function ChannelSearch() {
               </Button>
             ) : null}
           </div>
+          <SearchSuggestions
+            suggestions={visibleSuggestions}
+            activeIndex={activeSuggestionIndex}
+            onSelect={applySuggestion}
+          />
         </div>
-
-        <SearchSuggestions
-          suggestions={suggestions}
-          activeIndex={activeSuggestionIndex}
-          onSelect={applySuggestion}
-        />
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <UserCardProvider
@@ -856,20 +1035,15 @@ export function ChannelSearch() {
                   style={presentationStyle}
                 >
                   {results.length > 0 ? (
-                    <>
-                      <div className="shrink-0 border-b border-border px-4 py-1.5 text-xs text-muted-foreground">
-                        {results.length}{" "}
-                        {results.length === 1 ? "result" : "results"}
-                      </div>
-                      <div className="min-h-0 flex-1">
-                        <SearchResultsList
-                          results={results}
-                          showChannelLabels={showChannelLabels}
-                          channelLabels={channelLabels}
-                          scrollKey={query}
-                        />
-                      </div>
-                    </>
+                    <div className="min-h-0 flex-1">
+                      <SearchResultsList
+                        results={results}
+                        showChannelLabels={showChannelLabels}
+                        channelLabels={channelLabels}
+                        scrollKey={query}
+                        onJumpToMessage={jumpToMessage}
+                      />
+                    </div>
                   ) : (
                     <SearchEmptyState
                       hasQuery={hasQuery}
