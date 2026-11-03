@@ -240,7 +240,7 @@ export function DeveloperTab() {
   } as const
 
   return (
-    <SettingsTab description="Local development tools. This tab is not included in production builds.">
+    <SettingsTab>
       <SettingsSection
         title="Notification center"
         description="Inject sample notifications without waiting for real chat or stream events."

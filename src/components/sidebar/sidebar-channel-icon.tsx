@@ -31,6 +31,18 @@ function SidebarLiveBadge() {
   )
 }
 
+/** Player active label overlaid on the bottom of the icon. */
+export function SidebarPlayingBadge() {
+  return (
+    <span
+      className="pointer-events-none absolute -bottom-1.5 left-1/2 z-20 -translate-x-1/2 rounded-full bg-primary px-1.5 py-0.5 text-[8px] leading-none font-bold tracking-wide text-primary-foreground uppercase ring-2 ring-sidebar"
+      aria-hidden
+    >
+      Playing
+    </span>
+  )
+}
+
 const indicatorShadow = "shadow-[0_0_0_1px_rgba(0,0,0,0.35)]"
 
 const indicatorTransition =
@@ -185,11 +197,13 @@ function splitClusterAvatarPosition(index: number, count: number) {
 
 export function SidebarSplitAvatarCluster({
   channels,
+  renderAvatar,
 }: {
   channels: Array<{
     login: string
     profileImageUrl?: string
   }>
+  renderAvatar?: (login: string) => React.ReactNode
 }) {
   const visible = channels.slice(0, 4)
   const count = visible.length
@@ -206,10 +220,14 @@ export function SidebarSplitAvatarCluster({
             splitClusterAvatarPosition(index, count)
           )}
         >
-          <SidebarChannelAvatar
-            login={channel.login}
-            profileImageUrl={channel.profileImageUrl}
-          />
+          {renderAvatar ? (
+            renderAvatar(channel.login)
+          ) : (
+            <SidebarChannelAvatar
+              login={channel.login}
+              profileImageUrl={channel.profileImageUrl}
+            />
+          )}
         </span>
       ))}
     </span>

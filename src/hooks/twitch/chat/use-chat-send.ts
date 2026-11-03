@@ -24,6 +24,7 @@ import {
 } from "@/lib/chat/send/send-notice"
 import { createRecentMessagesStatusMessage } from "@/lib/chat/threads/recent-messages"
 import type { TwitchAccount } from "@/lib/peepochat/peepochat-config"
+import { applyNicknameMentions } from "@/lib/chat/nicknames"
 import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 import type {
   TwitchChatClient,
@@ -86,9 +87,17 @@ export function useChatSend({
   const chatCommandActionsRef = React.useRef<
     Pick<ChatCommandContext, "blockUser" | "unblockUser">
   >({})
+  const nicknameMentionsRef = React.useRef<Map<string, string>>(new Map())
   const [channelSendBlocks, setChannelSendBlocks] = React.useState<
     Record<string, TwitchChannelSendBlock>
   >({})
+
+  const setNicknameMentions = React.useCallback(
+    (mentions: Map<string, string>) => {
+      nicknameMentionsRef.current = mentions
+    },
+    []
+  )
 
   React.useEffect(() => {
     channelSendBlocksRef.current = channelSendBlocks
@@ -439,7 +448,10 @@ export function useChatSend({
       options: { isAction?: boolean } = {}
     ): ChatSendResult => {
       const normalized = normalizeChannelLogin(login)
-      const text = message.replace(/\r?\n/g, " ").trim()
+      const text = applyNicknameMentions(
+        message.replace(/\r?\n/g, " ").trim(),
+        nicknameMentionsRef.current
+      )
       if (!text) {
         return { ok: false, reason: "empty" }
       }
@@ -593,6 +605,7 @@ export function useChatSend({
     handleSendSystemNotice,
     probeSendRestrictions,
     getChannelSendBlock,
+    setNicknameMentions,
     sendMessage,
     sendActionMessage,
     setChatCommandActions,

@@ -70,9 +70,11 @@ function ChatMessageRowInner({
   selfChatState,
   pingHighlighted = false,
   pingMatchRange = null,
+  jumpHighlighted = false,
   searchHighlightRanges = null,
   usernameHighlightRanges = null,
   channelLabel = null,
+  onJumpToMessage,
 }: {
   message: TwitchChatMessage
   timestampFormat: MessageTimestampFormat
@@ -90,9 +92,11 @@ function ChatMessageRowInner({
   selfChatState: TwitchSelfChatState | null
   pingHighlighted?: boolean
   pingMatchRange?: PingMatchRange | null
+  jumpHighlighted?: boolean
   searchHighlightRanges?: PingMatchRange[] | null
   usernameHighlightRanges?: PingMatchRange[] | null
   channelLabel?: string | null
+  onJumpToMessage?: (message: TwitchChatMessage) => void
 }) {
   const [pendingAction, setPendingAction] = React.useState<
     "delete" | "timeout" | "ban" | null
@@ -150,6 +154,7 @@ function ChatMessageRowInner({
   const showBanButton = messageQuickActions.banEnabled && canBanOrTimeout
   const showReplyButton = messageQuickActions.replyEnabled && !isDeleted
   const showQuickActions =
+    onJumpToMessage !== undefined ||
     messageQuickActions.copyEnabled ||
     showReplyButton ||
     canDeleteMessage ||
@@ -386,6 +391,7 @@ function ChatMessageRowInner({
         isHistorical && "chat-message--historical",
         isAlternateRow && "chat-message--alternate",
         pingHighlighted && "chat-message--ping-highlight",
+        jumpHighlighted && "chat-message--jump-highlight",
         isDeleted &&
           deletedMessagesBehavior !== "remove" &&
           "chat-message--historical",
@@ -400,6 +406,18 @@ function ChatMessageRowInner({
       {showQuickActions ? (
         <div className="pointer-events-none absolute top-0 right-2 z-10 -translate-y-1/2 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100">
           <div className="pointer-events-auto flex cursor-pointer items-center gap-1 rounded-md bg-background/80 p-0.5 shadow-sm ring-1 ring-border/40 backdrop-blur-sm">
+            {onJumpToMessage ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="xs"
+                aria-label="Jump to message"
+                className={QUICK_ACTION_BUTTON_CLASS}
+                onClick={() => onJumpToMessage(message)}
+              >
+                Jump
+              </Button>
+            ) : null}
             {messageQuickActions.copyEnabled ? (
               <Button
                 type="button"

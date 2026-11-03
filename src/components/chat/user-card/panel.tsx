@@ -678,43 +678,45 @@ export function UserCardPanel({
             <div
               className={cn("space-y-4 p-4", !profile?.description && "pt-3")}
             >
-              {profile?.description ? (
-                <InfoTile label="Bio" value={profile.description} />
-              ) : null}
+              <div className="space-y-2">
+                {profile?.description ? (
+                  <InfoTile label="Bio" value={profile.description} />
+                ) : null}
 
-              <div
-                className={cn(
-                  "grid gap-2 text-xs",
-                  userType ? "grid-cols-3" : "grid-cols-2"
-                )}
-              >
-                {isProfileLoading ? (
-                  <InfoTileSkeleton />
-                ) : createdAt ? (
-                  <InfoTile
-                    icon={<CalendarDaysIcon className="size-3" />}
-                    label="Created"
-                    value={createdAt}
-                  />
-                ) : null}
-                {isChannelStatusLoading ? (
-                  <InfoTileSkeleton />
-                ) : (
-                  <InfoTile
-                    icon={<SparklesIcon className="size-3" />}
-                    label="Subscription"
-                    value={subscriptionLabel}
-                  />
-                )}
-                {isProfileLoading ? (
-                  <InfoTileSkeleton />
-                ) : userType ? (
-                  <InfoTile
-                    icon={<UsersIcon className="size-3" />}
-                    label="User Type"
-                    value={userType}
-                  />
-                ) : null}
+                <div
+                  className={cn(
+                    "grid gap-2 text-xs",
+                    userType ? "grid-cols-3" : "grid-cols-2"
+                  )}
+                >
+                  {isProfileLoading ? (
+                    <InfoTileSkeleton />
+                  ) : createdAt ? (
+                    <InfoTile
+                      icon={<CalendarDaysIcon className="size-3" />}
+                      label="Created"
+                      value={createdAt}
+                    />
+                  ) : null}
+                  {isChannelStatusLoading ? (
+                    <InfoTileSkeleton />
+                  ) : (
+                    <InfoTile
+                      icon={<SparklesIcon className="size-3" />}
+                      label="Subscription"
+                      value={subscriptionLabel}
+                    />
+                  )}
+                  {isProfileLoading ? (
+                    <InfoTileSkeleton />
+                  ) : userType ? (
+                    <InfoTile
+                      icon={<UsersIcon className="size-3" />}
+                      label="User Type"
+                      value={userType}
+                    />
+                  ) : null}
+                </div>
               </div>
 
               <div className="space-y-2">

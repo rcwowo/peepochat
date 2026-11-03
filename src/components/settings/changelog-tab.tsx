@@ -3,7 +3,6 @@ import * as React from "react"
 import {
   type ChangelogEntry,
   CHANGELOG,
-  getAppVersion,
   markVersionSeen,
 } from "@/lib/changelog"
 import { Badge } from "@/components/ui/badge"
@@ -15,9 +14,7 @@ export function ChangelogTab() {
   }, [])
 
   return (
-    <SettingsTab
-      description={`You're on version ${getAppVersion()}. Here's what changed in recent releases.`}
-    >
+    <SettingsTab>
       <div className="space-y-5">
         {CHANGELOG.map((entry) => (
           <ChangelogSection key={entry.version} entry={entry} />

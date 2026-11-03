@@ -471,6 +471,16 @@
     background: color-mix(in oklch, var(--primary) 20%, var(--chat-row-alt));
   }
 
+  .chat-message--jump-highlight::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: color-mix(in oklch, var(--primary) 22%, transparent);
+    box-shadow: inset 3px 0 0 var(--primary);
+    animation: chat-jump-highlight 2.4s ease-out forwards;
+  }
+
   .chat-presentation--message-separators .chat-message {
     border-bottom: 1px solid var(--chat-row-separator);
   }
@@ -644,6 +654,17 @@
 
 @utility animate-landing-mockup-float {
   animation: landing-mockup-float 7s ease-in-out infinite;
+}
+
+@keyframes chat-jump-highlight {
+  0%,
+  45% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
 }
 
 @keyframes about-badge-float {

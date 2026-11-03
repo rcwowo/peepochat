@@ -4,6 +4,7 @@ import {
   InfoIcon,
   PaintbrushIcon,
   MessageSquareIcon,
+  PenLineIcon,
   MonitorPlayIcon,
   ScrollTextIcon,
   CircleHelpIcon,
@@ -29,6 +30,7 @@ import { ChangelogTab } from "@/components/settings/changelog-tab"
 import { HelpTab } from "@/components/settings/help-tab"
 import { DataManagementTab } from "@/components/settings/data-management-tab"
 import { HighlightsTab } from "@/components/settings/highlights-tab"
+import { NicknamesTab } from "@/components/settings/nicknames-tab"
 import { PlayerTab } from "@/components/settings/player-tab"
 import { IS_DEV } from "@/lib/dev/is-dev"
 import {
@@ -46,6 +48,7 @@ const DeveloperTab = IS_DEV
 export type SettingsCategory =
   | "appearance"
   | "chat"
+  | "nicknames"
   | "highlights"
   | "player"
   | "data"
@@ -58,28 +61,80 @@ type SettingsCategoryEntry = {
   id: SettingsCategory
   label: string
   icon: React.ComponentType<{ className?: string }>
+  description?: string | (() => string)
 }
 
 const PREFERENCE_CATEGORIES: SettingsCategoryEntry[] = [
-  { id: "appearance", label: "Appearance", icon: PaintbrushIcon },
-  { id: "chat", label: "Chat", icon: MessageSquareIcon },
-  { id: "player", label: "Player", icon: MonitorPlayIcon },
-  { id: "highlights", label: "Highlights", icon: BellIcon },
-  { id: "data", label: "Data Management", icon: DatabaseIcon },
+  {
+    id: "appearance",
+    label: "Appearance",
+    icon: PaintbrushIcon,
+    description: "Theme, colors, and the overall look of the client.",
+  },
+  {
+    id: "chat",
+    label: "Chat",
+    icon: MessageSquareIcon,
+    description: "How chat panes behave and what appears in them.",
+  },
+  {
+    id: "nicknames",
+    label: "Nicknames",
+    icon: PenLineIcon,
+    description:
+      "Set unique nicknames for users in chat. Mentions will appear normally for everyone else.",
+  },
+  {
+    id: "player",
+    label: "Player",
+    icon: MonitorPlayIcon,
+    description: "Playback and layout options for watching streams.",
+  },
+  {
+    id: "highlights",
+    label: "Notifications",
+    icon: BellIcon,
+    description: "How indicators, pings, and notifications behave.",
+  },
+  {
+    id: "data",
+    label: "Data Management",
+    icon: DatabaseIcon,
+    description: "Backup, restore, or delete your Peepochat data.",
+  },
   ...(IS_DEV
-    ? [{ id: "developer" as const, label: "Developer", icon: CodeIcon }]
+    ? [
+        {
+          id: "developer" as const,
+          label: "Developer",
+          icon: CodeIcon,
+          description: "Hello there, developer!",
+        },
+      ]
     : []),
 ]
 
 const RESOURCE_CATEGORIES: SettingsCategoryEntry[] = [
-  { id: "changelog", label: "Changelog", icon: ScrollTextIcon },
-  { id: "help", label: "Help", icon: CircleHelpIcon },
+  {
+    id: "changelog",
+    label: "Changelog",
+    icon: ScrollTextIcon,
+    description: () =>
+      `You're on version ${getAppVersion()}. Here's what changed in recent releases.`,
+  },
+  {
+    id: "help",
+    label: "Help",
+    icon: CircleHelpIcon,
+    description: "Wiki links and keyboard shortcuts.",
+  },
 ]
 
 const ABOUT_CATEGORY = {
   id: "about",
   label: "About",
   icon: InfoIcon,
+  description: "Version info, credits, and support links.",
 } satisfies SettingsCategoryEntry
 
 function NavRowButton({
@@ -199,6 +254,15 @@ export function SettingsDialog({
     element?.scrollIntoView({ block: "nearest", inline: "nearest" })
   }
 
+  const activeEntry =
+    [...PREFERENCE_CATEGORIES, ...RESOURCE_CATEGORIES, ABOUT_CATEGORY].find(
+      (category) => category.id === activeCategory
+    ) ?? null
+  const activeDescription =
+    typeof activeEntry?.description === "function"
+      ? activeEntry.description()
+      : activeEntry?.description
+
   return (
     <Sheet open={open} onOpenChange={handleOpenChange} modal={false}>
       <SheetContent
@@ -269,7 +333,7 @@ export function SettingsDialog({
             />
           </div>
 
-          <div className="relative min-h-0 min-w-0 flex-1">
+          <div className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col">
             <SheetClose asChild>
               <Button
                 variant="ghost"
@@ -281,9 +345,25 @@ export function SettingsDialog({
               </Button>
             </SheetClose>
 
+            {activeEntry?.id !== "about" ? (
+              <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-4 pt-3 pb-3 sm:px-5 sm:pt-4 sm:pb-4">
+                <div className="min-w-0">
+                  <h2 className="text-base leading-tight font-semibold sm:text-lg">
+                    {activeEntry?.label}
+                  </h2>
+                  {activeDescription ? (
+                    <p className="mt-1 max-w-lg text-xs leading-relaxed text-muted-foreground sm:text-[13px]">
+                      {activeDescription}
+                    </p>
+                  ) : null}
+                </div>
+                <div aria-hidden className="shrink-0" />
+              </div>
+            ) : null}
+
             <div
               ref={scrollRef}
-              className="h-full overflow-y-auto overscroll-contain p-4 sm:p-5"
+              className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5"
             >
               <div
                 key={activeCategory}
@@ -291,6 +371,7 @@ export function SettingsDialog({
               >
                 {activeCategory === "appearance" && <AppearanceTab />}
                 {activeCategory === "chat" && <ChatTab />}
+                {activeCategory === "nicknames" && <NicknamesTab />}
                 {activeCategory === "player" && <PlayerTab />}
                 {activeCategory === "highlights" && <HighlightsTab />}
                 {activeCategory === "data" && <DataManagementTab />}

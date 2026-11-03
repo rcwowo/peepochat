@@ -10,7 +10,7 @@ const LEARN_MORE_ITEMS = [
     question: "Is Peepochat open source?",
     answer: (
       <>
-        Yes! The project originally started as a fork of it's parent project,{" "}
+        Yes! The project originally started as a fork of its parent project,{" "}
         <a
           href="https://chatvoice.rcw.lol"
           target="_blank"
@@ -83,7 +83,7 @@ const LEARN_MORE_ITEMS = [
     answer: (
       <>
         You can help support the project in one of two ways: contributing to the
-        development and maintainance of the project, or by becoming an OwO+
+        development and maintenance of the project, or by becoming an OwO+
         member on my{" "}
         <a
           href="https://patreon.com/rcwowo"

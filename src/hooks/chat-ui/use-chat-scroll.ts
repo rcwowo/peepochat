@@ -102,6 +102,8 @@ export function useChatScroll<T extends TwitchTimelineItem>({
   const resizeScrollGuardUntilRef = React.useRef(0)
   const touchStartYRef = React.useRef<number | null>(null)
   const userPauseIntentRef = React.useRef(false)
+  const pendingJumpMessageIdRef = React.useRef<string | null>(null)
+  const [jumpRequestCount, setJumpRequestCount] = React.useState(0)
   const [isScrollPaused, setIsScrollPaused] = React.useState(false)
   const [isResuming, setIsResuming] = React.useState(false)
   const [pausedTimeline, setPausedTimeline] = React.useState<T[] | null>(null)
@@ -133,6 +135,7 @@ export function useChatScroll<T extends TwitchTimelineItem>({
     isScrollPausedRef.current = false
     userPauseIntentRef.current = false
     pendingScrollBehaviorRef.current = "auto"
+    pendingJumpMessageIdRef.current = null
     listPaddingStartRef.current = LIST_EDGE_PADDING_PX
     setListPaddingStart(LIST_EDGE_PADDING_PX)
   }
@@ -398,6 +401,50 @@ export function useChatScroll<T extends TwitchTimelineItem>({
     },
     [finishResumeScroll, markProgrammaticScroll, virtualizer]
   )
+
+  const jumpToMessage = React.useCallback(
+    (messageId: string) => {
+      const snapshot = timelineRef.current
+      if (!snapshot.some((entry) => entry.message.id === messageId)) {
+        return false
+      }
+
+      clearPinnedScrollSettle()
+      if (isResumeScrollRef.current) {
+        isResumeScrollRef.current = false
+        isProgrammaticScrollRef.current = false
+        clearProgrammaticScroll()
+        setIsResuming(false)
+      }
+
+      isPinnedRef.current = false
+      userPauseIntentRef.current = true
+      isScrollPausedRef.current = true
+      pendingJumpMessageIdRef.current = messageId
+      setIsScrollPaused(true)
+      setPausedTimeline(snapshot)
+      setJumpRequestCount((count) => count + 1)
+      return true
+    },
+    [clearPinnedScrollSettle, clearProgrammaticScroll]
+  )
+
+  React.useLayoutEffect(() => {
+    const messageId = pendingJumpMessageIdRef.current
+    if (messageId === null || jumpRequestCount === 0) {
+      return
+    }
+
+    pendingJumpMessageIdRef.current = null
+    const index = displayedTimeline.findIndex(
+      (entry) => entry.message.id === messageId
+    )
+    if (index === -1) {
+      return
+    }
+
+    virtualizer.scrollToIndex(index, { align: "center" })
+  }, [displayedTimeline, jumpRequestCount, virtualizer])
 
   const handleChatScroll = React.useCallback(
     (event: React.UIEvent<HTMLDivElement>) => {
@@ -768,6 +815,7 @@ export function useChatScroll<T extends TwitchTimelineItem>({
     isScrollPaused: isScrollPaused && !isResuming,
     handleChatScroll,
     resumeScroll,
+    jumpToMessage,
     notifyComposerResize,
   }
 }

@@ -14,6 +14,11 @@ import {
 } from "@/lib/sidebar/sidebar-order"
 import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 import { listEmbeddedCustomSounds } from "@/lib/highlights/custom-sounds"
+import {
+  NICKNAME_MAX_LENGTH,
+  isValidNickname,
+  isValidTwitchLogin,
+} from "@/lib/chat/nicknames"
 
 export const PEEPOCHAT_STORAGE_KEY = "peepochat::config"
 /** Copy of the previous known-good config, used to recover corrupt writes. */
@@ -147,8 +152,13 @@ const highlightsSchema = z.object({
   pings: z.array(highlightPingRuleSchema).default([]),
 })
 
+const playerModeSchema = z.enum(["multi", "sidebar", "classic"])
+const playerMultiAudioSchema = z.enum(["first", "all", "muted"])
+
 const playerSchema = z
   .object({
+    mode: playerModeSchema.default("multi"),
+    multiAudio: playerMultiAudioSchema.default("first"),
     backgroundPlaybackEnabled: z.boolean().default(true),
     hideStreamInfoEnabled: z.boolean().default(false),
     desktopSizePercent: z
@@ -158,10 +168,29 @@ const playerSchema = z
       .default(PLAYER_DESKTOP_SIZE_DEFAULT),
   })
   .default({
+    mode: "multi",
+    multiAudio: "first",
     backgroundPlaybackEnabled: true,
     hideStreamInfoEnabled: false,
     desktopSizePercent: PLAYER_DESKTOP_SIZE_DEFAULT,
   })
+
+const nicknameEntrySchema = z.object({
+  login: z
+    .string()
+    .min(1)
+    .refine(isValidTwitchLogin, "invalid Twitch username"),
+  nickname: z
+    .string()
+    .max(NICKNAME_MAX_LENGTH)
+    .refine(isValidNickname, "invalid nickname"),
+})
+
+const nicknamesSchema = z
+  .object({
+    entries: z.array(nicknameEntrySchema).default([]),
+  })
+  .default({ entries: [] })
 
 const chatSplitLayoutNodeSchema: z.ZodType<ChatSplitLayoutNode> = z.lazy(() =>
   z.discriminatedUnion("type", [
@@ -228,6 +257,7 @@ const appConfigSchema = z.object({
   twitch: twitchSchema,
   chat: chatSchema,
   layout: chatLayoutSchema,
+  nicknames: nicknamesSchema,
   highlights: highlightsSchema.default({
     unreadIndicatorsEnabled: true,
     liveIndicatorsEnabled: true,
@@ -256,6 +286,8 @@ const backupEnvelopeSchema = z.object({
 export type HighlightPingRule = z.infer<typeof highlightPingRuleSchema>
 export type HighlightsConfig = z.infer<typeof highlightsSchema>
 export type PlayerConfig = z.infer<typeof playerSchema>
+export type PlayerMode = z.infer<typeof playerModeSchema>
+export type PlayerMultiAudio = z.infer<typeof playerMultiAudioSchema>
 export type MessageTimestampFormat = z.infer<
   typeof messageTimestampFormatSchema
 >
@@ -272,6 +304,8 @@ export type GifMessageAppearance = z.infer<typeof gifMessageAppearanceSchema>
 export type ChatModesVisibility = z.infer<typeof chatModesVisibilitySchema>
 export type ChatStreamInfoConfig = z.infer<typeof chatStreamInfoSchema>
 export type ChatSplit = z.infer<typeof chatSplitSchema>
+export type NicknameEntry = z.infer<typeof nicknameEntrySchema>
+export type NicknamesConfig = z.infer<typeof nicknamesSchema>
 export type {
   ChatSplitLayoutChild,
   ChatSplitLayoutNode,
@@ -366,9 +400,14 @@ export function createDefaultConfig(): AppConfig {
       pings: [],
     },
     player: {
+      mode: "multi",
+      multiAudio: "first",
       backgroundPlaybackEnabled: true,
       hideStreamInfoEnabled: false,
       desktopSizePercent: PLAYER_DESKTOP_SIZE_DEFAULT,
+    },
+    nicknames: {
+      entries: [],
     },
   }
 }
@@ -1136,6 +1175,25 @@ function normalizeConfig(config: AppConfig): AppConfig {
 
   const rawHighlights = config.highlights as Record<string, unknown> | undefined
 
+  const seenNicknameLogins = new Set<string>()
+  const seenNicknames = new Set<string>()
+  const nicknames = {
+    entries: (config.nicknames?.entries ?? []).flatMap((entry) => {
+      const login = entry.login.trim().toLowerCase()
+      const nickname = entry.nickname.trim()
+      if (!login || !nickname || seenNicknameLogins.has(login)) {
+        return []
+      }
+      if (seenNicknames.has(nickname.toLowerCase())) {
+        return []
+      }
+
+      seenNicknameLogins.add(login)
+      seenNicknames.add(nickname.toLowerCase())
+      return [{ login, nickname }]
+    }),
+  }
+
   const highlights = {
     ...createDefaultConfig().highlights,
     ...config.highlights,
@@ -1176,6 +1234,7 @@ function normalizeConfig(config: AppConfig): AppConfig {
     twitch,
     chat,
     highlights,
+    nicknames,
     layout: {
       activeSplitId,
       splits,

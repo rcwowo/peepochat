@@ -71,7 +71,7 @@ export function ChatTab() {
   }
 
   return (
-    <SettingsTab description="How the message feed behaves and what appears in it.">
+    <SettingsTab>
       <SettingsSection
         title="Feed"
         description="Message flow and limits for every channel view."

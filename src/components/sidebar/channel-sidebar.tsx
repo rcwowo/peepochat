@@ -19,6 +19,7 @@ import {
   SidebarChannelRow,
   SidebarIconTile,
   SidebarPingBadge,
+  SidebarPlayingBadge,
   SidebarSplitAvatarCluster,
 } from "@/components/sidebar/sidebar-channel-icon"
 import {
@@ -34,7 +35,7 @@ import {
   isLiveNotificationsEnabledForSplit,
 } from "@/lib/peepochat/peepochat-config"
 import { getSidebarEntries } from "@/lib/sidebar/sidebar-entries"
-import { usePlayerChannelData } from "@/hooks/twitch/player/use-player-channel-data"
+import { useWatchedChannel } from "@/hooks/player/use-watched-channel"
 import { formatViewerCount } from "@/lib/twitch/channel/stream-display"
 import { Button } from "@/components/ui/button"
 import {
@@ -115,21 +116,26 @@ function SplitTooltipChannelRow({
   )
 }
 
-function PlayerTooltipContent({
+function WatchedChannelAvatar({
   login,
-  displayName,
-  profileImageUrl,
-  viewerCount,
-  startedAt,
+  className,
 }: {
   login: string
-  displayName?: string
-  profileImageUrl?: string
-  viewerCount: number | null
-  startedAt?: string
+  className?: string
 }) {
-  const uptime = useStreamUptime(startedAt)
-  const label = channelLabel(login, displayName)
+  const { profileImageUrl } = useWatchedChannel(login)
+  return (
+    <SidebarChannelAvatar
+      className={className}
+      login={login}
+      profileImageUrl={profileImageUrl}
+    />
+  )
+}
+
+function PlayerTooltipRow({ login }: { login: string }) {
+  const { displayName, profileImageUrl, stream } = useWatchedChannel(login)
+  const uptime = useStreamUptime(stream?.startedAt)
 
   return (
     <div className="flex min-w-0 flex-col gap-1.5 py-0.5">
@@ -140,13 +146,13 @@ function PlayerTooltipContent({
             profileImageUrl={profileImageUrl}
           />
         </span>
-        <span className="min-w-0 truncate">{label}</span>
+        <span className="min-w-0 truncate">{displayName}</span>
       </div>
-      {viewerCount !== null ? (
+      {stream ? (
         <div className="flex items-center gap-2.5 tabular-nums">
           <span className="flex items-center gap-1 text-red-500">
             <EyeIcon className="size-3" aria-hidden />
-            {formatViewerCount(viewerCount)}
+            {formatViewerCount(stream.viewerCount)}
           </span>
           {uptime ? (
             <span className="flex items-center gap-1">
@@ -162,22 +168,47 @@ function PlayerTooltipContent({
   )
 }
 
-function PlayerSidebarButton({
+function CloseStreamMenuItem({
   login,
-  isActive,
-  onSelect,
   onClose,
 }: {
   login: string
-  isActive: boolean
-  onSelect: () => void
-  onClose: () => void
+  onClose: (login: string) => void
 }) {
-  const { account, channels } = usePeepochatSettings()
-  const { user, stream } = usePlayerChannelData(login, account)
-  const savedChannel = channels.find((channel) => channel.login === login)
+  const { displayName } = useWatchedChannel(login)
+  return (
+    <MenuPanelItem
+      icon={XIcon}
+      label={`Close ${displayName}`}
+      onSelect={() => onClose(login)}
+    />
+  )
+}
+
+function PlayerSidebarButton({
+  logins,
+  isActive,
+  playing,
+  perChannel,
+  onSelect,
+  onCloseStream,
+  onCloseAll,
+}: {
+  logins: string[]
+  isActive: boolean
+  playing: boolean
+  perChannel: boolean
+  onSelect: () => void
+  onCloseStream: (login: string) => void
+  onCloseAll: () => void
+}) {
   const [tooltipOpen, setTooltipOpen] = React.useState(false)
   const suppressTooltipUntilLeaveRef = React.useRef(false)
+  const isGroup = logins.length > 1
+  const { displayName } = useWatchedChannel(logins[0])
+  const label = perChannel
+    ? `Open ${displayName} stream`
+    : "Open Peepochat Player"
 
   const handleTooltipOpenChange = React.useCallback((open: boolean) => {
     if (open && suppressTooltipUntilLeaveRef.current) {
@@ -196,48 +227,83 @@ function PlayerSidebarButton({
     setTooltipOpen(false)
   }, [])
 
+  const renderClusterAvatar = React.useCallback(
+    (login: string) => <WatchedChannelAvatar login={login} />,
+    []
+  )
+
   return (
     <SidebarChannelRow isActive={isActive} showUnread={false}>
       <ContextMenu onOpenChange={suppressTooltip}>
         <Tooltip open={tooltipOpen} onOpenChange={handleTooltipOpenChange}>
           <ContextMenuTrigger asChild>
             <TooltipTrigger asChild>
-              <Button
-                type="button"
-                size="icon"
-                aria-current={isActive ? "true" : undefined}
-                aria-label="Open Peepochat Player"
-                className="size-11 shrink-0 rounded-full shine border-2 bg-transparent hover:bg-transparent hover:brightness-110"
-                onClick={onSelect}
-                onContextMenu={suppressTooltip}
-                onPointerLeave={handlePointerLeave}
-              >
-                <PlayIcon className="size-5 fill-current" />
-              </Button>
+              <span className="relative block size-11 shrink-0">
+                <Button
+                  type="button"
+                  size="icon"
+                  aria-current={isActive ? "true" : undefined}
+                  aria-label={label}
+                  data-player-button=""
+                  className={cn(
+                    "size-11 shrink-0 overflow-hidden rounded-full bg-secondary ring-2 hover:brightness-110",
+                    playing ? "ring-primary" : "ring-primary/35"
+                  )}
+                  onClick={onSelect}
+                  onContextMenu={suppressTooltip}
+                  onPointerLeave={handlePointerLeave}
+                >
+                  {isGroup ? (
+                    <SidebarSplitAvatarCluster
+                      channels={logins.map((login) => ({ login }))}
+                      renderAvatar={renderClusterAvatar}
+                    />
+                  ) : (
+                    <WatchedChannelAvatar
+                      className="overflow-hidden"
+                      login={logins[0]}
+                    />
+                  )}
+                </Button>
+                {playing ? <SidebarPlayingBadge /> : null}
+              </span>
             </TooltipTrigger>
           </ContextMenuTrigger>
           <TooltipContent
             side="right"
-            className="flex flex-col items-stretch px-2.5 py-2"
+            className="flex flex-col items-stretch gap-1.5 px-2.5 py-2"
           >
-            <PlayerTooltipContent
-              login={login}
-              displayName={user?.displayName || savedChannel?.displayName}
-              profileImageUrl={
-                user?.profileImageUrl || savedChannel?.profileImageUrl
-              }
-              viewerCount={stream?.viewerCount ?? null}
-              startedAt={stream?.startedAt}
-            />
+            {logins.map((login) => (
+              <PlayerTooltipRow key={login} login={login} />
+            ))}
           </TooltipContent>
         </Tooltip>
         <ContextMenuContent className={menuPanelContentClassName()}>
           <MenuPanelProvider kind="context">
-            <MenuPanelItem
-              icon={XIcon}
-              label="Close player"
-              onSelect={onClose}
-            />
+            {isGroup ? (
+              <>
+                {logins.map((login) => (
+                  <CloseStreamMenuItem
+                    key={login}
+                    login={login}
+                    onClose={onCloseStream}
+                  />
+                ))}
+                <MenuPanelSeparator />
+                <MenuPanelItem
+                  icon={XIcon}
+                  label="Close all streams"
+                  variant="destructive"
+                  onSelect={onCloseAll}
+                />
+              </>
+            ) : (
+              <MenuPanelItem
+                icon={XIcon}
+                label="Close player"
+                onSelect={() => onCloseStream(logins[0])}
+              />
+            )}
           </MenuPanelProvider>
         </ContextMenuContent>
       </ContextMenu>
@@ -435,8 +501,7 @@ function ChannelContextMenu({
                   : []),
                 {
                   icon: PlayIcon,
-                  label: "Watch",
-                  disabled: isWatching,
+                  label: isWatching ? "Go to stream" : "Watch",
                   onSelect: onWatch,
                 },
               ]}
@@ -615,11 +680,14 @@ export function ChannelSidebar({ onAddChannel }: { onAddChannel: () => void }) {
     reorderSidebar,
   } = usePeepochatLayout()
   const {
-    playerChannelLogin,
+    playerMode,
+    watchedChannelLogins,
+    focusedPlayerLogin,
     playerViewActive,
     openPlayer,
     selectPlayer,
     closePlayer,
+    closeAllPlayers,
   } = usePeepochatPlayer()
 
   const splitById = React.useMemo(
@@ -727,6 +795,7 @@ export function ChannelSidebar({ onAddChannel }: { onAddChannel: () => void }) {
     <Button
       variant="outline"
       size="icon"
+      data-add-channel=""
       className="size-11 shrink-0 rounded-full"
       onClick={onAddChannel}
     >
@@ -735,14 +804,31 @@ export function ChannelSidebar({ onAddChannel }: { onAddChannel: () => void }) {
     </Button>
   )
 
-  const playerButton = playerChannelLogin ? (
-    <PlayerSidebarButton
-      login={playerChannelLogin}
-      isActive={playerViewActive}
-      onSelect={selectPlayer}
-      onClose={closePlayer}
-    />
-  ) : null
+  const playerButtons =
+    watchedChannelLogins.length === 0 ? null : playerMode !== "multi" ? (
+      watchedChannelLogins.map((login) => (
+        <PlayerSidebarButton
+          key={login}
+          logins={[login]}
+          isActive={playerViewActive && focusedPlayerLogin === login}
+          playing={focusedPlayerLogin === login}
+          perChannel
+          onSelect={() => selectPlayer(login)}
+          onCloseStream={closePlayer}
+          onCloseAll={closeAllPlayers}
+        />
+      ))
+    ) : (
+      <PlayerSidebarButton
+        logins={watchedChannelLogins}
+        isActive={playerViewActive}
+        playing
+        perChannel={false}
+        onSelect={() => selectPlayer()}
+        onCloseStream={closePlayer}
+        onCloseAll={closeAllPlayers}
+      />
+    )
 
   return (
     <>
@@ -751,19 +837,16 @@ export function ChannelSidebar({ onAddChannel }: { onAddChannel: () => void }) {
         className="overflow-visible border-r border-sidebar-border"
       >
         <SidebarContent className="min-h-0 flex-1 overflow-visible">
-          {playerButton ? (
-            <div className="flex shrink-0 flex-col items-center pt-3">
-              {playerButton}
-              <div
-                className="mt-3 mb-3 h-px w-10 bg-sidebar-border"
-                aria-hidden
-              />
+          {playerButtons ? (
+            <div className="flex shrink-0 flex-col items-center gap-3 pt-3">
+              {playerButtons}
+              <div className="mb-3 h-px w-10 bg-sidebar-border" aria-hidden />
             </div>
           ) : null}
           <SidebarGroup
             className={cn(
               "min-h-0 flex-1 overflow-x-visible overflow-y-auto px-0 group-data-[collapsible=icon]:overflow-x-visible group-data-[collapsible=icon]:overflow-y-auto",
-              playerButton ? "pt-0 pb-3" : "py-3"
+              playerButtons ? "pt-0 pb-3" : "py-3"
             )}
           >
             <SidebarGroupContent className="flex flex-col items-stretch">
@@ -851,7 +934,9 @@ export function ChannelSidebar({ onAddChannel }: { onAddChannel: () => void }) {
                       showUnread={showUnread}
                       showPing={showPing}
                       showLive={isChannelLive(entry.channel.login)}
-                      isWatching={playerChannelLogin === entry.channel.login}
+                      isWatching={watchedChannelLogins.includes(
+                        entry.channel.login
+                      )}
                       canAddToActiveSplit={
                         isSplitView &&
                         Boolean(activeSplitId) &&

@@ -1,4 +1,5 @@
 import { useResolvedUsernameColor } from "@/hooks/chat-ui/use-resolved-username-color"
+import { useNicknameForLogin } from "@/hooks/chat-ui/use-nickname-for-login"
 
 export function ChatUsername({
   displayName,
@@ -13,6 +14,7 @@ export function ChatUsername({
   userName?: string | null
   className?: string
 }) {
+  const nickname = useNicknameForLogin(userName)
   const readableColor = useResolvedUsernameColor({
     channelLogin,
     userName,
@@ -24,7 +26,7 @@ export function ChatUsername({
       className={className}
       style={readableColor ? { color: readableColor } : undefined}
     >
-      {displayName}
+      {nickname ?? displayName}
     </span>
   )
 }

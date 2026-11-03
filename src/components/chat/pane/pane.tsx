@@ -8,6 +8,7 @@ import {
   UsersIcon,
   XIcon,
 } from "lucide-react"
+import { toast } from "sonner"
 
 import { ChatComposer } from "@/components/chat/composer/composer"
 import { ChatChattersPanel } from "@/components/chat/panels/chatters-panel"
@@ -25,6 +26,10 @@ import {
   ChatPaneLiveInfoBar,
   ChatPaneStreamInfoToggle,
 } from "@/components/chat/pane/pane-live"
+import {
+  ChatSwitcherMenu,
+  type ChatSwitcherConfig,
+} from "@/components/player/chat-switcher"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -71,6 +76,10 @@ import {
 } from "@/lib/chat/presentation/row-stripes"
 import { getChatPresentationMetrics } from "@/lib/chat/presentation/presentation-style"
 import { useChatScroll } from "@/hooks/chat-ui/use-chat-scroll"
+import {
+  subscribeToChatMessageJumps,
+  takeChatMessageJump,
+} from "@/lib/chat/threads/message-jump"
 import { useHotkeyRegistry } from "@/hooks/use-hotkey-registry"
 import { useResizeActivity } from "@/hooks/player/use-resize-session"
 import { cn } from "@/lib/utils"
@@ -79,6 +88,7 @@ import { openExternalTool, CHATLOGS_URL } from "@/lib/chat/moderation/tools"
 import { maskReplyForBlockedUser } from "@/lib/twitch/channel/blocked-users"
 
 const CHATVOICE_URL = "https://chatvoice.rcw.lol"
+const JUMP_HIGHLIGHT_MS = 2400
 
 function ChatPaneHotkeyRegistration({
   channelLogin,
@@ -169,6 +179,7 @@ type ChatPaneProps = {
   onRemoveSplit?: (channelLogin: string) => void
   onWatchPlayer?: (channelLogin: string) => void
   onClosePlayer?: () => void
+  chatSwitcher?: ChatSwitcherConfig
   streamInfoMode?: "interactive" | "mobile"
   liveStreamOverride?: TwitchLiveStream | null
   dragHandleProps?: React.HTMLAttributes<HTMLDivElement>
@@ -203,6 +214,7 @@ function ChatPaneInner({
   onRemoveSplit,
   onWatchPlayer,
   onClosePlayer,
+  chatSwitcher,
   streamInfoMode = "interactive",
   liveStreamOverride,
   dragHandleProps,
@@ -220,8 +232,8 @@ function ChatPaneInner({
   const gifMessageAppearance = config.chat.gifMessageAppearance
   const { isChannelLive, getChannelLiveStream } =
     usePeepochatSidebarHighlights()
-  const { playerChannelLogin } = usePeepochatPlayer()
-  const isWatching = playerChannelLogin === channelLogin
+  const { watchedChannelLogins } = usePeepochatPlayer()
+  const isWatching = watchedChannelLogins.includes(channelLogin)
   const messageHighlights = useChannelMessageHighlights(channelLogin)
   const composerCatalog = getComposerEmoteCatalog(channelLogin)
   const [rowStripeCache] = React.useState(() => new Map<string, boolean>())
@@ -360,12 +372,61 @@ function ChatPaneInner({
     isScrollPaused,
     handleChatScroll,
     resumeScroll,
+    jumpToMessage,
     notifyComposerResize,
   } = useChatScroll({
     timeline: visibleTimeline,
     channelLogin,
     layout: scrollLayout,
   })
+
+  const [jumpHighlight, setJumpHighlight] = React.useState<{
+    messageId: string
+    requestId: number
+  } | null>(null)
+
+  const consumeMessageJump = React.useEffectEvent(() => {
+    const request = takeChatMessageJump(channelLogin)
+    if (!request) {
+      return
+    }
+
+    if (!jumpToMessage(request.messageId)) {
+      toast.error("That message is no longer in chat.")
+      return
+    }
+
+    setJumpHighlight({
+      messageId: request.messageId,
+      requestId: request.id,
+    })
+  })
+
+  React.useEffect(() => {
+    if (!isActive) {
+      return
+    }
+
+    const frame = window.requestAnimationFrame(() => consumeMessageJump())
+    const unsubscribe = subscribeToChatMessageJumps(consumeMessageJump)
+    return () => {
+      window.cancelAnimationFrame(frame)
+      unsubscribe()
+    }
+  }, [isActive])
+
+  React.useEffect(() => {
+    if (!jumpHighlight) {
+      return
+    }
+
+    const timeout = window.setTimeout(() => {
+      setJumpHighlight((current) =>
+        current?.requestId === jumpHighlight.requestId ? null : current
+      )
+    }, JUMP_HIGHLIGHT_MS)
+    return () => window.clearTimeout(timeout)
+  }, [jumpHighlight])
 
   const rowStripes = React.useMemo(
     () =>
@@ -460,6 +521,13 @@ function ChatPaneInner({
                     Connecting…
                   </span>
                 ) : null}
+                {chatSwitcher ? (
+                  <ChatSwitcherMenu
+                    logins={chatSwitcher.logins}
+                    selectedLogin={chatSwitcher.selectedLogin}
+                    onSelect={chatSwitcher.onSelect}
+                  />
+                ) : null}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
@@ -493,8 +561,7 @@ function ChatPaneInner({
                             ? [
                                 {
                                   icon: PlayIcon,
-                                  label: "Watch",
-                                  disabled: isWatching,
+                                  label: isWatching ? "Go to stream" : "Watch",
                                   onSelect: () => onWatchPlayer(channelLogin),
                                 },
                               ]
@@ -692,6 +759,9 @@ function ChatPaneInner({
                               }
                               pingMatchRange={
                                 messageHighlight?.matchRange ?? null
+                              }
+                              jumpHighlighted={
+                                jumpHighlight?.messageId === entry.message.id
                               }
                             />
                           )

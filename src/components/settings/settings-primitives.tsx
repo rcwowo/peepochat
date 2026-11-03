@@ -751,21 +751,14 @@ export function SettingsCallout({
 }
 
 export function SettingsTab({
-  description,
   children,
   className,
 }: {
-  description?: string
   children?: React.ReactNode
   className?: string
 }) {
   return (
     <div className={cn("pb-2", className)}>
-      {description && (
-        <p className="mb-6 pr-8 text-[13px] leading-relaxed text-muted-foreground sm:pr-10">
-          {description}
-        </p>
-      )}
       <div className="space-y-7">{children}</div>
     </div>
   )

@@ -16,8 +16,11 @@ export type ChatterSuggestion = {
   login: string
   displayName: string
   color: string | null
+  nickname: string | null
   mention: string
 }
+
+export type ChatterNicknameResolver = (login: string) => string | null
 
 export type ChatterTabCompleterState = {
   matches: ChatterSuggestion[]
@@ -51,14 +54,16 @@ export function resetChatterCompleter(): ChatterCompleterState {
 }
 
 export function toChatterSuggestion(
-  chatter: ChannelChatter
+  chatter: ChannelChatter,
+  nickname: string | null = null
 ): ChatterSuggestion {
   return {
     type: "chatter",
     login: chatter.login,
     displayName: chatter.displayName,
     color: chatter.color,
-    mention: mentionTokenForChatter(chatter),
+    nickname,
+    mention: nickname ?? mentionTokenForChatter(chatter),
   }
 }
 
@@ -69,7 +74,8 @@ export function chatterMentionValue(suggestion: ChatterSuggestion): string {
 export function findAtChatterSuggestions(
   text: string,
   cursor: number,
-  chatters: ChannelChatter[]
+  chatters: ChannelChatter[],
+  options?: { getNicknameByLogin?: ChatterNicknameResolver }
 ): Pick<
   ChatterCompleterState,
   "query" | "replaceRange" | "active" | "suggestions" | "current"
@@ -88,7 +94,12 @@ export function findAtChatterSuggestions(
   const { word, start, end } = wordAtCursor
   const suggestions = chatters
     .slice(0, CHATTER_COMPLETION_MAX)
-    .map(toChatterSuggestion)
+    .map((chatter) =>
+      toChatterSuggestion(
+        chatter,
+        options?.getNicknameByLogin?.(chatter.login) ?? null
+      )
+    )
 
   return {
     query: word,
@@ -97,6 +108,65 @@ export function findAtChatterSuggestions(
     suggestions,
     current: 0,
   }
+}
+
+/**
+ * Chatters whose nickname matches the query prefix, ranked like nickname
+ * matches take priority: exact nickname first, then most recently seen.
+ */
+export function findNicknameChatterMatches({
+  chatters,
+  query,
+  nicknames,
+  isBlocked,
+}: {
+  chatters: ChannelChatter[]
+  query: string
+  nicknames: Map<string, string>
+  isBlocked?: (userId?: string | null, login?: string | null) => boolean
+}): ChannelChatter[] {
+  const needle = query.toLowerCase()
+  const matches: ChannelChatter[] = []
+
+  for (const chatter of chatters) {
+    if (isBlocked?.(chatter.userId, chatter.login)) {
+      continue
+    }
+
+    const nickname = nicknames.get(chatter.login.toLowerCase())
+    if (!nickname) {
+      continue
+    }
+
+    if (needle && !nickname.toLowerCase().startsWith(needle)) {
+      continue
+    }
+
+    matches.push(chatter)
+  }
+
+  matches.sort((left, right) => {
+    const leftNickname = nicknames.get(left.login.toLowerCase()) ?? ""
+    const rightNickname = nicknames.get(right.login.toLowerCase()) ?? ""
+
+    if (needle) {
+      const leftExact = leftNickname === needle ? 0 : 1
+      const rightExact = rightNickname === needle ? 0 : 1
+      if (leftExact !== rightExact) {
+        return leftExact - rightExact
+      }
+    }
+
+    if (left.lastSeenAt !== right.lastSeenAt) {
+      return right.lastSeenAt - left.lastSeenAt
+    }
+
+    return leftNickname.localeCompare(rightNickname, undefined, {
+      sensitivity: "base",
+    })
+  })
+
+  return matches
 }
 
 export function applyChatterSuggestion(

@@ -817,13 +817,13 @@ const HIGHLIGHTS = [
 
 export function NotificationsShowcaseSection() {
   return (
-    <section id="notifications" className="relative overflow-hidden bg-card/20">
+    <section id="notifications" className="relative">
       <div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_50%_55%_at_22%_42%,color-mix(in_oklch,var(--primary)_14%,transparent),transparent_68%),radial-gradient(ellipse_42%_48%_at_88%_72%,color-mix(in_oklch,var(--primary)_8%,transparent),transparent_62%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_40%_50%_at_25%_50%,color-mix(in_oklch,var(--primary)_13%,transparent),transparent_70%)]"
         aria-hidden
       />
 
-      <div className="relative mx-auto w-full max-w-6xl px-6 py-20 lg:py-40">
+      <div className="relative mx-auto w-full max-w-6xl px-6 py-16 lg:py-24">
         <div className="grid items-center gap-12 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-16">
           <NotificationsShowcaseDemo />
 

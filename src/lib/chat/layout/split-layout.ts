@@ -468,3 +468,30 @@ export function clampAdjacentSplitSizes(
   next[index + 1] = pairTotal - next[index]
   return next
 }
+
+export function insertSplitLayoutPane({
+  layout,
+  channels,
+  channel,
+  targetChannel,
+  edge,
+}: {
+  layout: ChatSplitLayoutNode | undefined
+  channels: string[]
+  channel: string
+  targetChannel: string
+  edge: SplitLayoutEdge
+}): ChatSplitLayoutNode | undefined {
+  const inserted = normalizeLogin(channel)
+  const target = normalizeLogin(targetChannel)
+  const existing = channels.filter(
+    (entry) => normalizeLogin(entry) !== inserted
+  )
+  const base = normalizeSplitLayout(layout, existing)
+  if (!inserted || !base) {
+    return normalizeSplitLayout(layout, channels)
+  }
+
+  const result = insertNearPane(base, target, pane(inserted), edge)
+  return normalizeSplitLayout(result.inserted ? result.node : base, channels)
+}

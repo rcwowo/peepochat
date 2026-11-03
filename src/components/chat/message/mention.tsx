@@ -1,6 +1,7 @@
 import * as React from "react"
 
 import { useChatterByLogin } from "@/hooks/chat-ui/use-chatter-by-login"
+import { useNicknameForLogin } from "@/hooks/chat-ui/use-nickname-for-login"
 import { useUserCardContext } from "@/hooks/chat-ui/use-user-card-context"
 import type { ChannelChatter } from "@/lib/chat/chatters/store"
 import { getReadableUsernameColor } from "@/lib/chat/presentation/username"
@@ -52,6 +53,7 @@ export function ChatMention({
 
   const login = MENTION_LOGIN_PATTERN.exec(mention)?.[1]?.toLowerCase()
   const chatter = useChatterByLogin(channelLogin, login)
+  const nickname = useNicknameForLogin(login)
 
   const target =
     channelLogin && login
@@ -76,7 +78,7 @@ export function ChatMention({
         className="chat-mention font-semibold"
         style={readableColor ? { color: readableColor } : undefined}
       >
-        {children ?? mention}
+        {nickname ? `@${nickname}` : (children ?? mention)}
       </span>
     )
   }
@@ -91,7 +93,7 @@ export function ChatMention({
       style={readableColor ? { color: readableColor } : undefined}
       onClick={handleTriggerClick}
     >
-      {children ?? mention}
+      {nickname ? `@${nickname}` : (children ?? mention)}
     </button>
   )
 }

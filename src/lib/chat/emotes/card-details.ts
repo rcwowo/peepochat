@@ -8,15 +8,6 @@ import {
 } from "@/lib/chat/emotes/card"
 import { fetchTwitchEmoteFromIvr } from "@/lib/twitch/emotes/ivr"
 
-type BetterTtvEmoteDetails = {
-  code?: string
-  user?: {
-    displayName?: string
-    name?: string
-    providerId?: string
-  }
-}
-
 type SevenTvEmoteDetails = {
   name?: string
   data?: {
@@ -72,42 +63,15 @@ async function enrichThirdPartyEmoteDetails(
   details: EmoteCardDetails,
   target: EmoteCardTarget
 ): Promise<EmoteCardDetails> {
-  // Catalog entries from 7TV/BTTV room fetches already include uploader and aliases.
+  if (target.provider !== "7tv") {
+    return details
+  }
+
   if (details.uploader && details.aliases.length > 0) {
     return details
   }
 
-  switch (target.provider) {
-    case "bttv":
-      return enrichBetterTtvDetails(details, target.id)
-    case "7tv":
-      return enrichSevenTvDetails(details, target.id)
-    default:
-      return details
-  }
-}
-
-async function enrichBetterTtvDetails(
-  details: EmoteCardDetails,
-  emoteId: string
-): Promise<EmoteCardDetails> {
-  const response = await devLoggedFetch(
-    `https://api.betterttv.net/3/emotes/${encodeURIComponent(emoteId)}`
-  )
-  if (!response.ok) {
-    return details
-  }
-
-  const payload = (await response.json()) as BetterTtvEmoteDetails
-  const user = payload.user
-  const login = user?.name?.trim() || user?.displayName?.trim() || null
-
-  return {
-    ...details,
-    name: payload.code?.trim() || details.name,
-    uploader: details.uploader || user?.displayName?.trim() || login,
-    uploaderLogin: details.uploaderLogin || login,
-  }
+  return enrichSevenTvDetails(details, target.id)
 }
 
 async function enrichSevenTvDetails(

@@ -55,9 +55,13 @@ export function ChatterSuggestions({
               }}
             >
               <span className="min-w-0 truncate font-medium">
-                {suggestion.displayName}
+                {suggestion.nickname ?? suggestion.displayName}
               </span>
-              {suggestion.displayName.toLowerCase() !== suggestion.login ? (
+              {suggestion.nickname ? (
+                <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                  ({suggestion.login})
+                </span>
+              ) : suggestion.displayName.toLowerCase() !== suggestion.login ? (
                 <span className="ml-auto shrink-0 text-xs text-muted-foreground">
                   {suggestion.login}
                 </span>
