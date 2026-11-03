@@ -1,9 +1,9 @@
 [
     {
         "version": "1.3.2",
-        "date": "2026-10-20",
+        "date": "2026-11-03",
         "items": [
-            "Added the ability to watch multiple streams at once, either side by side in a resizable layout or as separate players in the sidebar.",
+            "Added the ability to watch multiple streams at once, configurable in the player tab of settings.",
             "Added nicknames, letting you set unique custom names for users in chat.",
             "Added the ability to jump to a message from search.",
             "Readded the header bar to settings.",

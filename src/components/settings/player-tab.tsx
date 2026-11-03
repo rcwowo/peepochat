@@ -18,7 +18,7 @@ export function PlayerTab() {
         <SettingsGroup>
           <SettingsSelectRow
             title="Watch mode"
-            description="How streams appear when you watch more than one at a time."
+            description="How streams appear when you open more than one."
             value={config.player.mode}
             onChange={(mode) =>
               updateConfig((current) => ({
@@ -34,6 +34,10 @@ export function PlayerTab() {
               {
                 value: "sidebar",
                 label: "Sidebar players: one stream at a time",
+              },
+              {
+                value: "classic",
+                label: "Classic: only one channel at a time",
               },
             ]}
           />

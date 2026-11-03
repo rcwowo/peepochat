@@ -216,7 +216,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
   const isPlayerViewActive =
     watchState.viewActive && watchedChannelLogins.length > 0
   const playerChatLogin =
-    playerMode === "sidebar" ? watchState.focusedLogin : watchState.chatLogin
+    playerMode === "multi" ? watchState.chatLogin : watchState.focusedLogin
   const syncChannelLogins = React.useMemo(() => {
     const missing = watchedChannelLogins.filter(
       (login) => !channelLogins.includes(login)
@@ -417,6 +417,20 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     },
     []
   )
+
+  const previousPlayerModeRef = React.useRef(playerMode)
+  const watchedInstanceCount = watchedInstances.length
+  const watchChatLogin = watchState.chatLogin
+  const watchFocusedLogin = watchState.focusedLogin
+  React.useEffect(() => {
+    const previousMode = previousPlayerModeRef.current
+    previousPlayerModeRef.current = playerMode
+    if (playerMode !== "classic" || watchedInstanceCount <= 1) return
+    dispatchWatch({
+      type: "collapse",
+      login: previousMode === "multi" ? watchChatLogin : watchFocusedLogin,
+    })
+  }, [playerMode, watchChatLogin, watchFocusedLogin, watchedInstanceCount])
 
   const markReadChatLogin = isPlayerViewActive ? playerChatLogin : null
   const markChannelRead = highlightActivity.markChannelRead

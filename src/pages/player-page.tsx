@@ -21,7 +21,7 @@ export function PlayerPage() {
     return null
   }
 
-  if (playerMode === "sidebar") {
+  if (playerMode !== "multi") {
     return <SidebarWatchView active={playerViewActive} />
   }
 

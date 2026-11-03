@@ -805,7 +805,7 @@ export function ChannelSidebar({ onAddChannel }: { onAddChannel: () => void }) {
   )
 
   const playerButtons =
-    watchedChannelLogins.length === 0 ? null : playerMode === "sidebar" ? (
+    watchedChannelLogins.length === 0 ? null : playerMode !== "multi" ? (
       watchedChannelLogins.map((login) => (
         <PlayerSidebarButton
           key={login}

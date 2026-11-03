@@ -72,12 +72,12 @@ export function useAppHotkeys({
   const selectSidebarIndex = React.useCallback(
     (index: number) => {
       const playerEntries =
-        playerMode === "sidebar"
+        playerMode !== "multi"
           ? watchedChannelLogins
           : watchedChannelLogins.slice(0, 1)
       if (index < playerEntries.length) {
         const login = playerEntries[index]
-        if (playerMode === "sidebar") {
+        if (playerMode !== "multi") {
           selectPlayer(login)
           return login
         }

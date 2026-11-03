@@ -152,7 +152,7 @@ const highlightsSchema = z.object({
   pings: z.array(highlightPingRuleSchema).default([]),
 })
 
-const playerModeSchema = z.enum(["multi", "sidebar"])
+const playerModeSchema = z.enum(["multi", "sidebar", "classic"])
 const playerMultiAudioSchema = z.enum(["first", "all", "muted"])
 
 const playerSchema = z

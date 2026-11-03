@@ -33,6 +33,7 @@ export type WatchAction =
     }
   | { type: "close"; login: string }
   | { type: "closeAll" }
+  | { type: "collapse"; login: string | null }
   | { type: "show"; login?: string }
   | { type: "hide" }
   | { type: "setChat"; login: string }
@@ -125,7 +126,7 @@ function startMuted(
   mode: PlayerMode,
   multiAudio: PlayerMultiAudio
 ) {
-  if (mode === "sidebar") return false
+  if (mode !== "multi") return false
   if (multiAudio === "all") return false
   if (multiAudio === "muted") return true
   return state.instances.length > 0
@@ -141,7 +142,17 @@ export function watchReducer(
       if (state.instances.some((instance) => instance.login === login)) {
         return {
           ...state,
-          focusedLogin: action.mode === "sidebar" ? login : state.focusedLogin,
+          focusedLogin: action.mode === "multi" ? state.focusedLogin : login,
+          viewActive: true,
+        }
+      }
+
+      if (action.mode === "classic") {
+        return {
+          instances: [{ login, muted: false }],
+          layout: normalizeSplitLayout(undefined, [login]),
+          chatLogin: login,
+          focusedLogin: login,
           viewActive: true,
         }
       }
@@ -194,6 +205,22 @@ export function watchReducer(
     }
     case "closeAll":
       return EMPTY_WATCH_STATE
+    case "collapse": {
+      if (state.instances.length <= 1) return state
+      const kept =
+        state.instances.find((instance) => instance.login === action.login) ??
+        state.instances.find(
+          (instance) => instance.login === state.focusedLogin
+        ) ??
+        state.instances[0]
+      return {
+        instances: [{ ...kept, muted: false }],
+        layout: normalizeSplitLayout(undefined, [kept.login]),
+        chatLogin: kept.login,
+        focusedLogin: kept.login,
+        viewActive: state.viewActive,
+      }
+    }
     case "show": {
       if (state.instances.length === 0) return state
       const login = action.login

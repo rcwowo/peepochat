@@ -656,7 +656,7 @@ export function ChannelSearch() {
 
       if (!defaultChannelLogins.includes(login)) {
         if (playerViewActive && watchedChannelLogins.includes(login)) {
-          if (playerMode === "sidebar") {
+          if (playerMode !== "multi") {
             selectPlayer(login)
           } else {
             setPlayerChat(login)
