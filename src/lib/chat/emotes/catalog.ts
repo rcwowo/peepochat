@@ -189,7 +189,7 @@ export async function rebuildRoomThirdPartyEmoteBundle(
   channelLogin: string,
   existingComposer: ComposerEmoteCatalog
 ): Promise<RoomEmoteBundle> {
-  const sets = await getThirdPartyEmoteSets(roomId)
+  const sets = await getThirdPartyEmoteSets(roomId, channelLogin)
   const thirdParty = buildThirdPartyEmoteCatalog(sets)
   const twitchPlatform = existingComposer.platforms.find(
     (platform) => platform.id === "twitch"
@@ -356,15 +356,19 @@ async function buildRoomEmoteBundle(
     }
   }
 
-  const thirdPartyPromise = getThirdPartyEmoteSets(roomId, (thirdPartySets) => {
-    thirdPartySetsResult = thirdPartySets
-    thirdPartyBundle = buildThirdPartyRoomEmoteBundle(
-      options,
-      thirdPartySets,
-      twitchBundle?.cheermotes ?? DEFAULT_CHEERMOTE_CATALOG
-    )
-    emitPartial()
-  })
+  const thirdPartyPromise = getThirdPartyEmoteSets(
+    roomId,
+    channelLogin,
+    (thirdPartySets) => {
+      thirdPartySetsResult = thirdPartySets
+      thirdPartyBundle = buildThirdPartyRoomEmoteBundle(
+        options,
+        thirdPartySets,
+        twitchBundle?.cheermotes ?? DEFAULT_CHEERMOTE_CATALOG
+      )
+      emitPartial()
+    }
+  )
     .then((thirdPartySets) => {
       thirdPartySetsResult = thirdPartySets
       thirdPartyBundle = buildThirdPartyRoomEmoteBundle(

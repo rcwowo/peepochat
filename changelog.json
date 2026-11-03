@@ -9,7 +9,8 @@
             "Readded the header bar to settings.",
             "Minor redesign to the landing page that adds a few new sections.",
             "Minor redesign to the player indicator in the sidebar to show who's playing.",
-            "Minor redesign to the layout in the search menu."
+            "Minor redesign to the layout in the search menu.",
+            "Fixed an issue where BTTV emote details failed to load."
         ]
     },
     {

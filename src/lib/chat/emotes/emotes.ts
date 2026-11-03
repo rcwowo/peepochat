@@ -1,5 +1,6 @@
 import { devLoggedFetch } from "@/lib/dev-logger"
 import { isSevenTvZeroWidthEmote } from "@/lib/seventv/emotes"
+import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 import type { SevenTvActiveEmote } from "@/lib/seventv/event-api"
 import {
   DEFAULT_CHEERMOTE_CATALOG,
@@ -243,9 +244,15 @@ type BetterTtvEmote = {
   id: string
   code: string
   imageType?: string
+  userId?: string
+  user?: {
+    name?: string
+    displayName?: string
+  }
 }
 
 type BetterTtvUserResponse = {
+  id?: string
   channelEmotes?: BetterTtvEmote[]
   sharedEmotes?: BetterTtvEmote[]
 }
@@ -441,6 +448,7 @@ function loadThirdPartyGlobalEmotes(
 
 async function fetchThirdPartyRoomEmotes(
   roomId: string,
+  channelLogin: string,
   onPartial?: (room: ThirdPartyRoomEmotes) => void
 ): Promise<ThirdPartyRoomEmotes> {
   const { bttvEnabled, ffzEnabled, seventvEnabled } =
@@ -464,7 +472,7 @@ async function fetchThirdPartyRoomEmotes(
 
   if (bttvEnabled) {
     providerTasks.push(
-      fetchBetterTtvRoomEmotes(roomId)
+      fetchBetterTtvRoomEmotes(roomId, channelLogin)
         .then((emotes) => {
           result.bttv = emotes
           emitPartial()
@@ -506,6 +514,7 @@ async function fetchThirdPartyRoomEmotes(
 
 function loadThirdPartyRoomEmotes(
   roomId: string,
+  channelLogin: string,
   onPartial?: (room: ThirdPartyRoomEmotes) => void
 ): Promise<ThirdPartyRoomEmotes> {
   const cached = roomChannelDataCache.get(roomId)
@@ -516,7 +525,7 @@ function loadThirdPartyRoomEmotes(
 
   let pending = roomChannelCache.get(roomId)
   if (!pending) {
-    pending = fetchThirdPartyRoomEmotes(roomId, onPartial)
+    pending = fetchThirdPartyRoomEmotes(roomId, channelLogin, onPartial)
       .then((room) => {
         roomChannelDataCache.set(roomId, room)
         return room
@@ -545,6 +554,7 @@ function mergeThirdPartySets(
 /** Global emotes fetched once per session; room emotes once per broadcaster. */
 export function getThirdPartyEmoteSets(
   roomId: string,
+  channelLogin: string,
   onPartial?: (sets: ThirdPartyEmoteSets) => void
 ): Promise<ThirdPartyEmoteSets> {
   let global = EMPTY_THIRD_PARTY_GLOBAL_EMOTES
@@ -559,7 +569,7 @@ export function getThirdPartyEmoteSets(
       global = partialGlobal
       emitPartial()
     }),
-    loadThirdPartyRoomEmotes(roomId, (partialRoom) => {
+    loadThirdPartyRoomEmotes(roomId, channelLogin, (partialRoom) => {
       room = partialRoom
       emitPartial()
     }),
@@ -900,13 +910,42 @@ function normalizeRanges(ranges: TextRange[]): TextRange[] {
   return merged
 }
 
-function mapBetterTtvEmote(emote: BetterTtvEmote): EmoteCatalogEntry {
+type BetterTtvChannelOwner = {
+  bttvUserId: string
+  login: string
+}
+
+function mapBetterTtvEmote(
+  emote: BetterTtvEmote,
+  channelOwner?: BetterTtvChannelOwner
+): EmoteCatalogEntry {
+  const owner = resolveBetterTtvEmoteOwner(emote, channelOwner)
+
   return {
     id: emote.id,
     code: emote.code,
     provider: "bttv",
     imageUrl: `https://cdn.betterttv.net/emote/${encodeURIComponent(emote.id)}/1x.${emote.imageType ?? "webp"}`,
+    ownerName: owner?.name,
+    ownerLogin: owner?.login,
   }
+}
+
+function resolveBetterTtvEmoteOwner(
+  emote: BetterTtvEmote,
+  channelOwner?: BetterTtvChannelOwner
+): { name: string; login: string | undefined } | null {
+  const login = emote.user?.name?.trim() || undefined
+  const name = emote.user?.displayName?.trim() || login
+  if (name) {
+    return { name, login }
+  }
+
+  if (channelOwner && emote.userId === channelOwner.bttvUserId) {
+    return { name: channelOwner.login, login: channelOwner.login }
+  }
+
+  return null
 }
 
 async function fetchBetterTtvGlobalEmotes(): Promise<EmoteCatalogEntry[]> {
@@ -917,16 +956,21 @@ async function fetchBetterTtvGlobalEmotes(): Promise<EmoteCatalogEntry[]> {
 }
 
 async function fetchBetterTtvRoomEmotes(
-  roomId: string
+  roomId: string,
+  channelLogin: string
 ): Promise<EmoteCatalogEntry[]> {
   const response = await fetchJson<BetterTtvUserResponse>(
     `https://api.betterttv.net/3/cached/users/twitch/${encodeURIComponent(roomId)}`
   )
 
+  const login = normalizeChannelLogin(channelLogin)
+  const channelOwner =
+    response.id && login ? { bttvUserId: response.id, login } : undefined
+
   return [
     ...(response.channelEmotes ?? []),
     ...(response.sharedEmotes ?? []),
-  ].map((emote) => mapBetterTtvEmote(emote))
+  ].map((emote) => mapBetterTtvEmote(emote, channelOwner))
 }
 
 function mapFrankerFaceZEmote(
