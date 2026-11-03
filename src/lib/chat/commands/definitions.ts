@@ -81,6 +81,7 @@ export const CHAT_COMMAND_DEFINITIONS: ChatCommandDefinition[] = [
     usage: "<username>",
     description: "Unblock a user on Twitch",
   },
+  { name: "unmod", usage: "<username>", description: "Remove moderator" },
   { name: "uniquechat", usage: "", description: "Unique chat mode on" },
   { name: "uniquechatoff", usage: "", description: "Unique chat mode off" },
   { name: "vip", usage: "<username>", description: "Grant VIP" },
