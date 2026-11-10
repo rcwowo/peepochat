@@ -29,6 +29,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { useChatFontFamily } from "@/hooks/chat-ui/use-chat-font"
+import { useWatchedChannel } from "@/hooks/player/use-watched-channel"
 import { createNicknameByLoginMap } from "@/lib/chat/nicknames"
 import { requestChatMessageJump } from "@/lib/chat/threads/message-jump"
 import { getChatPresentationStyle } from "@/lib/chat/presentation/presentation-style"
@@ -207,17 +208,43 @@ function SearchSuggestions({
   )
 }
 
-function SearchScopeAvatar({ channel }: { channel: SearchScopeChannel }) {
+function SearchScopeAvatarImage({
+  login,
+  profileImageUrl,
+}: {
+  login: string
+  profileImageUrl?: string
+}) {
   return (
     <Avatar size="sm">
-      {channel.profileImageUrl ? (
-        <AvatarImage src={channel.profileImageUrl} alt="" draggable={false} />
+      {profileImageUrl ? (
+        <AvatarImage src={profileImageUrl} alt="" draggable={false} />
       ) : null}
       <AvatarFallback className="bg-primary/15 text-[10px] font-semibold text-primary uppercase">
-        {channel.login.slice(0, 2)}
+        {login.slice(0, 2)}
       </AvatarFallback>
     </Avatar>
   )
+}
+
+function WatchedSearchScopeAvatar({ login }: { login: string }) {
+  const { profileImageUrl } = useWatchedChannel(login)
+  return (
+    <SearchScopeAvatarImage login={login} profileImageUrl={profileImageUrl} />
+  )
+}
+
+function SearchScopeAvatar({ channel }: { channel: SearchScopeChannel }) {
+  if (channel.profileImageUrl) {
+    return (
+      <SearchScopeAvatarImage
+        login={channel.login}
+        profileImageUrl={channel.profileImageUrl}
+      />
+    )
+  }
+
+  return <WatchedSearchScopeAvatar login={channel.login} />
 }
 
 function SearchScope({
