@@ -4,6 +4,7 @@ import { SearchIcon, XIcon } from "lucide-react"
 
 import { ChatHoverTooltipProvider } from "@/components/chat/message/hover-tooltip"
 import { ChatMessageRow } from "@/components/chat/message/row"
+import { ChatSystemMessage } from "@/components/chat/message/system-message"
 import { EmoteCardProvider } from "@/components/chat/emote-card/context"
 import { UserCardProvider } from "@/components/chat/user-card/context"
 import {
@@ -42,6 +43,7 @@ import type { UserCardTarget } from "@/lib/chat/user-card/user-card"
 import {
   collectRecentSearchUsernames,
   createChatSearchResultsCache,
+  formatChatSearchFilter,
   getChatSearchSuggestions,
   getChatSearchTokenAtCursor,
   isChatSearchQueryActive,
@@ -56,10 +58,7 @@ import {
   type ChatSearchSuggestion,
   type ChatSearchUsername,
 } from "@/lib/search/chat-search"
-import {
-  messageHasChatGifs,
-  type TwitchChatMessage,
-} from "@/lib/twitch/chat/chat"
+import { messageHasChatGifs } from "@/lib/twitch/chat/chat"
 import { useHotkeyRegistry } from "@/hooks/use-hotkey-registry"
 import { shouldPreventSearchDismiss } from "@/lib/search/search-portaled-layers"
 import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
@@ -77,6 +76,11 @@ const EMPTY_SEARCH_USERNAMES: ChatSearchUsername[] = []
 const MAX_SCOPE_AVATARS = 4
 const MAX_SCOPE_TOOLTIP_CHANNELS = 8
 const SEARCH_RESULTS_PADDING_START_PX = 16
+
+type SearchJumpTarget = {
+  channel: string | null
+  id: string
+}
 
 type SearchScopeChannel = {
   login: string
@@ -301,7 +305,7 @@ function SearchResultsList({
   showChannelLabels: boolean
   channelLabels: Map<string, string>
   scrollKey: string
-  onJumpToMessage: (message: TwitchChatMessage) => void
+  onJumpToMessage: (message: SearchJumpTarget) => void
 }) {
   const parentRef = React.useRef<HTMLDivElement>(null)
   const {
@@ -353,6 +357,9 @@ function SearchResultsList({
           }
 
           const channelLogin = normalizeChannelLogin(result.message.channel)
+          const channelLabel = showChannelLabels
+            ? (channelLabels.get(channelLogin) ?? channelLogin)
+            : null
 
           return (
             <div
@@ -364,28 +371,36 @@ function SearchResultsList({
                 transform: `translateY(${virtualItem.start}px)`,
               }}
             >
-              <ChatMessageRow
-                message={result.message}
-                timestampFormat={timestampFormat}
-                messageQuickActions={messageQuickActions}
-                deletedMessagesBehavior={deletedMessagesBehavior}
-                account={account}
-                channelRoomId={getRoomId(channelLogin)}
-                selfChatState={getSelfChatState(channelLogin)}
-                badgeCatalog={getBadgeCatalog(channelLogin)}
-                getMemberBadge={getMemberBadge}
-                showBadgeFallback={!hasBadgeSupport}
-                showTwitchBadges={showTwitchBadges}
-                showMemberBadges={showMemberBadges}
-                searchHighlightRanges={result.highlightRanges}
-                usernameHighlightRanges={result.usernameHighlightRanges}
-                channelLabel={
-                  showChannelLabels
-                    ? (channelLabels.get(channelLogin) ?? channelLogin)
-                    : null
-                }
-                onJumpToMessage={onJumpToMessage}
-              />
+              {result.kind === "system" ? (
+                <ChatSystemMessage
+                  message={result.message}
+                  timestampFormat={timestampFormat}
+                  badgeCatalog={getBadgeCatalog(channelLogin)}
+                  showTwitchBadges={showTwitchBadges}
+                  showBadgeFallback={!hasBadgeSupport}
+                  channelLabel={channelLabel}
+                  onJumpToMessage={onJumpToMessage}
+                />
+              ) : (
+                <ChatMessageRow
+                  message={result.message}
+                  timestampFormat={timestampFormat}
+                  messageQuickActions={messageQuickActions}
+                  deletedMessagesBehavior={deletedMessagesBehavior}
+                  account={account}
+                  channelRoomId={getRoomId(channelLogin)}
+                  selfChatState={getSelfChatState(channelLogin)}
+                  badgeCatalog={getBadgeCatalog(channelLogin)}
+                  getMemberBadge={getMemberBadge}
+                  showBadgeFallback={!hasBadgeSupport}
+                  showTwitchBadges={showTwitchBadges}
+                  showMemberBadges={showMemberBadges}
+                  searchHighlightRanges={result.highlightRanges}
+                  usernameHighlightRanges={result.usernameHighlightRanges}
+                  channelLabel={channelLabel}
+                  onJumpToMessage={onJumpToMessage}
+                />
+              )}
             </div>
           )
         })}
@@ -422,21 +437,23 @@ function SearchEmptyState({
         Searches messages currently loaded in chat.
       </p>
       <div className="mt-4 flex flex-wrap justify-center gap-1.5">
-        {["in:*", "from:", "role:mod", "has:link"].map((insert) => (
-          <Button
-            key={insert}
-            type="button"
-            variant="outline"
-            size="xs"
-            className="font-mono"
-            onMouseDown={(event) => {
-              event.preventDefault()
-              onInsert(insert)
-            }}
-          >
-            {insert}
-          </Button>
-        ))}
+        {["in:*", "!in:", "from:", "role:mod", "has:link", "has:event"].map(
+          (insert) => (
+            <Button
+              key={insert}
+              type="button"
+              variant="outline"
+              size="xs"
+              className="font-mono"
+              onMouseDown={(event) => {
+                event.preventDefault()
+                onInsert(insert)
+              }}
+            >
+              {insert}
+            </Button>
+          )
+        )}
       </div>
     </div>
   )
@@ -554,6 +571,10 @@ export function ChannelSearch() {
             isUserBlocked(message.userId, message.userName)) ||
           (config.chat.gifMessageAppearance === "disabled" &&
             messageHasChatGifs(message)),
+        isSystemHidden: (message) =>
+          hideBlockedUsers &&
+          message.actor !== null &&
+          isUserBlocked(message.actor.userId, message.actor.userName),
       }),
     [
       config.chat.deletedMessagesBehavior,
@@ -666,7 +687,7 @@ export function ChannelSearch() {
         channels: scopeChannels,
         emptyLabel: hasInFilter ? "No matching channel" : "No channels",
         description: hasInFilter
-          ? "No channel matches this in: filter"
+          ? "No channels match these in: filters"
           : "Add a channel to search chat",
       }
     }
@@ -675,8 +696,10 @@ export function ChannelSearch() {
   }, [channelLabels, channelProfileImages, parsed.filters, searchChannelLogins])
 
   const jumpToMessage = React.useCallback(
-    (message: TwitchChatMessage) => {
-      const login = normalizeChannelLogin(message.channel)
+    (message: SearchJumpTarget) => {
+      const login = message.channel
+        ? normalizeChannelLogin(message.channel)
+        : ""
       if (!login) {
         return
       }
@@ -959,11 +982,15 @@ export function ChannelSearch() {
             onClick={() => inputRef.current?.focus()}
           >
             {filters.map((filter, index) => (
-              <Badge key={`${filter.key}:${filter.value}:${index}`} asChild>
+              <Badge
+                key={`${formatChatSearchFilter(filter)}:${index}`}
+                variant={filter.negated ? "destructive" : "default"}
+                asChild
+              >
                 <button
                   type="button"
                   className="h-5 max-w-full cursor-pointer rounded-md px-1.5 font-medium"
-                  aria-label={`Remove ${filter.key}:${filter.value}`}
+                  aria-label={`Remove ${formatChatSearchFilter(filter)}`}
                   onClick={(event) => {
                     event.stopPropagation()
                     setFilters((current) =>
@@ -972,7 +999,7 @@ export function ChannelSearch() {
                     focusInput()
                   }}
                 >
-                  {filter.key}:{filter.value}
+                  {formatChatSearchFilter(filter)}
                 </button>
               </Badge>
             ))}

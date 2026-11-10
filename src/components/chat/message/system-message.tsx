@@ -8,6 +8,7 @@ import {
   TextWithClickableName,
 } from "@/components/chat/message/notice-username"
 import { ChatTimestamp } from "@/components/chat/message/timestamp"
+import { Button } from "@/components/ui/button"
 import {
   resolveMessageBadges,
   type ChatBadgeCatalog,
@@ -41,17 +42,28 @@ function isGiftNotice(msgId: string | null) {
   return Boolean(msgId && /gift|anon/i.test(msgId))
 }
 
+function SystemChannelLabel({ label }: { label: string | null | undefined }) {
+  if (!label) {
+    return null
+  }
+
+  return <span className="mr-1.5 text-xs text-muted-foreground">#{label}</span>
+}
+
 function InlineSystemLine({
   message,
   timestampFormat,
+  channelLabel,
   className,
 }: {
   message: TwitchSystemMessage
   timestampFormat: MessageTimestampFormat
+  channelLabel?: string | null
   className?: string
 }) {
   return (
     <div className={cn("chat-message group px-3 leading-5", className)}>
+      <SystemChannelLabel label={channelLabel} />
       <ChatTimestamp
         receivedAt={message.receivedAt}
         timestampFormat={timestampFormat}
@@ -193,14 +205,17 @@ function ModActionBody({ message }: { message: TwitchSystemMessage }) {
 function ModActionLine({
   message,
   timestampFormat,
+  channelLabel,
   className,
 }: {
   message: TwitchSystemMessage
   timestampFormat: MessageTimestampFormat
+  channelLabel?: string | null
   className?: string
 }) {
   return (
     <div className={cn("chat-message group px-3 leading-5", className)}>
+      <SystemChannelLabel label={channelLabel} />
       <ChatTimestamp
         receivedAt={message.receivedAt}
         timestampFormat={timestampFormat}
@@ -224,6 +239,7 @@ function NoticeBlock({
   borderColor,
   icon,
   showDetails = true,
+  channelLabel,
   className,
   children,
 }: {
@@ -232,6 +248,7 @@ function NoticeBlock({
   borderColor: string
   icon: React.ReactNode
   showDetails?: boolean
+  channelLabel?: string | null
   className?: string
   children: React.ReactNode
 }) {
@@ -241,6 +258,7 @@ function NoticeBlock({
         className="chat-notice-block -mx-3 border-l-4 px-3 py-1"
         style={{ borderColor }}
       >
+        <SystemChannelLabel label={channelLabel} />
         <ChatTimestamp
           receivedAt={message.receivedAt}
           timestampFormat={timestampFormat}
@@ -266,10 +284,12 @@ function NoticeBlock({
 function SubscriptionNotice({
   message,
   timestampFormat,
+  channelLabel,
   className,
 }: {
   message: TwitchSystemMessage
   timestampFormat: MessageTimestampFormat
+  channelLabel?: string | null
   className?: string
 }) {
   const borderColor = message.actor?.color ?? "var(--chat-notice-sub-border)"
@@ -280,6 +300,7 @@ function SubscriptionNotice({
       message={message}
       timestampFormat={timestampFormat}
       borderColor={borderColor}
+      channelLabel={channelLabel}
       className={className}
       icon={
         gift ? (
@@ -308,10 +329,12 @@ function SubscriptionNotice({
 function RaidNotice({
   message,
   timestampFormat,
+  channelLabel,
   className,
 }: {
   message: TwitchSystemMessage
   timestampFormat: MessageTimestampFormat
+  channelLabel?: string | null
   className?: string
 }) {
   const borderColor = message.actor?.color ?? "var(--chat-notice-raid-border)"
@@ -325,6 +348,7 @@ function RaidNotice({
       message={message}
       timestampFormat={timestampFormat}
       borderColor={borderColor}
+      channelLabel={channelLabel}
       className={className}
       icon={<Users className="size-4" aria-hidden />}
     >
@@ -351,6 +375,7 @@ function AnnouncementNotice({
   badgeCatalog,
   showTwitchBadges,
   showBadgeFallback,
+  channelLabel,
   className,
 }: {
   message: TwitchSystemMessage
@@ -358,6 +383,7 @@ function AnnouncementNotice({
   badgeCatalog: ChatBadgeCatalog
   showTwitchBadges: boolean
   showBadgeFallback: boolean
+  channelLabel?: string | null
   className?: string
 }) {
   const [start, end] = getAnnouncementGradient(
@@ -382,6 +408,7 @@ function AnnouncementNotice({
         </span>
 
         <span className="chat-message-size chat-announcement-body block px-3 py-1.5">
+          <SystemChannelLabel label={channelLabel} />
           <ChatTimestamp
             receivedAt={message.receivedAt}
             timestampFormat={timestampFormat}
@@ -411,6 +438,25 @@ function AnnouncementNotice({
   )
 }
 
+function SystemJumpAction({ onJump }: { onJump: () => void }) {
+  return (
+    <div className="pointer-events-none absolute top-0 right-2 z-10 -translate-y-1/2 opacity-0 transition-opacity group-hover/system:pointer-events-auto group-hover/system:opacity-100">
+      <div className="pointer-events-auto flex cursor-pointer items-center gap-1 rounded-md bg-background/80 p-0.5 shadow-sm ring-1 ring-border/40 backdrop-blur-sm">
+        <Button
+          type="button"
+          variant="ghost"
+          size="xs"
+          aria-label="Jump to message"
+          className="cursor-pointer text-muted-foreground hover:text-foreground"
+          onClick={onJump}
+        >
+          Jump
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 function ChatSystemMessageInner({
   message,
   timestampFormat,
@@ -419,6 +465,8 @@ function ChatSystemMessageInner({
   showBadgeFallback = false,
   isHistorical = false,
   isAlternateRow = false,
+  channelLabel = null,
+  onJumpToMessage,
 }: {
   message: TwitchSystemMessage
   timestampFormat: MessageTimestampFormat
@@ -427,6 +475,8 @@ function ChatSystemMessageInner({
   showBadgeFallback?: boolean
   isHistorical?: boolean
   isAlternateRow?: boolean
+  channelLabel?: string | null
+  onJumpToMessage?: (message: TwitchSystemMessage) => void
 }) {
   const rowClassName = cn(
     isHistorical && "chat-message--historical",
@@ -441,6 +491,7 @@ function ChatSystemMessageInner({
         <SubscriptionNotice
           message={message}
           timestampFormat={timestampFormat}
+          channelLabel={channelLabel}
           className={rowClassName}
         />
       )
@@ -450,6 +501,7 @@ function ChatSystemMessageInner({
         <RaidNotice
           message={message}
           timestampFormat={timestampFormat}
+          channelLabel={channelLabel}
           className={rowClassName}
         />
       )
@@ -462,6 +514,7 @@ function ChatSystemMessageInner({
           badgeCatalog={badgeCatalog}
           showTwitchBadges={showTwitchBadges}
           showBadgeFallback={showBadgeFallback}
+          channelLabel={channelLabel}
           className={rowClassName}
         />
       )
@@ -471,6 +524,7 @@ function ChatSystemMessageInner({
         <ModActionLine
           message={message}
           timestampFormat={timestampFormat}
+          channelLabel={channelLabel}
           className={rowClassName}
         />
       )
@@ -483,12 +537,22 @@ function ChatSystemMessageInner({
         <InlineSystemLine
           message={message}
           timestampFormat={timestampFormat}
+          channelLabel={channelLabel}
           className={rowClassName}
         />
       )
   }
 
-  return content
+  if (!onJumpToMessage) {
+    return content
+  }
+
+  return (
+    <div className="group/system relative">
+      <SystemJumpAction onJump={() => onJumpToMessage(message)} />
+      {content}
+    </div>
+  )
 }
 
 export const ChatSystemMessage = React.memo(ChatSystemMessageInner)
