@@ -4,6 +4,7 @@ import { SearchIcon, XIcon } from "lucide-react"
 
 import { ChatHoverTooltipProvider } from "@/components/chat/message/hover-tooltip"
 import { ChatMessageRow } from "@/components/chat/message/row"
+import { ChatSystemMessage } from "@/components/chat/message/system-message"
 import { EmoteCardProvider } from "@/components/chat/emote-card/context"
 import { UserCardProvider } from "@/components/chat/user-card/context"
 import {
@@ -29,6 +30,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { useChatFontFamily } from "@/hooks/chat-ui/use-chat-font"
+import { useWatchedChannel } from "@/hooks/player/use-watched-channel"
 import { createNicknameByLoginMap } from "@/lib/chat/nicknames"
 import { requestChatMessageJump } from "@/lib/chat/threads/message-jump"
 import { getChatPresentationStyle } from "@/lib/chat/presentation/presentation-style"
@@ -39,8 +41,10 @@ import {
 } from "@/lib/chat/threads/recent-user-messages"
 import type { UserCardTarget } from "@/lib/chat/user-card/user-card"
 import {
+  CHAT_SEARCH_NEGATION_PREFIX,
   collectRecentSearchUsernames,
   createChatSearchResultsCache,
+  formatChatSearchFilter,
   getChatSearchSuggestions,
   getChatSearchTokenAtCursor,
   isChatSearchQueryActive,
@@ -55,10 +59,7 @@ import {
   type ChatSearchSuggestion,
   type ChatSearchUsername,
 } from "@/lib/search/chat-search"
-import {
-  messageHasChatGifs,
-  type TwitchChatMessage,
-} from "@/lib/twitch/chat/chat"
+import { messageHasChatGifs } from "@/lib/twitch/chat/chat"
 import { useHotkeyRegistry } from "@/hooks/use-hotkey-registry"
 import { shouldPreventSearchDismiss } from "@/lib/search/search-portaled-layers"
 import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
@@ -76,6 +77,14 @@ const EMPTY_SEARCH_USERNAMES: ChatSearchUsername[] = []
 const MAX_SCOPE_AVATARS = 4
 const MAX_SCOPE_TOOLTIP_CHANNELS = 8
 const SEARCH_RESULTS_PADDING_START_PX = 16
+
+type SearchJumpTarget = {
+  channel: string | null
+  id: string
+}
+
+type FilterChipFocusTarget =
+  { kind: "chip"; index: number } | { kind: "input"; cursor: "start" | "end" }
 
 type SearchScopeChannel = {
   login: string
@@ -207,17 +216,43 @@ function SearchSuggestions({
   )
 }
 
-function SearchScopeAvatar({ channel }: { channel: SearchScopeChannel }) {
+function SearchScopeAvatarImage({
+  login,
+  profileImageUrl,
+}: {
+  login: string
+  profileImageUrl?: string
+}) {
   return (
     <Avatar size="sm">
-      {channel.profileImageUrl ? (
-        <AvatarImage src={channel.profileImageUrl} alt="" draggable={false} />
+      {profileImageUrl ? (
+        <AvatarImage src={profileImageUrl} alt="" draggable={false} />
       ) : null}
       <AvatarFallback className="bg-primary/15 text-[10px] font-semibold text-primary uppercase">
-        {channel.login.slice(0, 2)}
+        {login.slice(0, 2)}
       </AvatarFallback>
     </Avatar>
   )
+}
+
+function WatchedSearchScopeAvatar({ login }: { login: string }) {
+  const { profileImageUrl } = useWatchedChannel(login)
+  return (
+    <SearchScopeAvatarImage login={login} profileImageUrl={profileImageUrl} />
+  )
+}
+
+function SearchScopeAvatar({ channel }: { channel: SearchScopeChannel }) {
+  if (channel.profileImageUrl) {
+    return (
+      <SearchScopeAvatarImage
+        login={channel.login}
+        profileImageUrl={channel.profileImageUrl}
+      />
+    )
+  }
+
+  return <WatchedSearchScopeAvatar login={channel.login} />
 }
 
 function SearchScope({
@@ -274,7 +309,7 @@ function SearchResultsList({
   showChannelLabels: boolean
   channelLabels: Map<string, string>
   scrollKey: string
-  onJumpToMessage: (message: TwitchChatMessage) => void
+  onJumpToMessage: (message: SearchJumpTarget) => void
 }) {
   const parentRef = React.useRef<HTMLDivElement>(null)
   const {
@@ -326,6 +361,9 @@ function SearchResultsList({
           }
 
           const channelLogin = normalizeChannelLogin(result.message.channel)
+          const channelLabel = showChannelLabels
+            ? (channelLabels.get(channelLogin) ?? channelLogin)
+            : null
 
           return (
             <div
@@ -337,28 +375,36 @@ function SearchResultsList({
                 transform: `translateY(${virtualItem.start}px)`,
               }}
             >
-              <ChatMessageRow
-                message={result.message}
-                timestampFormat={timestampFormat}
-                messageQuickActions={messageQuickActions}
-                deletedMessagesBehavior={deletedMessagesBehavior}
-                account={account}
-                channelRoomId={getRoomId(channelLogin)}
-                selfChatState={getSelfChatState(channelLogin)}
-                badgeCatalog={getBadgeCatalog(channelLogin)}
-                getMemberBadge={getMemberBadge}
-                showBadgeFallback={!hasBadgeSupport}
-                showTwitchBadges={showTwitchBadges}
-                showMemberBadges={showMemberBadges}
-                searchHighlightRanges={result.highlightRanges}
-                usernameHighlightRanges={result.usernameHighlightRanges}
-                channelLabel={
-                  showChannelLabels
-                    ? (channelLabels.get(channelLogin) ?? channelLogin)
-                    : null
-                }
-                onJumpToMessage={onJumpToMessage}
-              />
+              {result.kind === "system" ? (
+                <ChatSystemMessage
+                  message={result.message}
+                  timestampFormat={timestampFormat}
+                  badgeCatalog={getBadgeCatalog(channelLogin)}
+                  showTwitchBadges={showTwitchBadges}
+                  showBadgeFallback={!hasBadgeSupport}
+                  channelLabel={channelLabel}
+                  onJumpToMessage={onJumpToMessage}
+                />
+              ) : (
+                <ChatMessageRow
+                  message={result.message}
+                  timestampFormat={timestampFormat}
+                  messageQuickActions={messageQuickActions}
+                  deletedMessagesBehavior={deletedMessagesBehavior}
+                  account={account}
+                  channelRoomId={getRoomId(channelLogin)}
+                  selfChatState={getSelfChatState(channelLogin)}
+                  badgeCatalog={getBadgeCatalog(channelLogin)}
+                  getMemberBadge={getMemberBadge}
+                  showBadgeFallback={!hasBadgeSupport}
+                  showTwitchBadges={showTwitchBadges}
+                  showMemberBadges={showMemberBadges}
+                  searchHighlightRanges={result.highlightRanges}
+                  usernameHighlightRanges={result.usernameHighlightRanges}
+                  channelLabel={channelLabel}
+                  onJumpToMessage={onJumpToMessage}
+                />
+              )}
             </div>
           )
         })}
@@ -395,21 +441,23 @@ function SearchEmptyState({
         Searches messages currently loaded in chat.
       </p>
       <div className="mt-4 flex flex-wrap justify-center gap-1.5">
-        {["in:*", "from:", "role:mod", "has:link"].map((insert) => (
-          <Button
-            key={insert}
-            type="button"
-            variant="outline"
-            size="xs"
-            className="font-mono"
-            onMouseDown={(event) => {
-              event.preventDefault()
-              onInsert(insert)
-            }}
-          >
-            {insert}
-          </Button>
-        ))}
+        {["in:*", "!in:", "from:", "role:mod", "has:link", "has:event"].map(
+          (insert) => (
+            <Button
+              key={insert}
+              type="button"
+              variant="outline"
+              size="xs"
+              className="font-mono"
+              onMouseDown={(event) => {
+                event.preventDefault()
+                onInsert(insert)
+              }}
+            >
+              {insert}
+            </Button>
+          )
+        )}
       </div>
     </div>
   )
@@ -422,6 +470,8 @@ export function ChannelSearch() {
   const [cursor, setCursor] = React.useState(0)
   const [suggestionIndex, setSuggestionIndex] = React.useState(0)
   const inputRef = React.useRef<HTMLInputElement>(null)
+  const filterChipRefs = React.useRef<(HTMLButtonElement | null)[]>([])
+  const pendingFocusRef = React.useRef<FilterChipFocusTarget | null>(null)
   const { registerSearch } = useHotkeyRegistry()
   const [inputFocused, setInputFocused] = React.useState(false)
   const [suggestionsDismissed, setSuggestionsDismissed] = React.useState(false)
@@ -454,14 +504,26 @@ export function ChannelSearch() {
 
   const query = serializeChatSearchQuery(filters, remainder)
   const parsed = React.useMemo(() => parseChatSearchQuery(query), [query])
-  const knownChannels = React.useMemo(
+  const savedChannelLogins = React.useMemo(
     () =>
-      channels.map((channel) => ({
-        login: normalizeChannelLogin(channel.login),
-        displayName: channel.displayName || channel.login,
-      })),
+      new Set(channels.map((channel) => normalizeChannelLogin(channel.login))),
     [channels]
   )
+  const knownChannels = React.useMemo(() => {
+    const known = channels.map((channel) => ({
+      login: normalizeChannelLogin(channel.login),
+      displayName: channel.displayName || channel.login,
+    }))
+    const seen = new Set(known.map((channel) => channel.login))
+    for (const watchedLogin of watchedChannelLogins) {
+      const login = normalizeChannelLogin(watchedLogin)
+      if (login && !seen.has(login)) {
+        seen.add(login)
+        known.push({ login, displayName: login })
+      }
+    }
+    return known
+  }, [channels, watchedChannelLogins])
   const defaultChannelLogins = React.useMemo(() => {
     const logins =
       playerViewActive && playerChatLogin
@@ -479,7 +541,10 @@ export function ChannelSearch() {
     () => getChatSearchTokenAtCursor(remainder, cursor),
     [cursor, remainder]
   )
-  const needsUsernames = token.text.toLowerCase().startsWith("from:")
+  const tokenFilterText = token.text.startsWith(CHAT_SEARCH_NEGATION_PREFIX)
+    ? token.text.slice(CHAT_SEARCH_NEGATION_PREFIX.length)
+    : token.text
+  const needsUsernames = tokenFilterText.toLowerCase().startsWith("from:")
   const usernames = React.useMemo(
     () =>
       needsUsernames
@@ -527,6 +592,10 @@ export function ChannelSearch() {
             isUserBlocked(message.userId, message.userName)) ||
           (config.chat.gifMessageAppearance === "disabled" &&
             messageHasChatGifs(message)),
+        isSystemHidden: (message) =>
+          hideBlockedUsers &&
+          message.actor !== null &&
+          isUserBlocked(message.actor.userId, message.actor.userName),
       }),
     [
       config.chat.deletedMessagesBehavior,
@@ -639,7 +708,7 @@ export function ChannelSearch() {
         channels: scopeChannels,
         emptyLabel: hasInFilter ? "No matching channel" : "No channels",
         description: hasInFilter
-          ? "No channel matches this in: filter"
+          ? "No channels match these in: filters"
           : "Add a channel to search chat",
       }
     }
@@ -648,8 +717,10 @@ export function ChannelSearch() {
   }, [channelLabels, channelProfileImages, parsed.filters, searchChannelLogins])
 
   const jumpToMessage = React.useCallback(
-    (message: TwitchChatMessage) => {
-      const login = normalizeChannelLogin(message.channel)
+    (message: SearchJumpTarget) => {
+      const login = message.channel
+        ? normalizeChannelLogin(message.channel)
+        : ""
       if (!login) {
         return
       }
@@ -661,7 +732,7 @@ export function ChannelSearch() {
           } else {
             setPlayerChat(login)
           }
-        } else if (channelLabels.has(login)) {
+        } else if (savedChannelLogins.has(login)) {
           setActiveChannel(login)
         } else {
           return
@@ -672,10 +743,10 @@ export function ChannelSearch() {
       requestChatMessageJump(login, message.id)
     },
     [
-      channelLabels,
       defaultChannelLogins,
       playerMode,
       playerViewActive,
+      savedChannelLogins,
       selectPlayer,
       setActiveChannel,
       setPlayerChat,
@@ -693,6 +764,97 @@ export function ChannelSearch() {
       input.select()
     }
   }, [])
+
+  const applyFilterChipFocus = React.useCallback(
+    (target: FilterChipFocusTarget) => {
+      if (target.kind === "chip") {
+        filterChipRefs.current[target.index]?.focus()
+        return
+      }
+
+      const input = inputRef.current
+      if (!input) {
+        return
+      }
+      const nextCursor = target.cursor === "start" ? 0 : input.value.length
+      input.focus()
+      input.setSelectionRange(nextCursor, nextCursor)
+      setCursor(nextCursor)
+    },
+    []
+  )
+
+  React.useLayoutEffect(() => {
+    const target = pendingFocusRef.current
+    if (!target) {
+      return
+    }
+    pendingFocusRef.current = null
+    applyFilterChipFocus(target)
+  }, [applyFilterChipFocus, filters])
+
+  const removeFilterAt = React.useCallback(
+    (index: number, focusTarget: FilterChipFocusTarget) => {
+      pendingFocusRef.current = focusTarget
+      setFilters((current) =>
+        current.filter((_, filterIndex) => filterIndex !== index)
+      )
+    },
+    []
+  )
+
+  const handleFilterChipKeyDown = (
+    event: React.KeyboardEvent<HTMLButtonElement>,
+    index: number
+  ) => {
+    if (event.altKey || event.ctrlKey || event.metaKey) {
+      return
+    }
+
+    const lastIndex = filters.length - 1
+    const inputStart: FilterChipFocusTarget = { kind: "input", cursor: "start" }
+
+    switch (event.key) {
+      case "ArrowLeft":
+        event.preventDefault()
+        if (index > 0) {
+          applyFilterChipFocus({ kind: "chip", index: index - 1 })
+        }
+        return
+      case "ArrowRight":
+        event.preventDefault()
+        applyFilterChipFocus(
+          index < lastIndex ? { kind: "chip", index: index + 1 } : inputStart
+        )
+        return
+      case "Home":
+        event.preventDefault()
+        applyFilterChipFocus({ kind: "chip", index: 0 })
+        return
+      case "End":
+        event.preventDefault()
+        applyFilterChipFocus({ kind: "input", cursor: "end" })
+        return
+      case "Backspace":
+        event.preventDefault()
+        removeFilterAt(
+          index,
+          index > 0
+            ? { kind: "chip", index: index - 1 }
+            : lastIndex > 0
+              ? { kind: "chip", index: 0 }
+              : inputStart
+        )
+        return
+      case "Delete":
+        event.preventDefault()
+        removeFilterAt(
+          index,
+          index < lastIndex ? { kind: "chip", index } : inputStart
+        )
+        return
+    }
+  }
 
   const moveCursor = React.useCallback((nextCursor: number) => {
     setCursor(nextCursor)
@@ -797,6 +959,24 @@ export function ChannelSearch() {
     ) {
       event.preventDefault()
       setFilters((current) => current.slice(0, -1))
+      return
+    }
+
+    if (
+      (event.key === "ArrowLeft" || event.key === "Home") &&
+      !event.shiftKey &&
+      !event.altKey &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      filters.length > 0 &&
+      event.currentTarget.selectionStart === 0 &&
+      event.currentTarget.selectionEnd === 0
+    ) {
+      event.preventDefault()
+      applyFilterChipFocus({
+        kind: "chip",
+        index: event.key === "Home" ? 0 : filters.length - 1,
+      })
       return
     }
 
@@ -932,20 +1112,26 @@ export function ChannelSearch() {
             onClick={() => inputRef.current?.focus()}
           >
             {filters.map((filter, index) => (
-              <Badge key={`${filter.key}:${filter.value}:${index}`} asChild>
+              <Badge
+                key={`${formatChatSearchFilter(filter)}:${index}`}
+                variant={filter.negated ? "destructive" : "default"}
+                asChild
+              >
                 <button
+                  ref={(element) => {
+                    filterChipRefs.current[index] = element
+                  }}
                   type="button"
-                  className="h-5 max-w-full cursor-pointer rounded-md px-1.5 font-medium"
-                  aria-label={`Remove ${filter.key}:${filter.value}`}
+                  className="h-5 max-w-full cursor-pointer rounded-md px-1.5 font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                  aria-label={`Remove ${formatChatSearchFilter(filter)}`}
+                  aria-keyshortcuts="Backspace Delete"
                   onClick={(event) => {
                     event.stopPropagation()
-                    setFilters((current) =>
-                      current.filter((_, filterIndex) => filterIndex !== index)
-                    )
-                    focusInput()
+                    removeFilterAt(index, { kind: "input", cursor: "end" })
                   }}
+                  onKeyDown={(event) => handleFilterChipKeyDown(event, index)}
                 >
-                  {filter.key}:{filter.value}
+                  {formatChatSearchFilter(filter)}
                 </button>
               </Badge>
             ))}

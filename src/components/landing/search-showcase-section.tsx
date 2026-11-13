@@ -10,6 +10,7 @@ import { LANDING_CHANNELS } from "@/lib/landing/landing-channels"
 import { LANDING_EMOTES, type LandingEmote } from "@/lib/landing/landing-emotes"
 import {
   findKeywordHighlightRanges,
+  formatChatSearchFilter,
   getChatSearchSuggestions,
   getChatSearchTokenAtCursor,
   isChatSearchQueryActive,
@@ -284,7 +285,14 @@ const DEMO_CHANNELS = [
 const MAX_VISIBLE_SUGGESTIONS = 4
 const MAX_VISIBLE_RESULTS = 8
 const EMPTY_FILTERS: ChatSearchCommittedFilter[] = []
-const EMPTY_STATE_FILTERS = ["in:*", "from:", "role:mod", "has:link"] as const
+const EMPTY_STATE_FILTERS = [
+  "in:*",
+  "!in:",
+  "from:",
+  "role:mod",
+  "has:link",
+  "has:event",
+] as const
 
 const KEYWORD = "boss"
 const FILTER_TYPED = " from:dh"
@@ -1081,10 +1089,11 @@ function SearchShowcaseField({
     <div className="flex min-h-9 flex-wrap items-center gap-1 rounded-lg border border-ring bg-transparent px-2 py-1 ring-3 ring-ring/50 dark:bg-input/30">
       {frame.filters.map((filter, index) => (
         <Badge
-          key={`${filter.key}:${filter.value}:${index}`}
+          key={`${formatChatSearchFilter(filter)}:${index}`}
+          variant={filter.negated ? "destructive" : "default"}
           className="h-5 max-w-full rounded-md px-1.5 font-medium motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-90"
         >
-          {filter.key}:{filter.value}
+          {formatChatSearchFilter(filter)}
         </Badge>
       ))}
       <span className="flex min-w-[8ch] flex-1 items-center overflow-hidden px-0.5 py-0.5 text-sm whitespace-pre">

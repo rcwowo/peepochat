@@ -7,7 +7,7 @@ import {
   brandingForVariant,
   resolveBrandingVariant,
   type BrandingVariant,
-} from "./src/lib/branding"
+} from "./src/lib/branding.ts"
 
 const brandingVariant = resolveBrandingVariant(process.env.CF_PAGES_BRANCH)
 
@@ -34,12 +34,15 @@ export default defineConfig({
   plugins: [react(), tailwindcss(), htmlBrandingPlugin(brandingVariant)],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      "@": path.resolve(import.meta.dirname, "./src"),
     },
   },
   define: {
     __APP_VERSION__: JSON.stringify(process.env.npm_package_version),
     __BRANDING_VARIANT__: JSON.stringify(brandingVariant),
+  },
+  build: {
+    chunkSizeWarningLimit: 900,
   },
   appType: "spa",
 })

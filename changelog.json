@@ -1,5 +1,15 @@
 [
     {
+        "version": "1.3.3",
+        "date": "2026-11-13",
+        "items": [
+            "Added more advanced filters to the search feature.",
+            "Fixed an issue where /unmod didn't appear as a command.",
+            "Fixed an issue where you couldn't use your keyboard to remove filters in search.",
+            "Fixed an issue where ephemeral channels in the player didn't have a profile picture in search."
+        ]
+    },
+    {
         "version": "1.3.2",
         "date": "2026-11-03",
         "items": [

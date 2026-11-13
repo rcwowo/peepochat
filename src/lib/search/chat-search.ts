@@ -3,14 +3,21 @@ import { findMessageUrls } from "@/lib/peepochat/peepochat-config"
 import { textHasChatMention } from "@/lib/chat/presentation/mentions"
 import { isTimelineAppend } from "@/lib/chat/presentation/timeline-prefix"
 import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
-import type { TwitchChatMessage } from "@/lib/twitch/chat/chat"
+import type {
+  TwitchBadge,
+  TwitchChatMessage,
+  TwitchSystemMessage,
+  TwitchSystemModActionKind,
+} from "@/lib/twitch/chat/chat"
 import type { TwitchTimelineItem } from "@/lib/twitch/chat/types"
-
-const FILTER_KEYS = new Set(["in", "from", "role", "has"] as const)
 
 export const CHAT_SEARCH_FILTER_KEYS = ["in", "from", "role", "has"] as const
 
+export const CHAT_SEARCH_NEGATION_PREFIX = "!"
+
 export type ChatSearchFilterKey = (typeof CHAT_SEARCH_FILTER_KEYS)[number]
+
+const FILTER_KEYS: ReadonlySet<string> = new Set(CHAT_SEARCH_FILTER_KEYS)
 
 export type ChatSearchKnownChannel = {
   login: string
@@ -20,6 +27,7 @@ export type ChatSearchKnownChannel = {
 export type ChatSearchFilter = {
   key: ChatSearchFilterKey
   value: string
+  negated: boolean
   start: number
   end: number
 }
@@ -27,6 +35,7 @@ export type ChatSearchFilter = {
 export type ChatSearchCommittedFilter = {
   key: ChatSearchFilterKey
   value: string
+  negated: boolean
 }
 
 export type ParsedChatSearchQuery = {
@@ -48,11 +57,20 @@ export type ChatSearchSuggestion = {
   description: string
 }
 
-export type ChatSearchResult = {
-  message: TwitchChatMessage
-  highlightRanges: PingMatchRange[]
-  usernameHighlightRanges: PingMatchRange[]
-}
+export type ChatSearchSystemMessage = TwitchSystemMessage & { channel: string }
+
+export type ChatSearchEntry =
+  | { kind: "chat"; message: TwitchChatMessage }
+  | { kind: "system"; message: ChatSearchSystemMessage }
+
+export type ChatSearchResult =
+  | {
+      kind: "chat"
+      message: TwitchChatMessage
+      highlightRanges: PingMatchRange[]
+      usernameHighlightRanges: PingMatchRange[]
+    }
+  | { kind: "system"; message: ChatSearchSystemMessage }
 
 export type ChatSearchUsername = {
   userName: string
@@ -86,6 +104,13 @@ const FILTER_TYPE_SUGGESTIONS: ChatSearchSuggestion[] = [
   },
 ]
 
+const NEGATED_FILTER_TYPE_DESCRIPTIONS: Record<ChatSearchFilterKey, string> = {
+  in: "Exclude a channel",
+  from: "Exclude messages from a user",
+  role: "Exclude a badge role",
+  has: "Exclude messages containing something",
+}
+
 const ROLE_SUGGESTIONS: ChatSearchSuggestion[] = [
   {
     id: "role:mod",
@@ -113,35 +138,268 @@ const ROLE_SUGGESTIONS: ChatSearchSuggestion[] = [
   },
 ]
 
-const HAS_SUGGESTIONS: ChatSearchSuggestion[] = [
+type ChatSearchHasDefinition = {
+  value: string
+  aliases: readonly string[]
+  description: string
+  category: "content" | "type"
+  matchChat: (message: TwitchChatMessage) => boolean
+  matchSystem: (message: TwitchSystemMessage) => boolean
+}
+
+const GIFT_SUB_MSG_IDS: ReadonlySet<string> = new Set([
+  "subgift",
+  "submysterygift",
+  "anonsubgift",
+  "anonsubmysterygift",
+])
+
+const UPGRADE_SUB_MSG_IDS: ReadonlySet<string> = new Set([
+  "giftpaidupgrade",
+  "anongiftpaidupgrade",
+  "primepaidupgrade",
+])
+
+const BAN_MOD_ACTION_KINDS: ReadonlySet<TwitchSystemModActionKind> = new Set([
+  "ban",
+  "anonymous_ban",
+])
+
+const TIMEOUT_MOD_ACTION_KINDS: ReadonlySet<TwitchSystemModActionKind> =
+  new Set(["timeout", "anonymous_timeout"])
+
+function never() {
+  return false
+}
+
+function systemMsgIdIn(message: TwitchSystemMessage, ids: ReadonlySet<string>) {
+  return message.msgId !== null && ids.has(message.msgId.toLowerCase())
+}
+
+function systemModActionIn(
+  message: TwitchSystemMessage,
+  kinds: ReadonlySet<TwitchSystemModActionKind>
+) {
+  return (
+    message.event === "mod_action" &&
+    message.modActionKind !== null &&
+    kinds.has(message.modActionKind)
+  )
+}
+
+function isChannelEventSystemMessage(message: TwitchSystemMessage) {
+  switch (message.event) {
+    case "subscription":
+    case "raid":
+    case "announcement":
+      return true
+    case "status":
+      return message.msgId !== null
+    default:
+      return false
+  }
+}
+
+function isNoticeSystemMessage(message: TwitchSystemMessage) {
+  switch (message.event) {
+    case "notice":
+    case "connection":
+      return true
+    case "status":
+      return message.msgId === null
+    default:
+      return false
+  }
+}
+
+const HAS_DEFINITIONS: readonly ChatSearchHasDefinition[] = [
   {
-    id: "has:link",
-    insert: "has:link",
-    label: "has:link",
+    value: "link",
+    aliases: ["links", "url", "urls"],
     description: "Contains a link",
+    category: "content",
+    matchChat: (message) => findMessageUrls(message.text).length > 0,
+    matchSystem: (message) => findMessageUrls(message.text).length > 0,
   },
   {
-    id: "has:emote",
-    insert: "has:emote",
-    label: "has:emote",
+    value: "emote",
+    aliases: ["emotes"],
     description: "Contains an emote",
+    category: "content",
+    matchChat: (message) => message.emotes.length > 0,
+    matchSystem: (message) => (message.detailsEmotes?.length ?? 0) > 0,
   },
   {
-    id: "has:gif",
-    insert: "has:gif",
-    label: "has:gif",
+    value: "gif",
+    aliases: ["gifs"],
     description: "Contains a GIF message",
+    category: "content",
+    matchChat: (message) => message.gifs.length > 0,
+    matchSystem: never,
   },
   {
-    id: "has:mention",
-    insert: "has:mention",
-    label: "has:mention",
+    value: "mention",
+    aliases: ["mentions"],
     description: "Contains an @mention",
+    category: "content",
+    matchChat: (message) => textHasChatMention(message.text),
+    matchSystem: (message) => textHasChatMention(message.text),
+  },
+  {
+    value: "reply",
+    aliases: ["replies"],
+    description: "Is a reply",
+    category: "content",
+    matchChat: (message) => message.reply !== null,
+    matchSystem: never,
+  },
+  {
+    value: "bits",
+    aliases: ["bit", "cheer", "cheers"],
+    description: "Contains a cheer",
+    category: "content",
+    matchChat: (message) => (message.bits ?? 0) > 0,
+    matchSystem: never,
+  },
+  {
+    value: "first",
+    aliases: ["firstmessage"],
+    description: "First-time chatter",
+    category: "content",
+    matchChat: (message) => message.flags.isFirst,
+    matchSystem: never,
+  },
+  {
+    value: "chat",
+    aliases: ["message", "messages"],
+    description: "Chat messages",
+    category: "type",
+    matchChat: () => true,
+    matchSystem: never,
+  },
+  {
+    value: "event",
+    aliases: ["events"],
+    description: "Any channel event",
+    category: "type",
+    matchChat: never,
+    matchSystem: isChannelEventSystemMessage,
+  },
+  {
+    value: "sub",
+    aliases: ["subs", "subscription", "subscriptions"],
+    description: "Any subscription event",
+    category: "type",
+    matchChat: never,
+    matchSystem: (message) => message.event === "subscription",
+  },
+  {
+    value: "newsub",
+    aliases: ["newsubs"],
+    description: "New subscriptions",
+    category: "type",
+    matchChat: never,
+    matchSystem: (message) => message.msgId?.toLowerCase() === "sub",
+  },
+  {
+    value: "resub",
+    aliases: ["resubs"],
+    description: "Resubscriptions",
+    category: "type",
+    matchChat: never,
+    matchSystem: (message) => message.msgId?.toLowerCase() === "resub",
+  },
+  {
+    value: "gift",
+    aliases: ["gifts", "subgift", "subgifts"],
+    description: "Gifted subscriptions",
+    category: "type",
+    matchChat: never,
+    matchSystem: (message) => systemMsgIdIn(message, GIFT_SUB_MSG_IDS),
+  },
+  {
+    value: "upgrade",
+    aliases: ["upgrades"],
+    description: "Subscription upgrades",
+    category: "type",
+    matchChat: never,
+    matchSystem: (message) => systemMsgIdIn(message, UPGRADE_SUB_MSG_IDS),
+  },
+  {
+    value: "raid",
+    aliases: ["raids"],
+    description: "Raids",
+    category: "type",
+    matchChat: never,
+    matchSystem: (message) => message.event === "raid",
+  },
+  {
+    value: "announcement",
+    aliases: ["announcements"],
+    description: "Announcements",
+    category: "type",
+    matchChat: never,
+    matchSystem: (message) => message.event === "announcement",
+  },
+  {
+    value: "notice",
+    aliases: ["notices"],
+    description: "Chat notices and status messages",
+    category: "type",
+    matchChat: never,
+    matchSystem: isNoticeSystemMessage,
+  },
+  {
+    value: "modaction",
+    aliases: ["modactions", "mod_action", "moderation"],
+    description: "Moderation actions",
+    category: "type",
+    matchChat: never,
+    matchSystem: (message) => message.event === "mod_action",
+  },
+  {
+    value: "ban",
+    aliases: ["bans"],
+    description: "Bans",
+    category: "type",
+    matchChat: never,
+    matchSystem: (message) => systemModActionIn(message, BAN_MOD_ACTION_KINDS),
+  },
+  {
+    value: "timeout",
+    aliases: ["timeouts"],
+    description: "Timeouts",
+    category: "type",
+    matchChat: never,
+    matchSystem: (message) =>
+      systemModActionIn(message, TIMEOUT_MOD_ACTION_KINDS),
   },
 ]
 
+const HAS_DEFINITIONS_BY_VALUE: ReadonlyMap<string, ChatSearchHasDefinition> =
+  new Map(
+    HAS_DEFINITIONS.flatMap((definition) =>
+      [definition.value, ...definition.aliases].map(
+        (value) => [value, definition] as const
+      )
+    )
+  )
+
+const HAS_SUGGESTIONS: ChatSearchSuggestion[] = HAS_DEFINITIONS.map(
+  (definition) => ({
+    id: `has:${definition.value}`,
+    insert: `has:${definition.value}`,
+    label: `has:${definition.value}`,
+    description: definition.description,
+  })
+)
+
+function resolveHasDefinition(value: string) {
+  return HAS_DEFINITIONS_BY_VALUE.get(value.trim().toLowerCase()) ?? null
+}
+
 function isFilterKey(value: string): value is ChatSearchFilterKey {
-  return FILTER_KEYS.has(value as ChatSearchFilterKey)
+  return FILTER_KEYS.has(value)
 }
 
 function isWhitespace(char: string) {
@@ -225,9 +483,13 @@ export function parseChatSearchQuery(raw: string): ParsedChatSearchQuery {
       tokenEnd += 1
     }
 
-    const colon = raw.indexOf(":", index)
-    if (colon > index && colon < tokenEnd) {
-      const key = raw.slice(index, colon).toLowerCase()
+    const negated = raw.startsWith(CHAT_SEARCH_NEGATION_PREFIX, index)
+    const keyStart = negated
+      ? index + CHAT_SEARCH_NEGATION_PREFIX.length
+      : index
+    const colon = raw.indexOf(":", keyStart)
+    if (colon > keyStart && colon < tokenEnd) {
+      const key = raw.slice(keyStart, colon).toLowerCase()
       if (isFilterKey(key)) {
         index = colon + 1
         const value = raw[index] === '"' ? readQuoted() : readUnquoted()
@@ -236,6 +498,7 @@ export function parseChatSearchQuery(raw: string): ParsedChatSearchQuery {
           filters.push({
             key,
             value: trimmed,
+            negated,
             start: tokenStart,
             end: index,
           })
@@ -377,9 +640,15 @@ export function splitCommittedSearchQuery(text: string): {
     filters: committed.map((filter) => ({
       key: filter.key,
       value: filter.value,
+      negated: filter.negated,
     })),
     remainder,
   }
+}
+
+export function formatChatSearchFilter(filter: ChatSearchCommittedFilter) {
+  const prefix = filter.negated ? CHAT_SEARCH_NEGATION_PREFIX : ""
+  return `${prefix}${filter.key}:${filter.value}`
 }
 
 export function serializeChatSearchQuery(
@@ -389,7 +658,8 @@ export function serializeChatSearchQuery(
   const filterText = filters
     .map((filter) => {
       const value = /\s/.test(filter.value) ? `"${filter.value}"` : filter.value
-      return `${filter.key}:${value}`
+      const prefix = filter.negated ? CHAT_SEARCH_NEGATION_PREFIX : ""
+      return `${prefix}${filter.key}:${value}`
     })
     .join(" ")
   const rest = remainder.replace(/^\s+/, "")
@@ -438,78 +708,156 @@ export function resolveSearchChannelLogins(
   defaultChannelLogins: string[],
   channels: ChatSearchKnownChannel[]
 ) {
-  const inFilters = parsed.filters.filter((filter) => filter.key === "in")
-  if (inFilters.length === 0) {
-    return defaultChannelLogins.map((login) => normalizeChannelLogin(login))
-  }
-
-  if (inFilters.some((filter) => isAllChannelsSearchValue(filter.value))) {
-    return channels.map((channel) => normalizeChannelLogin(channel.login))
-  }
-
-  const resolved = new Set<string>()
-  for (const filter of inFilters) {
-    const login = resolveChannelSearchLogin(filter.value, channels)
-    if (login) {
-      resolved.add(login)
+  const includeFilters: ChatSearchFilter[] = []
+  const excludeFilters: ChatSearchFilter[] = []
+  for (const filter of parsed.filters) {
+    if (filter.key !== "in") {
+      continue
+    }
+    if (filter.negated) {
+      excludeFilters.push(filter)
+    } else {
+      includeFilters.push(filter)
     }
   }
 
-  return [...resolved]
+  const allChannelLogins = () =>
+    channels.map((channel) => normalizeChannelLogin(channel.login))
+
+  let logins: string[]
+  if (includeFilters.length === 0) {
+    logins =
+      excludeFilters.length === 0
+        ? defaultChannelLogins.map((login) => normalizeChannelLogin(login))
+        : allChannelLogins()
+  } else if (
+    includeFilters.some((filter) => isAllChannelsSearchValue(filter.value))
+  ) {
+    logins = allChannelLogins()
+  } else {
+    const resolved = new Set<string>()
+    for (const filter of includeFilters) {
+      const login = resolveChannelSearchLogin(filter.value, channels)
+      if (login) {
+        resolved.add(login)
+      }
+    }
+    logins = [...resolved]
+  }
+
+  if (excludeFilters.length === 0) {
+    return logins
+  }
+
+  const excluded = new Set<string>()
+  for (const filter of excludeFilters) {
+    if (isAllChannelsSearchValue(filter.value)) {
+      return []
+    }
+    const login =
+      resolveChannelSearchLogin(filter.value, channels) ||
+      normalizeChannelLogin(filter.value)
+    if (login) {
+      excluded.add(login)
+    }
+  }
+
+  return logins.filter((login) => !excluded.has(login))
 }
 
 function normalizeUserFilter(value: string) {
   return value.trim().replace(/^@/, "").toLowerCase()
 }
 
-function messageMatchesFrom(message: TwitchChatMessage, value: string) {
-  const needle = normalizeUserFilter(value)
-  if (!needle) {
-    return false
-  }
-
+function userMatchesFilter(
+  user: { userName: string; displayName: string } | null,
+  needle: string
+) {
   return (
-    message.userName.toLowerCase() === needle ||
-    message.displayName.toLowerCase() === needle
+    user !== null &&
+    (user.userName.toLowerCase() === needle ||
+      user.displayName.toLowerCase() === needle)
   )
 }
 
-function messageMatchesRole(message: TwitchChatMessage, value: string) {
+function entryMatchesFrom(entry: ChatSearchEntry, needle: string) {
+  if (entry.kind === "chat") {
+    return userMatchesFilter(entry.message, needle)
+  }
+
+  return (
+    userMatchesFilter(entry.message.actor, needle) ||
+    userMatchesFilter(entry.message.target, needle)
+  )
+}
+
+type ChatSearchRole = "moderator" | "vip" | "subscriber" | "broadcaster"
+
+type ChatSearchRoleFlags = {
+  isBroadcaster: boolean
+  isModerator: boolean
+  isSubscriber: boolean
+  isVip: boolean
+}
+
+function resolveChatSearchRole(value: string): ChatSearchRole | null {
   switch (value.trim().toLowerCase()) {
     case "mod":
+    case "mods":
     case "moderator":
-      return message.flags.isModerator
+    case "moderators":
+      return "moderator"
     case "vip":
-      return message.flags.isVip
+    case "vips":
+      return "vip"
     case "sub":
+    case "subs":
     case "subscriber":
-      return message.flags.isSubscriber
+    case "subscribers":
+      return "subscriber"
     case "broadcaster":
     case "streamer":
-      return message.flags.isBroadcaster
+      return "broadcaster"
     default:
-      return false
+      return null
   }
 }
 
-function messageMatchesHas(message: TwitchChatMessage, value: string) {
-  switch (value.trim().toLowerCase()) {
-    case "link":
-    case "links":
-    case "url":
-      return findMessageUrls(message.text).length > 0
-    case "emote":
-    case "emotes":
-      return message.emotes.length > 0
-    case "gif":
-    case "gifs":
-      return message.gifs.length > 0
-    case "mention":
-    case "mentions":
-      return textHasChatMention(message.text)
-    default:
-      return false
+function getBadgeRoleFlags(badges: TwitchBadge[]): ChatSearchRoleFlags {
+  const sets = new Set(badges.map((badge) => badge.set))
+  return {
+    isBroadcaster: sets.has("broadcaster"),
+    isModerator: sets.has("moderator"),
+    isSubscriber: sets.has("subscriber") || sets.has("founder"),
+    isVip: sets.has("vip"),
   }
+}
+
+function entryHasRole(entry: ChatSearchEntry, role: ChatSearchRole) {
+  const flags =
+    entry.kind === "chat"
+      ? entry.message.flags
+      : getBadgeRoleFlags(entry.message.badges)
+
+  switch (role) {
+    case "moderator":
+      return flags.isModerator
+    case "vip":
+      return flags.isVip
+    case "subscriber":
+      return flags.isSubscriber
+    case "broadcaster":
+      return flags.isBroadcaster
+  }
+}
+
+function entryMatchesHas(
+  entry: ChatSearchEntry,
+  definition: ChatSearchHasDefinition
+) {
+  return entry.kind === "chat"
+    ? definition.matchChat(entry.message)
+    : definition.matchSystem(entry.message)
 }
 
 function findKeywordRanges(text: string, keyword: string): PingMatchRange[] {
@@ -586,57 +934,227 @@ export function mergeHighlightRanges(
   return merged
 }
 
-function messageMatchesFilters(
-  message: TwitchChatMessage,
+type CompiledChatSearchQuery = {
+  unsatisfiable: boolean
+  includeFrom: string[]
+  excludeFrom: string[]
+  includeRoles: ChatSearchRole[]
+  excludeRoles: ChatSearchRole[]
+  includeTypes: ChatSearchHasDefinition[]
+  excludeTypes: ChatSearchHasDefinition[]
+  includeContent: ChatSearchHasDefinition[]
+  excludeContent: ChatSearchHasDefinition[]
+}
+
+const compiledChatSearchQueries = new WeakMap<
+  ParsedChatSearchQuery,
+  CompiledChatSearchQuery
+>()
+
+function compileChatSearchQuery(
   parsed: ParsedChatSearchQuery
-) {
-  const fromFilters = parsed.filters.filter((filter) => filter.key === "from")
-  if (
-    fromFilters.length > 0 &&
-    !fromFilters.some((filter) => messageMatchesFrom(message, filter.value))
-  ) {
-    return false
+): CompiledChatSearchQuery {
+  const cached = compiledChatSearchQueries.get(parsed)
+  if (cached) {
+    return cached
   }
 
-  const roleFilters = parsed.filters.filter((filter) => filter.key === "role")
-  if (
-    roleFilters.length > 0 &&
-    !roleFilters.some((filter) => messageMatchesRole(message, filter.value))
-  ) {
-    return false
+  const compiled: CompiledChatSearchQuery = {
+    unsatisfiable: false,
+    includeFrom: [],
+    excludeFrom: [],
+    includeRoles: [],
+    excludeRoles: [],
+    includeTypes: [],
+    excludeTypes: [],
+    includeContent: [],
+    excludeContent: [],
   }
+  let includeFromCount = 0
+  let includeRoleCount = 0
 
-  const hasFilters = parsed.filters.filter((filter) => filter.key === "has")
-  for (const filter of hasFilters) {
-    if (!messageMatchesHas(message, filter.value)) {
-      return false
+  for (const filter of parsed.filters) {
+    switch (filter.key) {
+      case "in":
+        break
+      case "from": {
+        if (!filter.negated) {
+          includeFromCount += 1
+        }
+        const needle = normalizeUserFilter(filter.value)
+        if (needle) {
+          ;(filter.negated ? compiled.excludeFrom : compiled.includeFrom).push(
+            needle
+          )
+        }
+        break
+      }
+      case "role": {
+        if (!filter.negated) {
+          includeRoleCount += 1
+        }
+        const role = resolveChatSearchRole(filter.value)
+        if (role) {
+          ;(filter.negated
+            ? compiled.excludeRoles
+            : compiled.includeRoles
+          ).push(role)
+        }
+        break
+      }
+      case "has": {
+        const definition = resolveHasDefinition(filter.value)
+        if (!definition) {
+          if (!filter.negated) {
+            compiled.unsatisfiable = true
+          }
+          break
+        }
+        if (definition.category === "type") {
+          ;(filter.negated
+            ? compiled.excludeTypes
+            : compiled.includeTypes
+          ).push(definition)
+        } else {
+          ;(filter.negated
+            ? compiled.excludeContent
+            : compiled.includeContent
+          ).push(definition)
+        }
+        break
+      }
     }
   }
 
-  return true
+  if (
+    (includeFromCount > 0 && compiled.includeFrom.length === 0) ||
+    (includeRoleCount > 0 && compiled.includeRoles.length === 0)
+  ) {
+    compiled.unsatisfiable = true
+  }
+
+  compiledChatSearchQueries.set(parsed, compiled)
+  return compiled
+}
+
+function entryMatchesFilters(
+  entry: ChatSearchEntry,
+  query: CompiledChatSearchQuery
+) {
+  if (query.unsatisfiable) {
+    return false
+  }
+
+  if (query.includeTypes.length > 0) {
+    if (
+      !query.includeTypes.some((definition) =>
+        entryMatchesHas(entry, definition)
+      )
+    ) {
+      return false
+    }
+  } else if (
+    entry.kind !== "chat" &&
+    !query.excludeTypes.some((definition) => definition.value === "chat")
+  ) {
+    return false
+  }
+
+  if (
+    query.excludeTypes.some((definition) => entryMatchesHas(entry, definition))
+  ) {
+    return false
+  }
+
+  if (
+    query.includeFrom.length > 0 &&
+    !query.includeFrom.some((needle) => entryMatchesFrom(entry, needle))
+  ) {
+    return false
+  }
+
+  if (query.excludeFrom.some((needle) => entryMatchesFrom(entry, needle))) {
+    return false
+  }
+
+  if (
+    query.includeRoles.length > 0 &&
+    !query.includeRoles.some((role) => entryHasRole(entry, role))
+  ) {
+    return false
+  }
+
+  if (query.excludeRoles.some((role) => entryHasRole(entry, role))) {
+    return false
+  }
+
+  if (
+    !query.includeContent.every((definition) =>
+      entryMatchesHas(entry, definition)
+    )
+  ) {
+    return false
+  }
+
+  return !query.excludeContent.some((definition) =>
+    entryMatchesHas(entry, definition)
+  )
 }
 
 export type ChatSearchNicknameResolver = (userName: string) => string | null
 
+type ChatSearchMatchOptions = {
+  getNicknameByLogin?: ChatSearchNicknameResolver
+}
+
 function getChatSearchDisplayName(
   message: TwitchChatMessage,
-  options: { getNicknameByLogin?: ChatSearchNicknameResolver } | undefined
+  options: ChatSearchMatchOptions | undefined
 ) {
   const nickname = options?.getNicknameByLogin?.(message.userName) ?? null
   return nickname || message.displayName
 }
 
-export function matchChatSearchMessage(
-  message: TwitchChatMessage,
-  parsed: ParsedChatSearchQuery,
-  options?: { getNicknameByLogin?: ChatSearchNicknameResolver }
-): ChatSearchResult | null {
-  if (!messageMatchesFilters(message, parsed)) {
-    return null
-  }
+function textContainsKeyword(text: string | null | undefined, keyword: string) {
+  return Boolean(text) && findKeywordRanges(text!, keyword).length > 0
+}
 
-  if (parsed.keywords.length === 0) {
+function systemMessageMatchesKeywords(
+  message: TwitchSystemMessage,
+  keywords: string[],
+  options: ChatSearchMatchOptions | undefined
+) {
+  const actorNickname = message.actor
+    ? (options?.getNicknameByLogin?.(message.actor.userName) ?? null)
+    : null
+  const targetNickname = message.target
+    ? (options?.getNicknameByLogin?.(message.target.userName) ?? null)
+    : null
+  const haystacks = [
+    message.text,
+    message.actor?.displayName,
+    message.actor?.userName,
+    actorNickname,
+    message.target?.displayName,
+    message.target?.userName,
+    targetNickname,
+  ]
+
+  return keywords.every(
+    (keyword) =>
+      !keyword ||
+      haystacks.some((haystack) => textContainsKeyword(haystack, keyword))
+  )
+}
+
+function matchChatMessageKeywords(
+  message: TwitchChatMessage,
+  keywords: string[],
+  options: ChatSearchMatchOptions | undefined
+): ChatSearchResult | null {
+  if (keywords.length === 0) {
     return {
+      kind: "chat",
       message,
       highlightRanges: [],
       usernameHighlightRanges: [],
@@ -647,7 +1165,7 @@ export function matchChatSearchMessage(
   const highlightRanges: PingMatchRange[] = []
   const usernameHighlightRanges: PingMatchRange[] = []
 
-  for (const keyword of parsed.keywords) {
+  for (const keyword of keywords) {
     if (!keyword) {
       continue
     }
@@ -676,10 +1194,29 @@ export function matchChatSearchMessage(
   }
 
   return {
+    kind: "chat",
     message,
     highlightRanges: mergeHighlightRanges(highlightRanges),
     usernameHighlightRanges: mergeHighlightRanges(usernameHighlightRanges),
   }
+}
+
+export function matchChatSearchEntry(
+  entry: ChatSearchEntry,
+  parsed: ParsedChatSearchQuery,
+  options?: ChatSearchMatchOptions
+): ChatSearchResult | null {
+  if (!entryMatchesFilters(entry, compileChatSearchQuery(parsed))) {
+    return null
+  }
+
+  if (entry.kind === "system") {
+    return systemMessageMatchesKeywords(entry.message, parsed.keywords, options)
+      ? { kind: "system", message: entry.message }
+      : null
+  }
+
+  return matchChatMessageKeywords(entry.message, parsed.keywords, options)
 }
 
 function compareChatSearchResults(
@@ -693,18 +1230,18 @@ function compareChatSearchResults(
   return right.message.id.localeCompare(left.message.id)
 }
 
-export function searchChatMessages(
-  messages: TwitchChatMessage[],
+export function searchChatEntries(
+  entries: ChatSearchEntry[],
   parsed: ParsedChatSearchQuery,
-  options?: { getNicknameByLogin?: ChatSearchNicknameResolver }
+  options?: ChatSearchMatchOptions
 ): ChatSearchResult[] {
   if (!isChatSearchQueryActive(parsed)) {
     return []
   }
 
   const results: ChatSearchResult[] = []
-  for (const message of messages) {
-    const match = matchChatSearchMessage(message, parsed, options)
+  for (const entry of entries) {
+    const match = matchChatSearchEntry(entry, parsed, options)
     if (match) {
       results.push(match)
     }
@@ -762,6 +1299,12 @@ export function createChatSearchResultsCache(): ChatSearchResultsCache {
   }
 }
 
+type ChatSearchCollectOptions = {
+  includeDeleted?: boolean
+  isHidden?: (message: TwitchChatMessage) => boolean
+  isSystemHidden?: (message: TwitchSystemMessage) => boolean
+}
+
 export function updateChatSearchResults(
   cache: ChatSearchResultsCache,
   input: {
@@ -773,6 +1316,7 @@ export function updateChatSearchResults(
     getNicknameByLogin?: ChatSearchNicknameResolver
     nicknamesKey?: string | null
     isHidden?: (message: TwitchChatMessage) => boolean
+    isSystemHidden?: (message: TwitchSystemMessage) => boolean
   }
 ) {
   const {
@@ -784,6 +1328,7 @@ export function updateChatSearchResults(
     getNicknameByLogin,
     nicknamesKey,
     isHidden,
+    isSystemHidden,
   } = input
 
   if (!open || !isChatSearchQueryActive(parsed)) {
@@ -793,7 +1338,11 @@ export function updateChatSearchResults(
     return []
   }
 
-  const collectOptions = { includeDeleted, isHidden }
+  const collectOptions: ChatSearchCollectOptions = {
+    includeDeleted,
+    isHidden,
+    isSystemHidden,
+  }
   const effectiveNicknamesKey = nicknamesKey ?? null
   const canAppend =
     cache.parsed === parsed &&
@@ -810,27 +1359,27 @@ export function updateChatSearchResults(
 
   let results: ChatSearchResult[]
   if (canAppend) {
-    const appended: TwitchChatMessage[] = []
+    const appended: ChatSearchEntry[] = []
     for (let index = 0; index < timelines.length; index += 1) {
       const previous = cache.timelines[index] ?? []
       const next = timelines[index] ?? []
       if (next.length <= previous.length) {
         continue
       }
-      appended.push(
-        ...collectChatMessagesFromEntries(
-          next.slice(previous.length),
-          collectOptions
-        )
-      )
+      for (const entry of collectChatSearchEntries(
+        next.slice(previous.length),
+        collectOptions
+      )) {
+        appended.push(entry)
+      }
     }
     results = mergeChatSearchResults(
       cache.results,
-      searchChatMessages(appended, parsed, { getNicknameByLogin })
+      searchChatEntries(appended, parsed, { getNicknameByLogin })
     )
   } else {
-    results = searchChatMessages(
-      collectChatMessagesFromTimelines(timelines, collectOptions),
+    results = searchChatEntries(
+      collectChatSearchEntriesFromTimelines(timelines, collectOptions),
       parsed,
       { getNicknameByLogin }
     )
@@ -845,50 +1394,64 @@ export function updateChatSearchResults(
   return results
 }
 
-export function collectChatMessagesFromEntries(
+function isChatSearchSystemMessage(
+  message: TwitchSystemMessage
+): message is ChatSearchSystemMessage {
+  return Boolean(message.channel)
+}
+
+export function collectChatSearchEntries(
   entries: TwitchTimelineItem[],
-  options?: {
-    includeDeleted?: boolean
-    isHidden?: (message: TwitchChatMessage) => boolean
-  }
+  options?: ChatSearchCollectOptions
 ) {
   const includeDeleted = options?.includeDeleted ?? true
   const isHidden = options?.isHidden
-  const messages: TwitchChatMessage[] = []
+  const isSystemHidden = options?.isSystemHidden
+  const collected: ChatSearchEntry[] = []
 
   for (const entry of entries) {
-    if (entry.kind !== "chat") {
+    if (entry.kind === "chat") {
+      if (!includeDeleted && entry.message.deletedAt) {
+        continue
+      }
+
+      if (isHidden?.(entry.message)) {
+        continue
+      }
+
+      collected.push({ kind: "chat", message: entry.message })
       continue
     }
 
-    if (!includeDeleted && entry.message.deletedAt) {
-      continue
-    }
+    if (entry.kind === "system") {
+      if (!isChatSearchSystemMessage(entry.message)) {
+        continue
+      }
 
-    if (isHidden?.(entry.message)) {
-      continue
-    }
+      if (isSystemHidden?.(entry.message)) {
+        continue
+      }
 
-    messages.push(entry.message)
+      collected.push({ kind: "system", message: entry.message })
+    }
   }
 
-  return messages
+  return collected
 }
 
-export function collectChatMessagesFromTimelines(
+export function collectChatSearchEntriesFromTimelines(
   timelines: TwitchTimelineItem[][],
-  options?: {
-    includeDeleted?: boolean
-    isHidden?: (message: TwitchChatMessage) => boolean
-  }
+  options?: ChatSearchCollectOptions
 ) {
-  const messages: TwitchChatMessage[] = []
+  const collected: ChatSearchEntry[] = []
 
   for (const timeline of timelines) {
-    messages.push(...collectChatMessagesFromEntries(timeline, options))
+    for (const entry of collectChatSearchEntries(timeline, options)) {
+      collected.push(entry)
+    }
   }
 
-  return messages
+  return collected
 }
 
 export function collectRecentSearchUsernames(
@@ -933,6 +1496,97 @@ function filterSuggestions(suggestions: ChatSearchSuggestion[], query: string) {
   )
 }
 
+function negateChatSearchSuggestion(
+  suggestion: ChatSearchSuggestion
+): ChatSearchSuggestion {
+  return {
+    ...suggestion,
+    id: `${CHAT_SEARCH_NEGATION_PREFIX}${suggestion.id}`,
+    insert: `${CHAT_SEARCH_NEGATION_PREFIX}${suggestion.insert}`,
+    label: `${CHAT_SEARCH_NEGATION_PREFIX}${suggestion.label}`,
+  }
+}
+
+function getFilterValueSuggestions({
+  key,
+  value,
+  negated,
+  channels,
+  usernames,
+}: {
+  key: string
+  value: string
+  negated: boolean
+  channels: ChatSearchKnownChannel[]
+  usernames: ChatSearchUsername[]
+}): ChatSearchSuggestion[] {
+  const needle = stripFilterValueDecorators(value).toLowerCase()
+
+  if (key === "in") {
+    const channelSuggestions = channels
+      .filter((channel) => {
+        if (!needle) {
+          return true
+        }
+        return (
+          channel.login.toLowerCase().startsWith(needle) ||
+          channel.displayName.toLowerCase().startsWith(needle)
+        )
+      })
+      .slice(0, 8)
+      .map((channel) => ({
+        id: `in:${channel.login}`,
+        insert: `in:${channel.login}`,
+        label: `in:${channel.login}`,
+        description: channel.displayName,
+      }))
+
+    if (!negated && (!needle || "*".startsWith(needle))) {
+      return [
+        {
+          id: "in:*",
+          insert: "in:*",
+          label: "in:*",
+          description: "All channels",
+        },
+        ...channelSuggestions,
+      ]
+    }
+
+    return channelSuggestions
+  }
+
+  if (key === "from") {
+    return usernames
+      .filter((user) => {
+        if (!needle) {
+          return true
+        }
+        return (
+          user.userName.toLowerCase().startsWith(needle) ||
+          user.displayName.toLowerCase().startsWith(needle)
+        )
+      })
+      .slice(0, 8)
+      .map((user) => ({
+        id: `from:${user.userName.toLowerCase()}`,
+        insert: `from:${user.userName}`,
+        label: `from:${user.userName}`,
+        description: user.displayName,
+      }))
+  }
+
+  if (key === "role") {
+    return filterSuggestions(ROLE_SUGGESTIONS, `role:${needle}`)
+  }
+
+  if (key === "has") {
+    return filterSuggestions(HAS_SUGGESTIONS, `has:${needle}`)
+  }
+
+  return []
+}
+
 export function getChatSearchSuggestions({
   token,
   query,
@@ -950,77 +1604,33 @@ export function getChatSearchSuggestions({
     return []
   }
 
-  const tokenText = token.text
+  const negated = token.text.startsWith(CHAT_SEARCH_NEGATION_PREFIX)
+  const tokenText = negated
+    ? token.text.slice(CHAT_SEARCH_NEGATION_PREFIX.length)
+    : token.text
   const colon = tokenText.indexOf(":")
 
   if (colon >= 0) {
-    const key = tokenText.slice(0, colon).toLowerCase()
-    const value = stripFilterValueDecorators(tokenText.slice(colon + 1))
-    const needle = value.toLowerCase()
+    const suggestions = getFilterValueSuggestions({
+      key: tokenText.slice(0, colon).toLowerCase(),
+      value: tokenText.slice(colon + 1),
+      negated,
+      channels,
+      usernames,
+    })
+    return negated ? suggestions.map(negateChatSearchSuggestion) : suggestions
+  }
 
-    if (key === "in") {
-      const channelSuggestions = channels
-        .filter((channel) => {
-          if (!needle) {
-            return true
-          }
-          return (
-            channel.login.toLowerCase().startsWith(needle) ||
-            channel.displayName.toLowerCase().startsWith(needle)
-          )
-        })
-        .slice(0, 8)
-        .map((channel) => ({
-          id: `in:${channel.login}`,
-          insert: `in:${channel.login}`,
-          label: `in:${channel.login}`,
-          description: channel.displayName,
-        }))
-
-      if (!needle || "*".startsWith(needle)) {
-        return [
-          {
-            id: "in:*",
-            insert: "in:*",
-            label: "in:*",
-            description: "All channels",
-          },
-          ...channelSuggestions,
-        ]
+  if (negated) {
+    return filterSuggestions(FILTER_TYPE_SUGGESTIONS, tokenText).map(
+      (suggestion) => {
+        const key = suggestion.insert.slice(0, -1) as ChatSearchFilterKey
+        return {
+          ...negateChatSearchSuggestion(suggestion),
+          description: NEGATED_FILTER_TYPE_DESCRIPTIONS[key],
+        }
       }
-
-      return channelSuggestions
-    }
-
-    if (key === "from") {
-      return usernames
-        .filter((user) => {
-          if (!needle) {
-            return true
-          }
-          return (
-            user.userName.toLowerCase().startsWith(needle) ||
-            user.displayName.toLowerCase().startsWith(needle)
-          )
-        })
-        .slice(0, 8)
-        .map((user) => ({
-          id: `from:${user.userName.toLowerCase()}`,
-          insert: `from:${user.userName}`,
-          label: `from:${user.userName}`,
-          description: user.displayName,
-        }))
-    }
-
-    if (key === "role") {
-      return filterSuggestions(ROLE_SUGGESTIONS, tokenText).slice(0, 8)
-    }
-
-    if (key === "has") {
-      return filterSuggestions(HAS_SUGGESTIONS, tokenText).slice(0, 8)
-    }
-
-    return []
+    )
   }
 
   if (!tokenText) {
