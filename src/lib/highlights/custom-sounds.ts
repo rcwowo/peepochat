@@ -1,4 +1,5 @@
-const DB_NAME = "peepochat-sounds"
+export const CUSTOM_SOUNDS_DATABASE_NAME = "peepochat-sounds"
+const DB_NAME = CUSTOM_SOUNDS_DATABASE_NAME
 const STORE_NAME = "sounds"
 const DB_VERSION = 1
 

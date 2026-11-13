@@ -5,6 +5,7 @@ import { toast } from "sonner"
 import { clearAllOnboardingState } from "@/lib/peepochat/onboarding-storage"
 import { usePeepochatSettings } from "@/lib/peepochat/peepochat-context"
 import { exportConfigBackup } from "@/lib/peepochat/peepochat-config"
+import { deleteAllLocalData } from "@/lib/peepochat/local-data"
 import {
   SettingsActionButton,
   SettingsActions,
@@ -34,6 +35,11 @@ const INCLUDED_IN_BACKUP = [
     title: "Custom Sounds",
     description:
       "Custom ping and live notification sounds are embedded as Base64 in backups.",
+  },
+  {
+    title: "Text-to-Speech",
+    description:
+      "Your text-to-speech settings, voice profiles, saved chatter voices, and uploaded sound clips are all included.",
   },
   {
     title: "Metadata",
@@ -141,8 +147,9 @@ export function DataManagementTab() {
               )
             ) {
               clearAllOnboardingState()
-              localStorage.clear()
-              window.location.reload()
+              void deleteAllLocalData().finally(() => {
+                window.location.reload()
+              })
             }
           }}
         >

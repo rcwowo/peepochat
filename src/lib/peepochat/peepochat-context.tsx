@@ -158,6 +158,9 @@ export type PeepochatChatContextValue = {
     listener: (event: SendOutcomeEvent) => void,
     options?: { channel?: string }
   ) => () => void
+  subscribeToChatMessages: (
+    listener: (message: TwitchChatMessage) => void
+  ) => () => void
   replayPendingComposerNotice: (channel: string) => void
   dismissComposerNotice: (notice: { channel: string; id: string }) => void
   getBadgeCatalog: (login: string) => ChatBadgeCatalog

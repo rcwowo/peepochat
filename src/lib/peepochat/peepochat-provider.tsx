@@ -28,6 +28,7 @@ import { createNicknameMentionMap } from "@/lib/chat/nicknames"
 import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 import { EMPTY_WATCH_STATE, watchReducer } from "@/lib/player/watch-state"
 import type { SplitLayoutEdge } from "@/lib/chat/layout/split-layout"
+import type { TwitchChatMessage } from "@/lib/twitch/chat/chat"
 import {
   findSplitContainingChannel,
   isLiveNotificationsEnabledForChannel,
@@ -80,8 +81,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
   const effectiveAccount = sessionExpired ? null : account
   const hasAccountValue = account !== null
   const onChatMessageRef = React.useRef<
-    | ((message: import("@/lib/twitch/chat/chat").TwitchChatMessage) => void)
-    | null
+    ((message: TwitchChatMessage) => void) | null
   >(null)
   const onHistoricalMessagesRef = React.useRef<
     | ((messages: import("@/lib/twitch/chat/chat").TwitchChatMessage[]) => void)
@@ -256,8 +256,33 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     },
   })
 
+  const chatMessageListenersRef = React.useRef(
+    new Set<(message: TwitchChatMessage) => void>()
+  )
+
+  const subscribeToChatMessages = React.useCallback(
+    (listener: (message: TwitchChatMessage) => void) => {
+      const listeners = chatMessageListenersRef.current
+      listeners.add(listener)
+      return () => {
+        listeners.delete(listener)
+      }
+    },
+    []
+  )
+
   React.useEffect(() => {
-    onChatMessageRef.current = highlightActivity.handleIncomingMessage
+    const handleIncomingMessage = highlightActivity.handleIncomingMessage
+    onChatMessageRef.current = (message) => {
+      handleIncomingMessage(message)
+      for (const listener of chatMessageListenersRef.current) {
+        try {
+          listener(message)
+        } catch (error) {
+          console.error("Chat message listener failed", error)
+        }
+      }
+    }
   }, [highlightActivity.handleIncomingMessage])
 
   React.useEffect(() => {
@@ -869,6 +894,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       getSelfChatState,
       getChannelSendBlock,
       registerSendOutcomeListener,
+      subscribeToChatMessages,
       replayPendingComposerNotice,
       dismissComposerNotice,
       getBadgeCatalog: getBadgeCatalogForChannel,
@@ -913,6 +939,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       getSelfChatState,
       getChannelSendBlock,
       registerSendOutcomeListener,
+      subscribeToChatMessages,
       replayPendingComposerNotice,
       dismissComposerNotice,
       getBadgeCatalogForChannel,

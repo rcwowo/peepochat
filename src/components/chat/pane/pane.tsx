@@ -1,5 +1,6 @@
 import * as React from "react"
 import {
+  AudioLinesIcon,
   EllipsisIcon,
   ExternalLinkIcon,
   MessagesSquareIcon,
@@ -86,8 +87,8 @@ import { cn } from "@/lib/utils"
 
 import { openExternalTool, CHATLOGS_URL } from "@/lib/chat/moderation/tools"
 import { maskReplyForBlockedUser } from "@/lib/twitch/channel/blocked-users"
+import { useTtsSession } from "@/lib/tts/tts-context"
 
-const CHATVOICE_URL = "https://chatvoice.rcw.lol"
 const JUMP_HIGHLIGHT_MS = 2400
 
 function ChatPaneHotkeyRegistration({
@@ -234,6 +235,8 @@ function ChatPaneInner({
     usePeepochatSidebarHighlights()
   const { watchedChannelLogins } = usePeepochatPlayer()
   const isWatching = watchedChannelLogins.includes(channelLogin)
+  const { channelLogin: ttsChannelLogin, startTts, stopTts } = useTtsSession()
+  const ttsActive = ttsChannelLogin === channelLogin
   const messageHighlights = useChannelMessageHighlights(channelLogin)
   const composerCatalog = getComposerEmoteCatalog(channelLogin)
   const [rowStripeCache] = React.useState(() => new Map<string, boolean>())
@@ -505,6 +508,12 @@ function ChatPaneInner({
                   profileImageUrl={profileImageUrl}
                 />
                 <span className="truncate text-sm font-medium">{label}</span>
+                {ttsActive ? (
+                  <AudioLinesIcon
+                    aria-label="Text-to-speech is on"
+                    className="size-3.5 shrink-0 text-primary"
+                  />
+                ) : null}
                 {showLiveBadge ? (
                   <ChatPaneLiveBadge
                     expanded={liveInfoExpanded}
@@ -574,6 +583,17 @@ function ChatPaneInner({
                         label="Reload emotes"
                         onSelect={() => void refreshEmotes(channelLogin)}
                       />
+                      <MenuPanelItem
+                        icon={AudioLinesIcon}
+                        label={
+                          ttsActive
+                            ? "Stop text-to-speech"
+                            : "Start text-to-speech"
+                        }
+                        onSelect={() =>
+                          ttsActive ? stopTts() : startTts(channelLogin)
+                        }
+                      />
                       <MenuPanelSeparator />
                       <MenuPanelItem
                         icon={ExternalLinkIcon}
@@ -590,15 +610,6 @@ function ChatPaneInner({
                         onSelect={() =>
                           openExternalTool(
                             `${CHATLOGS_URL}/?channel=${encodeURIComponent(channelLogin)}`
-                          )
-                        }
-                      />
-                      <MenuPanelItem
-                        icon={ExternalLinkIcon}
-                        label="Open in Chatvoice"
-                        onSelect={() =>
-                          openExternalTool(
-                            `${CHATVOICE_URL}/?channel=${encodeURIComponent(channelLogin)}`
                           )
                         }
                       />

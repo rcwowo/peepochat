@@ -27,6 +27,9 @@ import {
 import { shouldPreventSettingsDismiss } from "@/lib/settings/settings-portaled-layers"
 import { ChatPage } from "@/pages/chat-page"
 import { PlayerPage } from "@/pages/player-page"
+import { TtsFloatingControls } from "@/components/tts/tts-floating-controls"
+import { TtsSidebar } from "@/components/tts/tts-sidebar"
+import { TtsProvider } from "@/lib/tts/tts-provider"
 import { cn } from "@/lib/utils"
 
 function DashboardLayout() {
@@ -173,6 +176,8 @@ function DashboardLayout() {
           ) : null}
         </SidebarInset>
       </div>
+      <TtsSidebar />
+      <TtsFloatingControls />
       {settingsOpen && (
         <button
           type="button"
@@ -203,9 +208,11 @@ function DashboardLayout() {
 export function DashboardApp() {
   return (
     <PeepochatProvider>
-      <HotkeyRegistryProvider>
-        <DashboardLayout />
-      </HotkeyRegistryProvider>
+      <TtsProvider>
+        <HotkeyRegistryProvider>
+          <DashboardLayout />
+        </HotkeyRegistryProvider>
+      </TtsProvider>
     </PeepochatProvider>
   )
 }

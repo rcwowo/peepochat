@@ -15,6 +15,17 @@ import {
 import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 import { listEmbeddedCustomSounds } from "@/lib/highlights/custom-sounds"
 import {
+  createDefaultTtsConfig,
+  normalizeTtsConfig,
+  type TtsConfig,
+  type TtsVoiceAssignment,
+} from "@/lib/tts/tts-config"
+import {
+  getAllVoiceAssignments,
+  listSoundEffectAudioBackups,
+  type TtsSoundEffectAudioBackup,
+} from "@/lib/tts/tts-db"
+import {
   NICKNAME_MAX_LENGTH,
   isValidNickname,
   isValidTwitchLogin,
@@ -272,6 +283,7 @@ const appConfigSchema = z.object({
     pings: [],
   }),
   player: playerSchema,
+  tts: z.unknown().transform((value): TtsConfig => normalizeTtsConfig(value)),
 })
 
 const backupEnvelopeSchema = z.object({
@@ -281,6 +293,12 @@ const backupEnvelopeSchema = z.object({
   schemaVersion: z.number().int().positive(),
   data: z.unknown(),
   embeddedSounds: z.array(z.unknown()).optional(),
+  tts: z
+    .object({
+      assignments: z.array(z.unknown()).optional(),
+      soundEffects: z.array(z.unknown()).optional(),
+    })
+    .optional(),
 })
 
 export type HighlightPingRule = z.infer<typeof highlightPingRuleSchema>
@@ -409,6 +427,7 @@ export function createDefaultConfig(): AppConfig {
     nicknames: {
       entries: [],
     },
+    tts: createDefaultTtsConfig(),
   }
 }
 
@@ -689,6 +708,12 @@ export async function exportConfigBackup(config: AppConfig): Promise<string> {
     referencedSoundIds.length > 0
       ? await listEmbeddedCustomSounds(referencedSoundIds)
       : []
+  const [ttsAssignments, ttsSoundEffects] = await Promise.all([
+    getAllVoiceAssignments(),
+    listSoundEffectAudioBackups(
+      normalized.tts.soundEffects.map((sound) => sound.id)
+    ),
+  ])
 
   const envelope: BackupEnvelope = {
     app: "peepochat",
@@ -702,12 +727,83 @@ export async function exportConfigBackup(config: AppConfig): Promise<string> {
     envelope.embeddedSounds = embeddedSounds
   }
 
+  envelope.tts = {
+    assignments: ttsAssignments,
+    soundEffects: ttsSoundEffects,
+  }
+
   return JSON.stringify(envelope, null, 2)
+}
+
+export type TtsBackupData = {
+  assignments: TtsVoiceAssignment[] | null
+  soundEffects: TtsSoundEffectAudioBackup[] | null
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0
+}
+
+function parseTtsBackupData(
+  input: { assignments?: unknown[]; soundEffects?: unknown[] } | undefined
+): TtsBackupData {
+  const assignments = input?.assignments?.flatMap((entry) => {
+    if (!entry || typeof entry !== "object") {
+      return []
+    }
+    const value = entry as Record<string, unknown>
+    if (
+      !isNonEmptyString(value.userName) ||
+      !isNonEmptyString(value.voiceProfileId)
+    ) {
+      return []
+    }
+    const now = new Date().toISOString()
+    return [
+      {
+        userName: value.userName.trim().toLowerCase(),
+        displayName: isNonEmptyString(value.displayName)
+          ? value.displayName
+          : value.userName,
+        voiceProfileId: value.voiceProfileId,
+        createdAt: isNonEmptyString(value.createdAt) ? value.createdAt : now,
+        lastSeenAt: isNonEmptyString(value.lastSeenAt) ? value.lastSeenAt : now,
+      } satisfies TtsVoiceAssignment,
+    ]
+  })
+
+  const soundEffects = input?.soundEffects?.flatMap((entry) => {
+    if (!entry || typeof entry !== "object") {
+      return []
+    }
+    const value = entry as Record<string, unknown>
+    if (
+      !isNonEmptyString(value.id) ||
+      !isNonEmptyString(value.mimeType) ||
+      typeof value.data !== "string"
+    ) {
+      return []
+    }
+    return [
+      {
+        id: value.id,
+        fileName: typeof value.fileName === "string" ? value.fileName : "",
+        mimeType: value.mimeType,
+        data: value.data,
+      } satisfies TtsSoundEffectAudioBackup,
+    ]
+  })
+
+  return {
+    assignments: assignments ?? null,
+    soundEffects: soundEffects ?? null,
+  }
 }
 
 export function parseBackupPayload(payload: string): {
   config: AppConfig
   embeddedSounds: BackupPreviewSound[]
+  tts: TtsBackupData
   exportedAt: string | null
   appVersion: string | null
 } {
@@ -727,6 +823,7 @@ export function parseBackupPayload(payload: string): {
             typeof (sound as BackupPreviewSound).mimeType === "string" &&
             typeof (sound as BackupPreviewSound).data === "string"
         ) ?? [],
+      tts: parseTtsBackupData(envelopeResult.data.tts),
       exportedAt: envelopeResult.data.exportedAt,
       appVersion: envelopeResult.data.appVersion,
     }
@@ -735,6 +832,7 @@ export function parseBackupPayload(payload: string): {
   return {
     config: parseConfig(parsed),
     embeddedSounds: [],
+    tts: { assignments: null, soundEffects: null },
     exportedAt: null,
     appVersion: null,
   }
@@ -1235,6 +1333,7 @@ function normalizeConfig(config: AppConfig): AppConfig {
     chat,
     highlights,
     nicknames,
+    tts: normalizeTtsConfig(config.tts),
     layout: {
       activeSplitId,
       splits,

@@ -1,5 +1,6 @@
 import * as React from "react"
 import {
+  AudioLinesIcon,
   DatabaseIcon,
   InfoIcon,
   PaintbrushIcon,
@@ -10,15 +11,18 @@ import {
   CircleHelpIcon,
   BellIcon,
   CodeIcon,
+  SpeechIcon,
+  TerminalIcon,
+  Volume2Icon,
   XIcon,
 } from "lucide-react"
 
 import {
-  Sheet,
-  SheetClose,
-  SheetContent,
-  SheetTitle,
-} from "@/components/ui/sheet"
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { APP_BRANDING } from "@/lib/branding"
@@ -32,6 +36,10 @@ import { DataManagementTab } from "@/components/settings/data-management-tab"
 import { HighlightsTab } from "@/components/settings/highlights-tab"
 import { NicknamesTab } from "@/components/settings/nicknames-tab"
 import { PlayerTab } from "@/components/settings/player-tab"
+import { TtsCommandsTab } from "@/components/settings/tts/tts-commands-tab"
+import { TtsSoundsTab } from "@/components/settings/tts/tts-sounds-tab"
+import { TtsSpeechTab } from "@/components/settings/tts/tts-speech-tab"
+import { TtsVoicesTab } from "@/components/settings/tts/tts-voices-tab"
 import { IS_DEV } from "@/lib/dev/is-dev"
 import {
   installSettingsPortaledLayerPointerGuard,
@@ -52,6 +60,10 @@ export type SettingsCategory =
   | "highlights"
   | "player"
   | "data"
+  | "tts-speech"
+  | "tts-voices"
+  | "tts-sounds"
+  | "tts-commands"
   | "changelog"
   | "help"
   | "about"
@@ -112,6 +124,42 @@ const PREFERENCE_CATEGORIES: SettingsCategoryEntry[] = [
         },
       ]
     : []),
+]
+
+const TTS_CATEGORIES: SettingsCategoryEntry[] = [
+  {
+    id: "tts-speech",
+    label: "Speech",
+    icon: SpeechIcon,
+    description:
+      "How chat messages are filtered, queued, and read aloud when text-to-speech is running.",
+  },
+  {
+    id: "tts-voices",
+    label: "Voices",
+    icon: AudioLinesIcon,
+    description:
+      "Voice profiles that get assigned to chatters, and the voices each chatter has been given.",
+  },
+  {
+    id: "tts-sounds",
+    label: "Sounds",
+    icon: Volume2Icon,
+    description:
+      "Audio clips chatters can trigger by wrapping a sound's name in parentheses.",
+  },
+  {
+    id: "tts-commands",
+    label: "Commands",
+    icon: TerminalIcon,
+    description:
+      "Let chat control text-to-speech. Every command starts disabled.",
+  },
+]
+
+const NAV_GROUPS: { label: string; categories: SettingsCategoryEntry[] }[] = [
+  { label: "Preferences", categories: PREFERENCE_CATEGORIES },
+  { label: "Text-to-Speech", categories: TTS_CATEGORIES },
 ]
 
 const RESOURCE_CATEGORIES: SettingsCategoryEntry[] = [
@@ -241,100 +289,93 @@ export function SettingsDialog({
     scrollRef.current?.scrollTo(0, 0)
   }, [activeCategory])
 
-  const handleOpenChange = (nextOpen: boolean) => {
-    onOpenChange(nextOpen)
-  }
-
-  const handleSelect = (
-    category: SettingsCategoryEntry,
-    element?: HTMLElement
-  ) => {
+  const handleSelect = (category: SettingsCategoryEntry) => {
     setActiveCategory(category.id)
-    // Keeps edge chips in view while paging through the mobile chip bar.
-    element?.scrollIntoView({ block: "nearest", inline: "nearest" })
   }
 
   const activeEntry =
-    [...PREFERENCE_CATEGORIES, ...RESOURCE_CATEGORIES, ABOUT_CATEGORY].find(
-      (category) => category.id === activeCategory
-    ) ?? null
+    [
+      ...NAV_GROUPS.flatMap((group) => group.categories),
+      ...RESOURCE_CATEGORIES,
+      ABOUT_CATEGORY,
+    ].find((category) => category.id === activeCategory) ?? null
   const activeDescription =
     typeof activeEntry?.description === "function"
       ? activeEntry.description()
       : activeEntry?.description
 
+  const preventPortaledDismiss = (event: {
+    target: EventTarget | null
+    preventDefault: () => void
+  }) => {
+    if (shouldPreventSettingsDismiss(event.target)) {
+      event.preventDefault()
+    }
+  }
+
+  const navGroups = [
+    ...NAV_GROUPS,
+    { label: "Resources", categories: RESOURCE_CATEGORIES },
+  ]
+
   return (
-    <Sheet open={open} onOpenChange={handleOpenChange} modal={false}>
-      <SheetContent
-        side="right"
+    <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
+      <DialogContent
         showCloseButton={false}
-        showOverlay={false}
         data-hotkey-surface="settings"
-        className="h-svh gap-0 p-0 data-[side=right]:w-full max-sm:data-[side=right]:border-l-0 sm:data-[side=right]:w-[34rem] data-[side=right]:sm:max-w-[34rem] sm:data-[side=right]:border-l"
-        onInteractOutside={(event) => {
-          if (shouldPreventSettingsDismiss(event.target)) {
-            event.preventDefault()
-          }
-        }}
-        onPointerDownOutside={(event) => {
-          if (shouldPreventSettingsDismiss(event.target)) {
-            event.preventDefault()
-          }
-        }}
-        onFocusOutside={(event) => {
-          if (shouldPreventSettingsDismiss(event.target)) {
-            event.preventDefault()
-          }
-        }}
+        aria-describedby={undefined}
+        className="flex flex-col gap-0 overflow-hidden p-0 max-sm:top-0 max-sm:left-0 max-sm:h-dvh max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:ring-0 sm:h-[min(calc(100dvh-4rem),52rem)] sm:w-[min(calc(100vw-4rem),68rem)] sm:max-w-none sm:shadow-2xl"
+        onInteractOutside={preventPortaledDismiss}
+        onPointerDownOutside={preventPortaledDismiss}
+        onFocusOutside={preventPortaledDismiss}
       >
-        <SheetTitle className="sr-only">Settings</SheetTitle>
+        <DialogTitle className="sr-only">Settings</DialogTitle>
 
         <div className="flex min-h-0 min-w-0 flex-1">
-          <div className="flex w-14 shrink-0 flex-col border-r border-border bg-sidebar sm:w-44">
+          <nav
+            aria-label="Settings categories"
+            className="flex w-14 shrink-0 flex-col border-r border-border bg-sidebar sm:w-48"
+          >
             <div className="min-h-0 flex-1 overflow-y-auto px-2 pt-3 pb-1">
-              <div
-                aria-hidden
-                className="px-2.5 pb-1 text-[11px] font-medium text-muted-foreground/60 max-sm:hidden"
-              >
-                Preferences
-              </div>
-              <div className="flex flex-col gap-0.5">
-                {PREFERENCE_CATEGORIES.map((category) => (
-                  <NavRowButton
-                    key={category.id}
-                    category={category}
-                    selected={activeCategory === category.id}
-                    onSelect={() => handleSelect(category)}
-                  />
-                ))}
-              </div>
-
-              <div
-                aria-hidden
-                className="px-2.5 pt-4 pb-1 text-[11px] font-medium text-muted-foreground/60 max-sm:hidden"
-              >
-                Resources
-              </div>
-              <div className="flex flex-col gap-0.5">
-                {RESOURCE_CATEGORIES.map((category) => (
-                  <NavRowButton
-                    key={category.id}
-                    category={category}
-                    selected={activeCategory === category.id}
-                    onSelect={() => handleSelect(category)}
-                  />
-                ))}
-              </div>
+              {navGroups.map((group, index) => (
+                <div key={group.label}>
+                  {index > 0 ? (
+                    <div
+                      aria-hidden
+                      className="mx-2 my-2 h-px bg-border sm:hidden"
+                    />
+                  ) : null}
+                  <div
+                    aria-hidden
+                    className={cn(
+                      "px-2.5 pb-1 text-[11px] font-medium text-muted-foreground/60 max-sm:hidden",
+                      index > 0 && "pt-4"
+                    )}
+                  >
+                    {group.label}
+                  </div>
+                  <div className="flex flex-col items-center gap-0.5 sm:items-stretch">
+                    {group.categories.map((category) => (
+                      <NavRowButton
+                        key={category.id}
+                        category={category}
+                        selected={activeCategory === category.id}
+                        onSelect={() => handleSelect(category)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
 
             <BrandFooter
               active={activeCategory === "about"}
               onOpenAbout={() => handleSelect(ABOUT_CATEGORY)}
             />
-          </div>
+          </nav>
 
           <div className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col">
-            <SheetClose asChild>
+            <DialogClose asChild>
               <Button
                 variant="ghost"
                 size="icon-sm"
@@ -343,31 +384,28 @@ export function SettingsDialog({
                 <XIcon />
                 <span className="sr-only">Close</span>
               </Button>
-            </SheetClose>
+            </DialogClose>
 
             {activeEntry?.id !== "about" ? (
-              <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-4 pt-3 pb-3 sm:px-5 sm:pt-4 sm:pb-4">
-                <div className="min-w-0">
-                  <h2 className="text-base leading-tight font-semibold sm:text-lg">
-                    {activeEntry?.label}
-                  </h2>
-                  {activeDescription ? (
-                    <p className="mt-1 max-w-lg text-xs leading-relaxed text-muted-foreground sm:text-[13px]">
-                      {activeDescription}
-                    </p>
-                  ) : null}
-                </div>
-                <div aria-hidden className="shrink-0" />
+              <div className="shrink-0 border-b border-border py-3 pr-12 pl-4 sm:py-4 sm:pl-6">
+                <h2 className="text-base leading-tight font-semibold sm:text-lg">
+                  {activeEntry?.label}
+                </h2>
+                {activeDescription ? (
+                  <p className="mt-1 max-w-2xl text-xs leading-relaxed text-muted-foreground sm:text-[13px]">
+                    {activeDescription}
+                  </p>
+                ) : null}
               </div>
             ) : null}
 
             <div
               ref={scrollRef}
-              className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5"
+              className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:px-6 sm:py-5"
             >
               <div
                 key={activeCategory}
-                className="animate-in duration-150 fade-in-0 slide-in-from-bottom-1 motion-reduce:animate-none"
+                className="mx-auto w-full max-w-4xl animate-in duration-150 fade-in-0 slide-in-from-bottom-1 motion-reduce:animate-none"
               >
                 {activeCategory === "appearance" && <AppearanceTab />}
                 {activeCategory === "chat" && <ChatTab />}
@@ -375,6 +413,10 @@ export function SettingsDialog({
                 {activeCategory === "player" && <PlayerTab />}
                 {activeCategory === "highlights" && <HighlightsTab />}
                 {activeCategory === "data" && <DataManagementTab />}
+                {activeCategory === "tts-speech" && <TtsSpeechTab />}
+                {activeCategory === "tts-voices" && <TtsVoicesTab />}
+                {activeCategory === "tts-sounds" && <TtsSoundsTab />}
+                {activeCategory === "tts-commands" && <TtsCommandsTab />}
                 {activeCategory === "changelog" && <ChangelogTab />}
                 {activeCategory === "help" && <HelpTab />}
                 {activeCategory === "about" && <AboutTab />}
@@ -387,7 +429,7 @@ export function SettingsDialog({
             </div>
           </div>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   )
 }
