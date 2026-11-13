@@ -690,6 +690,9 @@ function ChatPaneInner({
                               showBadgeFallback={showBadgeFallback}
                               isHistorical={entry.isHistorical}
                               isAlternateRow={isAlternateRow}
+                              jumpHighlighted={
+                                jumpHighlight?.messageId === entry.message.id
+                              }
                             />
                           )
                         } else if (entry.kind === "automod") {

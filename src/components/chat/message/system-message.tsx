@@ -465,6 +465,7 @@ function ChatSystemMessageInner({
   showBadgeFallback = false,
   isHistorical = false,
   isAlternateRow = false,
+  jumpHighlighted = false,
   channelLabel = null,
   onJumpToMessage,
 }: {
@@ -475,12 +476,14 @@ function ChatSystemMessageInner({
   showBadgeFallback?: boolean
   isHistorical?: boolean
   isAlternateRow?: boolean
+  jumpHighlighted?: boolean
   channelLabel?: string | null
   onJumpToMessage?: (message: TwitchSystemMessage) => void
 }) {
   const rowClassName = cn(
     isHistorical && "chat-message--historical",
-    isAlternateRow && "chat-message--alternate"
+    isAlternateRow && "chat-message--alternate",
+    jumpHighlighted && "chat-message--jump-highlight relative"
   )
 
   let content: React.ReactNode

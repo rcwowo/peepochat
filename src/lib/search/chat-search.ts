@@ -1053,7 +1053,10 @@ function entryMatchesFilters(
     ) {
       return false
     }
-  } else if (query.excludeTypes.length === 0 && entry.kind !== "chat") {
+  } else if (
+    entry.kind !== "chat" &&
+    !query.excludeTypes.some((definition) => definition.value === "chat")
+  ) {
     return false
   }
 

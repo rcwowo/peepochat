@@ -41,6 +41,7 @@ import {
 } from "@/lib/chat/threads/recent-user-messages"
 import type { UserCardTarget } from "@/lib/chat/user-card/user-card"
 import {
+  CHAT_SEARCH_NEGATION_PREFIX,
   collectRecentSearchUsernames,
   createChatSearchResultsCache,
   formatChatSearchFilter,
@@ -81,6 +82,9 @@ type SearchJumpTarget = {
   channel: string | null
   id: string
 }
+
+type FilterChipFocusTarget =
+  { kind: "chip"; index: number } | { kind: "input"; cursor: "start" | "end" }
 
 type SearchScopeChannel = {
   login: string
@@ -466,6 +470,8 @@ export function ChannelSearch() {
   const [cursor, setCursor] = React.useState(0)
   const [suggestionIndex, setSuggestionIndex] = React.useState(0)
   const inputRef = React.useRef<HTMLInputElement>(null)
+  const filterChipRefs = React.useRef<(HTMLButtonElement | null)[]>([])
+  const pendingFocusRef = React.useRef<FilterChipFocusTarget | null>(null)
   const { registerSearch } = useHotkeyRegistry()
   const [inputFocused, setInputFocused] = React.useState(false)
   const [suggestionsDismissed, setSuggestionsDismissed] = React.useState(false)
@@ -498,14 +504,26 @@ export function ChannelSearch() {
 
   const query = serializeChatSearchQuery(filters, remainder)
   const parsed = React.useMemo(() => parseChatSearchQuery(query), [query])
-  const knownChannels = React.useMemo(
+  const savedChannelLogins = React.useMemo(
     () =>
-      channels.map((channel) => ({
-        login: normalizeChannelLogin(channel.login),
-        displayName: channel.displayName || channel.login,
-      })),
+      new Set(channels.map((channel) => normalizeChannelLogin(channel.login))),
     [channels]
   )
+  const knownChannels = React.useMemo(() => {
+    const known = channels.map((channel) => ({
+      login: normalizeChannelLogin(channel.login),
+      displayName: channel.displayName || channel.login,
+    }))
+    const seen = new Set(known.map((channel) => channel.login))
+    for (const watchedLogin of watchedChannelLogins) {
+      const login = normalizeChannelLogin(watchedLogin)
+      if (login && !seen.has(login)) {
+        seen.add(login)
+        known.push({ login, displayName: login })
+      }
+    }
+    return known
+  }, [channels, watchedChannelLogins])
   const defaultChannelLogins = React.useMemo(() => {
     const logins =
       playerViewActive && playerChatLogin
@@ -523,7 +541,10 @@ export function ChannelSearch() {
     () => getChatSearchTokenAtCursor(remainder, cursor),
     [cursor, remainder]
   )
-  const needsUsernames = token.text.toLowerCase().startsWith("from:")
+  const tokenFilterText = token.text.startsWith(CHAT_SEARCH_NEGATION_PREFIX)
+    ? token.text.slice(CHAT_SEARCH_NEGATION_PREFIX.length)
+    : token.text
+  const needsUsernames = tokenFilterText.toLowerCase().startsWith("from:")
   const usernames = React.useMemo(
     () =>
       needsUsernames
@@ -711,7 +732,7 @@ export function ChannelSearch() {
           } else {
             setPlayerChat(login)
           }
-        } else if (channelLabels.has(login)) {
+        } else if (savedChannelLogins.has(login)) {
           setActiveChannel(login)
         } else {
           return
@@ -722,10 +743,10 @@ export function ChannelSearch() {
       requestChatMessageJump(login, message.id)
     },
     [
-      channelLabels,
       defaultChannelLogins,
       playerMode,
       playerViewActive,
+      savedChannelLogins,
       selectPlayer,
       setActiveChannel,
       setPlayerChat,
@@ -743,6 +764,97 @@ export function ChannelSearch() {
       input.select()
     }
   }, [])
+
+  const applyFilterChipFocus = React.useCallback(
+    (target: FilterChipFocusTarget) => {
+      if (target.kind === "chip") {
+        filterChipRefs.current[target.index]?.focus()
+        return
+      }
+
+      const input = inputRef.current
+      if (!input) {
+        return
+      }
+      const nextCursor = target.cursor === "start" ? 0 : input.value.length
+      input.focus()
+      input.setSelectionRange(nextCursor, nextCursor)
+      setCursor(nextCursor)
+    },
+    []
+  )
+
+  React.useLayoutEffect(() => {
+    const target = pendingFocusRef.current
+    if (!target) {
+      return
+    }
+    pendingFocusRef.current = null
+    applyFilterChipFocus(target)
+  }, [applyFilterChipFocus, filters])
+
+  const removeFilterAt = React.useCallback(
+    (index: number, focusTarget: FilterChipFocusTarget) => {
+      pendingFocusRef.current = focusTarget
+      setFilters((current) =>
+        current.filter((_, filterIndex) => filterIndex !== index)
+      )
+    },
+    []
+  )
+
+  const handleFilterChipKeyDown = (
+    event: React.KeyboardEvent<HTMLButtonElement>,
+    index: number
+  ) => {
+    if (event.altKey || event.ctrlKey || event.metaKey) {
+      return
+    }
+
+    const lastIndex = filters.length - 1
+    const inputStart: FilterChipFocusTarget = { kind: "input", cursor: "start" }
+
+    switch (event.key) {
+      case "ArrowLeft":
+        event.preventDefault()
+        if (index > 0) {
+          applyFilterChipFocus({ kind: "chip", index: index - 1 })
+        }
+        return
+      case "ArrowRight":
+        event.preventDefault()
+        applyFilterChipFocus(
+          index < lastIndex ? { kind: "chip", index: index + 1 } : inputStart
+        )
+        return
+      case "Home":
+        event.preventDefault()
+        applyFilterChipFocus({ kind: "chip", index: 0 })
+        return
+      case "End":
+        event.preventDefault()
+        applyFilterChipFocus({ kind: "input", cursor: "end" })
+        return
+      case "Backspace":
+        event.preventDefault()
+        removeFilterAt(
+          index,
+          index > 0
+            ? { kind: "chip", index: index - 1 }
+            : lastIndex > 0
+              ? { kind: "chip", index: 0 }
+              : inputStart
+        )
+        return
+      case "Delete":
+        event.preventDefault()
+        removeFilterAt(
+          index,
+          index < lastIndex ? { kind: "chip", index } : inputStart
+        )
+        return
+    }
+  }
 
   const moveCursor = React.useCallback((nextCursor: number) => {
     setCursor(nextCursor)
@@ -847,6 +959,24 @@ export function ChannelSearch() {
     ) {
       event.preventDefault()
       setFilters((current) => current.slice(0, -1))
+      return
+    }
+
+    if (
+      (event.key === "ArrowLeft" || event.key === "Home") &&
+      !event.shiftKey &&
+      !event.altKey &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      filters.length > 0 &&
+      event.currentTarget.selectionStart === 0 &&
+      event.currentTarget.selectionEnd === 0
+    ) {
+      event.preventDefault()
+      applyFilterChipFocus({
+        kind: "chip",
+        index: event.key === "Home" ? 0 : filters.length - 1,
+      })
       return
     }
 
@@ -988,16 +1118,18 @@ export function ChannelSearch() {
                 asChild
               >
                 <button
+                  ref={(element) => {
+                    filterChipRefs.current[index] = element
+                  }}
                   type="button"
-                  className="h-5 max-w-full cursor-pointer rounded-md px-1.5 font-medium"
+                  className="h-5 max-w-full cursor-pointer rounded-md px-1.5 font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                   aria-label={`Remove ${formatChatSearchFilter(filter)}`}
+                  aria-keyshortcuts="Backspace Delete"
                   onClick={(event) => {
                     event.stopPropagation()
-                    setFilters((current) =>
-                      current.filter((_, filterIndex) => filterIndex !== index)
-                    )
-                    focusInput()
+                    removeFilterAt(index, { kind: "input", cursor: "end" })
                   }}
+                  onKeyDown={(event) => handleFilterChipKeyDown(event, index)}
                 >
                   {formatChatSearchFilter(filter)}
                 </button>
