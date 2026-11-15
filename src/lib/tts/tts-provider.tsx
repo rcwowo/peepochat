@@ -1,8 +1,10 @@
 import * as React from "react"
 import { toast } from "sonner"
 
+import { useSpeechAvailability } from "@/hooks/tts/use-browser-voices"
 import {
   usePeepochatChat,
+  usePeepochatPlayer,
   usePeepochatSettings,
 } from "@/lib/peepochat/peepochat-context"
 import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
@@ -37,6 +39,7 @@ import {
 } from "@/lib/tts/tts-ui-prefs"
 
 const MAX_TRACKED_DELETIONS = 500
+const UI_PREFS_SAVE_DELAY_MS = 250
 const BLOCKED_TOAST_ID = "tts-autoplay-blocked"
 const ERROR_TOAST_ID = "tts-speech-error"
 
@@ -67,31 +70,38 @@ const PLAYER_CALLBACKS = {
 
 function getResumableChannel(
   resumeOnStartup: boolean,
-  channels: { login: string }[]
+  knownLogins: Set<string>
 ): string | null {
   if (!resumeOnStartup || !isSpeechSynthesisSupported()) {
     return null
   }
   const stored = loadStoredTtsChannel()
-  return stored && channels.some((channel) => channel.login === stored)
-    ? stored
-    : null
+  return stored && knownLogins.has(stored) ? stored : null
 }
 
 export function TtsProvider({ children }: { children: React.ReactNode }) {
   const { config } = usePeepochatSettings()
   const { subscribeToChatMessages } = usePeepochatChat()
+  const { watchedChannelLogins } = usePeepochatPlayer()
+  const availability = useSpeechAvailability()
   const ttsConfig = config.tts
   const channels = config.twitch.channels
+  const knownLogins = React.useMemo(
+    () =>
+      new Set([
+        ...channels.map((channel) => channel.login),
+        ...watchedChannelLogins,
+      ]),
+    [channels, watchedChannelLogins]
+  )
 
   const configRef = React.useRef<TtsConfig>(ttsConfig)
   React.useEffect(() => {
     configRef.current = ttsConfig
   }, [ttsConfig])
 
-  const [supported] = React.useState(isSpeechSynthesisSupported)
   const [channelLogin, setChannelLogin] = React.useState<string | null>(() =>
-    getResumableChannel(ttsConfig.resumeOnStartup, channels)
+    getResumableChannel(ttsConfig.resumeOnStartup, knownLogins)
   )
   const channelRef = React.useRef<string | null>(null)
   const sessionRef = React.useRef(0)
@@ -104,7 +114,7 @@ export function TtsProvider({ children }: { children: React.ReactNode }) {
 
   if (
     channelLogin &&
-    !channels.some((channel) => channel.login === channelLogin)
+    (availability === "unavailable" || !knownLogins.has(channelLogin))
   ) {
     setChannelLogin(null)
   }
@@ -132,17 +142,33 @@ export function TtsProvider({ children }: { children: React.ReactNode }) {
 
   const updateUi = React.useCallback(
     (updater: (current: TtsUiPrefs) => TtsUiPrefs) => {
-      setUi((current) => {
-        const next = updater(current)
-        if (next === current) {
-          return current
-        }
-        saveTtsUiPrefs(next)
-        return next
-      })
+      setUi(updater)
     },
     []
   )
+
+  const savedUiRef = React.useRef(ui)
+  React.useEffect(() => {
+    if (savedUiRef.current === ui) {
+      return
+    }
+    const timeout = window.setTimeout(() => {
+      savedUiRef.current = ui
+      saveTtsUiPrefs(ui)
+    }, UI_PREFS_SAVE_DELAY_MS)
+    const flush = () => {
+      window.clearTimeout(timeout)
+      if (savedUiRef.current !== ui) {
+        savedUiRef.current = ui
+        saveTtsUiPrefs(ui)
+      }
+    }
+    window.addEventListener("pagehide", flush)
+    return () => {
+      window.clearTimeout(timeout)
+      window.removeEventListener("pagehide", flush)
+    }
+  }, [ui])
 
   const startTts = React.useCallback(
     (login: string) => {
@@ -150,25 +176,39 @@ export function TtsProvider({ children }: { children: React.ReactNode }) {
       if (!normalized) {
         return
       }
-      if (!isSpeechSynthesisSupported()) {
-        toast.error("Text-to-speech isn't supported in this browser.")
+      if (availability === "unavailable") {
+        toast.error("Text-to-speech isn't available", {
+          description: "This browser doesn't have any speech voices installed.",
+        })
+        return
+      }
+      if (availability === "checking") {
+        toast("Text-to-speech voices are still loading", {
+          description: "Try again in a moment.",
+        })
+        return
+      }
+      if (!knownLogins.has(normalized)) {
         return
       }
 
       const previous = channelRef.current
-      if (previous !== normalized) {
-        setChannelLogin(normalized)
-        toast.success(
-          previous
-            ? `Text-to-speech moved to #${normalized}`
-            : `Text-to-speech started for #${normalized}`
+      if (previous === normalized) {
+        return
+      }
+      setChannelLogin(normalized)
+      if (!previous) {
+        updateUi((current) =>
+          current.collapsed ? current : { ...current, collapsed: true }
         )
       }
-      updateUi((current) =>
-        current.collapsed ? { ...current, collapsed: false } : current
+      toast.success(
+        previous
+          ? `Text-to-speech moved to #${normalized}`
+          : `Text-to-speech started for #${normalized}`
       )
     },
-    [updateUi]
+    [availability, knownLogins, updateUi]
   )
 
   const stopTts = React.useCallback(() => {
@@ -208,6 +248,10 @@ export function TtsProvider({ children }: { children: React.ReactNode }) {
 
   const ingestMessage = React.useCallback(
     async (message: TwitchChatMessage, session: number) => {
+      if (session !== sessionRef.current) {
+        return
+      }
+
       const config = configRef.current
       const command = parseTtsChatCommand(message.text)
 
@@ -225,7 +269,12 @@ export function TtsProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
-      if (!player.getSnapshot().queueEnabled) {
+      const snapshot = player.getSnapshot()
+      if (
+        !snapshot.queueEnabled ||
+        (config.queueMode === "small-chat" &&
+          snapshot.queue.length >= config.maxQueueSize)
+      ) {
         return
       }
 
@@ -279,6 +328,9 @@ export function TtsProvider({ children }: { children: React.ReactNode }) {
       }
 
       const built = buildSpeechSegments(segmentOptions)
+      if (built.segments.length === 0) {
+        return
+      }
 
       player.enqueue(
         {
@@ -363,33 +415,24 @@ export function TtsProvider({ children }: { children: React.ReactNode }) {
     [updateUi]
   )
 
-  const setFloatingPosition = React.useCallback(
-    (position: { x: number; y: number }) => {
-      updateUi((current) => ({ ...current, floating: position }))
-    },
-    [updateUi]
-  )
-
   const sessionValue = React.useMemo<TtsSessionContextValue>(
     () => ({
       channelLogin,
-      supported,
+      availability,
       startTts,
       stopTts,
       ui,
       setCollapsed,
       setSidebarWidth,
-      setFloatingPosition,
     }),
     [
       channelLogin,
-      supported,
+      availability,
       startTts,
       stopTts,
       ui,
       setCollapsed,
       setSidebarWidth,
-      setFloatingPosition,
     ]
   )
 

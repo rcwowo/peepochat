@@ -89,14 +89,16 @@ const ttsCommandsSchema = z.object({
   newVoice: ttsCommandSettingSchema.catch(DEFAULT_EVERYONE_COMMAND),
 })
 
+const DEFAULT_VOICE_PROFILE_ID = "voice-default"
+
 const ttsQueueModeSchema = z.enum(["small-chat", "big-chat"])
 
 export const ttsConfigSchema = z.object({
   resumeOnStartup: z.boolean().catch(false),
   textTemplate: z.string().catch(TTS_DEFAULT_TEMPLATE),
   queueMode: ttsQueueModeSchema.catch("small-chat"),
-  autoAssignVoices: z.boolean().catch(true),
-  defaultVoiceProfileId: z.string().catch(""),
+  autoAssignVoices: z.boolean().catch(false),
+  defaultVoiceProfileId: z.string().catch(DEFAULT_VOICE_PROFILE_ID),
   minMessageLength: z
     .number()
     .int()
@@ -180,7 +182,7 @@ function createDefaultTtsCommands(): TtsCommandsConfig {
 function createDefaultVoiceProfiles(): TtsVoiceProfile[] {
   return [
     {
-      id: "voice-default",
+      id: DEFAULT_VOICE_PROFILE_ID,
       label: "Default",
       voice: "",
       rate: 0,
@@ -196,8 +198,8 @@ export function createDefaultTtsConfig(): TtsConfig {
     resumeOnStartup: false,
     textTemplate: TTS_DEFAULT_TEMPLATE,
     queueMode: "small-chat",
-    autoAssignVoices: true,
-    defaultVoiceProfileId: "",
+    autoAssignVoices: false,
+    defaultVoiceProfileId: DEFAULT_VOICE_PROFILE_ID,
     minMessageLength: 1,
     maxMessageLength: 220,
     maxQueueSize: 10,

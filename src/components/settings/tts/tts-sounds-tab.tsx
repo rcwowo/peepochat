@@ -61,6 +61,10 @@ export function TtsSoundsTab() {
           toast.error(`${file.name} isn't an audio file.`)
           continue
         }
+        if (file.size === 0) {
+          toast.error(`${file.name} is empty.`)
+          continue
+        }
         if (file.size > MAX_SOUND_EFFECT_BYTES) {
           toast.error(
             `${file.name} is larger than ${formatBytes(MAX_SOUND_EFFECT_BYTES)}.`
@@ -241,6 +245,7 @@ function SoundEffectRow({
       return
     }
     onRename(normalized)
+    setDraft(sound.name)
   }
 
   const volumePercent = Math.round(sound.volume * 100)
@@ -254,7 +259,7 @@ function SoundEffectRow({
           </span>
           <Input
             value={draft}
-            aria-label="Sound name"
+            aria-label={`Name of sound (${sound.name})`}
             onChange={(event) => setDraft(event.target.value)}
             onBlur={commitName}
             onKeyDown={(event) => {
@@ -270,7 +275,7 @@ function SoundEffectRow({
         </div>
         <Switch
           checked={sound.enabled}
-          aria-label="Allow this sound"
+          aria-label={`Allow (${sound.name})`}
           onCheckedChange={(enabled) => onUpdate({ enabled })}
         />
         <SoundPreviewButton sound={sound} />
@@ -278,19 +283,23 @@ function SoundEffectRow({
           variant="ghost"
           size="icon-sm"
           className="text-muted-foreground hover:text-destructive"
-          aria-label="Delete sound"
+          aria-label={`Delete (${sound.name})`}
           onClick={onRemove}
         >
           <Trash2Icon className="size-3.5" />
         </Button>
       </div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">Who can use it</span>
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="shrink-0 text-xs text-muted-foreground">
+            Who can use it
+          </span>
           <TtsRoleSelect
             value={sound.minRole}
             disabled={!sound.enabled}
             onChange={(minRole) => onUpdate({ minRole })}
+            ariaLabel={`Who can use (${sound.name})`}
+            className="min-w-0"
           />
         </div>
         <div className="flex min-w-40 flex-1 items-center gap-3">
@@ -300,7 +309,7 @@ function SoundEffectRow({
             max={100}
             step={1}
             value={[volumePercent]}
-            aria-label="Volume"
+            aria-label={`Volume of (${sound.name})`}
             disabled={!sound.enabled}
             onValueChange={(values) =>
               onUpdate({ volume: (values[0] ?? 100) / 100 })
@@ -371,7 +380,9 @@ function SoundPreviewButton({ sound }: { sound: TtsSoundEffect }) {
     <Button
       variant="outline"
       size="icon-sm"
-      aria-label={playing ? "Stop preview" : "Preview sound"}
+      aria-label={
+        playing ? `Stop previewing (${sound.name})` : `Preview (${sound.name})`
+      }
       title={playing ? "Stop preview" : "Preview sound"}
       onClick={playing ? stop : () => void play()}
     >

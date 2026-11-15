@@ -255,7 +255,12 @@ export function TtsSpeechTab() {
 
       <WordReplacementsSection
         replacements={tts.wordReplacements}
-        onChange={(wordReplacements) => updateTts({ wordReplacements })}
+        onChange={(updater) =>
+          updateTts((current) => ({
+            ...current,
+            wordReplacements: updater(current.wordReplacements),
+          }))
+        }
       />
 
       <SettingsSection
@@ -287,11 +292,13 @@ function WordReplacementsSection({
   onChange,
 }: {
   replacements: TtsWordReplacement[]
-  onChange: (replacements: TtsWordReplacement[]) => void
+  onChange: (
+    updater: (replacements: TtsWordReplacement[]) => TtsWordReplacement[]
+  ) => void
 }) {
   const update = (id: string, patch: Partial<TtsWordReplacement>) =>
-    onChange(
-      replacements.map((replacement) =>
+    onChange((current) =>
+      current.map((replacement) =>
         replacement.id === id ? { ...replacement, ...patch } : replacement
       )
     )
@@ -309,8 +316,8 @@ function WordReplacementsSection({
               replacement={replacement}
               onUpdate={(patch) => update(replacement.id, patch)}
               onRemove={() =>
-                onChange(
-                  replacements.filter((entry) => entry.id !== replacement.id)
+                onChange((current) =>
+                  current.filter((entry) => entry.id !== replacement.id)
                 )
               }
             />
@@ -323,7 +330,10 @@ function WordReplacementsSection({
       )}
       <SettingsActionButton
         variant="outline"
-        onClick={() => onChange([...replacements, createWordReplacement()])}
+        onClick={() => {
+          const replacement = createWordReplacement()
+          onChange((current) => [...current, replacement])
+        }}
       >
         <PlusIcon className="size-3.5" />
         Add replacement

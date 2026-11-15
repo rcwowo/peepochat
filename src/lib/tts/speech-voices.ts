@@ -27,6 +27,86 @@ export function listBrowserVoices(): BrowserVoice[] {
     .sort((left, right) => left.name.localeCompare(right.name))
 }
 
+export type BrowserVoicesSnapshot = {
+  voices: BrowserVoice[]
+  settled: boolean
+}
+
+export type SpeechAvailability = "checking" | "available" | "unavailable"
+
+const VOICE_SETTLE_TIMEOUT_MS = 3000
+
+let voicesSnapshot: BrowserVoicesSnapshot | null = null
+let voiceStoreStarted = false
+const voiceListeners = new Set<() => void>()
+
+function sameVoices(left: BrowserVoice[], right: BrowserVoice[]) {
+  return (
+    left.length === right.length &&
+    left.every(
+      (voice, index) =>
+        voice.name === right[index]?.name &&
+        voice.lang === right[index]?.lang &&
+        voice.localService === right[index]?.localService
+    )
+  )
+}
+
+function refreshBrowserVoices(settle: boolean) {
+  const voices = listBrowserVoices()
+  const previous = getBrowserVoicesSnapshot()
+  const settled = previous.settled || settle || voices.length > 0
+
+  if (previous.settled === settled && sameVoices(previous.voices, voices)) {
+    return
+  }
+
+  voicesSnapshot = { voices, settled }
+  for (const listener of voiceListeners) {
+    listener()
+  }
+}
+
+function startBrowserVoiceStore() {
+  if (voiceStoreStarted || !isSpeechSynthesisSupported()) {
+    return
+  }
+  voiceStoreStarted = true
+  window.speechSynthesis.addEventListener("voiceschanged", () =>
+    refreshBrowserVoices(false)
+  )
+  window.setTimeout(() => refreshBrowserVoices(true), VOICE_SETTLE_TIMEOUT_MS)
+  refreshBrowserVoices(false)
+}
+
+export function getBrowserVoicesSnapshot(): BrowserVoicesSnapshot {
+  if (!voicesSnapshot) {
+    const voices = listBrowserVoices()
+    voicesSnapshot = {
+      voices,
+      settled: !isSpeechSynthesisSupported() || voices.length > 0,
+    }
+  }
+  return voicesSnapshot
+}
+
+export function subscribeBrowserVoices(listener: () => void) {
+  voiceListeners.add(listener)
+  startBrowserVoiceStore()
+  return () => {
+    voiceListeners.delete(listener)
+  }
+}
+
+export function getSpeechAvailability(
+  snapshot: BrowserVoicesSnapshot
+): SpeechAvailability {
+  if (snapshot.voices.length > 0) {
+    return "available"
+  }
+  return snapshot.settled ? "unavailable" : "checking"
+}
+
 export function findSynthVoice(name: string): SpeechSynthesisVoice | null {
   if (!name || !isSpeechSynthesisSupported()) {
     return null

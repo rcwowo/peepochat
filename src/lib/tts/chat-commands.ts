@@ -17,28 +17,33 @@ export const TTS_COMMAND_ORDER: TtsCommandId[] = [
 
 export const TTS_COMMAND_CATALOG: Record<
   TtsCommandId,
-  { command: string; description: string }
+  { title: string; triggers: string[]; description: string }
 > = {
   queue: {
-    command: "!tts on / !tts off",
-    description: "Enable or disable adding new chat messages to the queue.",
+    title: "Turn queue on or off",
+    triggers: ["!tts on", "!tts off"],
+    description: "Start or stop adding new chat messages to the queue.",
   },
   playback: {
-    command: "!tts pause / !tts play",
+    title: "Pause or resume",
+    triggers: ["!tts pause", "!tts play"],
     description: "Pause or resume speech playback.",
   },
   skip: {
-    command: "!tts skip",
+    title: "Skip message",
+    triggers: ["!tts skip"],
     description: "Skip the message currently being spoken.",
   },
   clear: {
-    command: "!tts clear",
-    description: "Clear every message waiting in the queue.",
+    title: "Clear queue",
+    triggers: ["!tts clear"],
+    description: "Remove every message waiting in the queue.",
   },
   newVoice: {
-    command: "!newvoice",
+    title: "New voice",
+    triggers: ["!newvoice"],
     description:
-      "Reassign the chatter to a random voice if they already have one saved.",
+      "Give the chatter a different random voice if they already have one saved.",
   },
 }
 

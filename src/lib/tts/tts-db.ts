@@ -37,7 +37,7 @@ function openTtsDatabase(): Promise<IDBDatabase> {
     return databasePromise
   }
 
-  databasePromise = new Promise<IDBDatabase>((resolve, reject) => {
+  const pending = new Promise<IDBDatabase>((resolve, reject) => {
     if (typeof indexedDB === "undefined") {
       reject(new Error("IndexedDB is not available in this browser"))
       return
@@ -60,30 +60,40 @@ function openTtsDatabase(): Promise<IDBDatabase> {
       }
     }
 
+    const release = () => {
+      if (databasePromise === pending) {
+        databasePromise = null
+      }
+    }
+
     request.onsuccess = () => {
       const database = request.result
+      if (databasePromise !== pending) {
+        database.close()
+        reject(new Error("TTS database was closed"))
+        return
+      }
       database.onversionchange = () => {
         database.close()
-        databasePromise = null
+        release()
       }
-      database.onclose = () => {
-        databasePromise = null
-      }
+      database.onclose = release
       resolve(database)
     }
 
     request.onerror = () => {
-      databasePromise = null
+      release()
       reject(request.error ?? new Error("Failed to open TTS database"))
     }
 
     request.onblocked = () => {
-      databasePromise = null
+      release()
       reject(new Error("TTS database is blocked by another tab"))
     }
   })
 
-  return databasePromise
+  databasePromise = pending
+  return pending
 }
 
 function withStore<T>(
@@ -119,11 +129,6 @@ function replaceStore<T>(storeName: string, records: T[]): Promise<void> {
         const transaction = database.transaction(storeName, "readwrite")
         const store = transaction.objectStore(storeName)
 
-        store.clear()
-        for (const record of records) {
-          store.put(record)
-        }
-
         transaction.oncomplete = () => resolve()
         transaction.onerror = () =>
           reject(transaction.error ?? new Error("TTS store error"))
@@ -131,6 +136,16 @@ function replaceStore<T>(storeName: string, records: T[]): Promise<void> {
           reject(
             transaction.error ?? new Error("TTS store transaction aborted")
           )
+
+        try {
+          store.clear()
+          for (const record of records) {
+            store.put(record)
+          }
+        } catch (error) {
+          transaction.abort()
+          reject(error)
+        }
       })
   )
 }
@@ -167,48 +182,84 @@ export function replaceVoiceAssignments(
   return replaceStore(ASSIGNMENTS_STORE, assignments)
 }
 
-export async function getVoiceAssignmentPage(
+export type UserDirectoryEntry = {
+  login: string
+  assignment: TtsVoiceAssignment | null
+}
+
+export function buildUserDirectoryPage(
   page: number,
   pageSize: number,
-  options: { exclude?: Set<string>; query?: string } = {}
-): Promise<{ items: TtsVoiceAssignment[]; total: number }> {
+  extraLogins: string[],
+  include: (entry: UserDirectoryEntry) => boolean
+) {
+  const extras = [...new Set(extraLogins)].sort()
+  const items: UserDirectoryEntry[] = []
+  const skip = page * pageSize
+  let extraIndex = 0
+  let total = 0
+
+  const emit = (entry: UserDirectoryEntry) => {
+    if (!include(entry)) {
+      return
+    }
+    if (total >= skip && items.length < pageSize) {
+      items.push(entry)
+    }
+    total += 1
+  }
+
+  return {
+    add(assignment: TtsVoiceAssignment) {
+      while (
+        extraIndex < extras.length &&
+        extras[extraIndex]! < assignment.userName
+      ) {
+        emit({ login: extras[extraIndex]!, assignment: null })
+        extraIndex += 1
+      }
+      if (extras[extraIndex] === assignment.userName) {
+        extraIndex += 1
+      }
+      emit({ login: assignment.userName, assignment })
+    },
+    finish() {
+      while (extraIndex < extras.length) {
+        emit({ login: extras[extraIndex]!, assignment: null })
+        extraIndex += 1
+      }
+      return { items, total }
+    },
+  }
+}
+
+export async function getUserDirectoryPage(
+  page: number,
+  pageSize: number,
+  extraLogins: string[],
+  include: (entry: UserDirectoryEntry) => boolean
+): Promise<{ items: UserDirectoryEntry[]; total: number }> {
   const database = await openTtsDatabase()
-  const query = options.query?.trim().toLowerCase() ?? ""
 
   return new Promise((resolve, reject) => {
+    const builder = buildUserDirectoryPage(page, pageSize, extraLogins, include)
     const transaction = database.transaction(ASSIGNMENTS_STORE, "readonly")
-    const index = transaction.objectStore(ASSIGNMENTS_STORE).index("lastSeenAt")
-    const request = index.openCursor(null, "prev")
-    const items: TtsVoiceAssignment[] = []
-    const skip = page * pageSize
-    let matched = 0
+    const request = transaction.objectStore(ASSIGNMENTS_STORE).openCursor()
 
     request.onsuccess = () => {
       const cursor = request.result
       if (!cursor) {
-        resolve({ items, total: matched })
+        resolve(builder.finish())
         return
       }
-
-      const assignment = cursor.value as TtsVoiceAssignment
-      const excluded = options.exclude?.has(assignment.userName) ?? false
-      const matchesQuery =
-        !query ||
-        assignment.userName.includes(query) ||
-        assignment.displayName.toLowerCase().includes(query)
-
-      if (!excluded && matchesQuery) {
-        if (matched >= skip && items.length < pageSize) {
-          items.push(assignment)
-        }
-        matched += 1
-      }
-
+      builder.add(cursor.value as TtsVoiceAssignment)
       cursor.continue()
     }
 
     request.onerror = () =>
       reject(request.error ?? new Error("Failed to read voice assignments"))
+    transaction.onabort = () =>
+      reject(transaction.error ?? new Error("Failed to read voice assignments"))
   })
 }
 
@@ -282,15 +333,22 @@ export function restoreSoundEffectAudioBackups(
 ): Promise<void> {
   return replaceStore(
     SOUND_EFFECTS_STORE,
-    backups.map((entry) => {
-      const blob = base64ToBlob(entry.data, entry.mimeType)
-      return {
-        id: entry.id,
-        blob,
-        fileName: entry.fileName,
-        mimeType: entry.mimeType,
-        size: blob.size,
-      } satisfies TtsSoundEffectAudioRecord
+    backups.flatMap((entry) => {
+      let blob: Blob
+      try {
+        blob = base64ToBlob(entry.data, entry.mimeType)
+      } catch {
+        return []
+      }
+      return [
+        {
+          id: entry.id,
+          blob,
+          fileName: entry.fileName,
+          mimeType: entry.mimeType,
+          size: blob.size,
+        } satisfies TtsSoundEffectAudioRecord,
+      ]
     })
   )
 }

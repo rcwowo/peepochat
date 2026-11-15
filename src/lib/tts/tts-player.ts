@@ -24,6 +24,7 @@ type TtsPlayerCallbacks = {
 const WATCHDOG_INTERVAL_MS = 1000
 const WATCHDOG_IDLE_TICKS = 2
 const WATCHDOG_START_TIMEOUT_MS = 10_000
+const WATCHDOG_MIN_CHARS_PER_SECOND = 6
 const CANCEL_SETTLE_MS = 120
 
 const FALLBACK_PROFILE = { voice: "", rate: 0, pitch: 0, volume: 0 }
@@ -341,6 +342,11 @@ export class TtsPlayer {
       let started = false
       let idleTicks = 0
       const startedAt = Date.now()
+      const maxDurationMs =
+        WATCHDOG_START_TIMEOUT_MS +
+        (text.length /
+          (WATCHDOG_MIN_CHARS_PER_SECOND * Math.min(1, utterance.rate || 1))) *
+          1000
 
       const finish = (result: SegmentResult) => {
         if (settled) {
@@ -385,6 +391,14 @@ export class TtsPlayer {
 
       const watchdog = window.setInterval(() => {
         if (token !== this.token) {
+          finish("done")
+          return
+        }
+        if (Date.now() - startedAt >= maxDurationMs) {
+          if (this.utterance === utterance) {
+            synth.cancel()
+            this.lastCancelAt = Date.now()
+          }
           finish("done")
           return
         }

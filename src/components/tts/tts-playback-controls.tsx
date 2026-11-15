@@ -11,15 +11,17 @@ import { cn } from "@/lib/utils"
 
 function ControlTooltip({
   label,
+  side,
   children,
 }: {
   label: string
+  side: "top" | "bottom"
   children: React.ReactElement
 }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>{children}</TooltipTrigger>
-      <TooltipContent side="top">{label}</TooltipContent>
+      <TooltipContent side={side}>{label}</TooltipContent>
     </Tooltip>
   )
 }
@@ -35,6 +37,7 @@ export function TtsPlaybackControls({
     useTtsPlayback()
   const compact = size === "compact"
   const playLabel = playing ? "Pause speech" : "Resume speech"
+  const tooltipSide = compact ? "bottom" : "top"
 
   return (
     <div
@@ -46,7 +49,7 @@ export function TtsPlaybackControls({
         className
       )}
     >
-      <ControlTooltip label="Clear queue">
+      <ControlTooltip label="Clear queue" side={tooltipSide}>
         <Button
           type="button"
           variant={compact ? "ghost" : "outline"}
@@ -59,7 +62,7 @@ export function TtsPlaybackControls({
           <ListXIcon />
         </Button>
       </ControlTooltip>
-      <ControlTooltip label={playLabel}>
+      <ControlTooltip label={playLabel} side={tooltipSide}>
         <Button
           type="button"
           size={compact ? "icon-sm" : "icon-lg"}
@@ -69,7 +72,6 @@ export function TtsPlaybackControls({
           )}
           onClick={togglePlaying}
           aria-label={playLabel}
-          aria-pressed={!playing}
         >
           {playing ? (
             <PauseIcon className={compact ? undefined : "size-5"} />
@@ -78,7 +80,7 @@ export function TtsPlaybackControls({
           )}
         </Button>
       </ControlTooltip>
-      <ControlTooltip label="Skip message">
+      <ControlTooltip label="Skip message" side={tooltipSide}>
         <Button
           type="button"
           variant={compact ? "ghost" : "outline"}

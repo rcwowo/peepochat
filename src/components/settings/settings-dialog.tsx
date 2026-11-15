@@ -5,7 +5,7 @@ import {
   InfoIcon,
   PaintbrushIcon,
   MessageSquareIcon,
-  PenLineIcon,
+  UsersIcon,
   MonitorPlayIcon,
   ScrollTextIcon,
   CircleHelpIcon,
@@ -34,9 +34,10 @@ import { ChangelogTab } from "@/components/settings/changelog-tab"
 import { HelpTab } from "@/components/settings/help-tab"
 import { DataManagementTab } from "@/components/settings/data-management-tab"
 import { HighlightsTab } from "@/components/settings/highlights-tab"
-import { NicknamesTab } from "@/components/settings/nicknames-tab"
+import { UsersTab } from "@/components/settings/users-tab"
 import { PlayerTab } from "@/components/settings/player-tab"
 import { TtsCommandsTab } from "@/components/settings/tts/tts-commands-tab"
+import { useSpeechAvailability } from "@/hooks/tts/use-browser-voices"
 import { TtsSoundsTab } from "@/components/settings/tts/tts-sounds-tab"
 import { TtsSpeechTab } from "@/components/settings/tts/tts-speech-tab"
 import { TtsVoicesTab } from "@/components/settings/tts/tts-voices-tab"
@@ -56,7 +57,7 @@ const DeveloperTab = IS_DEV
 export type SettingsCategory =
   | "appearance"
   | "chat"
-  | "nicknames"
+  | "users"
   | "highlights"
   | "player"
   | "data"
@@ -90,11 +91,11 @@ const PREFERENCE_CATEGORIES: SettingsCategoryEntry[] = [
     description: "How chat panes behave and what appears in them.",
   },
   {
-    id: "nicknames",
-    label: "Nicknames",
-    icon: PenLineIcon,
+    id: "users",
+    label: "Users",
+    icon: UsersIcon,
     description:
-      "Set unique nicknames for users in chat. Mentions will appear normally for everyone else.",
+      "Nicknames and text-to-speech voices for specific chatters. Nicknames only change what you see; mentions appear normally for everyone else.",
   },
   {
     id: "player",
@@ -157,10 +158,16 @@ const TTS_CATEGORIES: SettingsCategoryEntry[] = [
   },
 ]
 
+const TTS_CATEGORY_IDS = new Set<SettingsCategory>(
+  TTS_CATEGORIES.map((category) => category.id)
+)
+
 const NAV_GROUPS: { label: string; categories: SettingsCategoryEntry[] }[] = [
   { label: "Preferences", categories: PREFERENCE_CATEGORIES },
   { label: "Text-to-Speech", categories: TTS_CATEGORIES },
 ]
+
+const TTS_UNAVAILABLE_LABEL = "Text-to-speech isn't available in this browser"
 
 const RESOURCE_CATEGORIES: SettingsCategoryEntry[] = [
   {
@@ -188,23 +195,31 @@ const ABOUT_CATEGORY = {
 function NavRowButton({
   category,
   selected,
+  disabledReason,
   onSelect,
 }: {
   category: SettingsCategoryEntry
   selected: boolean
+  disabledReason?: string
   onSelect: () => void
 }) {
   return (
     <button
       type="button"
-      aria-label={category.label}
+      aria-label={
+        disabledReason
+          ? `${category.label} (${disabledReason})`
+          : category.label
+      }
       aria-current={selected ? "page" : undefined}
+      title={disabledReason}
+      disabled={Boolean(disabledReason)}
       onClick={onSelect}
       className={cn(
-        "flex h-8 w-full shrink-0 items-center gap-2.5 rounded-md px-2.5 text-left text-[13px] font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary/35 max-sm:h-9 max-sm:w-9 max-sm:justify-center max-sm:px-0",
+        "flex h-8 w-full shrink-0 items-center gap-2.5 rounded-md px-2.5 text-left text-[13px] font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary/35 disabled:cursor-not-allowed disabled:opacity-45 max-sm:h-9 max-sm:w-9 max-sm:justify-center max-sm:px-0",
         selected
           ? "bg-primary/10 text-foreground dark:bg-primary/20"
-          : "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground"
+          : "text-muted-foreground enabled:hover:bg-foreground/[0.04] enabled:hover:text-foreground"
       )}
     >
       <category.icon className="size-4 shrink-0" />
@@ -266,6 +281,7 @@ export function SettingsDialog({
     initialCategory,
   })
   const scrollRef = React.useRef<HTMLDivElement | null>(null)
+  const ttsUnavailable = useSpeechAvailability() === "unavailable"
 
   if (
     open !== openSnapshot.open ||
@@ -275,6 +291,10 @@ export function SettingsDialog({
     if (open && initialCategory) {
       setActiveCategory(initialCategory)
     }
+  }
+
+  if (ttsUnavailable && TTS_CATEGORY_IDS.has(activeCategory)) {
+    setActiveCategory("appearance")
   }
 
   React.useEffect(() => {
@@ -304,6 +324,15 @@ export function SettingsDialog({
       ? activeEntry.description()
       : activeEntry?.description
 
+  const preventInlineEditDismiss = (event: KeyboardEvent) => {
+    if (
+      event.target instanceof Element &&
+      event.target.closest("[data-settings-inline-edit]")
+    ) {
+      event.preventDefault()
+    }
+  }
+
   const preventPortaledDismiss = (event: {
     target: EventTarget | null
     preventDefault: () => void
@@ -328,6 +357,7 @@ export function SettingsDialog({
         onInteractOutside={preventPortaledDismiss}
         onPointerDownOutside={preventPortaledDismiss}
         onFocusOutside={preventPortaledDismiss}
+        onEscapeKeyDown={preventInlineEditDismiss}
       >
         <DialogTitle className="sr-only">Settings</DialogTitle>
 
@@ -337,35 +367,53 @@ export function SettingsDialog({
             className="flex w-14 shrink-0 flex-col border-r border-border bg-sidebar sm:w-48"
           >
             <div className="min-h-0 flex-1 overflow-y-auto px-2 pt-3 pb-1">
-              {navGroups.map((group, index) => (
-                <div key={group.label}>
-                  {index > 0 ? (
+              {navGroups.map((group, index) => {
+                const unavailable =
+                  ttsUnavailable &&
+                  group.categories.some((category) =>
+                    TTS_CATEGORY_IDS.has(category.id)
+                  )
+
+                return (
+                  <div
+                    key={group.label}
+                    className={cn(unavailable && "max-sm:hidden")}
+                  >
+                    {index > 0 ? (
+                      <div
+                        aria-hidden
+                        className="mx-2 my-2 h-px bg-border sm:hidden"
+                      />
+                    ) : null}
                     <div
                       aria-hidden
-                      className="mx-2 my-2 h-px bg-border sm:hidden"
-                    />
-                  ) : null}
-                  <div
-                    aria-hidden
-                    className={cn(
-                      "px-2.5 pb-1 text-[11px] font-medium text-muted-foreground/60 max-sm:hidden",
-                      index > 0 && "pt-4"
-                    )}
-                  >
-                    {group.label}
+                      className={cn(
+                        "px-2.5 pb-1 text-[11px] font-medium text-muted-foreground/60 max-sm:hidden",
+                        index > 0 && "pt-4"
+                      )}
+                    >
+                      {unavailable
+                        ? `${group.label} (unavailable)`
+                        : group.label}
+                    </div>
+                    <div className="flex flex-col items-center gap-0.5 sm:items-stretch">
+                      {group.categories.map((category) => (
+                        <NavRowButton
+                          key={category.id}
+                          category={category}
+                          selected={activeCategory === category.id}
+                          disabledReason={
+                            ttsUnavailable && TTS_CATEGORY_IDS.has(category.id)
+                              ? TTS_UNAVAILABLE_LABEL
+                              : undefined
+                          }
+                          onSelect={() => handleSelect(category)}
+                        />
+                      ))}
+                    </div>
                   </div>
-                  <div className="flex flex-col items-center gap-0.5 sm:items-stretch">
-                    {group.categories.map((category) => (
-                      <NavRowButton
-                        key={category.id}
-                        category={category}
-                        selected={activeCategory === category.id}
-                        onSelect={() => handleSelect(category)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
 
             <BrandFooter
@@ -409,7 +457,7 @@ export function SettingsDialog({
               >
                 {activeCategory === "appearance" && <AppearanceTab />}
                 {activeCategory === "chat" && <ChatTab />}
-                {activeCategory === "nicknames" && <NicknamesTab />}
+                {activeCategory === "users" && <UsersTab />}
                 {activeCategory === "player" && <PlayerTab />}
                 {activeCategory === "highlights" && <HighlightsTab />}
                 {activeCategory === "data" && <DataManagementTab />}

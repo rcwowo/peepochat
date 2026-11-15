@@ -1,42 +1,24 @@
 import * as React from "react"
 
 import {
-  isSpeechSynthesisSupported,
-  listBrowserVoices,
-  type BrowserVoice,
+  getBrowserVoicesSnapshot,
+  getSpeechAvailability,
+  subscribeBrowserVoices,
 } from "@/lib/tts/speech-voices"
 
+function useBrowserVoicesSnapshot() {
+  return React.useSyncExternalStore(
+    subscribeBrowserVoices,
+    getBrowserVoicesSnapshot,
+    getBrowserVoicesSnapshot
+  )
+}
+
 export function useBrowserVoices() {
-  const [voices, setVoices] = React.useState<BrowserVoice[]>(() =>
-    listBrowserVoices()
-  )
-  const [loading, setLoading] = React.useState(
-    () => isSpeechSynthesisSupported() && voices.length === 0
-  )
+  const snapshot = useBrowserVoicesSnapshot()
+  return { voices: snapshot.voices, loading: !snapshot.settled }
+}
 
-  React.useEffect(() => {
-    if (!isSpeechSynthesisSupported()) {
-      return
-    }
-
-    const synth = window.speechSynthesis
-    const update = () => {
-      const next = listBrowserVoices()
-      setVoices(next)
-      if (next.length > 0) {
-        setLoading(false)
-      }
-    }
-
-    update()
-    synth.addEventListener("voiceschanged", update)
-    const timeout = window.setTimeout(() => setLoading(false), 3000)
-
-    return () => {
-      synth.removeEventListener("voiceschanged", update)
-      window.clearTimeout(timeout)
-    }
-  }, [])
-
-  return { voices, loading }
+export function useSpeechAvailability() {
+  return getSpeechAvailability(useBrowserVoicesSnapshot())
 }

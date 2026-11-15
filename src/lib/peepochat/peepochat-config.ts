@@ -16,6 +16,7 @@ import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 import { listEmbeddedCustomSounds } from "@/lib/highlights/custom-sounds"
 import {
   createDefaultTtsConfig,
+  normalizeLookupValue,
   normalizeTtsConfig,
   type TtsConfig,
   type TtsVoiceAssignment,
@@ -298,7 +299,8 @@ const backupEnvelopeSchema = z.object({
       assignments: z.array(z.unknown()).optional(),
       soundEffects: z.array(z.unknown()).optional(),
     })
-    .optional(),
+    .optional()
+    .catch(undefined),
 })
 
 export type HighlightPingRule = z.infer<typeof highlightPingRuleSchema>
@@ -758,10 +760,14 @@ function parseTtsBackupData(
     ) {
       return []
     }
+    const userName = normalizeLookupValue(value.userName)
+    if (!userName) {
+      return []
+    }
     const now = new Date().toISOString()
     return [
       {
-        userName: value.userName.trim().toLowerCase(),
+        userName,
         displayName: isNonEmptyString(value.displayName)
           ? value.displayName
           : value.userName,

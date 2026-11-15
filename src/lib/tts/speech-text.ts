@@ -171,7 +171,7 @@ export function sanitizeMessageText(
 
 const blockedLookupCache = new WeakMap<
   TtsConfig,
-  { blockedUsers: Set<string>; blockedTerms: string[] }
+  { blockedUsers: Set<string>; blockedTerms: string[]; soundNames: Set<string> }
 >()
 
 function getBlockedLookups(config: TtsConfig) {
@@ -182,6 +182,9 @@ function getBlockedLookups(config: TtsConfig) {
       blockedTerms: config.blockedTerms
         .map((term) => term.trim().toLowerCase())
         .filter(Boolean),
+      soundNames: new Set(
+        config.soundEffects.map((sound) => normalizeLookupValue(sound.name))
+      ),
     }
     blockedLookupCache.set(config, cached)
   }
@@ -199,7 +202,7 @@ export function getSpeakableMessageText(
   config: TtsConfig
 ): string | null {
   const userName = normalizeLookupValue(message.userName)
-  const { blockedUsers, blockedTerms } = getBlockedLookups(config)
+  const { blockedUsers, blockedTerms, soundNames } = getBlockedLookups(config)
 
   if (config.ignoreCommands && /^\s*[!?]/.test(message.text)) {
     return null
@@ -238,7 +241,9 @@ export function getSpeakableMessageText(
   }
 
   const speakable = applyWordReplacements(
-    sanitized.replace(SOUND_EFFECT_TOKEN_PATTERN, " "),
+    sanitized.replace(SOUND_EFFECT_TOKEN_PATTERN, (match, name: string) =>
+      soundNames.has(normalizeLookupValue(name)) ? " " : match
+    ),
     config.wordReplacements
   ).trim()
   const hasSoundToken = config.soundEffects.some(

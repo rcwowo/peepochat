@@ -31,6 +31,7 @@ import {
   ChatSwitcherMenu,
   type ChatSwitcherConfig,
 } from "@/components/player/chat-switcher"
+import { TtsPaneBar } from "@/components/tts/tts-pane-bar"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -235,7 +236,12 @@ function ChatPaneInner({
     usePeepochatSidebarHighlights()
   const { watchedChannelLogins } = usePeepochatPlayer()
   const isWatching = watchedChannelLogins.includes(channelLogin)
-  const { channelLogin: ttsChannelLogin, startTts, stopTts } = useTtsSession()
+  const {
+    channelLogin: ttsChannelLogin,
+    availability: ttsAvailability,
+    startTts,
+    stopTts,
+  } = useTtsSession()
   const ttsActive = ttsChannelLogin === channelLogin
   const messageHighlights = useChannelMessageHighlights(channelLogin)
   const composerCatalog = getComposerEmoteCatalog(channelLogin)
@@ -508,12 +514,6 @@ function ChatPaneInner({
                   profileImageUrl={profileImageUrl}
                 />
                 <span className="truncate text-sm font-medium">{label}</span>
-                {ttsActive ? (
-                  <AudioLinesIcon
-                    aria-label="Text-to-speech is on"
-                    className="size-3.5 shrink-0 text-primary"
-                  />
-                ) : null}
                 {showLiveBadge ? (
                   <ChatPaneLiveBadge
                     expanded={liveInfoExpanded}
@@ -588,8 +588,11 @@ function ChatPaneInner({
                         label={
                           ttsActive
                             ? "Stop text-to-speech"
-                            : "Start text-to-speech"
+                            : ttsAvailability === "unavailable"
+                              ? "Text-to-speech unavailable"
+                              : "Start text-to-speech"
                         }
+                        disabled={!ttsActive && ttsAvailability !== "available"}
                         onSelect={() =>
                           ttsActive ? stopTts() : startTts(channelLogin)
                         }
@@ -658,6 +661,7 @@ function ChatPaneInner({
                 ref={chatMessagesRef}
                 className="relative min-h-0 flex-1 overflow-hidden"
               >
+                <TtsPaneBar channelLogin={channelLogin} />
                 {displayedTimeline.length === 0 ? (
                   <div className="flex h-full items-center justify-center p-4">
                     <EmptyState

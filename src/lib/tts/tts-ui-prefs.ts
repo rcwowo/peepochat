@@ -8,13 +8,11 @@ export const TTS_SIDEBAR_DEFAULT_WIDTH = 320
 export type TtsUiPrefs = {
   collapsed: boolean
   width: number
-  floating: { x: number; y: number } | null
 }
 
 const DEFAULT_UI_PREFS: TtsUiPrefs = {
-  collapsed: false,
+  collapsed: true,
   width: TTS_SIDEBAR_DEFAULT_WIDTH,
-  floating: null,
 }
 
 function clampWidth(value: unknown): number {
@@ -26,22 +24,6 @@ function clampWidth(value: unknown): number {
   )
 }
 
-function parseFloating(value: unknown): TtsUiPrefs["floating"] {
-  if (!value || typeof value !== "object") {
-    return null
-  }
-  const { x, y } = value as { x?: unknown; y?: unknown }
-  if (
-    typeof x !== "number" ||
-    typeof y !== "number" ||
-    !Number.isFinite(x) ||
-    !Number.isFinite(y)
-  ) {
-    return null
-  }
-  return { x, y }
-}
-
 export function loadTtsUiPrefs(): TtsUiPrefs {
   try {
     const raw = window.localStorage.getItem(TTS_UI_STORAGE_KEY)
@@ -50,9 +32,8 @@ export function loadTtsUiPrefs(): TtsUiPrefs {
     }
     const parsed = JSON.parse(raw) as Partial<Record<keyof TtsUiPrefs, unknown>>
     return {
-      collapsed: parsed.collapsed === true,
+      collapsed: parsed.collapsed !== false,
       width: clampWidth(parsed.width),
-      floating: parseFloating(parsed.floating),
     }
   } catch {
     return DEFAULT_UI_PREFS

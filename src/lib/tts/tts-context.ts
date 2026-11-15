@@ -1,6 +1,7 @@
 import * as React from "react"
 
 import type { TtsSpeechSegment } from "@/lib/tts/speech-text"
+import type { SpeechAvailability } from "@/lib/tts/speech-voices"
 import type { TtsUiPrefs } from "@/lib/tts/tts-ui-prefs"
 
 export type TtsQueueItem = {
@@ -17,13 +18,12 @@ export type TtsQueueItem = {
 
 export type TtsSessionContextValue = {
   channelLogin: string | null
-  supported: boolean
+  availability: SpeechAvailability
   startTts: (login: string) => void
   stopTts: () => void
   ui: TtsUiPrefs
   setCollapsed: (collapsed: boolean) => void
   setSidebarWidth: (width: number) => void
-  setFloatingPosition: (position: { x: number; y: number }) => void
 }
 
 export type TtsPlaybackContextValue = {

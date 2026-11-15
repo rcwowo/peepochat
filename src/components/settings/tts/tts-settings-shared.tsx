@@ -19,7 +19,7 @@ import type { BrowserVoice } from "@/lib/tts/speech-voices"
 import { cn } from "@/lib/utils"
 
 const DEFAULT_VOICE_VALUE = "__default__"
-const RANDOM_PROFILE_VALUE = "__random__"
+const EMPTY_PROFILE_VALUE = "__empty__"
 const selectContentClassName =
   "z-80 max-h-72 min-w-(--radix-select-trigger-width)"
 
@@ -28,11 +28,13 @@ export function TtsRoleSelect({
   onChange,
   disabled,
   className,
+  ariaLabel = "Minimum role",
 }: {
   value: TtsCommandRole
   onChange: (value: TtsCommandRole) => void
   disabled?: boolean
   className?: string
+  ariaLabel?: string
 }) {
   return (
     <Select
@@ -42,7 +44,7 @@ export function TtsRoleSelect({
     >
       <SelectTrigger
         size="sm"
-        aria-label="Minimum role"
+        aria-label={ariaLabel}
         className={cn("w-36 bg-muted/30", className)}
       >
         <SelectValue />
@@ -62,29 +64,28 @@ export function TtsVoiceProfileSelect({
   value,
   onChange,
   profiles,
-  allowRandom = false,
-  randomLabel = "Random",
+  emptyLabel,
   className,
   ariaLabel,
 }: {
   value: string
   onChange: (value: string) => void
   profiles: TtsVoiceProfile[]
-  allowRandom?: boolean
-  randomLabel?: string
+  emptyLabel?: string
   className?: string
   ariaLabel: string
 }) {
   const selectValue =
-    allowRandom && !profiles.some((profile) => profile.id === value)
-      ? RANDOM_PROFILE_VALUE
+    emptyLabel !== undefined &&
+    !profiles.some((profile) => profile.id === value)
+      ? EMPTY_PROFILE_VALUE
       : value
 
   return (
     <Select
       value={selectValue}
       onValueChange={(next) =>
-        onChange(next === RANDOM_PROFILE_VALUE ? "" : next)
+        onChange(next === EMPTY_PROFILE_VALUE ? "" : next)
       }
     >
       <SelectTrigger
@@ -95,8 +96,8 @@ export function TtsVoiceProfileSelect({
         <SelectValue placeholder="Pick a voice" />
       </SelectTrigger>
       <SelectContent position="popper" className={selectContentClassName}>
-        {allowRandom ? (
-          <SelectItem value={RANDOM_PROFILE_VALUE}>{randomLabel}</SelectItem>
+        {emptyLabel !== undefined ? (
+          <SelectItem value={EMPTY_PROFILE_VALUE}>{emptyLabel}</SelectItem>
         ) : null}
         {profiles.map((profile) => (
           <SelectItem key={profile.id} value={profile.id}>

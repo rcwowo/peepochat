@@ -8,6 +8,8 @@ import {
 } from "lucide-react"
 
 import { TtsPlaybackControls } from "@/components/tts/tts-playback-controls"
+import { useIsMobile } from "@/hooks/use-mobile"
+import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion"
 import { Button } from "@/components/ui/button"
 import {
   Tooltip,
@@ -15,6 +17,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { usePeepochatSettings } from "@/lib/peepochat/peepochat-context"
+import {
+  fetchUserAvatarUrl,
+  getCachedUserAvatarUrl,
+  subscribeToUserAvatars,
+} from "@/lib/twitch/channel/user-avatars"
 import {
   useTtsPlayback,
   useTtsSession,
@@ -25,6 +32,17 @@ import {
   TTS_SIDEBAR_MIN_WIDTH,
 } from "@/lib/tts/tts-ui-prefs"
 import { cn } from "@/lib/utils"
+
+const SIDEBAR_CLOSE_FALLBACK_MS = 400
+
+function focusIfFocusLost(node: HTMLElement | null) {
+  if (
+    node &&
+    (!document.activeElement || document.activeElement === document.body)
+  ) {
+    node.focus({ preventScroll: true })
+  }
+}
 
 function HeaderButton({
   label,
@@ -136,10 +154,29 @@ function ChannelAvatar({
   name: string
   profileImageUrl?: string
 }) {
-  if (profileImageUrl) {
+  const { account } = usePeepochatSettings()
+  const getSnapshot = React.useCallback(
+    () => getCachedUserAvatarUrl(login) ?? null,
+    [login]
+  )
+  const cachedImageUrl = React.useSyncExternalStore(
+    subscribeToUserAvatars,
+    getSnapshot,
+    getSnapshot
+  )
+  const imageUrl = profileImageUrl || cachedImageUrl
+
+  React.useEffect(() => {
+    if (profileImageUrl || !account) {
+      return
+    }
+    void fetchUserAvatarUrl(login, account.accessToken, account.clientId)
+  }, [account, login, profileImageUrl])
+
+  if (imageUrl) {
     return (
       <img
-        src={profileImageUrl}
+        src={imageUrl}
         alt={name}
         title={`#${name}`}
         draggable={false}
@@ -254,8 +291,29 @@ export function TtsSidebar() {
   const { queue, activeItemId, playing, queueEnabled, removeItem } =
     useTtsPlayback()
   const { config } = usePeepochatSettings()
+  const isMobile = useIsMobile()
+  const reducedMotion = usePrefersReducedMotion()
+  const open = Boolean(channelLogin) && !ui.collapsed
+  const [wasOpen, setWasOpen] = React.useState(open)
+  const [closing, setClosing] = React.useState(false)
 
-  if (!channelLogin || ui.collapsed) {
+  if (open !== wasOpen) {
+    setWasOpen(open)
+    setClosing(!open && isMobile && !reducedMotion)
+  }
+
+  React.useEffect(() => {
+    if (!closing) {
+      return
+    }
+    const timeout = window.setTimeout(
+      () => setClosing(false),
+      SIDEBAR_CLOSE_FALLBACK_MS
+    )
+    return () => window.clearTimeout(timeout)
+  }, [closing])
+
+  if (!channelLogin || (!open && !closing)) {
     return null
   }
 
@@ -271,9 +329,25 @@ export function TtsSidebar() {
 
   return (
     <aside
+      ref={focusIfFocusLost}
+      tabIndex={-1}
       aria-label="Text-to-speech queue"
+      data-state={open ? "open" : "closed"}
+      aria-hidden={open ? undefined : true}
+      inert={!open}
+      onAnimationEnd={(event) => {
+        if (event.target === event.currentTarget && !open) {
+          setClosing(false)
+        }
+      }}
       style={{ "--tts-width": `${ui.width}px` } as React.CSSProperties}
-      className="relative z-40 flex h-svh shrink-0 flex-col border-l border-sidebar-border bg-sidebar max-md:fixed max-md:inset-y-0 max-md:right-0 max-md:w-[min(100vw,22rem)] max-md:shadow-2xl md:w-(--tts-width)"
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && !event.defaultPrevented) {
+          event.preventDefault()
+          setCollapsed(true)
+        }
+      }}
+      className="relative z-40 flex h-svh shrink-0 flex-col border-l border-sidebar-border bg-sidebar outline-none motion-reduce:animate-none max-md:fixed max-md:inset-y-0 max-md:right-0 max-md:w-full max-md:shadow-2xl max-md:duration-200 max-md:ease-out max-md:data-[state=closed]:animate-out max-md:data-[state=closed]:slide-out-to-right max-md:data-[state=open]:animate-in max-md:data-[state=open]:slide-in-from-right max-sm:border-l-0 sm:max-md:max-w-md md:w-(--tts-width)"
     >
       <SidebarResizeHandle width={ui.width} onResize={setSidebarWidth} />
 
