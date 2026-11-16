@@ -150,8 +150,8 @@ export function findNicknameChatterMatches({
     const rightNickname = nicknames.get(right.login.toLowerCase()) ?? ""
 
     if (needle) {
-      const leftExact = leftNickname === needle ? 0 : 1
-      const rightExact = rightNickname === needle ? 0 : 1
+      const leftExact = leftNickname.toLowerCase() === needle ? 0 : 1
+      const rightExact = rightNickname.toLowerCase() === needle ? 0 : 1
       if (leftExact !== rightExact) {
         return leftExact - rightExact
       }

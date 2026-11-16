@@ -153,6 +153,14 @@ describe("applyCommandSuggestion", () => {
       applyCommandSuggestion("/so", { start: 0, end: 3 }, suggestion!)
     ).toEqual({ value: "/shoutout ", caret: 10 })
   })
+
+  test("keeps the arguments after the command token", () => {
+    const [suggestion] = findCommandSuggestions("/ba someone", 3).suggestions
+
+    expect(
+      applyCommandSuggestion("/ba someone", { start: 0, end: 3 }, suggestion!)
+    ).toEqual({ value: "/ban someone", caret: 5 })
+  })
 })
 
 describe("getCommandSuggestionIndices", () => {

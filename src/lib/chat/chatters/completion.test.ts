@@ -169,6 +169,22 @@ describe("findNicknameChatterMatches", () => {
     expect(logins(matches)).toEqual(["alice", "bob", "carol"])
   })
 
+  test("ranks exact matches first regardless of nickname case", () => {
+    const matches = findNicknameChatterMatches({
+      chatters: [
+        chatter("bob", { lastSeenAt: 300 }),
+        chatter("alice", { lastSeenAt: 100 }),
+      ],
+      query: "Cat",
+      nicknames: new Map([
+        ["alice", "Cat"],
+        ["bob", "Catfish"],
+      ]),
+    })
+
+    expect(logins(matches)).toEqual(["alice", "bob"])
+  })
+
   test("breaks recency ties by nickname", () => {
     const matches = findNicknameChatterMatches({
       chatters: [chatter("dave"), chatter("carol"), chatter("bob")],
@@ -219,6 +235,16 @@ describe("applyChatterSuggestion", () => {
     expect(
       applyChatterSuggestion("hi @xq", { start: 3, end: 6 }, suggestion)
     ).toEqual({ value: "hi @xQc ", caret: 8 })
+  })
+
+  test("does not double the space when completing before existing text", () => {
+    expect(
+      applyChatterSuggestion(
+        "hi @xq there",
+        { start: 3, end: 6 },
+        toChatterSuggestion(chatter("xqc"))
+      )
+    ).toEqual({ value: "hi @xqc there", caret: 8 })
   })
 
   test("appends the mention when there is no range", () => {

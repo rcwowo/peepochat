@@ -242,6 +242,31 @@ describe("applyEmoteSuggestion", () => {
     ).toEqual({ value: "Kappa!", caret: 5 })
   })
 
+  test("reuses existing whitespace after the range as the trailing space", () => {
+    expect(
+      applyEmoteSuggestion("hi :ka there", { start: 3, end: 6 }, "Kappa")
+    ).toEqual({ value: "hi Kappa there", caret: 9 })
+    expect(
+      applyEmoteSuggestion("hi :ka\tthere", { start: 3, end: 6 }, "Kappa")
+    ).toEqual({ value: "hi Kappa\tthere", caret: 9 })
+    expect(applyEmoteSuggestion(":ka!", { start: 0, end: 3 }, "Kappa")).toEqual(
+      { value: "Kappa !", caret: 6 }
+    )
+  })
+
+  test("re-applying to the completed word keeps a single space", () => {
+    const first = applyEmoteSuggestion(
+      "hi Ka there",
+      { start: 3, end: 5 },
+      "Kappa"
+    )
+    expect(first).toEqual({ value: "hi Kappa there", caret: 9 })
+
+    expect(
+      applyEmoteSuggestion(first.value, { start: 3, end: 9 }, "KappaPride")
+    ).toEqual({ value: "hi KappaPride there", caret: 14 })
+  })
+
   test("appends with a separating space when there is no range", () => {
     expect(applyEmoteSuggestion("hi", null, "Kappa")).toEqual({
       value: "hi Kappa ",

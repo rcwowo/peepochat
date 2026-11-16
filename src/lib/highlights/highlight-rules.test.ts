@@ -150,6 +150,12 @@ describe("messageMentionsUsername", () => {
     ["rcw-bot here", false],
     ["@rcw_alt here", false],
     ["x-rcw here", false],
+    ["foo@rcw", false],
+    ["mail me at me@rcw.com", false],
+    ["x_@rcw here", false],
+    ["1@rcw", false],
+    ["(@rcw)", true],
+    ["hi,@rcw", true],
     ["nobody", false],
   ])("%p -> %p", (text, expected) => {
     expect(messageMentionsUsername(message(text), "rcw")).toBe(expected)
@@ -235,6 +241,7 @@ describe("findPingMatchRange", () => {
 
   test("returns null for missing mentions or blank logins", () => {
     expect(findPingMatchRange("rcwfan", mentionId, "rcw")).toBeNull()
+    expect(findPingMatchRange("foo@rcw", mentionId, "rcw")).toBeNull()
     expect(findPingMatchRange("rcw", mentionId, "")).toBeNull()
   })
 
