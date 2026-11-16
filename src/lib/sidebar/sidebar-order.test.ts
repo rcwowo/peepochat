@@ -338,4 +338,67 @@ describe("resolveFocusAfterChannelRemoval", () => {
       activeSplitId: "s1",
     })
   })
+
+  test("keeps the active split focused when one of its channels is removed", () => {
+    const config = makeConfig({
+      channels: ["a", "b", "c", "d"],
+      splits: [createChatSplit(["a", "b", "c"], "s1")],
+      sidebarOrder: [channelOrderKey("d"), splitOrderKey("s1")],
+      activeSplitId: "s1",
+      activeChannelLogin: "a",
+    })
+
+    expect(removeChannel(config, "a")).toEqual({
+      activeChannelLogin: "b",
+      activeSplitId: "s1",
+    })
+  })
+
+  test("keeps the focused channel of the active split when another is removed", () => {
+    const config = makeConfig({
+      channels: ["a", "b", "c", "d"],
+      splits: [createChatSplit(["a", "b", "c"], "s1")],
+      sidebarOrder: [channelOrderKey("d"), splitOrderKey("s1")],
+      activeSplitId: "s1",
+      activeChannelLogin: "c",
+    })
+
+    expect(removeChannel(config, "a")).toEqual({
+      activeChannelLogin: "c",
+      activeSplitId: "s1",
+    })
+  })
+
+  test("focuses the remaining channel when the active split collapses", () => {
+    const config = makeConfig({
+      channels: ["a", "b", "d"],
+      splits: [createChatSplit(["a", "b"], "s1")],
+      sidebarOrder: [channelOrderKey("d"), splitOrderKey("s1")],
+      activeSplitId: "s1",
+      activeChannelLogin: "a",
+    })
+
+    expect(removeChannel(config, "a")).toEqual({
+      activeChannelLogin: "b",
+      activeSplitId: null,
+    })
+  })
+
+  test("keeps focus when a channel outside the active split is removed", () => {
+    const config = makeConfig({
+      channels: ["a", "b", "c", "d"],
+      splits: [
+        createChatSplit(["a", "b"], "s1"),
+        createChatSplit(["c", "d"], "s2"),
+      ],
+      sidebarOrder: [splitOrderKey("s2"), splitOrderKey("s1")],
+      activeSplitId: "s1",
+      activeChannelLogin: "b",
+    })
+
+    expect(removeChannel(config, "c")).toEqual({
+      activeChannelLogin: "b",
+      activeSplitId: "s1",
+    })
+  })
 })

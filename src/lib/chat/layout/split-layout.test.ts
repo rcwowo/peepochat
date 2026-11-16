@@ -154,6 +154,75 @@ describe("normalizeSplitLayout", () => {
     }
   })
 
+  test("gives invalid sizes an even share and keeps the total at 100", () => {
+    const channels = ["a", "b", "c", "d"]
+    const layout = normalizeSplitLayout(
+      s(
+        "row",
+        [p("a"), Number.NaN],
+        [p("b"), -10],
+        [p("c"), 50],
+        [p("d"), Infinity]
+      ),
+      channels
+    )
+
+    expect(sizes(layout)).toEqual([25, 25, 25, 25])
+    expectValidLayout(layout, channels)
+
+    const zero = normalizeSplitLayout(s("row", [p("a"), 0], [p("b"), 100]), [
+      "a",
+      "b",
+    ])
+    expect(sizes(zero)).toEqual([50, 50])
+  })
+
+  test("preserves valid proportions alongside invalid sizes", () => {
+    const channels = ["a", "b", "c"]
+    const layout = normalizeSplitLayout(
+      s("row", [p("a"), 0], [p("b"), 30], [p("c"), 90]),
+      channels
+    )
+    const [a, b, c] = sizes(layout)
+
+    expect(a).toBeCloseTo(100 / 3, 6)
+    expect(c / b).toBeCloseTo(3, 6)
+    expectValidLayout(layout, channels)
+  })
+
+  test("keeps sizes finite and positive for extreme magnitudes", () => {
+    const channels = ["a", "b", "c"]
+    for (const input of [
+      [Number.MAX_VALUE, Number.MAX_VALUE, 1],
+      [Number.MIN_VALUE, Number.MAX_VALUE, Number.NaN],
+    ]) {
+      const layout = normalizeSplitLayout(
+        s("row", [p("a"), input[0]], [p("b"), input[1]], [p("c"), input[2]]),
+        channels
+      )
+      for (const size of sizes(layout)) {
+        expect(Number.isFinite(size)).toBe(true)
+        expect(size).toBeGreaterThan(0)
+      }
+      expectValidLayout(layout, channels)
+    }
+  })
+
+  test("keeps the total at 100 when resizing with invalid sizes", () => {
+    const channels = ["a", "b", "c"]
+    const layout = resizeSplitLayoutChildren({
+      layout: s("row", p("a"), p("b"), p("c")),
+      channels,
+      path: [],
+      sizes: [Number.NaN, 20, 60],
+    })
+
+    const [a, b, c] = sizes(layout)
+    expect(a).toBeCloseTo(100 / 3, 6)
+    expect(c / b).toBeCloseTo(3, 6)
+    expectValidLayout(layout, channels)
+  })
+
   test("coerces unknown directions to row", () => {
     const layout = normalizeSplitLayout(
       {
