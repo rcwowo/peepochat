@@ -49,14 +49,12 @@ function DashboardLayout() {
     setSettingsOpen(true)
   }, [])
   const toggleSettings = React.useCallback(() => {
-    setSettingsOpen((open) => {
-      if (!open) {
-        setSettingsInitialCategory(undefined)
-        setNotificationsOpen(false)
-      }
-      return !open
-    })
-  }, [])
+    if (settingsOpen) {
+      setSettingsOpen(false)
+      return
+    }
+    openSettings()
+  }, [openSettings, settingsOpen])
   const openAddChannel = React.useCallback(() => {
     setAddChannelOpen(true)
   }, [])
@@ -70,13 +68,8 @@ function DashboardLayout() {
     setNotificationsOpen(open)
   }, [])
   const toggleNotifications = React.useCallback(() => {
-    setNotificationsOpen((open) => {
-      if (!open) {
-        setSettingsOpen(false)
-      }
-      return !open
-    })
-  }, [])
+    handleNotificationsOpenChange(!notificationsOpen)
+  }, [handleNotificationsOpenChange, notificationsOpen])
 
   useAppHotkeys({
     enabled: ready && !needsOnboarding,

@@ -46,6 +46,7 @@ export function usePeepochatConfig() {
   )
   const pendingSaveRef = React.useRef<AppConfig | null>(null)
   const saveHandleRef = React.useRef<number | null>(null)
+  const savedConfigRef = React.useRef(config)
   const configRef = React.useRef(config)
   React.useEffect(() => {
     configRef.current = config
@@ -98,23 +99,19 @@ export function usePeepochatConfig() {
     }
   }, [flushPendingSave])
 
+  React.useEffect(() => {
+    if (config === savedConfigRef.current) {
+      return
+    }
+    savedConfigRef.current = config
+    queueSave(config)
+  }, [config, queueSave])
+
   const updateConfig = React.useCallback(
     (updater: AppConfig | ((current: AppConfig) => AppConfig)) => {
-      setConfig((current) => {
-        const nextConfig =
-          typeof updater === "function"
-            ? (updater as (value: AppConfig) => AppConfig)(current)
-            : updater
-
-        if (nextConfig === current) {
-          return current
-        }
-
-        queueSave(nextConfig)
-        return nextConfig
-      })
+      setConfig(updater)
     },
-    [queueSave]
+    []
   )
 
   const restoreBackup = React.useCallback(async (payload: string) => {
@@ -143,6 +140,7 @@ export function usePeepochatConfig() {
       configRef.current,
       getTwitchClientId()
     )
+    savedConfigRef.current = merged
     setConfig(merged)
     saveConfig(merged)
     setForceOnboarding(needsOnboardingForConfig(merged))
