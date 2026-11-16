@@ -41,6 +41,10 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 }
 
+const WORD_CHARACTER = "[\\p{L}\\p{N}\\p{M}_]"
+const WORD_START_PATTERN = new RegExp(`^${WORD_CHARACTER}`, "u")
+const WORD_END_PATTERN = new RegExp(`${WORD_CHARACTER}$`, "u")
+
 const replacementPatternCache = new WeakMap<TtsWordReplacement, RegExp | null>()
 
 function getWordReplacementPattern(
@@ -54,10 +58,10 @@ function getWordReplacementPattern(
   const trimmed = replacement.from.trim()
   const pattern = trimmed
     ? new RegExp(
-        `${/^\w/.test(trimmed) ? "(?<!\\w)" : ""}${escapeRegExp(trimmed)}${
-          /\w$/.test(trimmed) ? "(?!\\w)" : ""
+        `${WORD_START_PATTERN.test(trimmed) ? `(?<!${WORD_CHARACTER})` : ""}${escapeRegExp(trimmed)}${
+          WORD_END_PATTERN.test(trimmed) ? `(?!${WORD_CHARACTER})` : ""
         }`,
-        "gi"
+        "giu"
       )
     : null
   replacementPatternCache.set(replacement, pattern)

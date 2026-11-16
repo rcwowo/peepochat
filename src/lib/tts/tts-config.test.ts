@@ -230,6 +230,28 @@ describe("normalizeTtsConfig", () => {
     })
   })
 
+  test("repairs invalid command fields with that command's own defaults", () => {
+    const config = normalizeTtsConfig({
+      commands: {
+        queue: { enabled: true, minRole: "god" },
+        newVoice: { enabled: "yes", minRole: "god" },
+      },
+    })
+
+    expect(config.commands.queue).toEqual({
+      enabled: true,
+      minRole: "moderator",
+    })
+    expect(config.commands.newVoice).toEqual({
+      enabled: false,
+      minRole: "everyone",
+    })
+    expect(
+      normalizeTtsConfig({ commands: { newVoice: { enabled: true } } }).commands
+        .newVoice
+    ).toEqual({ enabled: true, minRole: "everyone" })
+  })
+
   test("falls back to default commands when the section is malformed", () => {
     expect(normalizeTtsConfig({ commands: "nope" }).commands).toEqual(
       createDefaultTtsConfig().commands

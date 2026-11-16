@@ -129,6 +129,27 @@ describe("applyWordReplacements", () => {
       applyWordReplacements("gg wp", [replacement(" gg ", "good game")])
     ).toBe("good game wp")
   })
+
+  test("uses Unicode-aware word boundaries", () => {
+    expect(
+      applyWordReplacements("Rüber über ÜBER", [replacement("über", "over")])
+    ).toBe("Rüber over over")
+    expect(
+      applyWordReplacements("café cafés Café", [replacement("café", "coffee")])
+    ).toBe("coffee cafés coffee")
+    expect(
+      applyWordReplacements("Привет приветик", [replacement("привет", "hi")])
+    ).toBe("hi приветик")
+    expect(
+      applyWordReplacements("lol lol２ lol_", [replacement("lol", "haha")])
+    ).toBe("haha lol２ lol_")
+  })
+
+  test("treats combining marks as part of a word", () => {
+    expect(
+      applyWordReplacements("cafe\u0301 cafe", [replacement("cafe", "coffee")])
+    ).toBe("cafe\u0301 coffee")
+  })
 })
 
 describe("sanitizeMessageText", () => {

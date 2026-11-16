@@ -69,24 +69,31 @@ const ttsSoundEffectSchema = z.object({
   volume: z.number().min(0).max(1).catch(1),
 })
 
-const ttsCommandSettingSchema = z.object({
-  enabled: z.boolean().catch(false),
-  minRole: ttsCommandRoleSchema.catch("moderator"),
-})
-
-const DEFAULT_MOD_COMMAND = { enabled: false, minRole: "moderator" as const }
-const DEFAULT_EVERYONE_COMMAND = {
+const DEFAULT_MOD_COMMAND: TtsCommandSetting = {
   enabled: false,
-  minRole: "everyone" as const,
+  minRole: "moderator",
+}
+const DEFAULT_EVERYONE_COMMAND: TtsCommandSetting = {
+  enabled: false,
+  minRole: "everyone",
+}
+
+function commandSettingSchema(defaults: TtsCommandSetting) {
+  return z
+    .object({
+      enabled: z.boolean().catch(defaults.enabled),
+      minRole: ttsCommandRoleSchema.catch(defaults.minRole),
+    })
+    .catch(() => ({ ...defaults }))
 }
 
 const ttsCommandsSchema = z.object({
   whitelist: stringListSchema,
-  queue: ttsCommandSettingSchema.catch(DEFAULT_MOD_COMMAND),
-  playback: ttsCommandSettingSchema.catch(DEFAULT_MOD_COMMAND),
-  skip: ttsCommandSettingSchema.catch(DEFAULT_MOD_COMMAND),
-  clear: ttsCommandSettingSchema.catch(DEFAULT_MOD_COMMAND),
-  newVoice: ttsCommandSettingSchema.catch(DEFAULT_EVERYONE_COMMAND),
+  queue: commandSettingSchema(DEFAULT_MOD_COMMAND),
+  playback: commandSettingSchema(DEFAULT_MOD_COMMAND),
+  skip: commandSettingSchema(DEFAULT_MOD_COMMAND),
+  clear: commandSettingSchema(DEFAULT_MOD_COMMAND),
+  newVoice: commandSettingSchema(DEFAULT_EVERYONE_COMMAND),
 })
 
 const DEFAULT_VOICE_PROFILE_ID = "voice-default"
@@ -137,7 +144,10 @@ export type TtsCommandRole = z.infer<typeof ttsCommandRoleSchema>
 export type TtsVoiceProfile = z.output<typeof ttsVoiceProfileSchema>
 export type TtsWordReplacement = z.output<typeof ttsWordReplacementSchema>
 export type TtsSoundEffect = z.output<typeof ttsSoundEffectSchema>
-export type TtsCommandSetting = z.output<typeof ttsCommandSettingSchema>
+export type TtsCommandSetting = {
+  enabled: boolean
+  minRole: TtsCommandRole
+}
 export type TtsCommandsConfig = z.output<typeof ttsCommandsSchema>
 export type TtsCommandId = Exclude<keyof TtsCommandsConfig, "whitelist">
 export type TtsQueueMode = z.infer<typeof ttsQueueModeSchema>
