@@ -300,4 +300,89 @@ describe("fetchCheermotes", () => {
     expect(error).toBeInstanceOf(TwitchApiError)
     expect((error as TwitchApiError).status).toBe(401)
   })
+
+  test("does not cache failed requests", async () => {
+    respondWith(null, 500)
+
+    const [first, second] = await Promise.allSettled([
+      fetchCheermotes("token", "client", "1"),
+      fetchCheermotes("token", "client", "1"),
+    ])
+    expect(first.status).toBe("rejected")
+    expect(second.status).toBe("rejected")
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+
+    respondWith([
+      { prefix: "Corgo", tiers: [helixTier(1, { animated: { "1": "a" } })] },
+    ])
+
+    const catalog = await fetchCheermotes("token", "client", "1")
+    expect(catalog.sets.map((set) => set.prefix)).toEqual(["Corgo"])
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
+    expect(await fetchCheermotes("token", "client", "1")).toBe(catalog)
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
+  })
+
+  test("a stale failure does not evict a newer request", async () => {
+    let rejectFirst!: (error: Error) => void
+    fetchSpy.mockImplementationOnce(
+      (() =>
+        new Promise<Response>((_, reject) => {
+          rejectFirst = reject
+        })) as unknown as typeof fetch
+    )
+
+    const stale = fetchCheermotes("token", "client", "1").catch(
+      (caught: unknown) => caught
+    )
+    clearCheermoteCache("1")
+
+    respondWith([
+      { prefix: "Corgo", tiers: [helixTier(1, { animated: { "1": "a" } })] },
+    ])
+    const fresh = fetchCheermotes("token", "client", "1")
+
+    rejectFirst(new Error("network"))
+    expect(await stale).toBeInstanceOf(Error)
+
+    const [again, catalog] = await Promise.all([
+      fetchCheermotes("token", "client", "1"),
+      fresh,
+    ])
+    expect(again).toBe(catalog)
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
+  })
+
+  test("a request cleared while in flight does not repopulate the cache", async () => {
+    let resolveFirst!: (response: Response) => void
+    fetchSpy.mockImplementationOnce(
+      (() =>
+        new Promise<Response>((resolve) => {
+          resolveFirst = resolve
+        })) as unknown as typeof fetch
+    )
+
+    const stale = fetchCheermotes("token", "client", "1")
+    clearCheermoteCache("1")
+    resolveFirst(
+      new Response(
+        JSON.stringify({
+          data: [
+            {
+              prefix: "Stale",
+              tiers: [helixTier(1, { animated: { "1": "a" } })],
+            },
+          ],
+        })
+      )
+    )
+    expect((await stale).sets.map((set) => set.prefix)).toEqual(["Stale"])
+
+    respondWith([
+      { prefix: "Fresh", tiers: [helixTier(1, { animated: { "1": "a" } })] },
+    ])
+    const fresh = await fetchCheermotes("token", "client", "1")
+    expect(fresh.sets.map((set) => set.prefix)).toEqual(["Fresh"])
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
+  })
 })
