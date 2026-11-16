@@ -171,6 +171,16 @@ describe("parseIrcPrivmsg", () => {
     })
   })
 
+  test("decodes tag escapes in a single pass", () => {
+    const message = parseIrcPrivmsg(
+      String.raw`@display-name=A\\sB;id=3;reply-parent-display-name=Par\\sent;reply-parent-msg-body=a\\\\b\\:c\\\:d\\r\\n\x\:\s\r\n\\end\;reply-parent-msg-id=parent-id;reply-parent-user-login=parent :a!a@a.tmi.twitch.tv PRIVMSG #chan :hi`
+    )
+
+    expect(message!.displayName).toBe("A\\sB")
+    expect(message!.reply!.parentDisplayName).toBe("Par\\sent")
+    expect(message!.reply!.parentBody).toBe("a\\\\b\\:c\\;d\\r\\nx; \r\n\\end")
+  })
+
   test("uses the parent as the thread root and the login as display name when missing", () => {
     const message = parseIrcPrivmsg(
       "@id=2;reply-parent-msg-id=parent-id;reply-parent-user-login=parent :a!a@a.tmi.twitch.tv PRIVMSG #chan :hi"
@@ -725,13 +735,13 @@ describe("TwitchChatClient line handling", () => {
 
   test("parses USERSTATE into self state", () => {
     socket.receive(
-      "@badge-info=;badges=vip/1,premium/1;color=#00FF7F;display-name=Me;emote-sets=0;mod=0;subscriber=1 :tmi.twitch.tv USERSTATE #chan"
+      String.raw`@badge-info=;badges=vip/1,premium/1;color=#00FF7F;display-name=Me\sToo;emote-sets=0;mod=0;subscriber=1 :tmi.twitch.tv USERSTATE #chan`
     )
 
     expect(eventsOfType("self-state")[0].state).toEqual({
       channel: "chan",
       roomId: null,
-      displayName: "Me",
+      displayName: "Me Too",
       color: "#00FF7F",
       badges: [
         { set: "vip", version: "1" },
@@ -779,6 +789,23 @@ describe("TwitchChatClient line handling", () => {
           { set: "premium", version: "1" },
         ],
       })
+      expect(
+        message.detailsEmotes!.map(({ code, start, end }) => ({
+          code,
+          start,
+          end,
+        }))
+      ).toEqual([{ code: "Kappa", start: 12, end: 16 }])
+    })
+
+    test("keeps backslashes in the user message body and its emote positions", () => {
+      socket.receive(
+        String.raw`@display-name=Foo;emotes=25:12-16;id=sub-2;login=foo;msg-id=resub;room-id=123;system-msg=Foo\ssubscribed!;tmi-sent-ts=${TMI_TS};user-id=42 :tmi.twitch.tv USERNOTICE #chan :C:\server x Kappa`
+      )
+
+      const message = systemMessages()[0]
+      expect(message.details).toBe(String.raw`C:\server x Kappa`)
+      expect(message.text).toBe(String.raw`Foo subscribed! C:\server x Kappa`)
       expect(
         message.detailsEmotes!.map(({ code, start, end }) => ({
           code,
@@ -931,6 +958,16 @@ describe("TwitchChatClient line handling", () => {
       expect(eventsOfType("log").map((event) => event.text)).toEqual([
         "This room is in slow mode and you are sending messages too quickly.",
       ])
+    })
+
+    test("does not unescape the notice text", () => {
+      socket.receive(
+        String.raw`@msg-id=msg_banned;room-id=1 :tmi.twitch.tv NOTICE #chan :Path C:\server\new has\sa \\ in it`
+      )
+
+      expect(systemMessages()[0].text).toBe(
+        String.raw`Path C:\server\new has\sa \\ in it`
+      )
     })
 
     test("emits auth-failure for global login failures", () => {
