@@ -170,6 +170,43 @@ describe("parseEventSubMessageBody", () => {
     expect(body.bits).toBeNull()
   })
 
+  test("locates v1 emotes regardless of the order they are listed in", () => {
+    const body = parseEventSubMessageBody({
+      message: "Kappa LUL Kappa",
+      fragments: {
+        emotes: [
+          { text: "LUL", id: "425618" },
+          { text: "Kappa", id: "25" },
+          { text: "Kappa", id: "25" },
+          { text: "Kappa", id: "25" },
+        ],
+      },
+    })
+
+    expect(positions(body.emotes)).toEqual([
+      { id: "25", code: "Kappa", start: 0, end: 4 },
+      { id: "425618", code: "LUL", start: 6, end: 8 },
+      { id: "25", code: "Kappa", start: 10, end: 14 },
+    ])
+  })
+
+  test("prefers whole-word v1 emote matches and never overlaps ranges", () => {
+    const body = parseEventSubMessageBody({
+      message: "KappaHD Kappa",
+      fragments: {
+        emotes: [
+          { text: "Kappa", id: "25" },
+          { text: "KappaHD", id: "2867" },
+        ],
+      },
+    })
+
+    expect(positions(body.emotes)).toEqual([
+      { id: "2867", code: "KappaHD", start: 0, end: 6 },
+      { id: "25", code: "Kappa", start: 8, end: 12 },
+    ])
+  })
+
   test("uses v1 fragments alongside a v2 message object without emote fragments", () => {
     const body = parseEventSubMessageBody({
       message: { text: "hello Kappa", fragments: [] },
