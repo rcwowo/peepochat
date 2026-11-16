@@ -912,11 +912,13 @@ function renderMessageParts(message: DemoMessage, ranges: PingMatchRange[]) {
   return nodes
 }
 
+const NO_RANGES: PingMatchRange[] = []
+
 function DemoMessageRow({
   message,
   alternate,
-  highlightRanges = [],
-  usernameHighlightRanges = [],
+  highlightRanges = NO_RANGES,
+  usernameHighlightRanges = NO_RANGES,
   hovered,
   className,
   children,

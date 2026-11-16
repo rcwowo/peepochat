@@ -2,6 +2,7 @@ import * as React from "react"
 import { toast } from "sonner"
 
 import { useSpeechAvailability } from "@/hooks/tts/use-browser-voices"
+import { useLazyRef } from "@/hooks/use-lazy-ref"
 import {
   usePeepochatChat,
   usePeepochatPlayer,
@@ -105,8 +106,8 @@ export function TtsProvider({ children }: { children: React.ReactNode }) {
   )
   const channelRef = React.useRef<string | null>(null)
   const sessionRef = React.useRef(0)
-  const ingestChainRef = React.useRef<Promise<void>>(Promise.resolve())
-  const deletedIdsRef = React.useRef(new Set<string>())
+  const ingestChainRef = useLazyRef<Promise<void>>(() => Promise.resolve())
+  const deletedIdsRef = useLazyRef(() => new Set<string>())
   const [ui, setUi] = React.useState<TtsUiPrefs>(loadTtsUiPrefs)
   const [player] = React.useState(
     () => new TtsPlayer(PLAYER_CALLBACKS, ttsConfig)
@@ -132,7 +133,7 @@ export function TtsProvider({ children }: { children: React.ReactNode }) {
     player.reset()
     saveStoredTtsChannel(channelLogin)
     toast.dismiss(BLOCKED_TOAST_ID)
-  }, [channelLogin, player])
+  }, [channelLogin, deletedIdsRef, player])
 
   const playerState = React.useSyncExternalStore(
     player.subscribe,
@@ -348,7 +349,7 @@ export function TtsProvider({ children }: { children: React.ReactNode }) {
         config.maxQueueSize
       )
     },
-    [executeCommand, player]
+    [deletedIdsRef, executeCommand, player]
   )
 
   React.useEffect(() => {
@@ -365,7 +366,7 @@ export function TtsProvider({ children }: { children: React.ReactNode }) {
           console.error("Failed to queue text-to-speech message", error)
         })
     })
-  }, [ingestMessage, subscribeToChatMessages])
+  }, [ingestChainRef, ingestMessage, subscribeToChatMessages])
 
   React.useEffect(() => {
     const handleDeleted = (event: Event) => {
@@ -394,7 +395,7 @@ export function TtsProvider({ children }: { children: React.ReactNode }) {
     return () => {
       window.removeEventListener("peepochat:message-deleted", handleDeleted)
     }
-  }, [player])
+  }, [deletedIdsRef, player])
 
   const setCollapsed = React.useCallback(
     (collapsed: boolean) => {

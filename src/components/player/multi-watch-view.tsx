@@ -135,16 +135,20 @@ function MultiWatchVideos({
     if (!root) return
 
     const rootRect = root.getBoundingClientRect()
-    for (const login of frameElementsRef.current.keys()) {
-      const frame = frameElementsRef.current.get(login)
-      if (!frame) continue
+    const placements: Array<{ frame: HTMLElement; rect: DOMRect | null }> = []
+    for (const [login, frame] of frameElementsRef.current) {
       const slot = slotElementsRef.current.get(login)
-      if (!slot || !slot.isConnected) {
+      placements.push({
+        frame,
+        rect: slot?.isConnected ? slot.getBoundingClientRect() : null,
+      })
+    }
+
+    for (const { frame, rect } of placements) {
+      if (!rect) {
         frame.style.visibility = "hidden"
         continue
       }
-
-      const rect = slot.getBoundingClientRect()
       frame.style.visibility = "visible"
       frame.style.transform = `translate(${rect.left - rootRect.left}px, ${rect.top - rootRect.top}px)`
       frame.style.width = `${rect.width}px`

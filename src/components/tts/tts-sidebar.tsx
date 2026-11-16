@@ -347,7 +347,7 @@ export function TtsSidebar() {
           setCollapsed(true)
         }
       }}
-      className="relative z-40 flex h-svh shrink-0 flex-col border-l border-sidebar-border bg-sidebar outline-none motion-reduce:animate-none max-md:fixed max-md:inset-y-0 max-md:right-0 max-md:w-full max-md:shadow-2xl max-md:duration-200 max-md:ease-out max-md:data-[state=closed]:animate-out max-md:data-[state=closed]:slide-out-to-right max-md:data-[state=open]:animate-in max-md:data-[state=open]:slide-in-from-right max-sm:border-l-0 sm:max-md:max-w-md md:w-(--tts-width)"
+      className="relative z-40 flex h-svh shrink-0 flex-col border-l border-sidebar-border bg-sidebar outline-none motion-reduce:animate-none max-md:fixed max-md:inset-y-0 max-md:right-0 max-md:w-full max-md:shadow-2xl max-md:ease-out max-md:animation-duration-200 max-md:data-[state=closed]:animate-out max-md:data-[state=closed]:slide-out-to-right max-md:data-[state=open]:animate-in max-md:data-[state=open]:slide-in-from-right max-sm:border-l-0 sm:max-md:max-w-md md:w-(--tts-width)"
     >
       <SidebarResizeHandle width={ui.width} onResize={setSidebarWidth} />
 

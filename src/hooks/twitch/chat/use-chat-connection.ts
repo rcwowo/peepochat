@@ -179,7 +179,7 @@ export function useChatConnection({
     onAuthFailureRef.current = onAuthFailure
   }, [onAllRoomsCleared, onAuthFailure, onRoomsRemoved])
 
-  const senderStateRef = React.useRef<SenderState>(createEmptySenderState())
+  const senderStateRef = useLazyRef<SenderState>(createEmptySenderState)
   const [selfStates, setSelfStates] = React.useState<
     Record<string, TwitchSelfChatState>
   >(() => Object.fromEntries(selfStatesRef.current))
@@ -812,8 +812,9 @@ export function useChatConnection({
         previous.length === normalized.length &&
         previous.every((login, index) => login === normalized[index])
 
+      const previousSet = new Set(previous)
       for (const login of normalized) {
-        if (!previous.includes(login)) {
+        if (!previousSet.has(login)) {
           pendingChatModesNoticeRef.current.add(login)
         }
       }
@@ -869,8 +870,9 @@ export function useChatConnection({
         return Promise.resolve()
       }
 
+      const normalizedSet = new Set(normalized)
       const removedLogins = previous.filter(
-        (login) => !normalized.includes(login)
+        (login) => !normalizedSet.has(login)
       )
       pruneRemovedChannelState(removedLogins)
 

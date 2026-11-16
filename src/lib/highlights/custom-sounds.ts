@@ -197,16 +197,12 @@ export function createEmbeddedSoundUrl(
 export async function listEmbeddedCustomSounds(
   referencedIds: string[]
 ): Promise<EmbeddedCustomSound[]> {
+  const uniqueIds = [...new Set(referencedIds.filter(Boolean))]
+  const records = await Promise.all(uniqueIds.map(getCustomSound))
+
   const embedded: EmbeddedCustomSound[] = []
-  const seen = new Set<string>()
-
-  for (const id of referencedIds) {
-    if (!id || seen.has(id)) continue
-    seen.add(id)
-
-    const record = await getCustomSound(id)
+  for (const record of records) {
     if (!record) continue
-
     embedded.push({
       id: record.id,
       name: record.name,
