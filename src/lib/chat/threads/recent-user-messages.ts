@@ -120,6 +120,7 @@ function forgetTimelineEntry(
   )
   return loginChanged || idChanged
 }
+
 function rememberTimelineEntry(
   buckets: Map<string, TwitchChatMessage[]>,
   entry: TimelineEntry,
@@ -151,6 +152,25 @@ function bucketsEqual(left: TwitchChatMessage[], right: TwitchChatMessage[]) {
 
   for (let index = 0; index < left.length; index += 1) {
     if (left[index] !== right[index]) {
+      return false
+    }
+  }
+
+  return true
+}
+
+function retainedEntriesUnchanged(
+  previous: TimelineEntry[],
+  next: TimelineEntry[],
+  dropped: number
+) {
+  for (let index = dropped; index < previous.length; index += 1) {
+    const before = previous[index]
+    const after = next[index - dropped]
+    if (
+      before !== after &&
+      (before.kind !== after.kind || before.message !== after.message)
+    ) {
       return false
     }
   }
@@ -192,7 +212,10 @@ export function updateRecentUserMessageBuckets(
 
   if (previousTimeline) {
     const shift = getTimelineWindowShift(previousTimeline, timeline)
-    if (shift) {
+    if (
+      shift &&
+      retainedEntriesUnchanged(previousTimeline, timeline, shift.dropped)
+    ) {
       const buckets = new Map(cache.buckets)
       let lostRecent = false
 

@@ -156,10 +156,20 @@ describe("updateRecentUserMessageBuckets", () => {
     limit = 3
   ) {
     const incremental = updateRecentUserMessageBuckets(cache, timeline, limit)
-    expect(snapshot(incremental)).toEqual(
-      snapshot(getRecentUserMessageBuckets(timeline, limit))
-    )
+    const rebuilt = getRecentUserMessageBuckets(timeline, limit)
+    expect(snapshot(incremental)).toEqual(snapshot(rebuilt))
+    expect(incremental).toEqual(rebuilt)
     return incremental
+  }
+
+  function deleted(entry: TwitchTimelineItem): TwitchTimelineItem {
+    if (entry.kind !== "chat" && entry.kind !== "suspicious") {
+      return entry
+    }
+    return {
+      ...entry,
+      message: { ...entry.message, deletedAt: "2024-01-01T00:00:05.000Z" },
+    } as TwitchTimelineItem
   }
 
   test("matches a full rebuild across appends and front trims", () => {
@@ -182,6 +192,63 @@ describe("updateRecentUserMessageBuckets", () => {
     run(cache, all.slice(3, 9))
     run(cache, all.slice(6, 9))
     expect(cache.timeline).toEqual(all.slice(6, 9))
+  })
+
+  test("matches a full rebuild when retained messages are deleted in place", () => {
+    const cache = createRecentUserMessageBucketCache()
+    const m1 = chat("1", "alice")
+    const m2 = chat("2", "alice")
+
+    run(cache, [m1, m2])
+    const afterDelete = run(cache, [deleted(m1), m2])
+    expect(ids(afterDelete, "login:alice")).toEqual(["2"])
+    expect(ids(afterDelete, "id:alice-id")).toEqual(["2"])
+  })
+
+  test("matches a full rebuild when deletions coincide with trims and appends", () => {
+    const cache = createRecentUserMessageBucketCache()
+    const all = [
+      system("s0"),
+      chat("2", "bob"),
+      suspicious("3", "alice"),
+      chat("4", "alice"),
+      chat("5", "bob"),
+      chat("6", "alice"),
+    ]
+
+    run(cache, all.slice(0, 5))
+    const timeline = [all[1], deleted(all[2]), deleted(all[3]), all[4], all[5]]
+    const next = run(cache, timeline)
+    expect(ids(next, "login:alice")).toEqual(["6"])
+    expect(ids(next, "login:bob")).toEqual(["2", "5"])
+
+    run(cache, [...timeline, chat("7", "alice")])
+  })
+
+  test("picks up replaced message objects for retained entries", () => {
+    const cache = createRecentUserMessageBucketCache()
+    const original = chat("1", "alice")
+    run(cache, [original])
+
+    const edited = {
+      ...original,
+      message: { ...original.message, text: "edited" },
+    } as TwitchTimelineItem
+    const next = run(cache, [edited, chat("2", "bob")])
+    expect(next.get("login:alice")![0]).toBe(
+      edited.message as TwitchChatMessage
+    )
+  })
+
+  test("keeps the incremental path when retained entries are unchanged", () => {
+    const cache = createRecentUserMessageBucketCache()
+    const flagged = suspicious("1", "alice")
+    const bob = chat("2", "bob")
+    const first = run(cache, [flagged, bob])
+    const aliceBucket = first.get("login:alice")
+
+    const second = run(cache, [{ ...flagged }, bob, chat("3", "carol")])
+    expect(second.get("login:alice")).toBe(aliceBucket!)
   })
 
   test("trims old messages incrementally when they already fell out of the bucket", () => {

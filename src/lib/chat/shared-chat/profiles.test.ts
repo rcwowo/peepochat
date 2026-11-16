@@ -84,6 +84,30 @@ describe("shared chat source profiles", () => {
     )
   })
 
+  test("skips updates without an avatar that leave the profile unchanged", () => {
+    const id = uniqueId()
+    upsertSharedChatSourceProfiles([profile(id)])
+    const stored = getSharedChatSourceProfile(id)
+    const listener = subscribe()
+
+    upsertSharedChatSourceProfiles([profile(id, { profileImageUrl: "" })])
+    upsertSharedChatSourceProfiles([profile(id, { profileImageUrl: "" })])
+
+    expect(listener).not.toHaveBeenCalled()
+    expect(getSharedChatSourceProfile(id)).toBe(stored)
+  })
+
+  test("stores an empty avatar for new profiles without one", () => {
+    const id = uniqueId()
+    const listener = subscribe()
+
+    upsertSharedChatSourceProfiles([profile(id, { profileImageUrl: "" })])
+    upsertSharedChatSourceProfiles([profile(id, { profileImageUrl: "" })])
+
+    expect(listener).toHaveBeenCalledTimes(1)
+    expect(getSharedChatSourceProfile(id)?.profileImageUrl).toBe("")
+  })
+
   test("stops notifying after unsubscribe", () => {
     const listener = mock(() => {})
     const unsubscribe = subscribeToSharedChatSourceProfiles(listener)
