@@ -228,7 +228,7 @@ const chatSplitSchema = z.object({
   channels: z.array(z.string()),
   unreadIndicatorEnabled: z.boolean().nullable().default(null),
   liveNotificationsEnabled: z.boolean().nullable().default(null),
-  layout: chatSplitLayoutNodeSchema.optional(),
+  layout: chatSplitLayoutNodeSchema.optional().catch(undefined),
 })
 
 const chatLayoutSchema = z.object({
@@ -241,8 +241,8 @@ export const twitchAccountSchema = z.object({
   id: z.string(),
   login: z.string(),
   displayName: z.string(),
-  profileImageUrl: z.string(),
-  bannerImageUrl: z.string(),
+  profileImageUrl: z.string().catch(""),
+  bannerImageUrl: z.string().catch(""),
   accessToken: z.string(),
   clientId: z.string(),
   scopes: z.array(z.string()).default([]),
@@ -258,7 +258,7 @@ export const twitchChannelSchema = z.object({
 })
 
 const twitchSchema = z.object({
-  account: twitchAccountSchema.nullable(),
+  account: twitchAccountSchema.nullable().catch(null),
   channels: z.array(twitchChannelSchema),
   activeChannelLogin: z.string(),
 })
@@ -378,7 +378,7 @@ export function createDefaultConfig(): AppConfig {
       },
       deletedMessagesBehavior: "strikethrough",
       gifMessageAppearance: "display",
-      chatModesVisibility: "always",
+      chatModesVisibility: "when-permitted",
       clearChatWhenInstructed: true,
       hideBlockedUsers: true,
       showSuspiciousActivity: true,
@@ -661,7 +661,7 @@ export function loadConfig(): AppConfig {
   }
 
   const raw = window.localStorage.getItem(PEEPOCHAT_STORAGE_KEY)
-  if (!raw) {
+  if (raw === null) {
     return createDefaultConfig()
   }
 
@@ -937,10 +937,19 @@ export function mergeRestoredConfig(
   const sameAccount =
     existingAccount !== null && existingAccount.id === restoredAccount.id
 
-  const accessToken =
-    restoredAccount.accessToken.trim() ||
-    (sameAccount ? existingAccount.accessToken : "")
+  const restoredAccessToken = restoredAccount.accessToken.trim()
+  const sessionAccount =
+    !restoredAccessToken &&
+    sameAccount &&
+    existingAccount.accessToken.trim().length > 0
+      ? existingAccount
+      : null
+
+  const accessToken = sessionAccount
+    ? sessionAccount.accessToken
+    : restoredAccessToken
   const clientId =
+    sessionAccount?.clientId.trim() ||
     restoredAccount.clientId.trim() ||
     (sameAccount ? existingAccount.clientId : "") ||
     envClientId
@@ -963,8 +972,10 @@ export function mergeRestoredConfig(
         ...restoredAccount,
         accessToken,
         clientId,
-        scopes:
-          restoredAccount.scopes ?? (sameAccount ? existingAccount.scopes : []),
+        scopes: sessionAccount ? sessionAccount.scopes : restoredAccount.scopes,
+        accessTokenExpiresAt: sessionAccount
+          ? sessionAccount.accessTokenExpiresAt
+          : restoredAccount.accessTokenExpiresAt,
       },
     },
   })
@@ -980,10 +991,14 @@ function parseConfig(input: unknown): AppConfig {
     return parseConfig(envelopeResult.data.data)
   }
 
-  const object = input as Record<string, unknown>
+  if (!isRecord(input)) {
+    throw new Error("Failed to parse saved config")
+  }
+
   const coerced = {
-    ...coerceConfigCredentials(object),
-    layout: coerceLayoutShape(object.layout),
+    ...coerceConfigCredentials(input),
+    highlights: migrateLegacyHighlights(input.highlights),
+    layout: coerceLayoutShape(input.layout),
     schemaVersion: PEEPOCHAT_SCHEMA_VERSION,
   }
 
@@ -998,6 +1013,30 @@ function parseConfig(input: unknown): AppConfig {
   }
 
   return normalizeConfig(repaired)
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value)
+}
+
+function migrateLegacyHighlights(input: unknown): unknown {
+  if (!isRecord(input)) {
+    return input
+  }
+
+  const migrated: Record<string, unknown> = {
+    ...input,
+    useDefaultSounds: resolveUseDefaultSounds(input),
+  }
+
+  if (
+    typeof input.liveSoundCustomId !== "string" &&
+    typeof input.notificationSoundCustomId === "string"
+  ) {
+    migrated.liveSoundCustomId = input.notificationSoundCustomId
+  }
+
+  return migrated
 }
 
 /**
@@ -1159,19 +1198,17 @@ export function findMessageUrls(text: string): MessageUrlMatch[] {
   })
 }
 
-function resolveUseDefaultSounds(
-  highlights: Record<string, unknown> | undefined
-): boolean {
-  if (typeof highlights?.useDefaultSounds === "boolean") {
+function resolveUseDefaultSounds(highlights: Record<string, unknown>): boolean {
+  if (typeof highlights.useDefaultSounds === "boolean") {
     return highlights.useDefaultSounds
   }
 
-  const pingSoundUseDefault = highlights?.pingSoundUseDefault
-  const liveSoundUseDefault = highlights?.liveSoundUseDefault
-  const notificationSoundUseDefault = highlights?.notificationSoundUseDefault
-  const pingSoundCustomId = highlights?.pingSoundCustomId
-  const liveSoundCustomId = highlights?.liveSoundCustomId
-  const notificationSoundCustomId = highlights?.notificationSoundCustomId
+  const pingSoundUseDefault = highlights.pingSoundUseDefault
+  const liveSoundUseDefault = highlights.liveSoundUseDefault
+  const notificationSoundUseDefault = highlights.notificationSoundUseDefault
+  const pingSoundCustomId = highlights.pingSoundCustomId
+  const liveSoundCustomId = highlights.liveSoundCustomId
+  const notificationSoundCustomId = highlights.notificationSoundCustomId
 
   const usesCustomSounds =
     pingSoundUseDefault === false ||
@@ -1277,8 +1314,6 @@ function normalizeConfig(config: AppConfig): AppConfig {
     chat.emoteScale = chat.fontSizePx
   }
 
-  const rawHighlights = config.highlights as Record<string, unknown> | undefined
-
   const seenNicknameLogins = new Set<string>()
   const seenNicknames = new Set<string>()
   const nicknames = {
@@ -1303,26 +1338,15 @@ function normalizeConfig(config: AppConfig): AppConfig {
     ...config.highlights,
     pingOnUsernameMention: config.highlights?.pingOnUsernameMention ?? true,
     highlightPingedMessages: config.highlights?.highlightPingedMessages ?? true,
-    useDefaultSounds: resolveUseDefaultSounds(rawHighlights),
+    useDefaultSounds: config.highlights?.useDefaultSounds ?? true,
     pingSoundCustomId:
       typeof config.highlights?.pingSoundCustomId === "string"
         ? config.highlights.pingSoundCustomId.trim() || null
         : null,
-    liveSoundCustomId: (() => {
-      const liveSoundCustomId = config.highlights?.liveSoundCustomId
-      if (typeof liveSoundCustomId === "string") {
-        return liveSoundCustomId.trim() || null
-      }
-
-      const legacyNotificationSoundCustomId = (
-        rawHighlights as { notificationSoundCustomId?: unknown } | undefined
-      )?.notificationSoundCustomId
-      if (typeof legacyNotificationSoundCustomId === "string") {
-        return legacyNotificationSoundCustomId.trim() || null
-      }
-
-      return null
-    })(),
+    liveSoundCustomId:
+      typeof config.highlights?.liveSoundCustomId === "string"
+        ? config.highlights.liveSoundCustomId.trim() || null
+        : null,
     pings: (config.highlights?.pings ?? []).map((rule) => ({
       id: rule.id.trim(),
       pattern: rule.pattern,

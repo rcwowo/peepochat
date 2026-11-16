@@ -29,6 +29,7 @@ import {
   parseBackupPreview,
   saveConfig,
   type AppConfig,
+  type ChatSplitLayoutNode,
   type TwitchAccount,
 } from "@/lib/peepochat/peepochat-config"
 import { closeTtsDatabase, putVoiceAssignment } from "@/lib/tts/tts-db"
@@ -170,7 +171,7 @@ describe("loadConfig", () => {
     )
   })
 
-  test.each([["{not json"], ["null"]])(
+  test.each([["{not json"], ["null"], [""], ["5"], ["[]"], ['"text"']])(
     "recovers from the backup when the primary copy is %p",
     (raw) => {
       const config = customConfig()
@@ -194,6 +195,34 @@ describe("loadConfig", () => {
     storeBackup("also not json")
 
     expect(loadConfig()).toEqual(createDefaultConfig())
+  })
+
+  test.each([["[]"], ["5"], [""]])(
+    "falls back to defaults when the backup is also unusable (%p)",
+    (backupRaw) => {
+      storePrimary("[]")
+      storeBackup(backupRaw)
+
+      expect(loadConfig()).toEqual(createDefaultConfig())
+    }
+  )
+
+  test("drops an unusable stored account but keeps the rest of the setup", () => {
+    const config = customConfig()
+    saveConfig(config)
+    const stored = JSON.parse(
+      window.localStorage.getItem(PEEPOCHAT_STORAGE_KEY) ?? "null"
+    ) as Record<string, Record<string, Record<string, unknown>>>
+    stored.twitch.account.id = 1001
+    storePrimary(JSON.stringify(stored))
+
+    const loaded = loadConfig()
+    expect(loaded.twitch.account).toBeNull()
+    expect(loaded).toEqual({
+      ...config,
+      updatedAt: NOW.toISOString(),
+      twitch: { ...config.twitch, account: null },
+    })
   })
 
   test("normalizes values while saving", () => {
@@ -394,6 +423,63 @@ describe("loading old, partial and malformed configs", () => {
     expect(config.twitch.account?.accessTokenExpiresAt).toBeUndefined()
   })
 
+  test("tolerates missing or malformed account image urls", () => {
+    const {
+      bannerImageUrl: _bannerImageUrl,
+      profileImageUrl: _profileImageUrl,
+      ...rest
+    } = account()
+    const config = load({
+      twitch: {
+        account: { ...rest, profileImageUrl: null },
+        channels: [],
+        activeChannelLogin: "",
+      },
+    })
+
+    expect(config.twitch.account).toEqual(
+      account({ bannerImageUrl: "", profileImageUrl: "" })
+    )
+  })
+
+  test.each([
+    ["a numeric id", { id: 1001 }],
+    ["a missing login", { login: undefined }],
+    ["a non-string display name", { displayName: ["Viewer"] }],
+  ])(
+    "drops an account with %s and keeps everything else",
+    (_label, overrides) => {
+      const config = load({
+        twitch: {
+          account: { ...account(), ...overrides },
+          channels: [{ login: "alpha" }],
+          activeChannelLogin: "alpha",
+        },
+        chat: { fontSizePx: 18 },
+        highlights: { doNotDisturbEnabled: true },
+      })
+
+      expect(config.twitch.account).toBeNull()
+      expect(config.twitch.channels.map((c) => c.login)).toEqual(["alpha"])
+      expect(config.twitch.activeChannelLogin).toBe("alpha")
+      expect(config.chat.fontSizePx).toBe(18)
+      expect(config.highlights.doNotDisturbEnabled).toBe(true)
+    }
+  )
+
+  test("drops an account that is not an object", () => {
+    const config = load({
+      twitch: {
+        account: "viewer",
+        channels: [{ login: "alpha" }],
+        activeChannelLogin: "",
+      },
+    })
+
+    expect(config.twitch.account).toBeNull()
+    expect(config.twitch.channels.map((c) => c.login)).toEqual(["alpha"])
+  })
+
   test("keeps a finite token expiry", () => {
     const config = load({
       twitch: {
@@ -442,6 +528,62 @@ describe("loading old, partial and malformed configs", () => {
       ],
     })
     expect(config.layout.sidebarOrder).toEqual(["channel:z", "split:keep"])
+  })
+
+  test("keeps a split with an invalid layout and rebuilds the layout", () => {
+    const config = load({
+      twitch: {
+        account: null,
+        channels: [{ login: "x" }, { login: "y" }],
+        activeChannelLogin: "",
+      },
+      layout: {
+        activeSplitId: "a",
+        splits: [
+          {
+            id: "a",
+            channels: ["x", "y"],
+            liveNotificationsEnabled: true,
+            layout: { type: "bogus" },
+          },
+          {
+            id: "b",
+            channels: ["x", "y"],
+            layout: {
+              type: "split",
+              direction: "column",
+              children: [{ node: { type: "pane", channel: "x" }, size: "50" }],
+            },
+          },
+        ],
+      },
+    })
+
+    const rebuilt: ChatSplitLayoutNode = {
+      type: "split",
+      direction: "row",
+      children: [
+        { node: { type: "pane", channel: "x" }, size: 50 },
+        { node: { type: "pane", channel: "y" }, size: 50 },
+      ],
+    }
+    expect(config.layout.activeSplitId).toBe("a")
+    expect(config.layout.splits).toEqual([
+      {
+        id: "a",
+        channels: ["x", "y"],
+        unreadIndicatorEnabled: null,
+        liveNotificationsEnabled: true,
+        layout: rebuilt,
+      },
+      {
+        id: "b",
+        channels: ["x", "y"],
+        unreadIndicatorEnabled: null,
+        liveNotificationsEnabled: null,
+        layout: rebuilt,
+      },
+    ])
   })
 
   test("preserves a valid active split and custom sidebar order", () => {
@@ -523,6 +665,72 @@ describe("loading old, partial and malformed configs", () => {
     expect(config.highlights.liveSoundCustomId).toBeNull()
   })
 
+  test("migrates the legacy notification sound to the live sound", () => {
+    const config = load({ highlights: { notificationSoundCustomId: " s2 " } })
+
+    expect(config.highlights.liveSoundCustomId).toBe("s2")
+    expect(config.highlights.useDefaultSounds).toBe(false)
+    expect("notificationSoundCustomId" in config.highlights).toBe(false)
+  })
+
+  test("prefers the current live sound over the legacy notification sound", () => {
+    const config = load({
+      highlights: {
+        useDefaultSounds: false,
+        liveSoundCustomId: "live",
+        notificationSoundCustomId: "legacy",
+      },
+    })
+
+    expect(config.highlights.liveSoundCustomId).toBe("live")
+  })
+
+  test.each([
+    [{ pingSoundCustomId: "s1" }, false],
+    [{ liveSoundCustomId: "s1" }, false],
+    [{ pingSoundUseDefault: false }, false],
+    [{ liveSoundUseDefault: false }, false],
+    [{ notificationSoundUseDefault: false }, false],
+    [{ pingSoundUseDefault: true, pingSoundCustomId: "  " }, true],
+    [{ useDefaultSounds: true, pingSoundCustomId: "s1" }, true],
+  ])(
+    "derives useDefaultSounds from legacy sound settings %p",
+    (highlights, expected) => {
+      expect(load({ highlights }).highlights.useDefaultSounds).toBe(expected)
+    }
+  )
+
+  test("migrated legacy sound settings survive a save and reload", () => {
+    storePrimary(
+      JSON.stringify({
+        highlights: {
+          pingSoundCustomId: "s1",
+          notificationSoundCustomId: "s2",
+        },
+      })
+    )
+    saveConfig(loadConfig())
+
+    const reloaded = loadConfig()
+    expect(reloaded.highlights.useDefaultSounds).toBe(false)
+    expect(reloaded.highlights.pingSoundCustomId).toBe("s1")
+    expect(reloaded.highlights.liveSoundCustomId).toBe("s2")
+  })
+
+  test("uses the same chat modes visibility default for new and partial configs", () => {
+    expect(createDefaultConfig().chat.chatModesVisibility).toBe(
+      "when-permitted"
+    )
+    expect(load({ chat: {} }).chat.chatModesVisibility).toBe("when-permitted")
+    expect(
+      load({ chat: { chatModesVisibility: "sometimes" } }).chat
+        .chatModesVisibility
+    ).toBe("when-permitted")
+    expect(
+      load({ chat: { chatModesVisibility: "always" } }).chat.chatModesVisibility
+    ).toBe("always")
+  })
+
   test("normalizes the embedded TTS config", () => {
     const config = load({
       tts: { maxQueueSize: 9999, blockedUsers: ["@Spammer", "spammer"] },
@@ -539,6 +747,13 @@ describe("loading old, partial and malformed configs", () => {
   test("throws for payloads that are not JSON", () => {
     expect(() => importConfigBackup("{nope")).toThrow()
   })
+
+  test.each([["5"], ["[]"], ["null"], ['"text"']])(
+    "throws for payloads that are not a config object (%p)",
+    (payload) => {
+      expect(() => importConfigBackup(payload)).toThrow()
+    }
+  )
 })
 
 describe("backup export and import", () => {
@@ -817,6 +1032,83 @@ describe("mergeRestoredConfig", () => {
 
     expect(merged.twitch.account).toBeNull()
     expect(merged.twitch.channels.map((c) => c.login)).toEqual(["a"])
+  })
+
+  test("keeps the current session's scopes and expiry with its token", () => {
+    const existing = load({
+      twitch: {
+        account: account({
+          scopes: ["chat:read", "chat:edit", "moderator:manage:banned_users"],
+          accessTokenExpiresAt: 1_800_000_000_000,
+        }),
+        channels: [],
+        activeChannelLogin: "",
+      },
+    })
+    const restored = load({
+      twitch: {
+        account: account({ accessToken: "", clientId: "", scopes: [] }),
+        channels: [{ login: "a" }],
+        activeChannelLogin: "",
+      },
+    })
+    const merged = mergeRestoredConfig(restored, existing)
+
+    expect(merged.twitch.account).toEqual(existing.twitch.account)
+    expect(merged.twitch.channels.map((c) => c.login)).toEqual(["a"])
+  })
+
+  test("keeps the current session's scopes when the backup has none", () => {
+    const existing = load({
+      twitch: { account: account(), channels: [], activeChannelLogin: "" },
+    })
+    const { scopes: _scopes, ...withoutScopes } = account({
+      accessToken: "",
+      clientId: "",
+    })
+    const restored = load({
+      twitch: {
+        account: withoutScopes,
+        channels: [],
+        activeChannelLogin: "",
+      },
+    })
+
+    expect(
+      mergeRestoredConfig(restored, existing).twitch.account?.scopes
+    ).toEqual(["chat:read", "chat:edit"])
+  })
+
+  test("uses the restored scopes and expiry when the restored token is kept", () => {
+    const existing = load({
+      twitch: {
+        account: account({ accessTokenExpiresAt: 1_800_000_000_000 }),
+        channels: [],
+        activeChannelLogin: "",
+      },
+    })
+    const restored = load({
+      twitch: {
+        account: account({
+          accessToken: "restored-token",
+          clientId: "restored-client",
+          scopes: ["chat:read"],
+          accessTokenExpiresAt: 1_700_000_000_000,
+        }),
+        channels: [],
+        activeChannelLogin: "",
+      },
+    })
+    const merged = mergeRestoredConfig(restored, existing)
+
+    expect(merged.twitch.account).toEqual(
+      account({
+        accessToken: "restored-token",
+        clientId: "restored-client",
+        scopes: ["chat:read"],
+        accessTokenExpiresAt: 1_700_000_000_000,
+      })
+    )
   })
 
   test("keeps credentials included in the restored config", () => {
