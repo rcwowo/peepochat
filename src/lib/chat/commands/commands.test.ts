@@ -67,17 +67,55 @@ function missingScope(scope: string) {
 }
 
 let fetchSpy: Mock<typeof fetch>
+let allowFetch = false
 
 beforeEach(() => {
+  allowFetch = false
   fetchSpy = spyOn(globalThis, "fetch").mockRejectedValue(
     new Error("Network access is not allowed in tests")
   )
 })
 
 afterEach(() => {
-  expect(fetchSpy).not.toHaveBeenCalled()
+  if (!allowFetch) {
+    expect(fetchSpy).not.toHaveBeenCalled()
+  }
   fetchSpy.mockRestore()
 })
+
+type HelixRequest = { method: string; path: string; body: unknown }
+
+function mockHelix(users: Array<{ id: string; login: string }> = []) {
+  allowFetch = true
+  const requests: HelixRequest[] = []
+
+  const respond = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = new URL(String(input))
+    requests.push({
+      method: init?.method ?? "GET",
+      path: url.pathname,
+      body: init?.body ? JSON.parse(String(init.body)) : null,
+    })
+
+    if (url.pathname === "/helix/users") {
+      const logins = url.searchParams.getAll("login")
+      return Response.json({
+        data: users
+          .filter((user) => logins.includes(user.login))
+          .map((user) => ({ ...user, display_name: user.login })),
+      })
+    }
+
+    return new Response(null, { status: 204 })
+  }
+  fetchSpy.mockImplementation(respond as unknown as typeof fetch)
+
+  return requests
+}
+
+function lastWrite(requests: HelixRequest[]) {
+  return requests.filter((request) => request.method !== "GET").at(-1)
+}
 
 describe("executeChatCommand", () => {
   test("ignores input that is not a slash command", async () => {
@@ -117,6 +155,15 @@ describe("executeChatCommand", () => {
       error("Usage: /unblock <username>")
     )
   })
+
+  test.each(["/user @", "/block @", "/unblock @"])(
+    "%s requires a username after the @",
+    async (input) => {
+      expect(
+        await executeChatCommand(input, context({ broadcasterId: null }))
+      ).toEqual(error("A username is required."))
+    }
+  )
 
   test("requires the block scope for block and unblock", async () => {
     const ctx = context({ account: account([]), broadcasterId: null })
@@ -189,7 +236,7 @@ describe("executeChatCommand", () => {
 
     test.each([
       ["/ban", "Usage: /ban <username> [reason]"],
-      ["/timeout", "Usage: /timeout <username> [seconds] [reason]"],
+      ["/timeout", "Usage: /timeout <username> [duration] [reason]"],
       ["/unban", "Usage: /unban <username>"],
       ["/untimeout", "Usage: /untimeout <username>"],
       ["/shoutout", "Usage: /shoutout <username>"],
@@ -225,22 +272,192 @@ describe("executeChatCommand", () => {
   })
 
   describe("numeric arguments", () => {
-    test.each(["abc", "0", "-5"])("/slow rejects %p", async (value) => {
-      expect(await executeChatCommand(`/slow ${value}`, moderator())).toEqual(
-        error(`"${value}" is not a valid number.`)
+    test.each(["abc", "-5", "10abc", "1.5", "10s"])(
+      "/slow rejects %p",
+      async (value) => {
+        expect(await executeChatCommand(`/slow ${value}`, moderator())).toEqual(
+          error(`"${value}" is not a valid number.`)
+        )
+      }
+    )
+
+    test.each(["0", "2", "121"])(
+      "/slow rejects %p as out of range",
+      async (value) => {
+        expect(await executeChatCommand(`/slow ${value}`, moderator())).toEqual(
+          error("Slow mode wait time must be between 3 and 120 seconds.")
+        )
+      }
+    )
+
+    test.each([
+      ["/slow", 30],
+      ["/slow 3", 3],
+      ["/slow 120", 120],
+    ])("%s sets a %p second wait time", async (input, seconds) => {
+      const requests = mockHelix()
+
+      expect(await executeChatCommand(input, moderator())).toEqual({
+        handled: true,
+        kind: "feedback",
+        message: "Updated chat setting (slow).",
+      })
+      expect(lastWrite(requests)).toEqual({
+        method: "PATCH",
+        path: "/helix/chat/settings",
+        body: { slow_mode: true, slow_mode_wait_time: seconds },
+      })
+    })
+
+    test.each(["soon", "10x", "90s", "10 foo"])(
+      "/followers rejects %p",
+      async (value) => {
+        expect(
+          await executeChatCommand(`/followers ${value}`, moderator())
+        ).toEqual(
+          error(
+            `"${value}" is not a valid duration. Use minutes or a number with a unit (m, h, d, w, mo), e.g. 1w.`
+          )
+        )
+      }
+    )
+
+    test.each(["129601", "4mo", "13w"])(
+      "/followers rejects %p as out of range",
+      async (value) => {
+        expect(
+          await executeChatCommand(`/followers ${value}`, moderator())
+        ).toEqual(
+          error(
+            "Followers-only duration must be between 0 minutes and 3 months."
+          )
+        )
+      }
+    )
+
+    test.each([
+      ["/followers", 0],
+      ["/followers 0", 0],
+      ["/followers 30", 30],
+      ["/followers 1h", 60],
+      ["/followers 1 week", 10080],
+      ["/followers 5 days 12 hours", 7920],
+      ["/followers 3mo", 129600],
+    ])("%s sets a %p minute duration", async (input, minutes) => {
+      const requests = mockHelix()
+
+      expect(await executeChatCommand(input, moderator())).toEqual({
+        handled: true,
+        kind: "feedback",
+        message: "Updated chat setting (followers).",
+      })
+      expect(lastWrite(requests)).toEqual({
+        method: "PATCH",
+        path: "/helix/chat/settings",
+        body: { follower_mode: true, follower_mode_duration: minutes },
+      })
+    })
+
+    test.each(["zero", "30abc", "-30"])(
+      "/commercial rejects %p",
+      async (value) => {
+        expect(
+          await executeChatCommand(`/commercial ${value}`, broadcaster())
+        ).toEqual(error(`"${value}" is not a valid number.`))
+      }
+    )
+  })
+
+  describe("/timeout", () => {
+    const target = { id: "42", login: "someone" }
+
+    test.each(["10x", "1.5h", "-5", "+5", "10m5"])(
+      "rejects the malformed duration %p",
+      async (value) => {
+        expect(
+          await executeChatCommand(
+            `/timeout someone ${value} spam`,
+            moderator()
+          )
+        ).toEqual(
+          error(
+            `"${value}" is not a valid duration. Use seconds or a number with a unit (s, m, h, d, w), e.g. 10m.`
+          )
+        )
+      }
+    )
+
+    test.each(["0", "0s", "3w", "1209601", "15d"])(
+      "rejects the out of range duration %p",
+      async (value) => {
+        expect(
+          await executeChatCommand(`/timeout someone ${value}`, moderator())
+        ).toEqual(
+          error("Timeout duration must be between 1 second and 2 weeks.")
+        )
+      }
+    )
+
+    test("checks the username before the duration", async () => {
+      expect(await executeChatCommand("/timeout @ 10x", moderator())).toEqual(
+        error("A username is required.")
       )
     })
 
-    test("/followers rejects invalid durations", async () => {
-      expect(await executeChatCommand("/followers soon", moderator())).toEqual(
-        error('"soon" is not a valid number.')
-      )
-    })
+    test.each([
+      ["90", 90],
+      ["10m", 600],
+      ["10M", 600],
+      ["1h", 3600],
+      ["1d2h", 93600],
+      ["2w", 1209600],
+    ])("times out for %p as %p seconds", async (value, seconds) => {
+      const requests = mockHelix([target])
 
-    test("/commercial rejects invalid lengths", async () => {
       expect(
-        await executeChatCommand("/commercial zero", broadcaster())
-      ).toEqual(error('"zero" is not a valid number.'))
+        await executeChatCommand(
+          `/timeout @someone ${value} being  rude`,
+          moderator()
+        )
+      ).toEqual({
+        handled: true,
+        kind: "feedback",
+        message: "Timed out someone.",
+      })
+      expect(lastWrite(requests)).toEqual({
+        method: "POST",
+        path: "/helix/moderation/bans",
+        body: {
+          data: { user_id: "42", duration: seconds, reason: "being  rude" },
+        },
+      })
+    })
+
+    test("treats a non-duration first word as the reason", async () => {
+      const requests = mockHelix([target])
+
+      await executeChatCommand("/timeout someone being rude", moderator())
+      expect(lastWrite(requests)?.body).toEqual({
+        data: { user_id: "42", duration: 600, reason: "being rude" },
+      })
+    })
+
+    test("uses the default duration without arguments", async () => {
+      const requests = mockHelix([target])
+
+      await executeChatCommand("/timeout someone", moderator())
+      expect(lastWrite(requests)?.body).toEqual({
+        data: { user_id: "42", duration: 600 },
+      })
+    })
+
+    test("does not parse durations for /ban", async () => {
+      const requests = mockHelix([target])
+
+      await executeChatCommand("/ban someone 10m spam", moderator())
+      expect(lastWrite(requests)?.body).toEqual({
+        data: { user_id: "42", reason: "10m spam" },
+      })
     })
   })
 

@@ -74,7 +74,7 @@ describe("findCommandSuggestions", () => {
       type: "command",
       name: "timeout",
       display: "/timeout",
-      usage: "<username> [seconds] [reason]",
+      usage: "<username> [duration] [reason]",
       description: "Timeout a user",
     })
   })
