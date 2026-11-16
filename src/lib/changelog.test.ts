@@ -36,6 +36,14 @@ describe("CHANGELOG", () => {
       expect(compareVersions(newer.version, older.version)).toBeGreaterThan(0)
     }
   })
+
+  test("dates never go backwards as versions increase", () => {
+    for (let index = 1; index < CHANGELOG.length; index += 1) {
+      const newer = CHANGELOG[index - 1]!
+      const older = CHANGELOG[index]!
+      expect(newer.date >= older.date).toBe(true)
+    }
+  })
 })
 
 describe("version tracking", () => {

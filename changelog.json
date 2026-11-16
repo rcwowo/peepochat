@@ -170,7 +170,7 @@
     },
     {
         "version": "1.0.1",
-        "date": "2026-07-31",
+        "date": "2026-07-08",
         "items": [
             "Improved user card UX by progressively loading more info as it comes in.",
             "Added enabling notifications as an optional onboarding step.",
