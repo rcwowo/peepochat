@@ -3,7 +3,8 @@
         "version": "1.4.0",
         "date": "2026-12-01",
         "items": [
-            "Chatvoice and it's text-to-speech features are now a part of Peepochat!"
+            "Chatvoice and it's text-to-speech features are now a part of Peepochat!",
+            "Added an 'Add & Watch' action to the add channel picker with Ctrl+Shift, which adds the channel to the sidebar and starts watching it."
         ]
     },
     {
