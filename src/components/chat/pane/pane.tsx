@@ -589,7 +589,7 @@ function ChatPaneInner({
                           ttsActive
                             ? "Stop text-to-speech"
                             : ttsAvailability === "unavailable"
-                              ? "Text-to-speech unavailable"
+                              ? "TTS unavailable"
                               : "Start text-to-speech"
                         }
                         disabled={!ttsActive && ttsAvailability !== "available"}
