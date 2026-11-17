@@ -19,6 +19,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { AppHeader } from "@/components/shell/app-header"
 import { ChannelSidebar } from "@/components/sidebar/channel-sidebar"
 import { AddChannelDialog } from "@/components/sidebar/add-channel-dialog"
+import { CommandPalette } from "@/components/shell/command-palette"
 import { OnboardingDialog } from "@/components/onboarding/onboarding-dialog"
 import {
   SettingsDialog,
@@ -42,6 +43,7 @@ function DashboardLayout() {
   >(undefined)
   const [addChannelOpen, setAddChannelOpen] = React.useState(false)
   const [notificationsOpen, setNotificationsOpen] = React.useState(false)
+  const [commandPaletteOpen, setCommandPaletteOpen] = React.useState(false)
 
   const openSettings = React.useCallback(() => {
     setSettingsInitialCategory(undefined)
@@ -70,12 +72,27 @@ function DashboardLayout() {
   const toggleNotifications = React.useCallback(() => {
     handleNotificationsOpenChange(!notificationsOpen)
   }, [handleNotificationsOpenChange, notificationsOpen])
+  const toggleCommandPalette = React.useCallback(() => {
+    setCommandPaletteOpen((open) => !open)
+  }, [])
+  const openSettingsCategory = React.useCallback(
+    (category?: SettingsCategory) => {
+      setSettingsInitialCategory(category)
+      setNotificationsOpen(false)
+      setSettingsOpen(true)
+    },
+    []
+  )
+  const openNotifications = React.useCallback(() => {
+    handleNotificationsOpenChange(true)
+  }, [handleNotificationsOpenChange])
 
   useAppHotkeys({
     enabled: ready && !needsOnboarding,
     settingsOpen,
     addChannelOpen,
     notificationsOpen,
+    toggleCommandPalette,
     toggleSettings,
     toggleAddChannel,
     toggleNotifications,
@@ -191,6 +208,15 @@ function DashboardLayout() {
       <AddChannelDialog
         open={addChannelOpen}
         onOpenChange={setAddChannelOpen}
+      />
+      <CommandPalette
+        open={commandPaletteOpen}
+        onOpenChange={setCommandPaletteOpen}
+        channelSidebarVisible={channelSidebarVisible}
+        onToggleChannelSidebar={toggleChannelSidebar}
+        onOpenSettings={openSettingsCategory}
+        onOpenAddChannel={openAddChannel}
+        onOpenNotifications={openNotifications}
       />
     </SidebarProvider>
   )

@@ -24,6 +24,7 @@ export type HotkeyRegistryValue = {
   getLastFocusedLogin: () => string | null
   getSearch: () => SearchHotkeyApi | null
   getTargetPane: () => PaneHotkeyActions | null
+  getPane: (channelLogin: string) => PaneHotkeyActions | null
 }
 
 export const HotkeyRegistryContext =

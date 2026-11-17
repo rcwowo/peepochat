@@ -1,11 +1,5 @@
 import type { HotkeyCombo } from "@/lib/hotkeys/bindings"
-
-function isApplePlatform() {
-  return (
-    typeof navigator !== "undefined" &&
-    /Mac|iPhone|iPad|iPod/.test(navigator.platform)
-  )
-}
+import { isApplePlatform } from "@/lib/hotkeys/platform"
 
 type HotkeyLabelParts = {
   alt?: boolean
@@ -14,7 +8,7 @@ type HotkeyLabelParts = {
   key: string
 }
 
-export function formatHotkeyLabel(parts: HotkeyLabelParts) {
+export function formatHotkeyKeys(parts: HotkeyLabelParts) {
   const apple = isApplePlatform()
   const tokens: string[] = []
 
@@ -28,11 +22,12 @@ export function formatHotkeyLabel(parts: HotkeyLabelParts) {
     tokens.push(apple ? "⇧" : "Shift")
   }
 
-  if (apple) {
-    return `${tokens.join("")}${parts.key}`
-  }
+  return [...tokens, parts.key]
+}
 
-  return [...tokens, parts.key].join("+")
+export function formatHotkeyLabel(parts: HotkeyLabelParts) {
+  const keys = formatHotkeyKeys(parts)
+  return isApplePlatform() ? keys.join("") : keys.join("+")
 }
 
 function keyFromCode(code: string) {
@@ -48,11 +43,19 @@ function keyFromCode(code: string) {
   return code
 }
 
-export function formatHotkeyCombo(combo: HotkeyCombo) {
-  return formatHotkeyLabel({
+function comboParts(combo: HotkeyCombo): HotkeyLabelParts {
+  return {
     alt: combo.alt,
     shift: combo.shift,
     ctrlOrMeta: combo.ctrlOrMeta,
     key: keyFromCode(combo.code),
-  })
+  }
+}
+
+export function formatHotkeyComboKeys(combo: HotkeyCombo) {
+  return formatHotkeyKeys(comboParts(combo))
+}
+
+export function formatHotkeyCombo(combo: HotkeyCombo) {
+  return formatHotkeyLabel(comboParts(combo))
 }

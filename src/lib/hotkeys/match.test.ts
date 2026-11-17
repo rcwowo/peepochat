@@ -18,7 +18,15 @@ function key(code: string, init: KeyboardEventInit = {}) {
   })
 }
 
+function setPlatform(platform: string) {
+  Object.defineProperty(navigator, "platform", {
+    configurable: true,
+    get: () => platform,
+  })
+}
+
 afterEach(() => {
+  delete (navigator as { platform?: string }).platform
   document.body.innerHTML = ""
   window.getSelection()?.removeAllRanges()
 })
@@ -54,13 +62,45 @@ describe("HOTKEY_BINDINGS", () => {
 })
 
 describe("matchHotkey", () => {
-  test("accepts either Ctrl or Meta for ctrlOrMeta bindings", () => {
+  test("uses Ctrl for ctrlOrMeta bindings on non-Apple platforms", () => {
+    setPlatform("Win32")
     expect(matchHotkey(key("KeyF", { ctrlKey: true }))?.action).toBe(
       "search.open"
     )
+    expect(matchHotkey(key("KeyK", { ctrlKey: true }))?.action).toBe(
+      "command-palette.open"
+    )
+    expect(matchHotkey(key("KeyK", { metaKey: true }))).toBeNull()
+    expect(
+      matchHotkey(key("KeyK", { ctrlKey: true, metaKey: true }))
+    ).toBeNull()
+  })
+
+  test("uses Cmd for ctrlOrMeta bindings on Apple platforms", () => {
+    setPlatform("MacIntel")
     expect(matchHotkey(key("KeyF", { metaKey: true }))?.action).toBe(
       "search.open"
     )
+    expect(matchHotkey(key("KeyK", { metaKey: true }))?.action).toBe(
+      "command-palette.open"
+    )
+    expect(matchHotkey(key("KeyK", { ctrlKey: true }))).toBeNull()
+    expect(matchHotkey(key("KeyF", { ctrlKey: true }))).toBeNull()
+  })
+
+  test("rejects Ctrl or Cmd on Alt bindings on every platform", () => {
+    for (const platform of ["Win32", "MacIntel"]) {
+      setPlatform(platform)
+      expect(
+        matchHotkey(key("KeyR", { altKey: true, ctrlKey: true }))
+      ).toBeNull()
+      expect(
+        matchHotkey(key("KeyR", { altKey: true, metaKey: true }))
+      ).toBeNull()
+      expect(matchHotkey(key("KeyR", { altKey: true }))?.action).toBe(
+        "emotes.reload"
+      )
+    }
   })
 
   test("matches on physical key code regardless of the produced character", () => {

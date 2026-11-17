@@ -43,7 +43,7 @@ export function useOverlayCloseAutoFocus(
   return React.useCallback(
     (event: Event) => {
       onCloseAutoFocus?.(event)
-      if (!registry) {
+      if (event.defaultPrevented || !registry) {
         return
       }
       if (hasOtherOpenOverlay(event.currentTarget ?? event.target)) {

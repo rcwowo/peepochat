@@ -1,21 +1,5 @@
 import * as React from "react"
-import {
-  AudioLinesIcon,
-  DatabaseIcon,
-  InfoIcon,
-  PaintbrushIcon,
-  MessageSquareIcon,
-  UsersIcon,
-  MonitorPlayIcon,
-  ScrollTextIcon,
-  CircleHelpIcon,
-  BellIcon,
-  CodeIcon,
-  SpeechIcon,
-  TerminalIcon,
-  Volume2Icon,
-  XIcon,
-} from "lucide-react"
+import { XIcon } from "lucide-react"
 
 import {
   Dialog,
@@ -43,6 +27,14 @@ import { TtsSpeechTab } from "@/components/settings/tts/tts-speech-tab"
 import { TtsVoicesTab } from "@/components/settings/tts/tts-voices-tab"
 import { IS_DEV } from "@/lib/dev/is-dev"
 import {
+  ABOUT_CATEGORY,
+  NAV_GROUPS,
+  RESOURCE_CATEGORIES,
+  TTS_CATEGORY_IDS,
+  type SettingsCategory,
+  type SettingsCategoryEntry,
+} from "@/components/settings/settings-categories"
+import {
   installSettingsPortaledLayerPointerGuard,
   shouldPreventSettingsDismiss,
 } from "@/lib/settings/settings-portaled-layers"
@@ -54,143 +46,9 @@ const DeveloperTab = IS_DEV
     })
   : null
 
-export type SettingsCategory =
-  | "appearance"
-  | "chat"
-  | "users"
-  | "highlights"
-  | "player"
-  | "data"
-  | "tts-speech"
-  | "tts-voices"
-  | "tts-sounds"
-  | "tts-commands"
-  | "changelog"
-  | "help"
-  | "about"
-  | "developer"
-
-type SettingsCategoryEntry = {
-  id: SettingsCategory
-  label: string
-  icon: React.ComponentType<{ className?: string }>
-  description?: string | (() => string)
-}
-
-const PREFERENCE_CATEGORIES: SettingsCategoryEntry[] = [
-  {
-    id: "appearance",
-    label: "Appearance",
-    icon: PaintbrushIcon,
-    description: "Theme, colors, and the overall look of the client.",
-  },
-  {
-    id: "chat",
-    label: "Chat",
-    icon: MessageSquareIcon,
-    description: "How chat panes behave and what appears in them.",
-  },
-  {
-    id: "users",
-    label: "Users",
-    icon: UsersIcon,
-    description:
-      "Nicknames and text-to-speech voices for specific chatters. Nicknames only change what you see; mentions appear normally for everyone else.",
-  },
-  {
-    id: "player",
-    label: "Player",
-    icon: MonitorPlayIcon,
-    description: "Playback and layout options for watching streams.",
-  },
-  {
-    id: "highlights",
-    label: "Notifications",
-    icon: BellIcon,
-    description: "How indicators, pings, and notifications behave.",
-  },
-  {
-    id: "data",
-    label: "Data Management",
-    icon: DatabaseIcon,
-    description: "Backup, restore, or delete your Peepochat data.",
-  },
-  ...(IS_DEV
-    ? [
-        {
-          id: "developer" as const,
-          label: "Developer",
-          icon: CodeIcon,
-          description: "Hello there, developer!",
-        },
-      ]
-    : []),
-]
-
-const TTS_CATEGORIES: SettingsCategoryEntry[] = [
-  {
-    id: "tts-speech",
-    label: "Speech",
-    icon: SpeechIcon,
-    description:
-      "How chat messages are filtered, queued, and read aloud when text-to-speech is running.",
-  },
-  {
-    id: "tts-voices",
-    label: "Voices",
-    icon: AudioLinesIcon,
-    description:
-      "Voice profiles that get assigned to chatters, and the voices each chatter has been given.",
-  },
-  {
-    id: "tts-sounds",
-    label: "Sounds",
-    icon: Volume2Icon,
-    description:
-      "Audio clips chatters can trigger by wrapping a sound's name in parentheses.",
-  },
-  {
-    id: "tts-commands",
-    label: "Commands",
-    icon: TerminalIcon,
-    description:
-      "Let chat control text-to-speech. Every command starts disabled.",
-  },
-]
-
-const TTS_CATEGORY_IDS = new Set<SettingsCategory>(
-  TTS_CATEGORIES.map((category) => category.id)
-)
-
-const NAV_GROUPS: { label: string; categories: SettingsCategoryEntry[] }[] = [
-  { label: "Preferences", categories: PREFERENCE_CATEGORIES },
-  { label: "Text-to-Speech", categories: TTS_CATEGORIES },
-]
+export type { SettingsCategory }
 
 const TTS_UNAVAILABLE_LABEL = "Text-to-speech isn't available in this browser"
-
-const RESOURCE_CATEGORIES: SettingsCategoryEntry[] = [
-  {
-    id: "changelog",
-    label: "Changelog",
-    icon: ScrollTextIcon,
-    description: () =>
-      `You're on version ${getAppVersion()}. Here's what changed in recent releases.`,
-  },
-  {
-    id: "help",
-    label: "Help",
-    icon: CircleHelpIcon,
-    description: "Wiki links and keyboard shortcuts.",
-  },
-]
-
-const ABOUT_CATEGORY = {
-  id: "about",
-  label: "About",
-  icon: InfoIcon,
-  description: "Version info, credits, and support links.",
-} satisfies SettingsCategoryEntry
 
 function NavRowButton({
   category,
