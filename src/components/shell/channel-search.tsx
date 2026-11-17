@@ -932,12 +932,21 @@ export function ChannelSearch() {
       open: (prefill?: string) => {
         openSearch(prefill)
       },
+      openWithFilters: (nextFilters: ChatSearchCommittedFilter[]) => {
+        setFilters(nextFilters)
+        setRemainder("")
+        setCursor(0)
+        setSuggestionIndex(0)
+        setSuggestionsDismissed(false)
+        setOpen(true)
+        requestAnimationFrame(() => focusInput())
+      },
       close: () => {
         setOpen(false)
       },
       isOpen: () => open,
     })
-  }, [open, openSearch, registerSearch])
+  }, [focusInput, open, openSearch, registerSearch])
 
   const visibleSuggestions =
     inputFocused && !suggestionsDismissed ? suggestions : []

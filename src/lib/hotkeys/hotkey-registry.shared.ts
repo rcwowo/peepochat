@@ -1,7 +1,10 @@
 import * as React from "react"
 
+import type { ChatSearchCommittedFilter } from "@/lib/search/chat-search"
+
 export type SearchHotkeyApi = {
   open: (prefill?: string) => void
+  openWithFilters: (filters: ChatSearchCommittedFilter[]) => void
   close: () => void
   isOpen: () => boolean
 }

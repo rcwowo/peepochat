@@ -5,7 +5,8 @@
         "items": [
             "Chatvoice and it's text-to-speech features are now a part of Peepochat!",
             "Added an 'Add & Watch' action to the add channel picker with Ctrl+Shift, which adds the channel to the sidebar and starts watching it.",
-            "Added separators between side-by-side actions in context menus."
+            "Added separators between side-by-side actions in context menus.",
+            "Added a search button to user cards that searches the user's messages in that channel."
         ]
     },
     {
