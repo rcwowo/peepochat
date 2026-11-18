@@ -144,7 +144,10 @@ export function useAppHotkeys({
           ? match.binding.allowWhenSurface
           : undefined
       if (surface && surface !== allowWhenSurface) {
-        if (match.action === "command-palette.open") {
+        if (
+          match.action === "command-palette.open" &&
+          match.binding.combo.ctrlOrMeta
+        ) {
           event.preventDefault()
         }
         return

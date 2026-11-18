@@ -4,7 +4,9 @@ import { AccountMenu } from "@/components/shell/account-menu"
 import { ChannelSearch } from "@/components/shell/channel-search"
 import { NotificationCenter } from "@/components/shell/notification-center"
 import { useNotificationDocumentIndicators } from "@/hooks/use-notification-document-indicators"
+import { AltHint } from "@/components/ui/alt-hint"
 import { Button } from "@/components/ui/button"
+import { getAltHintKey } from "@/lib/hotkeys/alt-hints"
 import {
   Tooltip,
   TooltipContent,
@@ -34,10 +36,15 @@ export function AppHeader({
             <Button
               variant="outline"
               size="icon-sm"
+              className="relative"
               onClick={onChannelSidebarToggle}
               aria-pressed={channelSidebarVisible}
             >
               <PanelLeftIcon className="size-4" />
+              <AltHint
+                label={getAltHintKey("sidebar.toggle")}
+                className="-right-1.5 -bottom-1.5"
+              />
               <span className="sr-only">
                 {channelSidebarVisible
                   ? "Hide channel sidebar"
@@ -64,10 +71,15 @@ export function AppHeader({
             <Button
               variant="outline"
               size="icon-sm"
+              className="relative"
               onClick={onSettingsClick}
               aria-label="Settings"
             >
               <SettingsIcon className="size-4" />
+              <AltHint
+                label={getAltHintKey("settings.open")}
+                className="-right-1.5 -bottom-1.5"
+              />
             </Button>
           </TooltipTrigger>
           <TooltipContent>Settings</TooltipContent>

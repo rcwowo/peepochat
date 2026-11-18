@@ -46,6 +46,11 @@ export const HOTKEY_BINDINGS: HotkeyBinding[] = [
     allowWhenSurface: "command-palette",
   },
   {
+    action: "command-palette.open",
+    combo: { ...ALT, code: "KeyK" },
+    allowWhenSurface: "command-palette",
+  },
+  {
     action: "search.open",
     combo: { ctrlOrMeta: true, code: "KeyF" },
     allowWhenSurface: "search",

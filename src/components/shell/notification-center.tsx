@@ -39,6 +39,8 @@ import {
 } from "@/lib/highlights/notification-center"
 import { formatMessageTimestamp } from "@/lib/chat/presentation/timestamp"
 import { usePeepochatSettings } from "@/lib/peepochat/peepochat-context"
+import { AltHint } from "@/components/ui/alt-hint"
+import { getAltHintKey } from "@/lib/hotkeys/alt-hints"
 import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 import {
   fetchUserAvatarUrl,
@@ -919,6 +921,10 @@ export function NotificationCenter({
                 {totalCount > 99 ? "99+" : totalCount}
               </span>
             )}
+            <AltHint
+              label={getAltHintKey("notifications.open")}
+              className="-right-1.5 -bottom-1.5"
+            />
           </Button>
         </TooltipTrigger>
         <TooltipContent>

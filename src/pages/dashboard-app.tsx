@@ -13,6 +13,7 @@ import {
   markVersionSeen,
 } from "@/lib/changelog"
 import { useChannelSidebarVisibility } from "@/hooks/use-channel-sidebar-visibility"
+import { useAltHints } from "@/hooks/use-alt-hints"
 import { useAppHotkeys } from "@/hooks/use-app-hotkeys"
 import { HotkeyRegistryProvider } from "@/lib/hotkeys/hotkey-registry"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
@@ -98,6 +99,7 @@ function DashboardLayout() {
     toggleNotifications,
     toggleSidebar: toggleChannelSidebar,
   })
+  useAltHints(ready && !needsOnboarding)
 
   React.useEffect(() => {
     if (!ready || needsOnboarding) return
