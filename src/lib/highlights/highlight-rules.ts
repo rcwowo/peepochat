@@ -121,7 +121,7 @@ function buildUsernameMentionPattern(accountLogin: string): RegExp | null {
 
   const escaped = escapeRegExp(login)
   return new RegExp(
-    `(?:@${escaped}(?![\\w-])|(?<![@\\w-])${escaped}(?![\\w-]))`,
+    `(?:(?<!\\w)@${escaped}(?![\\w-])|(?<![@\\w-])${escaped}(?![\\w-]))`,
     "i"
   )
 }

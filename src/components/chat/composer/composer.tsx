@@ -556,20 +556,15 @@ function ChatComposerInner({
           }
 
           if (isAutomodHoldNoticeText(event.message)) {
+            noticeIdRef.current += 1
+            const noticeId = `rejected-automod:${noticeIdRef.current}`
             setNotices((current) => {
               if (
                 current.some((entry) => isAutomodHoldNoticeText(entry.message))
               ) {
                 return current
               }
-              noticeIdRef.current += 1
-              return [
-                ...current,
-                {
-                  id: `rejected-automod:${noticeIdRef.current}`,
-                  message: event.message,
-                },
-              ]
+              return [...current, { id: noticeId, message: event.message }]
             })
             return
           }

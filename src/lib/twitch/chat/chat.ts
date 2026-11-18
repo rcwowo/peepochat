@@ -1331,7 +1331,7 @@ function parseUserState(tagged: IrcTaggedLine): TwitchSelfUserState | null {
   return {
     channel: match[1],
     roomId: tagged.tags.get("room-id") || null,
-    displayName: tagged.tags.get("display-name") || "",
+    displayName: decodeTagValue(tagged.tags.get("display-name") ?? ""),
     color: tagged.tags.get("color") || null,
     badges,
     isBroadcaster: badges.some((badge) => badge.set === "broadcaster"),
@@ -1347,7 +1347,7 @@ function parseUserNotice(tagged: IrcTaggedLine): TwitchSystemMessage | null {
 
   const channel = match[1]
   const roomId = tagged.tags.get("room-id") || null
-  const trailingText = match[2] ? decodeTagValue(match[2]) : ""
+  const trailingText = match[2] ?? ""
   const systemText = decodeTagValue(tagged.tags.get("system-msg") ?? "")
   const msgId = tagged.tags.get("msg-id") ?? ""
   const event = getUserNoticeEvent(msgId)
@@ -1405,7 +1405,7 @@ function parseNotice(tagged: IrcTaggedLine): TwitchSystemMessage | null {
   if (!match) return null
 
   const channel = match[1]
-  const text = decodeTagValue(match[2]).trim()
+  const text = match[2].trim()
   if (!text) return null
 
   return {
@@ -1585,13 +1585,36 @@ function parseTmiTimestamp(tags: Map<string, string>): string {
     : new Date().toISOString()
 }
 
+const TAG_ESCAPES: Record<string, string> = {
+  ":": ";",
+  s: " ",
+  "\\": "\\",
+  r: "\r",
+  n: "\n",
+}
+
 function decodeTagValue(value: string): string {
-  return value
-    .replace(/\\s/g, " ")
-    .replace(/\\:/g, ";")
-    .replace(/\\r/g, "\r")
-    .replace(/\\n/g, "\n")
-    .replace(/\\\\/g, "\\")
+  if (!value.includes("\\")) {
+    return value
+  }
+
+  let decoded = ""
+  for (let index = 0; index < value.length; index++) {
+    const char = value[index]!
+    if (char !== "\\") {
+      decoded += char
+      continue
+    }
+
+    index++
+    if (index >= value.length) {
+      break
+    }
+
+    const escaped = value[index]!
+    decoded += TAG_ESCAPES[escaped] ?? escaped
+  }
+  return decoded
 }
 
 function getUserNoticeEvent(msgId: string): TwitchSystemMessage["event"] {
@@ -1634,7 +1657,9 @@ function parseReplyTag(tags: Map<string, string>): TwitchChatReply | null {
     parentMessageId,
     threadRootMessageId,
     parentDisplayName:
-      tags.get("reply-parent-display-name") || parentUserName || "User",
+      decodeTagValue(tags.get("reply-parent-display-name") ?? "") ||
+      parentUserName ||
+      "User",
     parentUserName,
     parentBody: decodeTagValue(tags.get("reply-parent-msg-body") ?? ""),
     parentColor: tags.get("reply-parent-user-color") || null,
@@ -1643,7 +1668,7 @@ function parseReplyTag(tags: Map<string, string>): TwitchChatReply | null {
 
 function parseNoticeActor(tags: Map<string, string>): TwitchNoticeActor | null {
   const userName = tags.get("login") ?? ""
-  const displayName = tags.get("display-name") || userName
+  const displayName = decodeTagValue(tags.get("display-name") ?? "") || userName
 
   if (!displayName) {
     return null

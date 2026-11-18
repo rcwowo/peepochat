@@ -1,6 +1,4 @@
 import * as React from "react"
-import { toast } from "sonner"
-
 import {
   getOpenHotkeySurface,
   getSearchPrefill,
@@ -8,6 +6,7 @@ import {
   matchHotkey,
 } from "@/lib/hotkeys/match"
 import { useHotkeyRegistry } from "@/hooks/use-hotkey-registry"
+import { useToggleDoNotDisturb } from "@/hooks/use-toggle-do-not-disturb"
 import { getSidebarEntries } from "@/lib/sidebar/sidebar-entries"
 import {
   usePeepochatChat,
@@ -31,6 +30,7 @@ export function useAppHotkeys({
   settingsOpen,
   addChannelOpen,
   notificationsOpen,
+  toggleCommandPalette,
   toggleSettings,
   toggleAddChannel,
   toggleNotifications,
@@ -40,6 +40,7 @@ export function useAppHotkeys({
   settingsOpen: boolean
   addChannelOpen: boolean
   notificationsOpen: boolean
+  toggleCommandPalette: () => void
   toggleSettings: () => void
   toggleAddChannel: () => void
   toggleNotifications: () => void
@@ -51,8 +52,7 @@ export function useAppHotkeys({
     getTargetPane,
     requestComposerFocus,
   } = useHotkeyRegistry()
-  const { setActiveChannel, updateConfig, channels, config } =
-    usePeepochatSettings()
+  const { setActiveChannel, channels } = usePeepochatSettings()
   const {
     sidebarOrder,
     savedSplits,
@@ -119,17 +119,7 @@ export function useAppHotkeys({
     ]
   )
 
-  const toggleDoNotDisturb = React.useCallback(() => {
-    const nextEnabled = !config.highlights.doNotDisturbEnabled
-    updateConfig((current) => ({
-      ...current,
-      highlights: {
-        ...current.highlights,
-        doNotDisturbEnabled: nextEnabled,
-      },
-    }))
-    toast(nextEnabled ? "Do not disturb is on" : "Do not disturb is off")
-  }, [config.highlights.doNotDisturbEnabled, updateConfig])
+  const toggleDoNotDisturb = useToggleDoNotDisturb()
 
   const reloadEmotes = React.useCallback(() => {
     for (const login of visibleChannelLogins) {
@@ -154,6 +144,12 @@ export function useAppHotkeys({
           ? match.binding.allowWhenSurface
           : undefined
       if (surface && surface !== allowWhenSurface) {
+        if (
+          match.action === "command-palette.open" &&
+          match.binding.combo.ctrlOrMeta
+        ) {
+          event.preventDefault()
+        }
         return
       }
 
@@ -164,6 +160,9 @@ export function useAppHotkeys({
       const targetPane = getTargetPane()
 
       switch (match.action) {
+        case "command-palette.open":
+          toggleCommandPalette()
+          return
         case "search.open": {
           const search = getSearch()
           if (!search) {
@@ -278,6 +277,7 @@ export function useAppHotkeys({
     selectSidebarIndex,
     settingsOpen,
     toggleAddChannel,
+    toggleCommandPalette,
     toggleDoNotDisturb,
     toggleNotifications,
     toggleSettings,

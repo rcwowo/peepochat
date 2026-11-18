@@ -66,7 +66,7 @@ export function HelpTab() {
 
       <SettingsSection
         title="Keyboard shortcuts"
-        description="Quickly navigate through the client with your keyboard."
+        description="Quickly navigate through the client with your keyboard. Hold Alt to see shortcut hints."
       >
         <SettingsGroup>
           {rows.map((row) => (

@@ -35,6 +35,8 @@ import {
   isLiveNotificationsEnabledForSplit,
 } from "@/lib/peepochat/peepochat-config"
 import { getSidebarEntries } from "@/lib/sidebar/sidebar-entries"
+import { getAltHintKey, getSidebarSlotHintKey } from "@/lib/hotkeys/alt-hints"
+import { AltHint } from "@/components/ui/alt-hint"
 import { useWatchedChannel } from "@/hooks/player/use-watched-channel"
 import { formatViewerCount } from "@/lib/twitch/channel/stream-display"
 import { Button } from "@/components/ui/button"
@@ -190,6 +192,7 @@ function PlayerSidebarButton({
   isActive,
   playing,
   perChannel,
+  hotkeyHint,
   onSelect,
   onCloseStream,
   onCloseAll,
@@ -198,6 +201,7 @@ function PlayerSidebarButton({
   isActive: boolean
   playing: boolean
   perChannel: boolean
+  hotkeyHint?: string
   onSelect: () => void
   onCloseStream: (login: string) => void
   onCloseAll: () => void
@@ -266,6 +270,7 @@ function PlayerSidebarButton({
                   )}
                 </Button>
                 {playing ? <SidebarPlayingBadge /> : null}
+                <AltHint label={hotkeyHint} className={sidebarHintClassName} />
               </span>
             </TooltipTrigger>
           </ContextMenuTrigger>
@@ -340,6 +345,8 @@ function SplitTooltipContent({
   )
 }
 
+const sidebarHintClassName = "-top-0.5 -left-1"
+
 function sidebarIconButtonClass() {
   return cn(
     "group/icon flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-[1.375rem] border-0 bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
@@ -351,6 +358,7 @@ function SidebarIconContextMenu({
   tooltipContent,
   isActive,
   showUnread,
+  hotkeyHint,
   onSelect,
   menu,
   children,
@@ -359,6 +367,7 @@ function SidebarIconContextMenu({
   tooltipContent?: React.ReactNode
   isActive: boolean
   showUnread: boolean
+  hotkeyHint?: string
   onSelect: () => void
   menu: React.ReactNode
   children: React.ReactNode
@@ -396,9 +405,10 @@ function SidebarIconContextMenu({
                 onClick={onSelect}
                 onContextMenu={suppressTooltip}
                 onPointerLeave={handlePointerLeave}
-                className={sidebarIconButtonClass()}
+                className={cn(sidebarIconButtonClass(), "relative")}
               >
                 {children}
+                <AltHint label={hotkeyHint} className={sidebarHintClassName} />
               </button>
             </TooltipTrigger>
           </ContextMenuTrigger>
@@ -433,6 +443,7 @@ function ChannelContextMenu({
   isWatching,
   canAddToActiveSplit,
   isPlayerActive,
+  hotkeyHint,
   onSelect,
   onRemove,
   onSplit,
@@ -454,6 +465,7 @@ function ChannelContextMenu({
   isWatching: boolean
   canAddToActiveSplit: boolean
   isPlayerActive: boolean
+  hotkeyHint?: string
   onSelect: () => void
   onRemove: () => void
   onSplit: () => void
@@ -476,6 +488,7 @@ function ChannelContextMenu({
       label={label}
       isActive={isActive}
       showUnread={showUnread}
+      hotkeyHint={hotkeyHint}
       onSelect={onSelect}
       menu={
         <ContextMenuContent className={menuPanelContentClassName()}>
@@ -553,6 +566,7 @@ function SplitContextMenu({
   showLive,
   hasPingForChannel,
   isChannelLive,
+  hotkeyHint,
   onSelect,
   onUngroup,
   onDelete,
@@ -573,6 +587,7 @@ function SplitContextMenu({
   showLive: boolean
   hasPingForChannel: (login: string) => boolean
   isChannelLive: (login: string) => boolean
+  hotkeyHint?: string
   onSelect: () => void
   onUngroup: () => void
   onDelete: () => void
@@ -595,6 +610,7 @@ function SplitContextMenu({
       }
       isActive={isActive}
       showUnread={showUnread}
+      hotkeyHint={hotkeyHint}
       onSelect={onSelect}
       menu={
         <ContextMenuContent className={menuPanelContentClassName()}>
@@ -706,6 +722,21 @@ export function ChannelSidebar({ onAddChannel }: { onAddChannel: () => void }) {
     [channels, channelsInSplits, savedSplits, sidebarOrder]
   )
 
+  const playerSlotCount =
+    playerMode !== "multi"
+      ? watchedChannelLogins.length
+      : Math.min(watchedChannelLogins.length, 1)
+  const sidebarSlotByKey = React.useMemo(
+    () =>
+      new Map(
+        sidebarEntries.map((entry, index) => [
+          entry.key,
+          playerSlotCount + index,
+        ])
+      ),
+    [playerSlotCount, sidebarEntries]
+  )
+
   const handleSplitWith = (login: string) => {
     if (playerViewActive) {
       return
@@ -796,23 +827,28 @@ export function ChannelSidebar({ onAddChannel }: { onAddChannel: () => void }) {
       variant="outline"
       size="icon"
       data-add-channel=""
-      className="size-11 shrink-0 rounded-full"
+      className="relative size-11 shrink-0 rounded-full"
       onClick={onAddChannel}
     >
       <PlusIcon className="size-5 shrink-0" strokeWidth={2.5} />
+      <AltHint
+        label={getAltHintKey("channel.add")}
+        className={sidebarHintClassName}
+      />
       <span className="sr-only">Add channel</span>
     </Button>
   )
 
   const playerButtons =
     watchedChannelLogins.length === 0 ? null : playerMode !== "multi" ? (
-      watchedChannelLogins.map((login) => (
+      watchedChannelLogins.map((login, index) => (
         <PlayerSidebarButton
           key={login}
           logins={[login]}
           isActive={playerViewActive && focusedPlayerLogin === login}
           playing={focusedPlayerLogin === login}
           perChannel
+          hotkeyHint={getSidebarSlotHintKey(index)}
           onSelect={() => selectPlayer(login)}
           onCloseStream={closePlayer}
           onCloseAll={closeAllPlayers}
@@ -824,6 +860,7 @@ export function ChannelSidebar({ onAddChannel }: { onAddChannel: () => void }) {
         isActive={playerViewActive}
         playing
         perChannel={false}
+        hotkeyHint={getSidebarSlotHintKey(0)}
         onSelect={() => selectPlayer()}
         onCloseStream={closePlayer}
         onCloseAll={closeAllPlayers}
@@ -860,6 +897,9 @@ export function ChannelSidebar({ onAddChannel }: { onAddChannel: () => void }) {
                   if (!entry) {
                     return null
                   }
+                  const slot = sidebarSlotByKey.get(entry.key)
+                  const hotkeyHint =
+                    slot === undefined ? undefined : getSidebarSlotHintKey(slot)
 
                   if (entry.kind === "split") {
                     const showUnread = hasUnreadForSplit(
@@ -892,6 +932,7 @@ export function ChannelSidebar({ onAddChannel }: { onAddChannel: () => void }) {
                         showLive={isSplitLive(entry.split.channels)}
                         hasPingForChannel={hasPingForChannel}
                         isChannelLive={isChannelLive}
+                        hotkeyHint={hotkeyHint}
                         onSelect={() => selectSplit(entry.split.id)}
                         onUnreadEnabledChange={(enabled) =>
                           setSplitUnreadEnabled(entry.split.id, enabled)
@@ -943,6 +984,7 @@ export function ChannelSidebar({ onAddChannel }: { onAddChannel: () => void }) {
                         !activeSplitChannelSet.has(entry.channel.login)
                       }
                       isPlayerActive={playerViewActive}
+                      hotkeyHint={hotkeyHint}
                       onSelect={() => setActiveChannel(entry.channel.login)}
                       onUnreadEnabledChange={(enabled) =>
                         setChannelUnreadEnabled(entry.channel.login, enabled)

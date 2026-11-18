@@ -64,6 +64,7 @@ export function useMessageRouting({
   const { updateRoom } = roomStore
   const {
     deletedMessagesBehaviorRef,
+    flushLiveTimelineBatchRef,
     queueLiveRoomTimeline,
     appendRoomSystemMessage,
     appendSystemMessageToAllRooms,
@@ -167,6 +168,7 @@ export function useMessageRouting({
       matches: (message: TimelineMatchableMessage) => boolean,
       deletedAt = new Date().toISOString()
     ) => {
+      flushLiveTimelineBatchRef.current(login)
       const behavior = deletedMessagesBehaviorRef.current
       let deletedMessageIds: string[] = []
 
@@ -190,7 +192,7 @@ export function useMessageRouting({
         notifyChatMessageDeleted(login, messageId)
       }
     },
-    [deletedMessagesBehaviorRef, updateRoom]
+    [deletedMessagesBehaviorRef, flushLiveTimelineBatchRef, updateRoom]
   )
 
   const markChatMessageDeleted = React.useCallback(
@@ -281,6 +283,7 @@ export function useMessageRouting({
         return
       }
 
+      flushLiveTimelineBatchRef.current(login)
       updateRoom(login, (room) => {
         const deletedMessageIds = room.timeline.flatMap((entry) =>
           entry.kind === "chat" || entry.kind === "suspicious"
@@ -310,6 +313,7 @@ export function useMessageRouting({
       applySelfModerationRestriction,
       clearChatWhenInstructedRef,
       emoteLoadContextRef,
+      flushLiveTimelineBatchRef,
       selfStatesRef,
       syncedChannelsRef,
       updateRoom,

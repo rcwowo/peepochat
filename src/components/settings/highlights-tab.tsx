@@ -94,6 +94,7 @@ function PingRuleRow({
             event.currentTarget.blur()
           }
         }}
+        data-settings-inline-edit
         className="h-8 min-w-0 font-mono text-xs"
         aria-label={`Edit ping pattern ${rule.pattern}`}
       />

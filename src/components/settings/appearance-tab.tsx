@@ -16,7 +16,7 @@ import {
   type MessageTimestampFormat,
 } from "@/lib/peepochat/peepochat-config"
 import { usePeepochatSettings } from "@/lib/peepochat/peepochat-context"
-import { useTheme, type ColorScheme } from "@/components/shell/theme-provider"
+import { useTheme } from "@/components/shell/theme-provider"
 import {
   SettingsGroup,
   SettingsInputRow,
@@ -27,21 +27,7 @@ import {
   SettingsTab,
 } from "@/components/settings/settings-primitives"
 import { cn } from "@/lib/utils"
-
-const COLOR_SCHEME_OPTIONS: {
-  value: ColorScheme
-  label: string
-  color: string
-}[] = [
-  { value: "gray", label: "Gray", color: "#737373" },
-  { value: "red", label: "Red", color: "#ef4444" },
-  { value: "orange", label: "Orange", color: "#f97316" },
-  { value: "yellow", label: "Yellow", color: "#eab308" },
-  { value: "green", label: "Green", color: "#22c55e" },
-  { value: "blue", label: "Blue", color: "#3b82f6" },
-  { value: "purple", label: "Purple", color: "#a855f7" },
-  { value: "pink", label: "Pink", color: "#ec4899" },
-]
+import { COLOR_SCHEME_OPTIONS } from "@/lib/theme/color-scheme-options"
 
 const MESSAGE_TIMESTAMP_FORMAT_OPTIONS: {
   value: MessageTimestampFormat

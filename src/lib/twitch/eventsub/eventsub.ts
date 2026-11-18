@@ -10,6 +10,7 @@ const RECONNECT_MAX_MS = 60_000
 const SEEN_MESSAGE_IDS_LIMIT = 500
 const SUBSCRIBE_TIMEOUT_MS = 10_000
 const CREATE_CONCURRENCY = 3
+const DELETE_CONCURRENCY = 3
 const CREATE_RETRY_MAX = 5
 const CREATE_RETRY_FALLBACK_MS = 1_000
 const OWNER_TEARDOWN_MS = 0
@@ -567,20 +568,40 @@ export class TwitchEventSubClient {
 
     const generation = ++this.syncGeneration
 
+    const staleHelixIds: string[] = []
     for (const [key, active] of [...this.active]) {
       if (this.desired.has(key)) continue
       this.active.delete(key)
       if (active.helixId) {
-        try {
-          await deleteTwitchEventSubSubscription({
-            accessToken: auth.accessToken,
-            clientId: auth.clientId,
-            subscriptionId: active.helixId,
-          })
-        } catch {
-          // Best-effort cleanup; session drop also disables subs.
-        }
+        staleHelixIds.push(active.helixId)
       }
+    }
+
+    if (staleHelixIds.length > 0) {
+      let deleteCursor = 0
+      const deleteWorkers = Array.from(
+        { length: Math.min(DELETE_CONCURRENCY, staleHelixIds.length) },
+        async () => {
+          while (
+            deleteCursor < staleHelixIds.length &&
+            generation === this.syncGeneration
+          ) {
+            const subscriptionId = staleHelixIds[deleteCursor]
+            deleteCursor += 1
+            if (!subscriptionId) continue
+            try {
+              await deleteTwitchEventSubSubscription({
+                accessToken: auth.accessToken,
+                clientId: auth.clientId,
+                subscriptionId,
+              })
+            } catch {
+              // Best-effort cleanup; session drop also disables subs.
+            }
+          }
+        }
+      )
+      await Promise.all(deleteWorkers)
       if (generation !== this.syncGeneration) return
     }
 

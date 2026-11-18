@@ -16,6 +16,10 @@ const HOTKEY_ACTION_HELP: Record<
   HotkeyActionId,
   { title: string; description: string }
 > = {
+  "command-palette.open": {
+    title: "Command palette",
+    description: "Toggle the command palette.",
+  },
   "search.open": {
     title: "Search messages",
     description: "Toggle the search window.",

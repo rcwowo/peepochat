@@ -287,10 +287,22 @@ export async function fetchCheermotes(
     return pending
   }
 
-  const promise = loadCheermotes(accessToken, clientId, broadcasterId).then(
+  const promise: Promise<CheermoteCatalog> = loadCheermotes(
+    accessToken,
+    clientId,
+    broadcasterId
+  ).then(
     (catalog) => {
-      cheermoteDataCache.set(key, catalog)
+      if (cheermoteCache.get(key) === promise) {
+        cheermoteDataCache.set(key, catalog)
+      }
       return catalog
+    },
+    (error: unknown) => {
+      if (cheermoteCache.get(key) === promise) {
+        cheermoteCache.delete(key)
+      }
+      throw error
     }
   )
 

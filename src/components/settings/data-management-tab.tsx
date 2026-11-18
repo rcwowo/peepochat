@@ -5,6 +5,8 @@ import { toast } from "sonner"
 import { clearAllOnboardingState } from "@/lib/peepochat/onboarding-storage"
 import { usePeepochatSettings } from "@/lib/peepochat/peepochat-context"
 import { exportConfigBackup } from "@/lib/peepochat/peepochat-config"
+import { deleteAllLocalData } from "@/lib/peepochat/local-data"
+import { useTtsSession } from "@/lib/tts/tts-context"
 import {
   SettingsActionButton,
   SettingsActions,
@@ -13,6 +15,8 @@ import {
   SettingsTab,
 } from "@/components/settings/settings-primitives"
 import { Button } from "@/components/ui/button"
+
+const BLOB_URL_REVOKE_DELAY_MS = 30_000
 
 const INCLUDED_IN_BACKUP = [
   {
@@ -36,6 +40,11 @@ const INCLUDED_IN_BACKUP = [
       "Custom ping and live notification sounds are embedded as Base64 in backups.",
   },
   {
+    title: "Text-to-Speech",
+    description:
+      "Your text-to-speech settings, voice profiles, saved chatter voices, and uploaded sound clips are all included.",
+  },
+  {
     title: "Metadata",
     description:
       "Human-readable metadata about the backup, like the date and time it was created.",
@@ -44,6 +53,7 @@ const INCLUDED_IN_BACKUP = [
 
 export function DataManagementTab() {
   const { config, restoreBackup } = usePeepochatSettings()
+  const { stopTts } = useTtsSession()
   const fileInputRef = React.useRef<HTMLInputElement | null>(null)
 
   const downloadBackup = async () => {
@@ -55,7 +65,10 @@ export function DataManagementTab() {
       link.href = url
       link.download = `peepochat-backup-${new Date().toISOString().slice(0, 10)}.json`
       link.click()
-      URL.revokeObjectURL(url)
+      window.setTimeout(
+        () => URL.revokeObjectURL(url),
+        BLOB_URL_REVOKE_DELAY_MS
+      )
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Backup export failed"
@@ -140,9 +153,11 @@ export function DataManagementTab() {
                 "This will reset ALL settings to defaults. This cannot be undone. Continue?"
               )
             ) {
+              stopTts()
               clearAllOnboardingState()
-              localStorage.clear()
-              window.location.reload()
+              void deleteAllLocalData().finally(() => {
+                window.location.reload()
+              })
             }
           }}
         >

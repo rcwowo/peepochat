@@ -5,6 +5,7 @@ import {
   CopyIcon,
   EllipsisIcon,
   GemIcon,
+  SearchIcon,
   ShieldIcon,
   ShieldCheckIcon,
   ShieldOffIcon,
@@ -224,6 +225,7 @@ type UserCardPanelProps = {
   panelRef: React.RefObject<HTMLDivElement | null>
   actionsMenuOpenRef: React.MutableRefObject<boolean>
   onClose: () => void
+  onSearchUser?: (channelLogin: string, login: string) => void
   onDragStart: (event: React.PointerEvent<HTMLDivElement>) => void
 }
 
@@ -245,6 +247,7 @@ export function UserCardPanel({
   panelRef,
   actionsMenuOpenRef,
   onClose,
+  onSearchUser,
   onDragStart,
 }: UserCardPanelProps) {
   const profile = card.profile
@@ -598,6 +601,18 @@ export function UserCardPanel({
               ) : null}
             </DropdownMenuContent>
           </DropdownMenu>
+        ) : null}
+        {showCardContent && onSearchUser && login ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-xs"
+            className="bg-popover/85 shadow-sm backdrop-blur-sm"
+            aria-label={`Search messages from ${displayName}`}
+            onClick={() => onSearchUser(channelLogin, login)}
+          >
+            <SearchIcon className="size-3.5" />
+          </Button>
         ) : null}
         <Button
           type="button"

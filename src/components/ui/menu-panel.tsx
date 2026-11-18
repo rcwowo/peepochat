@@ -129,16 +129,33 @@ export function MenuPanelActions({ actions }: { actions: MenuPanelAction[] }) {
 
   return (
     <MenuActionGrid>
-      {actions.map((action) => (
-        <MenuActionGridItem
-          key={action.label}
-          icon={action.icon}
-          label={action.label}
-          disabled={action.disabled}
-          onSelect={action.onSelect}
-        />
+      {actions.map((action, index) => (
+        <React.Fragment key={action.label}>
+          {index > 0 ? <MenuActionGridSeparator /> : null}
+          <MenuActionGridItem
+            icon={action.icon}
+            label={action.label}
+            disabled={action.disabled}
+            onSelect={action.onSelect}
+          />
+        </React.Fragment>
       ))}
     </MenuActionGrid>
+  )
+}
+
+function MenuActionGridSeparator() {
+  const kind = useMenuPanelKind()
+  const className = "mx-0 -my-1 h-auto w-px self-stretch"
+
+  if (kind === "context") {
+    return (
+      <ContextMenuSeparator aria-orientation="vertical" className={className} />
+    )
+  }
+
+  return (
+    <DropdownMenuSeparator aria-orientation="vertical" className={className} />
   )
 }
 

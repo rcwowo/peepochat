@@ -39,6 +39,8 @@ import {
 } from "@/lib/highlights/notification-center"
 import { formatMessageTimestamp } from "@/lib/chat/presentation/timestamp"
 import { usePeepochatSettings } from "@/lib/peepochat/peepochat-context"
+import { AltHint } from "@/components/ui/alt-hint"
+import { getAltHintKey } from "@/lib/hotkeys/alt-hints"
 import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 import {
   fetchUserAvatarUrl,
@@ -657,7 +659,7 @@ function DoNotDisturbToggle({
           aria-label="Do not disturb"
           data-state={enabled ? "checked" : "unchecked"}
           onClick={() => onEnabledChange(!enabled)}
-          className="group/dnd relative inline-flex h-[22px] w-[40px] shrink-0 cursor-pointer items-center rounded-full border border-transparent transition-all outline-none after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 data-[state=checked]:bg-destructive data-[state=unchecked]:bg-input dark:data-[state=unchecked]:bg-input/80"
+          className="group/dnd relative inline-flex h-[22px] w-[40px] shrink-0 cursor-pointer items-center rounded-full border border-transparent transition-[background-color,border-color,box-shadow] outline-none after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 data-[state=checked]:bg-destructive data-[state=unchecked]:bg-input dark:data-[state=unchecked]:bg-input/80"
         >
           <span className="pointer-events-none relative block size-5 rounded-full bg-background ring-0 transition-transform group-data-[state=checked]/dnd:translate-x-[calc(100%-2px)] dark:group-data-[state=unchecked]/dnd:bg-foreground">
             {enabled ? (
@@ -919,6 +921,10 @@ export function NotificationCenter({
                 {totalCount > 99 ? "99+" : totalCount}
               </span>
             )}
+            <AltHint
+              label={getAltHintKey("notifications.open")}
+              className="-right-1.5 -bottom-1.5"
+            />
           </Button>
         </TooltipTrigger>
         <TooltipContent>

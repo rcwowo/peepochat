@@ -11,10 +11,12 @@ jobs:
     runs-on: ubuntu-latest
 
     strategy:
+      fail-fast: false
       matrix:
         task:
           - lint
           - typecheck
+          - test
 
     name: ${{ matrix.task }}
 

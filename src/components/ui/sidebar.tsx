@@ -152,6 +152,8 @@ function SidebarProvider({
   )
 }
 
+function noop() {}
+
 function Sidebar({
   side = "left",
   variant = "sidebar",
@@ -165,6 +167,18 @@ function Sidebar({
   collapsible?: "offcanvas" | "icon" | "none"
 }) {
   const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
+  const railContextValue = React.useMemo<SidebarContextProps>(
+    () => ({
+      state: "collapsed",
+      open: false,
+      setOpen: noop,
+      openMobile,
+      setOpenMobile,
+      isMobile: true,
+      toggleSidebar: noop,
+    }),
+    [openMobile, setOpenMobile]
+  )
 
   if (collapsible === "none") {
     return (
@@ -182,16 +196,6 @@ function Sidebar({
   }
 
   if (isMobile) {
-    const railContextValue: SidebarContextProps = {
-      state: "collapsed",
-      open: false,
-      setOpen: () => {},
-      openMobile,
-      setOpenMobile,
-      isMobile: true,
-      toggleSidebar: () => {},
-    }
-
     return (
       <div
         className="group peer block text-sidebar-foreground"

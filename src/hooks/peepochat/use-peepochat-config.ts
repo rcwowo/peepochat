@@ -11,6 +11,10 @@ import {
 import { restoreEmbeddedCustomSounds } from "@/lib/highlights/custom-sounds"
 import { isAwaitingOnboardingFinalStep } from "@/lib/peepochat/onboarding-storage"
 import { getTwitchClientId } from "@/lib/twitch/auth/oauth"
+import {
+  replaceVoiceAssignments,
+  restoreSoundEffectAudioBackups,
+} from "@/lib/tts/tts-db"
 
 type IdleScheduler = (cb: () => void) => number
 type IdleCanceler = (handle: number) => void
@@ -42,6 +46,7 @@ export function usePeepochatConfig() {
   )
   const pendingSaveRef = React.useRef<AppConfig | null>(null)
   const saveHandleRef = React.useRef<number | null>(null)
+  const savedConfigRef = React.useRef(config)
   const configRef = React.useRef(config)
   React.useEffect(() => {
     configRef.current = config
@@ -94,29 +99,35 @@ export function usePeepochatConfig() {
     }
   }, [flushPendingSave])
 
+  React.useEffect(() => {
+    if (config === savedConfigRef.current) {
+      return
+    }
+    savedConfigRef.current = config
+    queueSave(config)
+  }, [config, queueSave])
+
   const updateConfig = React.useCallback(
     (updater: AppConfig | ((current: AppConfig) => AppConfig)) => {
-      setConfig((current) => {
-        const nextConfig =
-          typeof updater === "function"
-            ? (updater as (value: AppConfig) => AppConfig)(current)
-            : updater
-
-        if (nextConfig === current) {
-          return current
-        }
-
-        queueSave(nextConfig)
-        return nextConfig
-      })
+      setConfig(updater)
     },
-    [queueSave]
+    []
   )
 
   const restoreBackup = React.useCallback(async (payload: string) => {
-    const { config: restored, embeddedSounds } = parseBackupPayload(payload)
+    const {
+      config: restored,
+      embeddedSounds,
+      tts,
+    } = parseBackupPayload(payload)
     if (embeddedSounds.length > 0) {
       await restoreEmbeddedCustomSounds(embeddedSounds)
+    }
+    if (tts.assignments) {
+      await replaceVoiceAssignments(tts.assignments)
+    }
+    if (tts.soundEffects) {
+      await restoreSoundEffectAudioBackups(tts.soundEffects)
     }
     pendingSaveRef.current = null
     if (saveHandleRef.current !== null) {
@@ -129,6 +140,7 @@ export function usePeepochatConfig() {
       configRef.current,
       getTwitchClientId()
     )
+    savedConfigRef.current = merged
     setConfig(merged)
     saveConfig(merged)
     setForceOnboarding(needsOnboardingForConfig(merged))

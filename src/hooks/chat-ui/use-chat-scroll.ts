@@ -364,7 +364,9 @@ export function useChatScroll<T extends TwitchTimelineItem>({
   }, [schedulePinnedScrollSettle, scrollToEnd])
 
   const stickToBottomIfPinnedRef = React.useRef(stickToBottomIfPinned)
-  stickToBottomIfPinnedRef.current = stickToBottomIfPinned
+  React.useLayoutEffect(() => {
+    stickToBottomIfPinnedRef.current = stickToBottomIfPinned
+  }, [stickToBottomIfPinned])
 
   const notifyComposerResize = React.useCallback(() => {
     stickToBottomIfPinnedRef.current()

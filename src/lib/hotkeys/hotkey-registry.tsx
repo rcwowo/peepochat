@@ -50,15 +50,18 @@ export function HotkeyRegistryProvider({
 
   const requestComposerFocus = React.useCallback((channelLogin: string) => {
     lastFocusedLoginRef.current = channelLogin
-    const pane = panesRef.current.get(channelLogin)
-    if (pane) {
-      pendingFocusLoginRef.current = null
-      window.requestAnimationFrame(() => {
-        pane.focusComposer()
-      })
-      return
-    }
     pendingFocusLoginRef.current = channelLogin
+    window.requestAnimationFrame(() => {
+      if (pendingFocusLoginRef.current !== channelLogin) {
+        return
+      }
+      const pane = panesRef.current.get(channelLogin)
+      if (!pane) {
+        return
+      }
+      pendingFocusLoginRef.current = null
+      pane.focusComposer()
+    })
   }, [])
 
   const getSearch = React.useCallback(() => searchRef.current, [])
@@ -82,6 +85,11 @@ export function HotkeyRegistryProvider({
     return null
   }, [])
 
+  const getPane = React.useCallback(
+    (channelLogin: string) => panesRef.current.get(channelLogin) ?? null,
+    []
+  )
+
   const restoreLastComposerFocus = React.useCallback(() => {
     const pane = getTargetPane()
     if (!pane) {
@@ -104,8 +112,10 @@ export function HotkeyRegistryProvider({
       getLastFocusedLogin,
       getSearch,
       getTargetPane,
+      getPane,
     }),
     [
+      getPane,
       getLastFocusedLogin,
       getSearch,
       getTargetPane,

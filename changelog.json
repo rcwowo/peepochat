@@ -1,5 +1,17 @@
 [
     {
+        "version": "1.4.0",
+        "date": "2026-12-01",
+        "items": [
+            "Chatvoice and it's text-to-speech features are now a part of Peepochat!",
+            "Added the command palette to quickly access common actions throughout Peepochat.",
+            "Added an 'Add & Watch' action to the add channel picker with Ctrl+Shift, which adds the channel to the sidebar and starts watching it.",
+            "Added separators between side-by-side actions in context menus.",
+            "Added a search button to user cards that searches the user's messages in that channel.",
+            "Added shortcut hints while holding the 'Alt' key."
+        ]
+    },
+    {
         "version": "1.3.3",
         "date": "2026-11-13",
         "items": [
@@ -163,7 +175,7 @@
     },
     {
         "version": "1.0.1",
-        "date": "2026-07-31",
+        "date": "2026-07-08",
         "items": [
             "Improved user card UX by progressively loading more info as it comes in.",
             "Added enabling notifications as an optional onboarding step.",
