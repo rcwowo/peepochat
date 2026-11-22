@@ -227,6 +227,23 @@ export function trimTimeline(
   return timeline.slice(dropHistorical + dropLive)
 }
 
+export function appendTimelineWithinLimit(
+  timeline: TwitchTimelineItem[],
+  items: TwitchTimelineItem[],
+  limit: number
+): TwitchTimelineItem[] {
+  const combinedLength = timeline.length + items.length
+  if (combinedLength <= limit) {
+    return timeline.concat(items)
+  }
+
+  if (items.length >= limit) {
+    return items.slice(items.length - limit)
+  }
+
+  return timeline.slice(combinedLength - limit).concat(items)
+}
+
 export function getTimelineMessageIds(timeline: TwitchTimelineItem[]) {
   const ids = new Set<string>()
   for (const entry of timeline) {

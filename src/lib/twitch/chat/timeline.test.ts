@@ -6,6 +6,7 @@ import {
   parseIrcPrivmsg,
 } from "@/lib/twitch/chat/chat"
 import {
+  appendTimelineWithinLimit,
   applyDeletedBehaviorToTimeline,
   buildSyncChannelsKey,
   createEmptyRoom,
@@ -213,6 +214,41 @@ describe("trimTimeline", () => {
 
   test("handles a zero limit", () => {
     expect(trimTimeline([chat("1", "a")], 0)).toEqual([])
+  })
+})
+
+describe("appendTimelineWithinLimit", () => {
+  const ids = (timeline: TwitchTimelineItem[]) =>
+    timeline.map((entry) => entry.message.id)
+
+  test("appends everything when under the limit", () => {
+    const timeline = [chat("a", "u1"), chat("b", "u2")]
+    const result = appendTimelineWithinLimit(timeline, [chat("c", "u3")], 5)
+    expect(ids(result)).toEqual(["a", "b", "c"])
+  })
+
+  test("drops the oldest existing entries when over the limit", () => {
+    const timeline = [chat("a", "u1"), chat("b", "u2"), chat("c", "u3")]
+    const result = appendTimelineWithinLimit(
+      timeline,
+      [chat("d", "u4"), chat("e", "u5")],
+      3
+    )
+    expect(ids(result)).toEqual(["c", "d", "e"])
+  })
+
+  test("keeps only the newest items when a batch exceeds the limit", () => {
+    const timeline = [chat("a", "u1"), chat("b", "u2")]
+    const batch = ["c", "d", "e", "f", "g"].map((id) => chat(id, "u"))
+    const result = appendTimelineWithinLimit(timeline, batch, 3)
+    expect(ids(result)).toEqual(["e", "f", "g"])
+  })
+
+  test("keeps the whole batch when it exactly matches the limit", () => {
+    const timeline = [chat("a", "u1")]
+    const batch = ["b", "c", "d"].map((id) => chat(id, "u"))
+    const result = appendTimelineWithinLimit(timeline, batch, 3)
+    expect(ids(result)).toEqual(["b", "c", "d"])
   })
 })
 

@@ -9,6 +9,7 @@ import { devChatLogger } from "@/lib/dev-logger"
 import type { DeletedMessagesBehavior } from "@/lib/peepochat/peepochat-config"
 import { LIVE_MESSAGES_PER_CHANNEL_DEFAULT } from "@/lib/peepochat/peepochat-config"
 import {
+  appendTimelineWithinLimit,
   getTimelineMessageIds,
   partitionTimeline,
   partitionTimelineWithKnownIds,
@@ -114,12 +115,11 @@ export function useTimeline({
             }
           }
 
-          const combinedLength = timeline.length + toAdd.length
-          const limit = liveMessageLimitRef.current
-          const nextTimeline =
-            combinedLength <= limit
-              ? timeline.concat(toAdd)
-              : timeline.slice(combinedLength - limit).concat(toAdd)
+          const nextTimeline = appendTimelineWithinLimit(
+            timeline,
+            toAdd,
+            liveMessageLimitRef.current
+          )
 
           devChatLogger.debugLazy(() => [
             "timeline:append-live",
