@@ -840,7 +840,7 @@ function assertPeepochatBackupSource(parsed: unknown) {
   }
   if (parsed.app === "chatvoice") {
     throw new Error(
-      "This is a Chatvoice backup. Use Import from Chatvoice in Settings > Data Management instead."
+      "This is a Chatvoice backup. Import it from Settings > Data Management instead."
     )
   }
   throw new Error("This file isn't a Peepochat backup.")

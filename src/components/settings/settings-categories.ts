@@ -78,7 +78,8 @@ export const PREFERENCE_CATEGORIES: SettingsCategoryEntry[] = [
     id: "data",
     label: "Data Management",
     icon: DatabaseIcon,
-    description: "Backup, restore, or delete your Peepochat data.",
+    description:
+      "Back up, restore, or delete your Peepochat data, or import your setup from Chatvoice.",
   },
   ...(IS_DEV
     ? [

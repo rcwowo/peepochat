@@ -1,52 +1,20 @@
-import type * as React from "react"
 import { HashIcon, InfoIcon } from "lucide-react"
 
+import {
+  BackupSummaryLabel,
+  BackupSummaryRow,
+} from "@/components/backup/backup-preview-summary"
 import {
   summarizeChatvoiceImport,
   type ChatvoiceImport,
 } from "@/lib/chatvoice/chatvoice-import"
+import { formatBackupMeta } from "@/lib/peepochat/backup-format"
 import { cn } from "@/lib/utils"
 
 const MAX_VISIBLE_CHANNELS = 6
 
 function pluralize(count: number, singular: string, plural = `${singular}s`) {
   return `${count} ${count === 1 ? singular : plural}`
-}
-
-function formatBackupDate(value: string | null): string | null {
-  if (!value) return null
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return null
-  return date.toLocaleString(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  })
-}
-
-function SummaryRow({
-  label,
-  value,
-  muted = false,
-}: {
-  label: string
-  value: React.ReactNode
-  muted?: boolean
-}) {
-  return (
-    <div className="flex items-baseline justify-between gap-3">
-      <p className="shrink-0 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-        {label}
-      </p>
-      <p
-        className={cn(
-          "truncate text-right text-sm",
-          muted ? "text-muted-foreground" : "font-medium"
-        )}
-      >
-        {value}
-      </p>
-    </div>
-  )
 }
 
 export function ChatvoiceImportSummary({
@@ -57,11 +25,7 @@ export function ChatvoiceImportSummary({
   chipClassName?: string
 }) {
   const summary = summarizeChatvoiceImport(imported)
-  const exportedLabel = formatBackupDate(imported.exportedAt)
-  const metaParts = [
-    exportedLabel,
-    imported.appVersion ? `v${imported.appVersion}` : null,
-  ].filter(Boolean)
+  const meta = formatBackupMeta(imported.exportedAt, imported.appVersion)
   const visibleChannels = imported.channels.slice(0, MAX_VISIBLE_CHANNELS)
   const hiddenChannelCount = imported.channels.length - visibleChannels.length
   const filterParts = [
@@ -78,16 +42,14 @@ export function ChatvoiceImportSummary({
 
   return (
     <div className="space-y-3">
-      {metaParts.length > 0 ? (
-        <SummaryRow label="Backup" value={metaParts.join(" · ")} muted />
-      ) : null}
+      {meta ? <BackupSummaryRow label="Backup" value={meta} muted /> : null}
 
-      <SummaryRow
+      <BackupSummaryRow
         label="Voices"
         value={`${pluralize(summary.voiceProfileCount, "profile")} · ${pluralize(summary.assignmentCount, "chatter")} assigned`}
       />
 
-      <SummaryRow
+      <BackupSummaryRow
         label="Sounds"
         value={
           summary.soundEffectCount === 0
@@ -99,13 +61,13 @@ export function ChatvoiceImportSummary({
         muted={summary.soundEffectCount === 0}
       />
 
-      <SummaryRow
+      <BackupSummaryRow
         label="Filters"
         value={filterParts.length > 0 ? filterParts.join(" · ") : "None"}
         muted={filterParts.length === 0}
       />
 
-      <SummaryRow
+      <BackupSummaryRow
         label="Chat commands"
         value={
           summary.enabledCommandCount > 0
@@ -116,9 +78,7 @@ export function ChatvoiceImportSummary({
       />
 
       <div>
-        <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-          Channels
-        </p>
+        <BackupSummaryLabel>Channels</BackupSummaryLabel>
         {imported.channels.length === 0 ? (
           <p className="mt-1.5 text-sm text-muted-foreground">None</p>
         ) : (

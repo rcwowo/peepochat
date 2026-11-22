@@ -12,7 +12,8 @@
             "Channels and their info, like profile pictures, is now refreshed whenever Peepochat is opened.",
             "Added the ability to hide profile details, recent messages, and moderation actions in user cards.",
             "Added a report button to user cards.",
-            "Added the ability to reorder message quick actions in the chat tab of settings."
+            "Added the ability to reorder message quick actions in the chat tab of settings.",
+            "Minor redesign to the data management tab in settings."
         ]
     },
     {
