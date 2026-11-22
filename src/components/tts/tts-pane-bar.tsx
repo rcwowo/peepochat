@@ -98,7 +98,7 @@ function TtsPaneBarContent() {
   return (
     <div
       role="region"
-      aria-label="Text-to-speech controls"
+      aria-label="Chatvoice controls"
       className="absolute inset-x-2 top-2 z-20 flex items-center gap-2 overflow-hidden rounded-md border border-border bg-background py-1.5 pr-1.5 pl-3 shadow-md"
     >
       <TtsPaneStateIcon state={state} />

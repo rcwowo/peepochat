@@ -1,5 +1,5 @@
 import * as React from "react"
-import { XIcon } from "lucide-react"
+import { InfoIcon, XIcon } from "lucide-react"
 
 import {
   Dialog,
@@ -8,6 +8,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import { APP_BRANDING } from "@/lib/branding"
 import { getAppVersion } from "@/lib/changelog"
@@ -48,7 +53,7 @@ const DeveloperTab = IS_DEV
 
 export type { SettingsCategory }
 
-const TTS_UNAVAILABLE_LABEL = "Text-to-speech isn't available in this browser"
+const TTS_UNAVAILABLE_LABEL = "Chatvoice isn't available in this browser"
 
 function NavRowButton({
   category,
@@ -85,6 +90,25 @@ function NavRowButton({
         {category.label}
       </span>
     </button>
+  )
+}
+
+function NavGroupInfo({ label, info }: { label: string; info: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          aria-label={`About ${label}: ${info}`}
+          className="inline-flex size-4 cursor-help items-center justify-center rounded-sm text-muted-foreground/60 transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/35"
+        >
+          <InfoIcon className="size-3" aria-hidden />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="right" className="max-w-60 text-pretty">
+        {info}
+      </TooltipContent>
+    </Tooltip>
   )
 }
 
@@ -246,15 +270,22 @@ export function SettingsDialog({
                       />
                     ) : null}
                     <div
-                      aria-hidden
                       className={cn(
-                        "px-2.5 pb-1 text-[11px] font-medium text-muted-foreground/60 max-sm:hidden",
+                        "flex items-center gap-1 px-2.5 pb-1 text-[11px] font-medium text-muted-foreground/60 max-sm:hidden",
                         index > 0 && "pt-4"
                       )}
                     >
-                      {unavailable
-                        ? `${group.label} (unavailable)`
-                        : group.label}
+                      <span aria-hidden>{group.label}</span>
+                      {group.info ? (
+                        <NavGroupInfo
+                          label={group.label}
+                          info={
+                            unavailable && group.unavailableInfo
+                              ? group.unavailableInfo
+                              : group.info
+                          }
+                        />
+                      ) : null}
                     </div>
                     <div className="flex flex-col items-center gap-0.5 sm:items-stretch">
                       {group.categories.map((category) => (

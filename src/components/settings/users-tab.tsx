@@ -278,12 +278,12 @@ function UserRow({
                 ? "text-destructive hover:text-destructive"
                 : "text-muted-foreground hover:text-foreground"
             )}
-            aria-label={`Mute @${login} in text-to-speech`}
+            aria-label={`Mute @${login} in Chatvoice`}
             aria-pressed={blocked}
             title={
               blocked
-                ? "Muted in text-to-speech. Click to unmute."
-                : "Mute in text-to-speech"
+                ? "Muted in Chatvoice. Click to unmute."
+                : "Mute in Chatvoice"
             }
             onClick={onToggleBlocked}
           >
@@ -520,7 +520,7 @@ export function UsersTab() {
         title="Add a user"
         description={
           showVoices
-            ? "Give a chatter a nickname, a text-to-speech voice, or both. Nicknames replace their name in chat."
+            ? "Give a chatter a nickname, a Chatvoice voice, or both. Nicknames replace their name in chat."
             : "Give a chatter a nickname that replaces their name in chat."
         }
       >

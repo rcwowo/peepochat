@@ -88,7 +88,7 @@ function SidebarResizeHandle({
     <div
       role="separator"
       aria-orientation="vertical"
-      aria-label="Resize text-to-speech queue"
+      aria-label="Resize Chatvoice queue"
       aria-valuemin={TTS_SIDEBAR_MIN_WIDTH}
       aria-valuemax={TTS_SIDEBAR_MAX_WIDTH}
       aria-valuenow={width}
@@ -331,7 +331,7 @@ export function TtsSidebar() {
     <aside
       ref={focusIfFocusLost}
       tabIndex={-1}
-      aria-label="Text-to-speech queue"
+      aria-label="Chatvoice queue"
       data-state={open ? "open" : "closed"}
       aria-hidden={open ? undefined : true}
       inert={!open}
@@ -358,9 +358,9 @@ export function TtsSidebar() {
           profileImageUrl={channel?.profileImageUrl}
         />
         <div className="min-w-0 flex-1 truncate text-sm font-semibold">
-          Text-to-speech
+          Chatvoice
         </div>
-        <HeaderButton label="Stop text-to-speech" onClick={stopTts}>
+        <HeaderButton label="Stop Chatvoice" onClick={stopTts}>
           <PowerIcon className="size-4" />
         </HeaderButton>
         <HeaderButton label="Collapse queue" onClick={() => setCollapsed(true)}>

@@ -64,13 +64,13 @@ export function TtsSpeechTab() {
     <SettingsTab>
       <SettingsSection
         title="Playback"
-        description="Text-to-speech is started from a channel's options menu, and only one channel can use it at a time."
+        description="Chatvoice is started from a channel's options menu, and only one channel can use it at a time."
       >
         <SettingsGroup>
           <SettingsSwitchRow
             icon={RotateCwIcon}
             title="Resume on startup"
-            description="Restart text-to-speech for the last channel when Peepochat opens. Your browser may ask for a click before audio can play."
+            description="Restart Chatvoice for the last channel when Peepochat opens. Your browser may ask for a click before audio can play."
             checked={tts.resumeOnStartup}
             onCheckedChange={(resumeOnStartup) =>
               updateTts({ resumeOnStartup })

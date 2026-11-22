@@ -834,6 +834,18 @@ function parseTtsBackupData(
   }
 }
 
+function assertPeepochatBackupSource(parsed: unknown) {
+  if (!isRecord(parsed) || !("app" in parsed) || parsed.app === "peepochat") {
+    return
+  }
+  if (parsed.app === "chatvoice") {
+    throw new Error(
+      "This is a Chatvoice backup. Use Import from Chatvoice in Settings > Data Management instead."
+    )
+  }
+  throw new Error("This file isn't a Peepochat backup.")
+}
+
 export function parseBackupPayload(payload: string): {
   config: AppConfig
   embeddedSounds: BackupPreviewSound[]
@@ -842,6 +854,7 @@ export function parseBackupPayload(payload: string): {
   appVersion: string | null
 } {
   const parsed = JSON.parse(payload) as unknown
+  assertPeepochatBackupSource(parsed)
 
   const envelopeResult = backupEnvelopeSchema.safeParse(parsed)
   if (envelopeResult.success) {
@@ -1250,7 +1263,7 @@ function resolveUseDefaultSounds(highlights: Record<string, unknown>): boolean {
   return !usesCustomSounds
 }
 
-function normalizeConfig(config: AppConfig): AppConfig {
+export function normalizeConfig(config: AppConfig): AppConfig {
   const twitch = {
     ...config.twitch,
     activeChannelLogin: config.twitch.activeChannelLogin

@@ -48,7 +48,7 @@ export function TtsCommandsTab() {
     <SettingsTab>
       <SettingsSection
         title="Chat commands"
-        description="Commands only work in the channel text-to-speech is running in, and are never read aloud. The dropdown sets the lowest role that can use each command."
+        description="Commands only work in the channel Chatvoice is running in, and are never read aloud. The dropdown sets the lowest role that can use each command."
       >
         <SettingsGroup>
           {TTS_COMMAND_ORDER.map((id) => {

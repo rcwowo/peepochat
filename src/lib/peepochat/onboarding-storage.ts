@@ -5,7 +5,7 @@ import {
   type AppConfig,
 } from "@/lib/peepochat/peepochat-config"
 
-export type OnboardingFlow = "fresh" | "import"
+export type OnboardingFlow = "fresh" | "import" | "chatvoice"
 
 const FLOW_KEY = "peepochat::onboarding_flow"
 const IMPORT_APPLIED_KEY = "peepochat::onboarding_import_applied"
@@ -27,7 +27,13 @@ function writeSession(key: string, value: string | null) {
 
 export function getOnboardingFlow(): OnboardingFlow | null {
   const value = readSession(FLOW_KEY)
-  return value === "fresh" || value === "import" ? value : null
+  return value === "fresh" || value === "import" || value === "chatvoice"
+    ? value
+    : null
+}
+
+export function isImportFlow(flow: OnboardingFlow | null): boolean {
+  return flow === "import" || flow === "chatvoice"
 }
 
 export function setOnboardingFlow(flow: OnboardingFlow) {
@@ -58,10 +64,10 @@ export function isAwaitingOnboardingFinalStep(config: AppConfig): boolean {
   if (isLoggedOutWithSavedSetup(config)) return false
 
   const flow = getOnboardingFlow()
-  if (flow !== "fresh" && flow !== "import") return false
+  if (flow === null) return false
   if (!hasAccount(config) || config.twitch.channels.length === 0) return false
 
-  if (flow === "import" && getDesktopNotificationPermission() === "granted") {
+  if (isImportFlow(flow) && getDesktopNotificationPermission() === "granted") {
     return false
   }
 

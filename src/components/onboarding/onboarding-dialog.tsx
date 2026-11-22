@@ -7,6 +7,7 @@ import {
   ChevronRightIcon,
   CloudUploadIcon,
   Columns2Icon,
+  DownloadIcon,
   HashIcon,
   Music2Icon,
   PlayIcon,
@@ -18,6 +19,12 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
+import { ChatvoiceImportSummary } from "@/components/chatvoice/chatvoice-import-summary"
+import {
+  detectBackupSourceApp,
+  parseChatvoiceBackup,
+  type ChatvoiceImport,
+} from "@/lib/chatvoice/chatvoice-import"
 import { APP_BRANDING } from "@/lib/branding"
 import {
   getDesktopNotificationPermission,
@@ -30,6 +37,7 @@ import {
   dismissOnboardingFinalStep,
   getOnboardingFlow,
   hasDismissedOnboardingFinalStep,
+  isImportFlow,
   isImportOnboardingApplied,
   markImportOnboardingApplied,
   setOnboardingFlow,
@@ -51,11 +59,17 @@ const PERMISSIONS_DOCS_URL =
   "https://wiki.rcw.lol/s/peepochat/doc/permissions-LSAfFeqlWT"
 
 type OnboardingStep =
-  "landing" | "import-review" | "login" | "channel" | "notifications"
+  | "landing"
+  | "import-review"
+  | "chatvoice-review"
+  | "login"
+  | "channel"
+  | "notifications"
 
 const STEP_FLOW_ORDER: Record<OnboardingStep, number> = {
   landing: 0,
   "import-review": 1,
+  "chatvoice-review": 1,
   login: 2,
   channel: 3,
   notifications: 4,
@@ -75,7 +89,7 @@ function needsNotificationsStep({
   isReturningUser: boolean
 }): boolean {
   if (isReturningUser || finalStepDismissed) return false
-  if (flow === "import") return !notificationsAlreadyAllowed()
+  if (isImportFlow(flow)) return !notificationsAlreadyAllowed()
   return flow === "fresh"
 }
 
@@ -99,7 +113,7 @@ function resolveStep({
     if (hasAccount && !hasChannels) return "channel"
     return "landing"
   }
-  if (step === "import-review") return "import-review"
+  if (step === "import-review" || step === "chatvoice-review") return step
 
   if (!hasAccount) return "login"
   if (!hasChannels) return "channel"
@@ -141,9 +155,13 @@ function formatBackupDate(value: string | null): string | null {
 export function OnboardingDialog({
   open,
   onComplete,
+  chatvoiceImport = false,
+  onChatvoiceImportHandled,
 }: {
   open: boolean
   onComplete: () => void
+  chatvoiceImport?: boolean
+  onChatvoiceImportHandled?: () => void
 }) {
   const {
     config,
@@ -155,6 +173,7 @@ export function OnboardingDialog({
     logout,
     addChannel,
     restoreBackup,
+    importChatvoiceBackup,
     updateConfig,
   } = usePeepochatSettings()
 
@@ -167,7 +186,7 @@ export function OnboardingDialog({
     const storedFlow = getOnboardingFlow()
     const returning = isLoggedOutWithSavedSetup(loadConfig())
 
-    if (storedFlow === "import" && isImportOnboardingApplied()) return "login"
+    if (isImportFlow(storedFlow) && isImportOnboardingApplied()) return "login"
     if (storedFlow === "fresh") return "login"
     if (!storedFlow && returning) return "login"
     return "landing"
@@ -177,6 +196,8 @@ export function OnboardingDialog({
   const [importPreview, setImportPreview] =
     React.useState<BackupPreview | null>(null)
   const pendingBackupPayloadRef = React.useRef<string | null>(null)
+  const [chatvoicePreview, setChatvoicePreview] =
+    React.useState<ChatvoiceImport | null>(null)
   const [importBusy, setImportBusy] = React.useState(false)
   const fileInputRef = React.useRef<HTMLInputElement | null>(null)
 
@@ -199,6 +220,15 @@ export function OnboardingDialog({
     isReturningUser,
   })
 
+  const finishOnboarding = React.useCallback(() => {
+    dismissOnboardingFinalStep()
+    clearOnboardingSession()
+    if (flow === "chatvoice") {
+      onChatvoiceImportHandled?.()
+    }
+    onComplete()
+  }, [flow, onChatvoiceImportHandled, onComplete])
+
   React.useEffect(() => {
     if (!open) return
     if (
@@ -210,9 +240,7 @@ export function OnboardingDialog({
         isReturningUser,
       })
     ) {
-      dismissOnboardingFinalStep()
-      clearOnboardingSession()
-      onComplete()
+      finishOnboarding()
     }
   }, [
     open,
@@ -221,12 +249,13 @@ export function OnboardingDialog({
     hasChannels,
     finalStepDismissed,
     isReturningUser,
-    onComplete,
+    finishOnboarding,
   ])
 
   const goToLanding = () => {
     clearOnboardingSession()
     setImportPreview(null)
+    setChatvoicePreview(null)
     pendingBackupPayloadRef.current = null
     setFlow("fresh")
     setStep("landing")
@@ -235,6 +264,7 @@ export function OnboardingDialog({
   const restartOnboarding = () => {
     clearAllOnboardingState()
     setImportPreview(null)
+    setChatvoicePreview(null)
     pendingBackupPayloadRef.current = null
     setChannel("")
     setFlow("fresh")
@@ -248,6 +278,11 @@ export function OnboardingDialog({
     setStep("login")
   }
 
+  const startFreshFromChatvoice = () => {
+    onChatvoiceImportHandled?.()
+    startFreshSetup()
+  }
+
   const handleImportFile = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -256,6 +291,14 @@ export function OnboardingDialog({
 
     try {
       const payload = await file.text()
+      if (detectBackupSourceApp(payload) === "chatvoice") {
+        const imported = parseChatvoiceBackup(payload)
+        setFlow("chatvoice")
+        setOnboardingFlow("chatvoice")
+        setChatvoicePreview(imported)
+        setStep("chatvoice-review")
+        return
+      }
       const preview = parseBackupPreview(payload)
       setFlow("import")
       setOnboardingFlow("import")
@@ -279,11 +322,30 @@ export function OnboardingDialog({
     try {
       await restoreBackup(payload)
       markImportOnboardingApplied()
+      onChatvoiceImportHandled?.()
       pendingBackupPayloadRef.current = null
       setStep("login")
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Backup restore failed"
+      )
+    } finally {
+      setImportBusy(false)
+    }
+  }
+
+  const handleConfirmChatvoiceImport = async () => {
+    if (!chatvoicePreview) return
+
+    setImportBusy(true)
+    try {
+      await importChatvoiceBackup(chatvoicePreview)
+      markImportOnboardingApplied()
+      setChatvoicePreview(null)
+      setStep("login")
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Chatvoice import failed"
       )
     } finally {
       setImportBusy(false)
@@ -310,9 +372,7 @@ export function OnboardingDialog({
           isReturningUser,
         })
       ) {
-        dismissOnboardingFinalStep()
-        clearOnboardingSession()
-        onComplete()
+        finishOnboarding()
       } else {
         setStep("notifications")
       }
@@ -344,11 +404,7 @@ export function OnboardingDialog({
     setStep("login")
   }
 
-  const handleFinishOnboarding = () => {
-    dismissOnboardingFinalStep()
-    clearOnboardingSession()
-    onComplete()
-  }
+  const handleFinishOnboarding = finishOnboarding
 
   const [stepTransition, setStepTransition] = React.useState({
     step: resolvedStep,
@@ -369,6 +425,20 @@ export function OnboardingDialog({
   const stepContent = (() => {
     switch (resolvedStep) {
       case "landing":
+        if (chatvoiceImport) {
+          return {
+            landing: true as const,
+            title: "Welcome from Chatvoice.",
+            description: "Bring your Chatvoice setup with you.",
+            body: (
+              <ChatvoiceLandingStepBody
+                onImportClick={() => fileInputRef.current?.click()}
+                onStartFresh={startFreshFromChatvoice}
+              />
+            ),
+            footer: undefined,
+          }
+        }
         return {
           landing: true as const,
           title: "Let's get started.",
@@ -398,11 +468,11 @@ export function OnboardingDialog({
           body: undefined,
           footer: (
             <LoginStepFooter
-              canGoBack={flow === "import" || !isReturningUser}
+              canGoBack={isImportFlow(flow) || !isReturningUser}
               oauthBusy={oauthBusy}
               isOAuthConfigured={isOAuthConfigured}
               onLogin={loginWithTwitch}
-              onBack={flow === "import" ? restartOnboarding : goToLanding}
+              onBack={isImportFlow(flow) ? restartOnboarding : goToLanding}
             />
           ),
         }
@@ -450,6 +520,25 @@ export function OnboardingDialog({
               ),
             }
           : null
+      case "chatvoice-review":
+        return chatvoicePreview
+          ? {
+              title: "Does this look right?",
+              description: "Here's what we found in your Chatvoice backup.",
+              body: (
+                <div className="mx-auto w-full max-w-[28rem] rounded-xl bg-background/70 px-4 py-3">
+                  <ChatvoiceImportSummary imported={chatvoicePreview} />
+                </div>
+              ),
+              footer: (
+                <ImportReviewStepFooter
+                  busy={importBusy}
+                  onBack={goToLanding}
+                  onContinue={() => void handleConfirmChatvoiceImport()}
+                />
+              ),
+            }
+          : null
       case "notifications":
         return {
           title: "Receive notifications?",
@@ -459,7 +548,7 @@ export function OnboardingDialog({
           footer: (
             <NotificationsStepFooter
               onBack={
-                flow === "import"
+                isImportFlow(flow)
                   ? () => {
                       logout()
                       setStep("login")
@@ -612,15 +701,18 @@ function OnboardingShell({
 function OnboardingBackButton({
   onClick,
   label = "Go Back",
+  disabled = false,
 }: {
   onClick: () => void
   label?: string
+  disabled?: boolean
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex cursor-pointer items-center gap-1.5 text-sm font-medium text-foreground transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
+      disabled={disabled}
+      className="inline-flex cursor-pointer items-center gap-1.5 text-sm font-medium text-foreground transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-45"
     >
       <ChevronLeftIcon className="size-4" aria-hidden />
       {label}
@@ -701,7 +793,57 @@ function LandingStepBody({
   )
 }
 
+function ChatvoiceLandingStepBody({
+  onImportClick,
+  onStartFresh,
+}: {
+  onImportClick: () => void
+  onStartFresh: () => void
+}) {
+  return (
+    <div className="flex flex-col gap-2.5">
+      <OnboardingActionRow
+        onClick={onImportClick}
+        icon={DownloadIcon}
+        title="Import from Chatvoice"
+        description="Choose the backup you exported from Chatvoice"
+        size="hero"
+      />
+      <OnboardingActionRow
+        onClick={onStartFresh}
+        icon={SparklesIcon}
+        title="Start fresh instead"
+      />
+    </div>
+  )
+}
+
 function getLoginStepCopy(flow: OnboardingFlow, isReturningUser: boolean) {
+  if (flow === "chatvoice") {
+    return {
+      title: "Now, let's sign in.",
+      description: (
+        <>
+          Your Chatvoice settings are ready. Unlike Chatvoice, Peepochat is a
+          full chat client, so it needs your Twitch account to send and receive
+          messages. All data is stored on this device.
+          <span className="mt-3 block">
+            You can learn more about the permissions needed{" "}
+            <a
+              href={PERMISSIONS_DOCS_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="underline underline-offset-2 transition-opacity hover:opacity-80"
+            >
+              here
+            </a>
+            .
+          </span>
+        </>
+      ),
+    }
+  }
+
   if (flow === "import") {
     return {
       title: "You'll need to log back in.",
@@ -724,17 +866,18 @@ function getLoginStepCopy(flow: OnboardingFlow, isReturningUser: boolean) {
       <>
         Peepochat needs access to your Twitch account in order to send and
         receive messages. All data is stored on this device.
-        <br />
-        You can learn more about the permissions needed{" "}
-        <a
-          href={PERMISSIONS_DOCS_URL}
-          target="_blank"
-          rel="noreferrer"
-          className="underline underline-offset-2 transition-opacity hover:opacity-80"
-        >
-          here
-        </a>
-        .
+        <span className="mt-3 block">
+          You can learn more about the permissions needed{" "}
+          <a
+            href={PERMISSIONS_DOCS_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="underline underline-offset-2 transition-opacity hover:opacity-80"
+          >
+            here
+          </a>
+          .
+        </span>
       </>
     ),
   }
@@ -1004,7 +1147,7 @@ function ImportReviewStepFooter({
 }) {
   return (
     <>
-      <OnboardingBackButton onClick={onBack} />
+      <OnboardingBackButton onClick={onBack} disabled={busy} />
       <Button
         size="lg"
         className="h-10 gap-1.5 px-4 text-sm"

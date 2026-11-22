@@ -47,6 +47,9 @@ export type PeepochatConfigContextValue = {
   requireOnboarding: () => void
   updateConfig: ReturnType<typeof usePeepochatConfig>["updateConfig"]
   restoreBackup: ReturnType<typeof usePeepochatConfig>["restoreBackup"]
+  importChatvoiceBackup: ReturnType<
+    typeof usePeepochatConfig
+  >["importChatvoiceBackup"]
   account: TwitchAccount | null
   oauthBusy: boolean
   isOAuthConfigured: boolean

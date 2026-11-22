@@ -48,7 +48,7 @@ type MessageDeletedDetail = { channelLogin?: unknown; messageId?: unknown }
 
 const PLAYER_CALLBACKS = {
   onBlocked: (resume: () => void) => {
-    toast("Your browser paused text-to-speech", {
+    toast("Your browser paused Chatvoice", {
       id: BLOCKED_TOAST_ID,
       description:
         "Audio needs a click on the page before it can play. Resume to continue.",
@@ -178,13 +178,13 @@ export function TtsProvider({ children }: { children: React.ReactNode }) {
         return
       }
       if (availability === "unavailable") {
-        toast.error("Text-to-speech isn't available", {
+        toast.error("Chatvoice isn't available", {
           description: "This browser doesn't have any speech voices installed.",
         })
         return
       }
       if (availability === "checking") {
-        toast("Text-to-speech voices are still loading", {
+        toast("Chatvoice voices are still loading", {
           description: "Try again in a moment.",
         })
         return
@@ -205,8 +205,8 @@ export function TtsProvider({ children }: { children: React.ReactNode }) {
       }
       toast.success(
         previous
-          ? `Text-to-speech moved to #${normalized}`
-          : `Text-to-speech started for #${normalized}`
+          ? `Chatvoice moved to #${normalized}`
+          : `Chatvoice started for #${normalized}`
       )
     },
     [availability, knownLogins, updateUi]

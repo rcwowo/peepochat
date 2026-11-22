@@ -9,9 +9,16 @@ import {
   saveConfig,
 } from "@/lib/peepochat/peepochat-config"
 import { restoreEmbeddedCustomSounds } from "@/lib/highlights/custom-sounds"
+import {
+  applyChatvoiceImport,
+  fetchChannelProfiles,
+  getNewChatvoiceChannels,
+  type ChatvoiceImport,
+} from "@/lib/chatvoice/chatvoice-import"
 import { isAwaitingOnboardingFinalStep } from "@/lib/peepochat/onboarding-storage"
 import { getTwitchClientId } from "@/lib/twitch/auth/oauth"
 import {
+  replaceTtsData,
   replaceVoiceAssignments,
   restoreSoundEffectAudioBackups,
 } from "@/lib/tts/tts-db"
@@ -147,6 +154,36 @@ export function usePeepochatConfig() {
     return merged
   }, [])
 
+  const importChatvoiceBackup = React.useCallback(
+    async (imported: ChatvoiceImport) => {
+      const profiles = await fetchChannelProfiles(
+        getNewChatvoiceChannels(configRef.current, imported),
+        configRef.current.twitch.account
+      )
+      pendingSaveRef.current = null
+      if (saveHandleRef.current !== null) {
+        cancelIdle(saveHandleRef.current)
+        saveHandleRef.current = null
+      }
+
+      const previous = configRef.current
+      const next = applyChatvoiceImport(previous, imported, profiles)
+      saveConfig(next)
+      try {
+        await replaceTtsData(imported)
+      } catch (error) {
+        saveConfig(previous)
+        throw error
+      }
+
+      configRef.current = next
+      savedConfigRef.current = next
+      setConfig(next)
+      return next
+    },
+    []
+  )
+
   const completeOnboarding = React.useCallback(() => {
     setForceOnboarding(false)
     refreshOnboardingGate()
@@ -164,5 +201,6 @@ export function usePeepochatConfig() {
     requireOnboarding,
     updateConfig,
     restoreBackup,
+    importChatvoiceBackup,
   }
 }

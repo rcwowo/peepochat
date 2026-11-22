@@ -62,6 +62,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     requireOnboarding,
     updateConfig,
     restoreBackup,
+    importChatvoiceBackup,
   } = usePeepochatConfig()
   const [watchState, dispatchWatch] = React.useReducer(
     watchReducer,
@@ -726,6 +727,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       requireOnboarding,
       updateConfig,
       restoreBackup,
+      importChatvoiceBackup,
       account: effectiveAccount,
       oauthBusy,
       isOAuthConfigured,
@@ -745,6 +747,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       requireOnboarding,
       updateConfig,
       restoreBackup,
+      importChatvoiceBackup,
       effectiveAccount,
       oauthBusy,
       isOAuthConfigured,

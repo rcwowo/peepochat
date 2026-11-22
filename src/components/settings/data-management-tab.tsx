@@ -7,6 +7,7 @@ import { usePeepochatSettings } from "@/lib/peepochat/peepochat-context"
 import { exportConfigBackup } from "@/lib/peepochat/peepochat-config"
 import { deleteAllLocalData } from "@/lib/peepochat/local-data"
 import { useTtsSession } from "@/lib/tts/tts-context"
+import { ChatvoiceImportPanel } from "@/components/chatvoice/chatvoice-import-panel"
 import {
   SettingsActionButton,
   SettingsActions,
@@ -40,9 +41,9 @@ const INCLUDED_IN_BACKUP = [
       "Custom ping and live notification sounds are embedded as Base64 in backups.",
   },
   {
-    title: "Text-to-Speech",
+    title: "Chatvoice",
     description:
-      "Your text-to-speech settings, voice profiles, saved chatter voices, and uploaded sound clips are all included.",
+      "Your Chatvoice settings, voice profiles, saved chatter voices, and uploaded sound clips are all included.",
   },
   {
     title: "Metadata",
@@ -138,6 +139,13 @@ export function DataManagementTab() {
           className="hidden"
           onChange={handleRestoreBackup}
         />
+      </SettingsSection>
+
+      <SettingsSection
+        title="Import from Chatvoice"
+        description="Bring over your voices, sounds, filters, chat commands, and channels from a Chatvoice backup. In Chatvoice, export one from Settings > Backup."
+      >
+        <ChatvoiceImportPanel />
       </SettingsSection>
 
       <SettingsSection

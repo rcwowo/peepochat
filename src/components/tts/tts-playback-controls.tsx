@@ -42,7 +42,7 @@ export function TtsPlaybackControls({
   return (
     <div
       role="toolbar"
-      aria-label="Text-to-speech playback"
+      aria-label="Chatvoice playback"
       className={cn(
         "flex items-center justify-center",
         compact ? "gap-1" : "gap-4",

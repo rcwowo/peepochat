@@ -22,6 +22,11 @@ import { ChannelSidebar } from "@/components/sidebar/channel-sidebar"
 import { AddChannelDialog } from "@/components/sidebar/add-channel-dialog"
 import { CommandPalette } from "@/components/shell/command-palette"
 import { OnboardingDialog } from "@/components/onboarding/onboarding-dialog"
+import { ChatvoiceImportDialog } from "@/components/chatvoice/chatvoice-import-dialog"
+import {
+  captureChatvoiceImportLink,
+  clearChatvoiceImportPending,
+} from "@/lib/chatvoice/chatvoice-link"
 import {
   SettingsDialog,
   type SettingsCategory,
@@ -45,6 +50,13 @@ function DashboardLayout() {
   const [addChannelOpen, setAddChannelOpen] = React.useState(false)
   const [notificationsOpen, setNotificationsOpen] = React.useState(false)
   const [commandPaletteOpen, setCommandPaletteOpen] = React.useState(false)
+  const [chatvoiceImportPending, setChatvoiceImportPending] = React.useState(
+    captureChatvoiceImportLink
+  )
+  const handleChatvoiceImportHandled = React.useCallback(() => {
+    clearChatvoiceImportPending()
+    setChatvoiceImportPending(false)
+  }, [])
 
   const openSettings = React.useCallback(() => {
     setSettingsInitialCategory(undefined)
@@ -131,6 +143,8 @@ function DashboardLayout() {
       <div className="min-h-svh bg-background">
         <OnboardingDialog
           open
+          chatvoiceImport={chatvoiceImportPending}
+          onChatvoiceImportHandled={handleChatvoiceImportHandled}
           onComplete={() => {
             initLastSeenVersion()
             completeOnboarding()
@@ -210,6 +224,12 @@ function DashboardLayout() {
       <AddChannelDialog
         open={addChannelOpen}
         onOpenChange={setAddChannelOpen}
+      />
+      <ChatvoiceImportDialog
+        open={chatvoiceImportPending}
+        onOpenChange={(open) => {
+          if (!open) handleChatvoiceImportHandled()
+        }}
       />
       <CommandPalette
         open={commandPaletteOpen}

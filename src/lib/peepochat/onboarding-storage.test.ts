@@ -7,6 +7,7 @@ import {
   getOnboardingFlow,
   hasDismissedOnboardingFinalStep,
   isAwaitingOnboardingFinalStep,
+  isImportFlow,
   isImportOnboardingApplied,
   markImportOnboardingApplied,
   setOnboardingFlow,
@@ -60,6 +61,16 @@ describe("onboarding session state", () => {
 
     window.sessionStorage.setItem("peepochat::onboarding_flow", "other")
     expect(getOnboardingFlow()).toBeNull()
+
+    setOnboardingFlow("chatvoice")
+    expect(getOnboardingFlow()).toBe("chatvoice")
+  })
+
+  test("treats Chatvoice migrations as imports", () => {
+    expect(isImportFlow("import")).toBe(true)
+    expect(isImportFlow("chatvoice")).toBe(true)
+    expect(isImportFlow("fresh")).toBe(false)
+    expect(isImportFlow(null)).toBe(false)
   })
 
   test("clearOnboardingSession resets the flow and import marker only", () => {
@@ -125,6 +136,15 @@ describe("isAwaitingOnboardingFinalStep", () => {
 
   test("skips the final step for imports when notifications are already granted", () => {
     setOnboardingFlow("import")
+    setNotificationPermission("granted")
+    expect(isAwaitingOnboardingFinalStep(readyConfig())).toBe(false)
+
+    setNotificationPermission("default")
+    expect(isAwaitingOnboardingFinalStep(readyConfig())).toBe(true)
+  })
+
+  test("applies the same final step rules to Chatvoice migrations", () => {
+    setOnboardingFlow("chatvoice")
     setNotificationPermission("granted")
     expect(isAwaitingOnboardingFinalStep(readyConfig())).toBe(false)
 

@@ -15,6 +15,7 @@ import {
   listSoundEffectAudioBackups,
   putSoundEffectAudio,
   putVoiceAssignment,
+  replaceTtsData,
   replaceVoiceAssignments,
   restoreSoundEffectAudioBackups,
   type UserDirectoryEntry,
@@ -231,5 +232,65 @@ describe("sound effect audio", () => {
     })
     expect(restored?.blob.type).toBe("audio/ogg")
     expect(await blobBytes(restored!.blob)).toEqual(bytes)
+  })
+})
+
+describe("replaceTtsData", () => {
+  async function seed() {
+    await putVoiceAssignment(assignment("old"))
+    await putSoundEffectAudio({
+      id: "old-sound",
+      blob: audioBlob([9]),
+      fileName: "old.wav",
+      mimeType: "audio/wav",
+      size: 1,
+    })
+  }
+
+  test("replaces assignments and sound audio together", async () => {
+    await seed()
+
+    await replaceTtsData({
+      assignments: [assignment("new")],
+      soundEffectAudio: [
+        {
+          id: "new-sound",
+          fileName: "new.wav",
+          mimeType: "audio/wav",
+          data: "AQI=",
+        },
+      ],
+    })
+
+    expect(
+      (await getAllVoiceAssignments()).map((entry) => entry.userName)
+    ).toEqual(["new"])
+    expect(await getSoundEffectAudio("old-sound")).toBeUndefined()
+    const sound = await getSoundEffectAudio("new-sound")
+    expect(await blobBytes(sound!.blob)).toEqual([1, 2])
+  })
+
+  test("leaves both stores untouched when any write fails", async () => {
+    await seed()
+
+    await expect(
+      replaceTtsData({
+        assignments: [{} as TtsVoiceAssignment],
+        soundEffectAudio: [
+          {
+            id: "new-sound",
+            fileName: "new.wav",
+            mimeType: "audio/wav",
+            data: "AQI=",
+          },
+        ],
+      })
+    ).rejects.toBeDefined()
+
+    expect(
+      (await getAllVoiceAssignments()).map((entry) => entry.userName)
+    ).toEqual(["old"])
+    expect(await getSoundEffectAudio("old-sound")).toBeDefined()
+    expect(await getSoundEffectAudio("new-sound")).toBeUndefined()
   })
 })

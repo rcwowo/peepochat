@@ -328,27 +328,77 @@ export async function listSoundEffectAudioBackups(
   )
 }
 
+function decodeSoundEffectAudioBackups(
+  backups: TtsSoundEffectAudioBackup[]
+): TtsSoundEffectAudioRecord[] {
+  return backups.flatMap((entry) => {
+    let blob: Blob
+    try {
+      blob = base64ToBlob(entry.data, entry.mimeType)
+    } catch {
+      return []
+    }
+    return [
+      {
+        id: entry.id,
+        blob,
+        fileName: entry.fileName,
+        mimeType: entry.mimeType,
+        size: blob.size,
+      } satisfies TtsSoundEffectAudioRecord,
+    ]
+  })
+}
+
 export function restoreSoundEffectAudioBackups(
   backups: TtsSoundEffectAudioBackup[]
 ): Promise<void> {
   return replaceStore(
     SOUND_EFFECTS_STORE,
-    backups.flatMap((entry) => {
-      let blob: Blob
-      try {
-        blob = base64ToBlob(entry.data, entry.mimeType)
-      } catch {
-        return []
-      }
-      return [
-        {
-          id: entry.id,
-          blob,
-          fileName: entry.fileName,
-          mimeType: entry.mimeType,
-          size: blob.size,
-        } satisfies TtsSoundEffectAudioRecord,
-      ]
-    })
+    decodeSoundEffectAudioBackups(backups)
+  )
+}
+
+export function replaceTtsData({
+  assignments,
+  soundEffectAudio,
+}: {
+  assignments: TtsVoiceAssignment[]
+  soundEffectAudio: TtsSoundEffectAudioBackup[]
+}): Promise<void> {
+  const audioRecords = decodeSoundEffectAudioBackups(soundEffectAudio)
+
+  return openTtsDatabase().then(
+    (database) =>
+      new Promise<void>((resolve, reject) => {
+        const transaction = database.transaction(
+          [ASSIGNMENTS_STORE, SOUND_EFFECTS_STORE],
+          "readwrite"
+        )
+
+        transaction.oncomplete = () => resolve()
+        transaction.onerror = () =>
+          reject(transaction.error ?? new Error("TTS store error"))
+        transaction.onabort = () =>
+          reject(
+            transaction.error ?? new Error("TTS store transaction aborted")
+          )
+
+        try {
+          const assignmentStore = transaction.objectStore(ASSIGNMENTS_STORE)
+          const soundStore = transaction.objectStore(SOUND_EFFECTS_STORE)
+          assignmentStore.clear()
+          soundStore.clear()
+          for (const assignment of assignments) {
+            assignmentStore.put(assignment)
+          }
+          for (const record of audioRecords) {
+            soundStore.put(record)
+          }
+        } catch (error) {
+          transaction.abort()
+          reject(error)
+        }
+      })
   )
 }

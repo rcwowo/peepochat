@@ -1281,3 +1281,24 @@ describe("findMessageUrls", () => {
     expect(findMessageUrls("ftp://nope www.example.com")).toEqual([])
   })
 })
+
+describe("parseBackupPayload source checks", () => {
+  test("refuses Chatvoice backups instead of resetting the config", () => {
+    const payload = JSON.stringify({
+      app: "chatvoice",
+      appVersion: "1.3.0",
+      exportedAt: "2026-10-01T00:00:00.000Z",
+      schemaVersion: 1,
+      data: { twitch: { channel: "streamer", savedChannels: ["streamer"] } },
+    })
+    expect(() => parseBackupPayload(payload)).toThrow(
+      "This is a Chatvoice backup"
+    )
+  })
+
+  test("refuses backups from other apps", () => {
+    expect(() =>
+      parseBackupPayload(JSON.stringify({ app: "something-else", data: {} }))
+    ).toThrow("isn't a Peepochat backup")
+  })
+})

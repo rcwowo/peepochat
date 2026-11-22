@@ -591,10 +591,10 @@ function ChatPaneInner({
                         icon={AudioLinesIcon}
                         label={
                           ttsActive
-                            ? "Stop text-to-speech"
+                            ? "Stop Chatvoice"
                             : ttsAvailability === "unavailable"
-                              ? "TTS unavailable"
-                              : "Start text-to-speech"
+                              ? "Chatvoice unavailable"
+                              : "Start Chatvoice"
                         }
                         disabled={!ttsActive && ttsAvailability !== "available"}
                         onSelect={() =>

@@ -60,7 +60,7 @@ export const PREFERENCE_CATEGORIES: SettingsCategoryEntry[] = [
     label: "Users",
     icon: UsersIcon,
     description:
-      "Nicknames and text-to-speech voices for specific chatters. Nicknames only change what you see; mentions appear normally for everyone else.",
+      "Nicknames and Chatvoice voices for specific chatters. Nicknames only change what you see; mentions appear normally for everyone else.",
   },
   {
     id: "player",
@@ -98,7 +98,7 @@ export const TTS_CATEGORIES: SettingsCategoryEntry[] = [
     label: "Speech",
     icon: SpeechIcon,
     description:
-      "How chat messages are filtered, queued, and read aloud when text-to-speech is running.",
+      "How chat messages are filtered, queued, and read aloud when Chatvoice is running.",
   },
   {
     id: "tts-voices",
@@ -118,8 +118,7 @@ export const TTS_CATEGORIES: SettingsCategoryEntry[] = [
     id: "tts-commands",
     label: "Commands",
     icon: TerminalIcon,
-    description:
-      "Let chat control text-to-speech. Every command starts disabled.",
+    description: "Let chat control Chatvoice. Every command starts disabled.",
   },
 ]
 
@@ -127,12 +126,24 @@ export const TTS_CATEGORY_IDS = new Set<SettingsCategory>(
   TTS_CATEGORIES.map((category) => category.id)
 )
 
+export const CHATVOICE_INFO =
+  "Chatvoice reads chat messages in a channel aloud, giving each chatter their own voice. Start it from a channel's options menu."
+export const CHATVOICE_UNAVAILABLE_INFO =
+  "Chatvoice isn't available because this browser doesn't have any TTS voices available. Consider using Chrome or Edge to use this feature."
+
 export const NAV_GROUPS: {
   label: string
   categories: SettingsCategoryEntry[]
+  info?: string
+  unavailableInfo?: string
 }[] = [
   { label: "Preferences", categories: PREFERENCE_CATEGORIES },
-  { label: "Text-to-Speech", categories: TTS_CATEGORIES },
+  {
+    label: "Chatvoice",
+    categories: TTS_CATEGORIES,
+    info: CHATVOICE_INFO,
+    unavailableInfo: CHATVOICE_UNAVAILABLE_INFO,
+  },
 ]
 
 export const RESOURCE_CATEGORIES: SettingsCategoryEntry[] = [
