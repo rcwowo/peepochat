@@ -40,11 +40,13 @@ import {
 } from "@/lib/chat/emotes/emotes"
 import {
   PeepochatChatContext,
+  PeepochatChatStoreContext,
   PeepochatConfigContext,
   PeepochatLayoutContext,
   PeepochatPlayerContext,
   PeepochatSidebarHighlightsContext,
   type PeepochatChatContextValue,
+  type PeepochatChatStoreContextValue,
   type PeepochatConfigContextValue,
   type PeepochatLayoutContextValue,
   type PeepochatPlayerContextValue,
@@ -92,7 +94,6 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
   const {
     connectionState,
     sendConnectionState,
-    logs,
     subscribeToRoom,
     syncChannels,
     getTimeline,
@@ -886,7 +887,6 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     () => ({
       connectionState,
       sendConnectionState,
-      logs,
       subscribeToRoom,
       getTimeline,
       getRoom,
@@ -931,7 +931,6 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     [
       connectionState,
       sendConnectionState,
-      logs,
       subscribeToRoom,
       getTimeline,
       getRoom,
@@ -975,6 +974,33 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     ]
   )
 
+  const chatStoreValue = React.useMemo<PeepochatChatStoreContextValue>(
+    () => ({
+      subscribeToRoom,
+      getRoom,
+      subscribeToChatters,
+      getChatters,
+      getChatterByLogin,
+      getBadgeCatalogByRoomId: getBadgeCatalog,
+      subscribeToBadgeCatalogs,
+      loadBadgesForRoom,
+      ensureSharedChatSourceProfiles,
+      markChatMessageDeleted,
+    }),
+    [
+      subscribeToRoom,
+      getRoom,
+      subscribeToChatters,
+      getChatters,
+      getChatterByLogin,
+      getBadgeCatalog,
+      subscribeToBadgeCatalogs,
+      loadBadgesForRoom,
+      ensureSharedChatSourceProfiles,
+      markChatMessageDeleted,
+    ]
+  )
+
   return (
     <PeepochatConfigContext.Provider value={configValue}>
       <PeepochatLayoutContext.Provider value={layoutValue}>
@@ -982,9 +1008,11 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
           value={sidebarHighlightsValue}
         >
           <PeepochatPlayerContext.Provider value={playerValue}>
-            <PeepochatChatContext.Provider value={chatValue}>
-              {children}
-            </PeepochatChatContext.Provider>
+            <PeepochatChatStoreContext.Provider value={chatStoreValue}>
+              <PeepochatChatContext.Provider value={chatValue}>
+                {children}
+              </PeepochatChatContext.Provider>
+            </PeepochatChatStoreContext.Provider>
           </PeepochatPlayerContext.Provider>
         </PeepochatSidebarHighlightsContext.Provider>
       </PeepochatLayoutContext.Provider>

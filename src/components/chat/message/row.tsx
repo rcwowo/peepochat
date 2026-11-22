@@ -42,7 +42,7 @@ import type {
   TwitchAccount,
 } from "@/lib/peepochat/peepochat-config"
 import { formatMessageTimestamp } from "@/lib/chat/presentation/timestamp"
-import { usePeepochatChat } from "@/lib/peepochat/peepochat-context"
+import { usePeepochatChatStore } from "@/lib/peepochat/peepochat-context"
 import type { ResolvedMemberBadge } from "@/lib/rcw/badges"
 import type { TwitchSelfChatState } from "@/lib/twitch/chat/types"
 import { banTwitchUser, deleteTwitchChatMessage } from "@/lib/twitch/auth/api"
@@ -105,7 +105,7 @@ function ChatMessageRowInner({
   const pendingActionRef = React.useRef<"delete" | "timeout" | "ban" | null>(
     null
   )
-  const { markChatMessageDeleted } = usePeepochatChat()
+  const { markChatMessageDeleted } = usePeepochatChatStore()
   const isDeleted = message.deletedAt !== null
   const timestamp = formatMessageTimestamp(message.receivedAt, timestampFormat)
   const { resolvedBadges: badges, sourceChannel } = useSharedChatMessageChrome({

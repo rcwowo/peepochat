@@ -9,7 +9,7 @@ import {
   getSharedChatSourceProfile,
   subscribeToSharedChatSourceProfiles,
 } from "@/lib/chat/shared-chat/profiles"
-import { usePeepochatChat } from "@/lib/peepochat/peepochat-context"
+import { usePeepochatChatStore } from "@/lib/peepochat/peepochat-context"
 import type { TwitchBadge } from "@/lib/twitch/chat/chat"
 
 const NOOP_SUBSCRIBE = () => () => {}
@@ -30,7 +30,7 @@ export function useSharedChatMessageChrome({
     ensureSharedChatSourceProfiles,
     subscribeToBadgeCatalogs,
     getBadgeCatalogByRoomId,
-  } = usePeepochatChat()
+  } = usePeepochatChatStore()
 
   React.useEffect(() => {
     if (!sourceRoomId || !showTwitchBadges) {

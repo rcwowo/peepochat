@@ -131,7 +131,6 @@ export type PeepochatPlayerContextValue = {
 export type PeepochatChatContextValue = {
   connectionState: TwitchConnectionState
   sendConnectionState: TwitchConnectionState
-  logs: string[]
   subscribeToRoom: (login: string, listener: () => void) => () => void
   getTimeline: (login: string) => TwitchTimelineItem[]
   getRoom: (login: string) => TwitchChatRoomState | null
@@ -208,6 +207,20 @@ export type PeepochatChatContextValue = {
   unblockUser: (userId: string, login?: string) => Promise<void>
 }
 
+export type PeepochatChatStoreContextValue = Pick<
+  PeepochatChatContextValue,
+  | "subscribeToRoom"
+  | "getRoom"
+  | "subscribeToChatters"
+  | "getChatters"
+  | "getChatterByLogin"
+  | "getBadgeCatalogByRoomId"
+  | "subscribeToBadgeCatalogs"
+  | "loadBadgesForRoom"
+  | "ensureSharedChatSourceProfiles"
+  | "markChatMessageDeleted"
+>
+
 export type PeepochatContextValue = PeepochatConfigContextValue &
   PeepochatLayoutContextValue &
   PeepochatChatContextValue
@@ -218,6 +231,8 @@ export const PeepochatLayoutContext =
   React.createContext<PeepochatLayoutContextValue | null>(null)
 export const PeepochatChatContext =
   React.createContext<PeepochatChatContextValue | null>(null)
+export const PeepochatChatStoreContext =
+  React.createContext<PeepochatChatStoreContextValue | null>(null)
 export const PeepochatSidebarHighlightsContext =
   React.createContext<PeepochatSidebarHighlightsContextValue | null>(null)
 export const PeepochatPlayerContext =
@@ -267,6 +282,16 @@ export function usePeepochatChat() {
   const context = React.useContext(PeepochatChatContext)
   if (!context) {
     throw new Error("usePeepochatChat must be used within a PeepochatProvider")
+  }
+  return context
+}
+
+export function usePeepochatChatStore() {
+  const context = React.useContext(PeepochatChatStoreContext)
+  if (!context) {
+    throw new Error(
+      "usePeepochatChatStore must be used within a PeepochatProvider"
+    )
   }
   return context
 }
