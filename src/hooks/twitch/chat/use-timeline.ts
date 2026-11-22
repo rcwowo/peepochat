@@ -275,6 +275,11 @@ export function useTimeline({
         batch.roomId = options.roomId
       }
 
+      if (batch.items.length >= liveMessageLimitRef.current) {
+        flushLiveTimelineBatch(normalized)
+        return
+      }
+
       if (batch.frameId !== null) {
         return
       }
