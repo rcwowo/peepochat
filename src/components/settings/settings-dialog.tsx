@@ -331,7 +331,7 @@ export function SettingsDialog({
                   {activeEntry?.label}
                 </h2>
                 {activeDescription ? (
-                  <p className="mt-1 max-w-2xl text-xs leading-relaxed text-muted-foreground sm:text-[13px]">
+                  <p className="mt-0.5 max-w-2xl text-xs leading-snug text-muted-foreground sm:text-[13px]">
                     {activeDescription}
                   </p>
                 ) : null}
