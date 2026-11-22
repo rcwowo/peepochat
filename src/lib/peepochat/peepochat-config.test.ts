@@ -89,7 +89,11 @@ function customConfig(): AppConfig {
       deletedMessagesBehavior: "remove",
       emotes: { bttvEnabled: false },
       badges: { owoMemberEnabled: false },
-      messageQuickActions: { banEnabled: true },
+      messageQuickActions: {
+        banEnabled: true,
+        order: ["ban", "copy", "reply", "delete", "timeout"],
+      },
+      userCard: { moderationActionsEnabled: false },
       streamInfo: { categoryEnabled: true },
     },
     layout: {
@@ -729,6 +733,56 @@ describe("loading old, partial and malformed configs", () => {
     expect(
       load({ chat: { chatModesVisibility: "always" } }).chat.chatModesVisibility
     ).toBe("always")
+  })
+
+  test("keeps a saved quick action order and repairs a malformed one", () => {
+    const defaults = createDefaultConfig()
+    expect(load({ chat: {} }).chat.messageQuickActions.order).toEqual(
+      defaults.chat.messageQuickActions.order
+    )
+    expect(
+      load({ chat: { messageQuickActions: { copyEnabled: false } } }).chat
+        .messageQuickActions
+    ).toEqual({ ...defaults.chat.messageQuickActions, copyEnabled: false })
+    expect(
+      load({
+        chat: {
+          messageQuickActions: {
+            order: ["ban", "timeout", "delete", "reply", "copy"],
+          },
+        },
+      }).chat.messageQuickActions.order
+    ).toEqual(["ban", "timeout", "delete", "reply", "copy"])
+    expect(
+      load({
+        chat: {
+          messageQuickActions: { order: ["reply", "pin", "reply", 7] },
+        },
+      }).chat.messageQuickActions.order
+    ).toEqual(["reply", "copy", "delete", "timeout", "ban"])
+    expect(
+      load({ chat: { messageQuickActions: { order: "copy" } } }).chat
+        .messageQuickActions.order
+    ).toEqual(defaults.chat.messageQuickActions.order)
+  })
+
+  test("fills and repairs user card section settings", () => {
+    const defaults = createDefaultConfig()
+    expect(load({ chat: {} }).chat.userCard).toEqual(defaults.chat.userCard)
+    expect(
+      load({
+        chat: {
+          userCard: { recentMessagesEnabled: false, infoCardsEnabled: "no" },
+        },
+      }).chat.userCard
+    ).toEqual({
+      infoCardsEnabled: true,
+      recentMessagesEnabled: false,
+      moderationActionsEnabled: true,
+    })
+    expect(load({ chat: { userCard: [] } }).chat.userCard).toEqual(
+      defaults.chat.userCard
+    )
   })
 
   test("normalizes the embedded TTS config", () => {

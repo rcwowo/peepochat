@@ -27,6 +27,11 @@ import {
   type TtsSoundEffectAudioBackup,
 } from "@/lib/tts/tts-db"
 import {
+  createDefaultMessageQuickActionOrder,
+  normalizeMessageQuickActionOrder,
+  type MessageQuickActionId,
+} from "@/lib/chat/message-quick-actions"
+import {
   NICKNAME_MAX_LENGTH,
   isValidNickname,
   isValidTwitchLogin,
@@ -79,6 +84,17 @@ const messageQuickActionsSchema = z.object({
   deleteEnabled: z.boolean().default(true),
   timeoutEnabled: z.boolean().default(false),
   banEnabled: z.boolean().default(false),
+  order: z
+    .unknown()
+    .transform((value): MessageQuickActionId[] =>
+      normalizeMessageQuickActionOrder(value)
+    ),
+})
+
+const userCardSchema = z.object({
+  infoCardsEnabled: z.boolean().default(true),
+  recentMessagesEnabled: z.boolean().default(true),
+  moderationActionsEnabled: z.boolean().default(true),
 })
 
 const deletedMessagesBehaviorSchema = z
@@ -127,6 +143,11 @@ const chatSchema = z.object({
     .max(LIVE_MESSAGES_PER_CHANNEL_MAX)
     .default(LIVE_MESSAGES_PER_CHANNEL_DEFAULT),
   messageQuickActions: messageQuickActionsSchema,
+  userCard: userCardSchema.default({
+    infoCardsEnabled: true,
+    recentMessagesEnabled: true,
+    moderationActionsEnabled: true,
+  }),
   deletedMessagesBehavior: deletedMessagesBehaviorSchema,
   gifMessageAppearance: gifMessageAppearanceSchema,
   chatModesVisibility: chatModesVisibilitySchema,
@@ -317,6 +338,7 @@ export type ChatBadgesConfig = z.infer<typeof chatBadgesSchema>
 export type MessageQuickActionsConfig = z.infer<
   typeof messageQuickActionsSchema
 >
+export type UserCardConfig = z.infer<typeof userCardSchema>
 export type DeletedMessagesBehavior = z.infer<
   typeof deletedMessagesBehaviorSchema
 >
@@ -375,6 +397,12 @@ export function createDefaultConfig(): AppConfig {
         deleteEnabled: true,
         timeoutEnabled: false,
         banEnabled: false,
+        order: createDefaultMessageQuickActionOrder(),
+      },
+      userCard: {
+        infoCardsEnabled: true,
+        recentMessagesEnabled: true,
+        moderationActionsEnabled: true,
       },
       deletedMessagesBehavior: "strikethrough",
       gifMessageAppearance: "display",

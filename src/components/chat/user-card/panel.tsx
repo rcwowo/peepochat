@@ -4,6 +4,7 @@ import {
   CalendarDaysIcon,
   CopyIcon,
   EllipsisIcon,
+  FlagIcon,
   GemIcon,
   SearchIcon,
   ShieldIcon,
@@ -44,12 +45,14 @@ import {
   chatlogsUserUrl,
   MODERATION_TIMEOUT_PRESETS,
   openExternalTool,
+  twitchReportUserUrl,
   twitchViewerCardUrl,
 } from "@/lib/chat/moderation/tools"
 import { twitchChannelUrl } from "@/lib/chat/user-card/user-card"
 import type {
   MessageTimestampFormat,
   TwitchAccount,
+  UserCardConfig,
 } from "@/lib/peepochat/peepochat-config"
 import { formatMessageTimestamp } from "@/lib/chat/presentation/timestamp"
 import { hasBlockedUsersManageScope } from "@/hooks/twitch/use-blocked-users"
@@ -216,6 +219,7 @@ type UserCardPanelProps = {
   selfChatState: TwitchSelfChatState | null
   recentMessages: TwitchChatMessage[]
   timestampFormat: MessageTimestampFormat
+  sections: UserCardConfig
   loginWithTwitch: () => void
   isUserBlocked: (userId?: string | null, login?: string | null) => boolean
   blockUser: (userId: string, login: string) => Promise<void>
@@ -238,6 +242,7 @@ export function UserCardPanel({
   selfChatState,
   recentMessages,
   timestampFormat,
+  sections,
   loginWithTwitch,
   isUserBlocked,
   blockUser,
@@ -338,7 +343,12 @@ export function UserCardPanel({
   const isActionPending = card.pendingAction !== null
   const showTimeoutGrid = canBanOrTimeout
   const showModerationActions =
-    canBanOrTimeout || canUseModeratorApi || canUseVipApi
+    sections.moderationActionsEnabled &&
+    (canBanOrTimeout || canUseModeratorApi || canUseVipApi)
+  const showBlockAction = canManageBlockedUsers && !isSelf && !!targetUserId
+  const showReportAction = !isSelf && !!login
+  const showCardBody =
+    sections.infoCardsEnabled || sections.recentMessagesEnabled
 
   const handleAction = React.useCallback(
     (
@@ -585,17 +595,31 @@ export function UserCardPanel({
                   <CopyIcon className="ml-auto size-3.5 text-muted-foreground" />
                 </DropdownMenuItem>
               </DropdownMenuGroup>
-              {canManageBlockedUsers && !isSelf && targetUserId ? (
+              {showBlockAction || showReportAction ? (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>
-                    <DropdownMenuItem
-                      disabled={blockActionPending}
-                      onSelect={handleBlockToggle}
-                    >
-                      {targetIsBlocked ? "Unblock user" : "Block user"}
-                      <UserXIcon className="ml-auto size-3.5 text-muted-foreground" />
-                    </DropdownMenuItem>
+                    {showBlockAction ? (
+                      <DropdownMenuItem
+                        variant="destructive"
+                        disabled={blockActionPending}
+                        onSelect={handleBlockToggle}
+                      >
+                        {targetIsBlocked ? "Unblock user" : "Block user"}
+                        <UserXIcon className="ml-auto size-3.5" />
+                      </DropdownMenuItem>
+                    ) : null}
+                    {showReportAction ? (
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onSelect={() =>
+                          openExternalTool(twitchReportUserUrl(login))
+                        }
+                      >
+                        Report user
+                        <FlagIcon className="ml-auto size-3.5" />
+                      </DropdownMenuItem>
+                    ) : null}
                   </DropdownMenuGroup>
                 </>
               ) : null}
@@ -689,91 +713,100 @@ export function UserCardPanel({
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <div
-              className={cn("space-y-4 p-4", !profile?.description && "pt-3")}
-            >
-              <div className="space-y-2">
-                {profile?.description ? (
-                  <InfoTile label="Bio" value={profile.description} />
+          {showCardBody ? (
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <div
+                className={cn(
+                  "space-y-4 p-4",
+                  !(sections.infoCardsEnabled && profile?.description) && "pt-3"
+                )}
+              >
+                {sections.infoCardsEnabled ? (
+                  <div className="space-y-2">
+                    {profile?.description ? (
+                      <InfoTile label="Bio" value={profile.description} />
+                    ) : null}
+
+                    <div
+                      className={cn(
+                        "grid gap-2 text-xs",
+                        userType ? "grid-cols-3" : "grid-cols-2"
+                      )}
+                    >
+                      {isProfileLoading ? (
+                        <InfoTileSkeleton />
+                      ) : createdAt ? (
+                        <InfoTile
+                          icon={<CalendarDaysIcon className="size-3" />}
+                          label="Created"
+                          value={createdAt}
+                        />
+                      ) : null}
+                      {isChannelStatusLoading ? (
+                        <InfoTileSkeleton />
+                      ) : (
+                        <InfoTile
+                          icon={<SparklesIcon className="size-3" />}
+                          label="Subscription"
+                          value={subscriptionLabel}
+                        />
+                      )}
+                      {isProfileLoading ? (
+                        <InfoTileSkeleton />
+                      ) : userType ? (
+                        <InfoTile
+                          icon={<UsersIcon className="size-3" />}
+                          label="User Type"
+                          value={userType}
+                        />
+                      ) : null}
+                    </div>
+                  </div>
                 ) : null}
 
-                <div
-                  className={cn(
-                    "grid gap-2 text-xs",
-                    userType ? "grid-cols-3" : "grid-cols-2"
-                  )}
-                >
-                  {isProfileLoading ? (
-                    <InfoTileSkeleton />
-                  ) : createdAt ? (
-                    <InfoTile
-                      icon={<CalendarDaysIcon className="size-3" />}
-                      label="Created"
-                      value={createdAt}
-                    />
-                  ) : null}
-                  {isChannelStatusLoading ? (
-                    <InfoTileSkeleton />
-                  ) : (
-                    <InfoTile
-                      icon={<SparklesIcon className="size-3" />}
-                      label="Subscription"
-                      value={subscriptionLabel}
-                    />
-                  )}
-                  {isProfileLoading ? (
-                    <InfoTileSkeleton />
-                  ) : userType ? (
-                    <InfoTile
-                      icon={<UsersIcon className="size-3" />}
-                      label="User Type"
-                      value={userType}
-                    />
-                  ) : null}
-                </div>
-              </div>
+                {sections.recentMessagesEnabled ? (
+                  <div className="space-y-2">
+                    <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                      Recent messages
+                    </h3>
+                    {recentMessages.length > 0 ? (
+                      <div className="space-y-1.5">
+                        {recentMessages.map((message) => {
+                          const timestamp = formatMessageTimestamp(
+                            message.receivedAt,
+                            timestampFormat
+                          )
 
-              <div className="space-y-2">
-                <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                  Recent messages
-                </h3>
-                {recentMessages.length > 0 ? (
-                  <div className="space-y-1.5">
-                    {recentMessages.map((message) => {
-                      const timestamp = formatMessageTimestamp(
-                        message.receivedAt,
-                        timestampFormat
-                      )
-
-                      return (
-                        <div
-                          key={message.id}
-                          className="rounded-lg bg-muted/50 px-2.5 py-2 text-xs leading-snug"
-                        >
-                          {timestamp ? (
-                            <time className="mr-1.5 text-[11px] text-muted-foreground">
-                              {timestamp}
-                            </time>
-                          ) : null}
-                          <ChatMessageBody
-                            text={message.text}
-                            emotes={message.emotes}
-                            gifs={message.gifs}
-                          />
-                        </div>
-                      )
-                    })}
+                          return (
+                            <div
+                              key={message.id}
+                              className="rounded-lg bg-muted/50 px-2.5 py-2 text-xs leading-snug"
+                            >
+                              {timestamp ? (
+                                <time className="mr-1.5 text-[11px] text-muted-foreground">
+                                  {timestamp}
+                                </time>
+                              ) : null}
+                              <ChatMessageBody
+                                text={message.text}
+                                emotes={message.emotes}
+                                gifs={message.gifs}
+                              />
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        No recent messages from this user are available in the
+                        loaded chat history.
+                      </p>
+                    )}
                   </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    No recent messages from this user are available in the
-                    loaded chat history.
-                  </p>
-                )}
+                ) : null}
               </div>
             </div>
-          </div>
+          ) : null}
 
           {showModerationActions ? (
             <div className="shrink-0 space-y-1 border-t bg-muted/35 px-3 py-2">

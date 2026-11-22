@@ -14,6 +14,7 @@ import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 import type {
   MessageTimestampFormat,
   TwitchAccount,
+  UserCardConfig,
 } from "@/lib/peepochat/peepochat-config"
 import type { TwitchChatMessage } from "@/lib/twitch/chat/chat"
 import { HotkeyRegistryContext } from "@/lib/hotkeys/hotkey-registry.shared"
@@ -91,6 +92,7 @@ export function UserCardProvider({
   loginWithTwitch,
   getRecentMessages,
   timestampFormat,
+  sections,
   isUserBlocked,
   blockUser,
   unblockUser,
@@ -105,6 +107,7 @@ export function UserCardProvider({
   loginWithTwitch: () => void
   getRecentMessages: (target: UserCardTarget) => TwitchChatMessage[]
   timestampFormat: MessageTimestampFormat
+  sections: UserCardConfig
   isUserBlocked: (userId?: string | null, login?: string | null) => boolean
   blockUser: (userId: string, login: string) => Promise<void>
   unblockUser: (userId: string, login?: string) => Promise<void>
@@ -322,9 +325,12 @@ export function UserCardProvider({
               channelRoomId={resolvedChannelRoomId}
               selfChatState={resolvedSelfChatState}
               recentMessages={
-                activeTarget ? getRecentMessages(activeTarget) : []
+                sections.recentMessagesEnabled
+                  ? getRecentMessages(activeTarget)
+                  : []
               }
               timestampFormat={timestampFormat}
+              sections={sections}
               loginWithTwitch={loginWithTwitch}
               isUserBlocked={isUserBlocked}
               blockUser={blockUser}

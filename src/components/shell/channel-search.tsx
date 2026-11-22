@@ -1223,6 +1223,7 @@ export function ChannelSearch() {
             loginWithTwitch={loginWithTwitch}
             getRecentMessages={getRecentMessages}
             timestampFormat={config.chat.messageTimestampFormat}
+            sections={config.chat.userCard}
             isUserBlocked={isUserBlocked}
             blockUser={blockUser}
             unblockUser={unblockUser}

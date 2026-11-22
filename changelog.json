@@ -9,7 +9,10 @@
             "Added separators between side-by-side actions in context menus.",
             "Added a search button to user cards that searches the user's messages in that channel.",
             "Added shortcut hints while holding the 'Alt' key.",
-            "Channels and their info, like profile pictures, is now refreshed whenever Peepochat is opened."
+            "Channels and their info, like profile pictures, is now refreshed whenever Peepochat is opened.",
+            "Added the ability to hide profile details, recent messages, and moderation actions in user cards.",
+            "Added a report button to user cards.",
+            "Added the ability to reorder message quick actions in the chat tab of settings."
         ]
     },
     {

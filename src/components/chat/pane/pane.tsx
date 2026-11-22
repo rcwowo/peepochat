@@ -58,6 +58,7 @@ import type {
   MessageQuickActionsConfig,
   MessageTimestampFormat,
   TwitchAccount,
+  UserCardConfig,
 } from "@/lib/peepochat/peepochat-config"
 import type { TwitchLiveStream } from "@/lib/twitch/auth/api"
 import { useChannelMessageHighlights } from "@/hooks/chat-ui/use-highlight-activity"
@@ -160,6 +161,7 @@ type ChatPaneProps = {
   timeline: TwitchTimelineItem[]
   timestampFormat: MessageTimestampFormat
   messageQuickActions: MessageQuickActionsConfig
+  userCardSections: UserCardConfig
   deletedMessagesBehavior: DeletedMessagesBehavior
   highlightPingedMessages: boolean
   account: TwitchAccount | null
@@ -195,6 +197,7 @@ function ChatPaneInner({
   timeline,
   timestampFormat,
   messageQuickActions,
+  userCardSections,
   deletedMessagesBehavior,
   highlightPingedMessages,
   account,
@@ -476,6 +479,7 @@ function ChatPaneInner({
       loginWithTwitch={loginWithTwitch}
       getRecentMessages={getRecentMessagesForUser}
       timestampFormat={timestampFormat}
+      sections={userCardSections}
       isUserBlocked={isUserBlocked}
       blockUser={blockUser}
       unblockUser={unblockUser}

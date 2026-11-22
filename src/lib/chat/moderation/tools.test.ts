@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 
 import {
   chatlogsUserUrl,
+  twitchReportUserUrl,
   twitchViewerCardUrl,
 } from "@/lib/chat/moderation/tools"
 
@@ -17,6 +18,13 @@ describe("external moderation tool urls", () => {
     expect(url.pathname).toBe(
       `/popout/a%2Fb/viewercard/${encodeURIComponent("日本 語")}`
     )
+  })
+
+  test("builds an encoded Twitch report url", () => {
+    expect(twitchReportUserUrl("viewer_1")).toBe(
+      "https://www.twitch.tv/viewer_1/report"
+    )
+    expect(new URL(twitchReportUserUrl("a/b")).pathname).toBe("/a%2Fb/report")
   })
 
   test("encodes chatlogs query parameters so they round-trip", () => {

@@ -182,10 +182,12 @@ export function SettingsDialog({
       ? activeEntry.description()
       : activeEntry?.description
 
-  const preventInlineEditDismiss = (event: KeyboardEvent) => {
+  const preventGuardedEscapeDismiss = (event: KeyboardEvent) => {
     if (
       event.target instanceof Element &&
-      event.target.closest("[data-settings-inline-edit]")
+      event.target.closest(
+        "[data-settings-inline-edit], [data-settings-sorting]"
+      )
     ) {
       event.preventDefault()
     }
@@ -215,7 +217,7 @@ export function SettingsDialog({
         onInteractOutside={preventPortaledDismiss}
         onPointerDownOutside={preventPortaledDismiss}
         onFocusOutside={preventPortaledDismiss}
-        onEscapeKeyDown={preventInlineEditDismiss}
+        onEscapeKeyDown={preventGuardedEscapeDismiss}
       >
         <DialogTitle className="sr-only">Settings</DialogTitle>
 
