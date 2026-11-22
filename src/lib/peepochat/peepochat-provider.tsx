@@ -5,6 +5,7 @@ import { useChatLayout } from "@/hooks/chat-ui/use-chat-layout"
 import { usePeepochatConfig } from "@/hooks/peepochat/use-peepochat-config"
 import { useBlockedUsers } from "@/hooks/twitch/use-blocked-users"
 import { useTwitchAuth } from "@/hooks/twitch/use-twitch-auth"
+import { useProfileRefresh } from "@/hooks/twitch/use-profile-refresh"
 import { useTwitchChannels } from "@/hooks/twitch/use-twitch-channels"
 import { useChatBadges } from "@/hooks/chat-ui/use-chat-badges"
 import { useRcwBadges } from "@/hooks/chat-ui/use-rcw-badges"
@@ -208,6 +209,11 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     () => channels.map((channel) => channel.login),
     [channels]
   )
+  useProfileRefresh({
+    account: effectiveAccount,
+    channelLogins,
+    updateConfig,
+  })
   const watchedInstances = watchState.instances
   const watchedChannelLogins = React.useMemo(
     () => watchedInstances.map((instance) => instance.login),

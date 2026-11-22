@@ -33,14 +33,17 @@ export function useChatBadges(account: TwitchAccount | null) {
     }
   }, [listenersRef])
 
+  const accessToken = account?.accessToken ?? null
+  const clientId = account?.clientId ?? null
+
   React.useEffect(() => {
-    if (!account || globalLoadingRef.current) {
+    if (!accessToken || !clientId || globalLoadingRef.current) {
       return
     }
 
     globalLoadingRef.current = true
 
-    void loadGlobalBadgeCatalog(account.accessToken, account.clientId)
+    void loadGlobalBadgeCatalog(accessToken, clientId)
       .then((nextCatalog) => {
         globalCatalogRef.current = nextCatalog
         notifyBadgeCatalogs()
@@ -52,7 +55,7 @@ export function useChatBadges(account: TwitchAccount | null) {
       .finally(() => {
         globalLoadingRef.current = false
       })
-  }, [account, notifyBadgeCatalogs])
+  }, [accessToken, clientId, notifyBadgeCatalogs])
 
   const loadBadgesForRoom = React.useCallback(
     (roomId: string | null) => {
