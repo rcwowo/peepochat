@@ -24,6 +24,7 @@ import { devChatLogger } from "@/lib/dev-logger"
 import {
   buildSyncChannelsKey,
   createEmptySenderState,
+  selfChatStatesEqual,
   toSelfChatState,
   type SenderState,
 } from "@/lib/twitch/chat/timeline"
@@ -198,12 +199,19 @@ export function useChatConnection({
     }))
 
   const updateSelfState = React.useCallback(
-    (state: TwitchSelfChatState) => {
-      selfStatesRef.current.set(state.channel, state)
-      setSelfStates((current) => ({
-        ...current,
-        [state.channel]: state,
-      }))
+    (nextState: TwitchSelfChatState) => {
+      const previous = selfStatesRef.current.get(nextState.channel)
+      const state =
+        previous && selfChatStatesEqual(previous, nextState)
+          ? previous
+          : nextState
+      if (state !== previous) {
+        selfStatesRef.current.set(state.channel, state)
+        setSelfStates((current) => ({
+          ...current,
+          [state.channel]: state,
+        }))
+      }
       senderStateRef.current = {
         color: state.color,
         badges: state.badges,

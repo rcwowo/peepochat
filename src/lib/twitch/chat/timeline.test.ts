@@ -16,11 +16,15 @@ import {
   partitionTimelineWithKnownIds,
   purgeDeletedChatEntries,
   purgeMessagesFromUsers,
+  selfChatStatesEqual,
   selfStateFromMessage,
   trimTimeline,
   type TimelineMatchableMessage,
 } from "@/lib/twitch/chat/timeline"
-import type { TwitchTimelineItem } from "@/lib/twitch/chat/types"
+import type {
+  TwitchSelfChatState,
+  TwitchTimelineItem,
+} from "@/lib/twitch/chat/types"
 
 const DELETED_AT = "2024-01-01T00:00:00.000Z"
 
@@ -299,6 +303,51 @@ describe("buildSyncChannelsKey", () => {
     expect(buildSyncChannelsKey(["a", "b"])).not.toBe(
       buildSyncChannelsKey(["b", "a"])
     )
+  })
+})
+
+describe("selfChatStatesEqual", () => {
+  const base: TwitchSelfChatState = {
+    channel: "chan",
+    roomId: "1",
+    displayName: "Me",
+    color: "#FF0000",
+    badges: [{ set: "moderator", version: "1" }],
+    isBroadcaster: false,
+    isModerator: true,
+    isSubscriber: false,
+    isVip: false,
+  }
+
+  test("treats separate objects with identical fields as equal", () => {
+    expect(
+      selfChatStatesEqual(base, {
+        ...base,
+        badges: [{ set: "moderator", version: "1" }],
+      })
+    ).toBe(true)
+  })
+
+  test("detects changed scalar fields", () => {
+    expect(selfChatStatesEqual(base, { ...base, color: "#00FF00" })).toBe(false)
+    expect(selfChatStatesEqual(base, { ...base, isModerator: false })).toBe(
+      false
+    )
+  })
+
+  test("detects changed badges", () => {
+    expect(
+      selfChatStatesEqual(base, {
+        ...base,
+        badges: [{ set: "moderator", version: "2" }],
+      })
+    ).toBe(false)
+    expect(
+      selfChatStatesEqual(base, {
+        ...base,
+        badges: [...base.badges, { set: "subscriber", version: "0" }],
+      })
+    ).toBe(false)
   })
 })
 

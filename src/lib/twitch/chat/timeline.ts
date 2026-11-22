@@ -146,6 +146,28 @@ export function toSelfChatState(
   return state
 }
 
+export function selfChatStatesEqual(
+  left: TwitchSelfChatState,
+  right: TwitchSelfChatState
+): boolean {
+  return (
+    left.channel === right.channel &&
+    left.roomId === right.roomId &&
+    left.displayName === right.displayName &&
+    left.color === right.color &&
+    left.isBroadcaster === right.isBroadcaster &&
+    left.isModerator === right.isModerator &&
+    left.isSubscriber === right.isSubscriber &&
+    left.isVip === right.isVip &&
+    left.badges.length === right.badges.length &&
+    left.badges.every(
+      (badge, index) =>
+        badge.set === right.badges[index]!.set &&
+        badge.version === right.badges[index]!.version
+    )
+  )
+}
+
 export function selfStateFromMessage(
   message: TwitchChatMessage
 ): TwitchSelfChatState {
