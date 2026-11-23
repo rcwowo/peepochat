@@ -826,6 +826,7 @@ export function AddChannelDialog({
 
   const query = normalizeChannelLogin(draft)
   const showLoading = followed.loading && followed.rows.length === 0 && !query
+  const refreshingFollows = followed.refreshing && followed.rows.length > 0
   const showEmpty = !showLoading && listRows.length === 0
   const emptyMessage =
     followed.missingScope || followed.error
@@ -870,7 +871,17 @@ export function AddChannelDialog({
 
         <div className="shrink-0 px-4 pt-3.5 pb-3">
           <div className="relative">
-            <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+            {refreshingFollows ? (
+              <Spinner
+                aria-hidden
+                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+              />
+            ) : (
+              <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+            )}
+            <span role="status" className="sr-only">
+              {refreshingFollows ? "Loading follows..." : null}
+            </span>
             <Input
               ref={inputRef}
               id="add-channel-input"
@@ -923,16 +934,6 @@ export function AddChannelDialog({
         {followed.error && followed.rows.length === 0 ? (
           <div className="shrink-0 border-b border-border px-4 py-2.5 text-xs leading-relaxed text-muted-foreground">
             {followed.error}
-          </div>
-        ) : null}
-
-        {followed.refreshing && followed.rows.length > 0 ? (
-          <div
-            role="status"
-            className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-2.5 text-xs text-muted-foreground"
-          >
-            <Spinner className="size-3.5" />
-            Loading follows...
           </div>
         ) : null}
 
