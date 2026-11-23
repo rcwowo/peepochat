@@ -128,6 +128,10 @@ export function useEmoteCard({
               : "Could not load emote details.",
         })
       })
+
+    return () => {
+      requestIdRef.current += 1
+    }
   }, [catalogEntry, open, target])
 
   return { ...state, reload }

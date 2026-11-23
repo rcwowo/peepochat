@@ -4,6 +4,7 @@ import {
   type HotkeyBinding,
   type HotkeyCombo,
 } from "@/lib/hotkeys/bindings"
+import { isApplePlatform } from "@/lib/hotkeys/platform"
 
 export type HotkeyMatch = {
   action: HotkeyActionId
@@ -12,9 +13,10 @@ export type HotkeyMatch = {
 }
 
 function comboMatches(event: KeyboardEvent, combo: HotkeyCombo) {
-  const wantsCtrlOrMeta = Boolean(combo.ctrlOrMeta)
-  const hasCtrlOrMeta = event.ctrlKey || event.metaKey
-  if (wantsCtrlOrMeta !== hasCtrlOrMeta) {
+  const apple = isApplePlatform()
+  const primary = apple ? event.metaKey : event.ctrlKey
+  const secondary = apple ? event.ctrlKey : event.metaKey
+  if (Boolean(combo.ctrlOrMeta) !== primary || secondary) {
     return false
   }
 

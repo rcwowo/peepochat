@@ -1,7 +1,10 @@
 import * as React from "react"
 
+import type { ChatSearchCommittedFilter } from "@/lib/search/chat-search"
+
 export type SearchHotkeyApi = {
   open: (prefill?: string) => void
+  openWithFilters: (filters: ChatSearchCommittedFilter[]) => void
   close: () => void
   isOpen: () => boolean
 }
@@ -21,6 +24,7 @@ export type HotkeyRegistryValue = {
   getLastFocusedLogin: () => string | null
   getSearch: () => SearchHotkeyApi | null
   getTargetPane: () => PaneHotkeyActions | null
+  getPane: (channelLogin: string) => PaneHotkeyActions | null
 }
 
 export const HotkeyRegistryContext =

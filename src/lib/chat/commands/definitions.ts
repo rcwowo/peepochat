@@ -43,8 +43,10 @@ export const CHAT_COMMAND_DEFINITIONS: ChatCommandDefinition[] = [
   { name: "emoteonlyoff", usage: "", description: "Emote-only mode off" },
   {
     name: "followers",
-    usage: "[minutes]",
+    usage: "[duration]",
     description: "Followers-only mode on",
+    usageDetail:
+      "Plain numbers are minutes. Units m, h, d, w and mo are also accepted (e.g. 30m, 1 week). Max 3 months.",
   },
   { name: "followersoff", usage: "", description: "Followers-only mode off" },
   {
@@ -61,6 +63,7 @@ export const CHAT_COMMAND_DEFINITIONS: ChatCommandDefinition[] = [
     name: "slow",
     usage: "[seconds]",
     description: "Slow mode on",
+    usageDetail: "Between 3 and 120 seconds. Defaults to 30 seconds.",
   },
   { name: "slowoff", usage: "", description: "Slow mode off" },
   { name: "subscribers", usage: "", description: "Subscribers-only mode on" },
@@ -71,8 +74,10 @@ export const CHAT_COMMAND_DEFINITIONS: ChatCommandDefinition[] = [
   },
   {
     name: "timeout",
-    usage: "<username> [seconds] [reason]",
+    usage: "<username> [duration] [reason]",
     description: "Timeout a user",
+    usageDetail:
+      "Plain numbers are seconds. Units s, m, h, d and w are also accepted (e.g. 10m, 1d2h). Defaults to 10 minutes, max 2 weeks.",
   },
   { name: "untimeout", usage: "<username>", description: "Remove a timeout" },
   { name: "unban", usage: "<username>", description: "Unban a user" },

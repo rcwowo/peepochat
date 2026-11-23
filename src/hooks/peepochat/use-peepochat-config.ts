@@ -9,8 +9,19 @@ import {
   saveConfig,
 } from "@/lib/peepochat/peepochat-config"
 import { restoreEmbeddedCustomSounds } from "@/lib/highlights/custom-sounds"
+import {
+  applyChatvoiceImport,
+  fetchChannelProfiles,
+  getNewChatvoiceChannels,
+  type ChatvoiceImport,
+} from "@/lib/chatvoice/chatvoice-import"
 import { isAwaitingOnboardingFinalStep } from "@/lib/peepochat/onboarding-storage"
 import { getTwitchClientId } from "@/lib/twitch/auth/oauth"
+import {
+  replaceTtsData,
+  replaceVoiceAssignments,
+  restoreSoundEffectAudioBackups,
+} from "@/lib/tts/tts-db"
 
 type IdleScheduler = (cb: () => void) => number
 type IdleCanceler = (handle: number) => void
@@ -42,6 +53,7 @@ export function usePeepochatConfig() {
   )
   const pendingSaveRef = React.useRef<AppConfig | null>(null)
   const saveHandleRef = React.useRef<number | null>(null)
+  const savedConfigRef = React.useRef(config)
   const configRef = React.useRef(config)
   React.useEffect(() => {
     configRef.current = config
@@ -94,29 +106,35 @@ export function usePeepochatConfig() {
     }
   }, [flushPendingSave])
 
+  React.useEffect(() => {
+    if (config === savedConfigRef.current) {
+      return
+    }
+    savedConfigRef.current = config
+    queueSave(config)
+  }, [config, queueSave])
+
   const updateConfig = React.useCallback(
     (updater: AppConfig | ((current: AppConfig) => AppConfig)) => {
-      setConfig((current) => {
-        const nextConfig =
-          typeof updater === "function"
-            ? (updater as (value: AppConfig) => AppConfig)(current)
-            : updater
-
-        if (nextConfig === current) {
-          return current
-        }
-
-        queueSave(nextConfig)
-        return nextConfig
-      })
+      setConfig(updater)
     },
-    [queueSave]
+    []
   )
 
   const restoreBackup = React.useCallback(async (payload: string) => {
-    const { config: restored, embeddedSounds } = parseBackupPayload(payload)
+    const {
+      config: restored,
+      embeddedSounds,
+      tts,
+    } = parseBackupPayload(payload)
     if (embeddedSounds.length > 0) {
       await restoreEmbeddedCustomSounds(embeddedSounds)
+    }
+    if (tts.assignments) {
+      await replaceVoiceAssignments(tts.assignments)
+    }
+    if (tts.soundEffects) {
+      await restoreSoundEffectAudioBackups(tts.soundEffects)
     }
     pendingSaveRef.current = null
     if (saveHandleRef.current !== null) {
@@ -129,11 +147,42 @@ export function usePeepochatConfig() {
       configRef.current,
       getTwitchClientId()
     )
+    savedConfigRef.current = merged
     setConfig(merged)
     saveConfig(merged)
     setForceOnboarding(needsOnboardingForConfig(merged))
     return merged
   }, [])
+
+  const importChatvoiceBackup = React.useCallback(
+    async (imported: ChatvoiceImport) => {
+      const profiles = await fetchChannelProfiles(
+        getNewChatvoiceChannels(configRef.current, imported),
+        configRef.current.twitch.account
+      )
+      pendingSaveRef.current = null
+      if (saveHandleRef.current !== null) {
+        cancelIdle(saveHandleRef.current)
+        saveHandleRef.current = null
+      }
+
+      const previous = configRef.current
+      const next = applyChatvoiceImport(previous, imported, profiles)
+      saveConfig(next)
+      try {
+        await replaceTtsData(imported)
+      } catch (error) {
+        saveConfig(previous)
+        throw error
+      }
+
+      configRef.current = next
+      savedConfigRef.current = next
+      setConfig(next)
+      return next
+    },
+    []
+  )
 
   const completeOnboarding = React.useCallback(() => {
     setForceOnboarding(false)
@@ -152,5 +201,6 @@ export function usePeepochatConfig() {
     requireOnboarding,
     updateConfig,
     restoreBackup,
+    importChatvoiceBackup,
   }
 }

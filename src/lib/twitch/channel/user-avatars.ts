@@ -83,32 +83,37 @@ async function flushQueuedAvatars() {
     return
   }
 
-  const found = new Map<string, string>()
+  const chunks: string[][] = []
+  for (let index = 0; index < logins.length; index += AVATAR_CHUNK_SIZE) {
+    chunks.push(logins.slice(index, index + AVATAR_CHUNK_SIZE))
+  }
 
-  try {
-    for (let index = 0; index < logins.length; index += AVATAR_CHUNK_SIZE) {
-      const chunk = logins.slice(index, index + AVATAR_CHUNK_SIZE)
-      const users = await fetchTwitchUsersByLogin(
-        chunk,
-        auth.accessToken,
-        auth.clientId
-      )
-      for (const user of users) {
-        const url = user.profileImageUrl.trim()
-        if (url) {
-          found.set(user.login.toLowerCase(), url)
-        }
+  const results = await Promise.allSettled(
+    chunks.map((chunk) =>
+      fetchTwitchUsersByLogin(chunk, auth.accessToken, auth.clientId)
+    )
+  )
+
+  results.forEach((result, index) => {
+    const chunk = chunks[index] ?? []
+    if (result.status === "rejected") {
+      for (const login of chunk) {
+        failAvatar(login)
+      }
+      return
+    }
+
+    const found = new Map<string, string>()
+    for (const user of result.value) {
+      const url = user.profileImageUrl.trim()
+      if (url) {
+        found.set(user.login.toLowerCase(), url)
       }
     }
-
-    for (const login of logins) {
+    for (const login of chunk) {
       settleAvatar(login, found.get(login) ?? null)
     }
-  } catch {
-    for (const login of logins) {
-      failAvatar(login)
-    }
-  }
+  })
 }
 
 function settleAvatar(login: string, url: string | null) {

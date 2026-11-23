@@ -84,6 +84,34 @@ export function emotesFromV2Fragments(fragments: unknown): EventSubMessageBody {
   return { text, emotes, bits: bits > 0 ? bits : null }
 }
 
+type EmoteRange = { start: number; end: number }
+
+function isWhitespaceAt(text: string, index: number): boolean {
+  return index < 0 || index >= text.length || /\s/.test(text[index]!)
+}
+
+function findFreeOccurrence(
+  text: string,
+  code: string,
+  claimed: EmoteRange[],
+  wholeTokenOnly: boolean
+): number {
+  let index = text.indexOf(code)
+  while (index >= 0) {
+    const end = index + code.length - 1
+    const isFree = claimed.every(
+      (range) => end < range.start || index > range.end
+    )
+    const isWholeToken =
+      isWhitespaceAt(text, index - 1) && isWhitespaceAt(text, end + 1)
+    if (isFree && (!wholeTokenOnly || isWholeToken)) {
+      return index
+    }
+    index = text.indexOf(code, index + 1)
+  }
+  return -1
+}
+
 function emotesFromV1Fragments(
   messageText: string,
   fragments: unknown
@@ -92,20 +120,24 @@ function emotesFromV1Fragments(
   const emoteList = Array.isArray(record?.emotes) ? record.emotes : []
   if (emoteList.length === 0 || !messageText) return []
 
-  const emotes: TwitchEmote[] = []
-  let searchFrom = 0
-
+  const candidates: { code: string; emoteId: string }[] = []
   for (const entry of emoteList) {
     const emote = asRecord(entry)
     if (!emote) continue
     const code = asString(emote.text)
     const emoteId = asString(emote.id).trim()
     if (!code || !emoteId) continue
+    candidates.push({ code, emoteId })
+  }
+  candidates.sort((a, b) => b.code.length - a.code.length)
 
-    const start = messageText.indexOf(code, searchFrom)
+  const emotes: TwitchEmote[] = []
+  for (const { code, emoteId } of candidates) {
+    let start = findFreeOccurrence(messageText, code, emotes, true)
+    if (start < 0) {
+      start = findFreeOccurrence(messageText, code, emotes, false)
+    }
     if (start < 0) continue
-    const end = start + code.length - 1
-    searchFrom = end + 1
 
     emotes.push({
       id: emoteId,
@@ -113,7 +145,7 @@ function emotesFromV1Fragments(
       provider: "twitch",
       imageUrl: twitchEmoteImageUrl(emoteId),
       start,
-      end,
+      end: start + code.length - 1,
     })
   }
 

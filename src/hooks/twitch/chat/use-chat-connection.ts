@@ -24,6 +24,7 @@ import { devChatLogger } from "@/lib/dev-logger"
 import {
   buildSyncChannelsKey,
   createEmptySenderState,
+  selfChatStatesEqual,
   toSelfChatState,
   type SenderState,
 } from "@/lib/twitch/chat/timeline"
@@ -179,7 +180,7 @@ export function useChatConnection({
     onAuthFailureRef.current = onAuthFailure
   }, [onAllRoomsCleared, onAuthFailure, onRoomsRemoved])
 
-  const senderStateRef = React.useRef<SenderState>(createEmptySenderState())
+  const senderStateRef = useLazyRef<SenderState>(createEmptySenderState)
   const [selfStates, setSelfStates] = React.useState<
     Record<string, TwitchSelfChatState>
   >(() => Object.fromEntries(selfStatesRef.current))
@@ -198,12 +199,19 @@ export function useChatConnection({
     }))
 
   const updateSelfState = React.useCallback(
-    (state: TwitchSelfChatState) => {
-      selfStatesRef.current.set(state.channel, state)
-      setSelfStates((current) => ({
-        ...current,
-        [state.channel]: state,
-      }))
+    (nextState: TwitchSelfChatState) => {
+      const previous = selfStatesRef.current.get(nextState.channel)
+      const state =
+        previous && selfChatStatesEqual(previous, nextState)
+          ? previous
+          : nextState
+      if (state !== previous) {
+        selfStatesRef.current.set(state.channel, state)
+        setSelfStates((current) => ({
+          ...current,
+          [state.channel]: state,
+        }))
+      }
       senderStateRef.current = {
         color: state.color,
         badges: state.badges,
@@ -812,8 +820,9 @@ export function useChatConnection({
         previous.length === normalized.length &&
         previous.every((login, index) => login === normalized[index])
 
+      const previousSet = new Set(previous)
       for (const login of normalized) {
-        if (!previous.includes(login)) {
+        if (!previousSet.has(login)) {
           pendingChatModesNoticeRef.current.add(login)
         }
       }
@@ -869,8 +878,9 @@ export function useChatConnection({
         return Promise.resolve()
       }
 
+      const normalizedSet = new Set(normalized)
       const removedLogins = previous.filter(
-        (login) => !normalized.includes(login)
+        (login) => !normalizedSet.has(login)
       )
       pruneRemovedChannelState(removedLogins)
 

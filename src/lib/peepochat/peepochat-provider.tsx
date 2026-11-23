@@ -5,6 +5,7 @@ import { useChatLayout } from "@/hooks/chat-ui/use-chat-layout"
 import { usePeepochatConfig } from "@/hooks/peepochat/use-peepochat-config"
 import { useBlockedUsers } from "@/hooks/twitch/use-blocked-users"
 import { useTwitchAuth } from "@/hooks/twitch/use-twitch-auth"
+import { useProfileRefresh } from "@/hooks/twitch/use-profile-refresh"
 import { useTwitchChannels } from "@/hooks/twitch/use-twitch-channels"
 import { useChatBadges } from "@/hooks/chat-ui/use-chat-badges"
 import { useRcwBadges } from "@/hooks/chat-ui/use-rcw-badges"
@@ -28,6 +29,7 @@ import { createNicknameMentionMap } from "@/lib/chat/nicknames"
 import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 import { EMPTY_WATCH_STATE, watchReducer } from "@/lib/player/watch-state"
 import type { SplitLayoutEdge } from "@/lib/chat/layout/split-layout"
+import type { TwitchChatMessage } from "@/lib/twitch/chat/chat"
 import {
   findSplitContainingChannel,
   isLiveNotificationsEnabledForChannel,
@@ -38,11 +40,13 @@ import {
 } from "@/lib/chat/emotes/emotes"
 import {
   PeepochatChatContext,
+  PeepochatChatStoreContext,
   PeepochatConfigContext,
   PeepochatLayoutContext,
   PeepochatPlayerContext,
   PeepochatSidebarHighlightsContext,
   type PeepochatChatContextValue,
+  type PeepochatChatStoreContextValue,
   type PeepochatConfigContextValue,
   type PeepochatLayoutContextValue,
   type PeepochatPlayerContextValue,
@@ -58,6 +62,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     requireOnboarding,
     updateConfig,
     restoreBackup,
+    importChatvoiceBackup,
   } = usePeepochatConfig()
   const [watchState, dispatchWatch] = React.useReducer(
     watchReducer,
@@ -80,8 +85,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
   const effectiveAccount = sessionExpired ? null : account
   const hasAccountValue = account !== null
   const onChatMessageRef = React.useRef<
-    | ((message: import("@/lib/twitch/chat/chat").TwitchChatMessage) => void)
-    | null
+    ((message: TwitchChatMessage) => void) | null
   >(null)
   const onHistoricalMessagesRef = React.useRef<
     | ((messages: import("@/lib/twitch/chat/chat").TwitchChatMessage[]) => void)
@@ -91,7 +95,6 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
   const {
     connectionState,
     sendConnectionState,
-    logs,
     subscribeToRoom,
     syncChannels,
     getTimeline,
@@ -208,6 +211,11 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     () => channels.map((channel) => channel.login),
     [channels]
   )
+  useProfileRefresh({
+    account: effectiveAccount,
+    channelLogins,
+    updateConfig,
+  })
   const watchedInstances = watchState.instances
   const watchedChannelLogins = React.useMemo(
     () => watchedInstances.map((instance) => instance.login),
@@ -256,8 +264,33 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     },
   })
 
+  const chatMessageListenersRef = React.useRef(
+    new Set<(message: TwitchChatMessage) => void>()
+  )
+
+  const subscribeToChatMessages = React.useCallback(
+    (listener: (message: TwitchChatMessage) => void) => {
+      const listeners = chatMessageListenersRef.current
+      listeners.add(listener)
+      return () => {
+        listeners.delete(listener)
+      }
+    },
+    []
+  )
+
   React.useEffect(() => {
-    onChatMessageRef.current = highlightActivity.handleIncomingMessage
+    const handleIncomingMessage = highlightActivity.handleIncomingMessage
+    onChatMessageRef.current = (message) => {
+      handleIncomingMessage(message)
+      for (const listener of chatMessageListenersRef.current) {
+        try {
+          listener(message)
+        } catch (error) {
+          console.error("Chat message listener failed", error)
+        }
+      }
+    }
   }, [highlightActivity.handleIncomingMessage])
 
   React.useEffect(() => {
@@ -694,6 +727,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       requireOnboarding,
       updateConfig,
       restoreBackup,
+      importChatvoiceBackup,
       account: effectiveAccount,
       oauthBusy,
       isOAuthConfigured,
@@ -713,6 +747,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       requireOnboarding,
       updateConfig,
       restoreBackup,
+      importChatvoiceBackup,
       effectiveAccount,
       oauthBusy,
       isOAuthConfigured,
@@ -855,7 +890,6 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     () => ({
       connectionState,
       sendConnectionState,
-      logs,
       subscribeToRoom,
       getTimeline,
       getRoom,
@@ -869,6 +903,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       getSelfChatState,
       getChannelSendBlock,
       registerSendOutcomeListener,
+      subscribeToChatMessages,
       replayPendingComposerNotice,
       dismissComposerNotice,
       getBadgeCatalog: getBadgeCatalogForChannel,
@@ -899,7 +934,6 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     [
       connectionState,
       sendConnectionState,
-      logs,
       subscribeToRoom,
       getTimeline,
       getRoom,
@@ -913,6 +947,7 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
       getSelfChatState,
       getChannelSendBlock,
       registerSendOutcomeListener,
+      subscribeToChatMessages,
       replayPendingComposerNotice,
       dismissComposerNotice,
       getBadgeCatalogForChannel,
@@ -942,6 +977,33 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
     ]
   )
 
+  const chatStoreValue = React.useMemo<PeepochatChatStoreContextValue>(
+    () => ({
+      subscribeToRoom,
+      getRoom,
+      subscribeToChatters,
+      getChatters,
+      getChatterByLogin,
+      getBadgeCatalogByRoomId: getBadgeCatalog,
+      subscribeToBadgeCatalogs,
+      loadBadgesForRoom,
+      ensureSharedChatSourceProfiles,
+      markChatMessageDeleted,
+    }),
+    [
+      subscribeToRoom,
+      getRoom,
+      subscribeToChatters,
+      getChatters,
+      getChatterByLogin,
+      getBadgeCatalog,
+      subscribeToBadgeCatalogs,
+      loadBadgesForRoom,
+      ensureSharedChatSourceProfiles,
+      markChatMessageDeleted,
+    ]
+  )
+
   return (
     <PeepochatConfigContext.Provider value={configValue}>
       <PeepochatLayoutContext.Provider value={layoutValue}>
@@ -949,9 +1011,11 @@ export function PeepochatProvider({ children }: { children: React.ReactNode }) {
           value={sidebarHighlightsValue}
         >
           <PeepochatPlayerContext.Provider value={playerValue}>
-            <PeepochatChatContext.Provider value={chatValue}>
-              {children}
-            </PeepochatChatContext.Provider>
+            <PeepochatChatStoreContext.Provider value={chatStoreValue}>
+              <PeepochatChatContext.Provider value={chatValue}>
+                {children}
+              </PeepochatChatContext.Provider>
+            </PeepochatChatStoreContext.Provider>
           </PeepochatPlayerContext.Provider>
         </PeepochatSidebarHighlightsContext.Provider>
       </PeepochatLayoutContext.Provider>

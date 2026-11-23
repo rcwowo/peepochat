@@ -62,6 +62,14 @@ function pathKey(path: number[]) {
   return path.join(".")
 }
 
+function splitNodeKey(node: ChatSplitLayoutNode): string {
+  if (node.type === "pane") {
+    return `pane:${node.channel}`
+  }
+  const first = node.children[0]
+  return first ? `split:${splitNodeKey(first.node)}` : "split"
+}
+
 function getDropEdge(
   point: { x: number; y: number },
   rect: DOMRect
@@ -308,7 +316,7 @@ function SplitNodeView({
       )}
     >
       {node.children.map((entry, index) => (
-        <React.Fragment key={`${pathKey([...path, index])}:${index}`}>
+        <React.Fragment key={splitNodeKey(entry.node)}>
           <SplitResizeSlot
             path={path}
             index={index}

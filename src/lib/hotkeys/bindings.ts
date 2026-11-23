@@ -1,4 +1,5 @@
 export type HotkeyActionId =
+  | "command-palette.open"
   | "search.open"
   | "sidebar.select"
   | "channel.add"
@@ -23,7 +24,12 @@ export type HotkeyBinding =
       action: Exclude<HotkeyActionId, "sidebar.select">
       combo: HotkeyCombo
       allowWhenSurface?:
-        "search" | "add-channel" | "settings" | "viewer-list" | "notifications"
+        | "command-palette"
+        | "search"
+        | "add-channel"
+        | "settings"
+        | "viewer-list"
+        | "notifications"
     }
   | {
       action: "sidebar.select"
@@ -34,6 +40,16 @@ export type HotkeyBinding =
 const ALT: Pick<HotkeyCombo, "alt"> = { alt: true }
 
 export const HOTKEY_BINDINGS: HotkeyBinding[] = [
+  {
+    action: "command-palette.open",
+    combo: { ctrlOrMeta: true, code: "KeyK" },
+    allowWhenSurface: "command-palette",
+  },
+  {
+    action: "command-palette.open",
+    combo: { ...ALT, code: "KeyK" },
+    allowWhenSurface: "command-palette",
+  },
   {
     action: "search.open",
     combo: { ctrlOrMeta: true, code: "KeyF" },

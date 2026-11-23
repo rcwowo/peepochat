@@ -33,6 +33,7 @@ import {
   canModerateTarget,
 } from "@/lib/chat/moderation/permissions"
 import { MODERATION_TIMEOUT_PRESETS } from "@/lib/chat/moderation/tools"
+import type { MessageQuickActionId } from "@/lib/chat/message-quick-actions"
 import type { PingMatchRange } from "@/lib/highlights/highlight-rules"
 import type {
   DeletedMessagesBehavior,
@@ -41,7 +42,7 @@ import type {
   TwitchAccount,
 } from "@/lib/peepochat/peepochat-config"
 import { formatMessageTimestamp } from "@/lib/chat/presentation/timestamp"
-import { usePeepochatChat } from "@/lib/peepochat/peepochat-context"
+import { usePeepochatChatStore } from "@/lib/peepochat/peepochat-context"
 import type { ResolvedMemberBadge } from "@/lib/rcw/badges"
 import type { TwitchSelfChatState } from "@/lib/twitch/chat/types"
 import { banTwitchUser, deleteTwitchChatMessage } from "@/lib/twitch/auth/api"
@@ -104,7 +105,7 @@ function ChatMessageRowInner({
   const pendingActionRef = React.useRef<"delete" | "timeout" | "ban" | null>(
     null
   )
-  const { markChatMessageDeleted } = usePeepochatChat()
+  const { markChatMessageDeleted } = usePeepochatChatStore()
   const isDeleted = message.deletedAt !== null
   const timestamp = formatMessageTimestamp(message.receivedAt, timestampFormat)
   const { resolvedBadges: badges, sourceChannel } = useSharedChatMessageChrome({
@@ -295,6 +296,92 @@ function ChatMessageRowInner({
     )
   }
 
+  const quickActionElements: Record<MessageQuickActionId, React.ReactNode> = {
+    copy: messageQuickActions.copyEnabled ? (
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-xs"
+        aria-label="Copy message"
+        className={QUICK_ACTION_BUTTON_CLASS}
+        onClick={() => {
+          void navigator.clipboard?.writeText(message.text)
+        }}
+      >
+        <CopyIcon className="size-3.5" />
+      </Button>
+    ) : null,
+    reply: showReplyButton ? (
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-xs"
+        aria-label="Reply"
+        className={QUICK_ACTION_BUTTON_CLASS}
+        onClick={startReply}
+      >
+        <CornerUpLeftIcon className="size-3.5" />
+      </Button>
+    ) : null,
+    delete: canDeleteMessage ? (
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-xs"
+        aria-label="Delete message"
+        className={QUICK_ACTION_DESTRUCTIVE_BUTTON_CLASS}
+        disabled={pendingAction !== null}
+        onClick={() => void runModerationAction("delete")}
+      >
+        <Trash2Icon className="size-3.5" />
+      </Button>
+    ) : null,
+    timeout: showTimeoutButton ? (
+      <DropdownMenu modal={false}>
+        <DropdownMenuTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            aria-label="Timeout user"
+            className={QUICK_ACTION_BUTTON_CLASS}
+            disabled={pendingAction !== null}
+          >
+            <ClockIcon className="size-3.5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="min-w-24">
+          {MODERATION_TIMEOUT_PRESETS.map((preset) => (
+            <DropdownMenuItem
+              key={preset.label}
+              className="cursor-pointer"
+              onSelect={() =>
+                void runModerationAction("timeout", {
+                  durationSeconds: preset.seconds,
+                })
+              }
+            >
+              {preset.label}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    ) : null,
+    ban: showBanButton ? (
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-xs"
+        aria-label="Ban user"
+        className={QUICK_ACTION_DESTRUCTIVE_BUTTON_CLASS}
+        disabled={pendingAction !== null}
+        onClick={() => void runModerationAction("ban")}
+      >
+        <BanIcon className="size-3.5" />
+      </Button>
+    ) : null,
+  }
+
   const messageContent = (
     <>
       {message.reply ? (
@@ -418,89 +505,11 @@ function ChatMessageRowInner({
                 Jump
               </Button>
             ) : null}
-            {messageQuickActions.copyEnabled ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                aria-label="Copy message"
-                className={QUICK_ACTION_BUTTON_CLASS}
-                onClick={() => {
-                  void navigator.clipboard?.writeText(message.text)
-                }}
-              >
-                <CopyIcon className="size-3.5" />
-              </Button>
-            ) : null}
-            {showReplyButton ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                aria-label="Reply"
-                className={QUICK_ACTION_BUTTON_CLASS}
-                onClick={startReply}
-              >
-                <CornerUpLeftIcon className="size-3.5" />
-              </Button>
-            ) : null}
-            {canDeleteMessage ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                aria-label="Delete message"
-                className={QUICK_ACTION_DESTRUCTIVE_BUTTON_CLASS}
-                disabled={pendingAction !== null}
-                onClick={() => void runModerationAction("delete")}
-              >
-                <Trash2Icon className="size-3.5" />
-              </Button>
-            ) : null}
-            {showTimeoutButton ? (
-              <DropdownMenu modal={false}>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-xs"
-                    aria-label="Timeout user"
-                    className={QUICK_ACTION_BUTTON_CLASS}
-                    disabled={pendingAction !== null}
-                  >
-                    <ClockIcon className="size-3.5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="min-w-24">
-                  {MODERATION_TIMEOUT_PRESETS.map((preset) => (
-                    <DropdownMenuItem
-                      key={preset.label}
-                      className="cursor-pointer"
-                      onSelect={() =>
-                        void runModerationAction("timeout", {
-                          durationSeconds: preset.seconds,
-                        })
-                      }
-                    >
-                      {preset.label}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : null}
-            {showBanButton ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                aria-label="Ban user"
-                className={QUICK_ACTION_DESTRUCTIVE_BUTTON_CLASS}
-                disabled={pendingAction !== null}
-                onClick={() => void runModerationAction("ban")}
-              >
-                <BanIcon className="size-3.5" />
-              </Button>
-            ) : null}
+            {messageQuickActions.order.map((id) => (
+              <React.Fragment key={id}>
+                {quickActionElements[id]}
+              </React.Fragment>
+            ))}
           </div>
         </div>
       ) : null}

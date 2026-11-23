@@ -1,7 +1,7 @@
 import * as React from "react"
 
 import type { ChannelChatter } from "@/lib/chat/chatters/store"
-import { usePeepochatChat } from "@/lib/peepochat/peepochat-context"
+import { usePeepochatChatStore } from "@/lib/peepochat/peepochat-context"
 
 function chatterAppearanceEqual(
   left: ChannelChatter | null,
@@ -32,7 +32,7 @@ export function useChatterByLogin(
   channelLogin: string | undefined,
   login: string | undefined
 ): ChannelChatter | null {
-  const { subscribeToChatters, getChatterByLogin } = usePeepochatChat()
+  const { subscribeToChatters, getChatterByLogin } = usePeepochatChatStore()
   const snapshotRef = React.useRef<ChannelChatter | null>(null)
 
   const subscribe = React.useCallback(

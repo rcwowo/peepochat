@@ -71,8 +71,13 @@ export function useBlockedUsers(account: TwitchAccount | null) {
     [blockedIds, blockedLogins]
   )
 
+  const accountId = account?.id ?? null
+  const accessToken = account?.accessToken ?? null
+  const clientId = account?.clientId ?? null
+  const canReadBlockedUsers = hasBlockedUsersReadScope(account)
+
   React.useEffect(() => {
-    if (!account || !hasBlockedUsersReadScope(account)) {
+    if (!accountId || !accessToken || !clientId || !canReadBlockedUsers) {
       return
     }
 
@@ -81,22 +86,23 @@ export function useBlockedUsers(account: TwitchAccount | null) {
     void (async () => {
       try {
         const users = await fetchTwitchBlockedUsers({
-          broadcasterId: account.id,
-          accessToken: account.accessToken,
-          clientId: account.clientId,
+          broadcasterId: accountId,
+          accessToken,
+          clientId,
         })
         if (!cancelled) {
           setLoadedBlockedUsers({
-            accountId: account.id,
+            accountId,
             users: toBlockedUsersState(users),
           })
         }
       } catch {
         if (!cancelled) {
-          setLoadedBlockedUsers({
-            accountId: account.id,
-            users: EMPTY_BLOCKED_USERS,
-          })
+          setLoadedBlockedUsers((current) =>
+            current?.accountId === accountId
+              ? current
+              : { accountId, users: EMPTY_BLOCKED_USERS }
+          )
         }
       }
     })()
@@ -104,7 +110,7 @@ export function useBlockedUsers(account: TwitchAccount | null) {
     return () => {
       cancelled = true
     }
-  }, [account])
+  }, [accountId, accessToken, clientId, canReadBlockedUsers])
 
   const blockUser = React.useCallback(
     async (userId: string, login: string) => {

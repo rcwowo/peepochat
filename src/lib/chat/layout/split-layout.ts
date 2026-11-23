@@ -54,21 +54,32 @@ function rebalanceChildren(
     return []
   }
 
-  const total = children.reduce(
-    (sum, entry) => sum + (isFinitePositiveSize(entry.size) ? entry.size : 0),
-    0
-  )
+  const validSizes = children
+    .map((entry) => entry.size)
+    .filter(isFinitePositiveSize)
   const fallback = evenSize(children.length)
 
-  if (total <= 0) {
+  if (validSizes.length === 0) {
     return children.map((entry) => ({ ...entry, size: fallback }))
   }
 
+  const largest = Math.max(...validSizes)
+  const minimum = largest * Number.EPSILON
+  const rawTotal = validSizes.reduce(
+    (sum, size) => sum + Math.max(size, minimum),
+    0
+  )
+  const scale = Number.isFinite(rawTotal) ? 1 : largest
+  const weight = (size: number) => Math.max(size, minimum) / scale
+  const totalWeight = validSizes.reduce((sum, size) => sum + weight(size), 0)
+  const validBudget =
+    DEFAULT_SIZE - fallback * (children.length - validSizes.length)
+
   return children.map((entry) => ({
     ...entry,
-    size:
-      ((isFinitePositiveSize(entry.size) ? entry.size : fallback) / total) *
-      DEFAULT_SIZE,
+    size: isFinitePositiveSize(entry.size)
+      ? (weight(entry.size) / totalWeight) * validBudget
+      : fallback,
   }))
 }
 

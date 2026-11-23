@@ -15,6 +15,23 @@ import {
 import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 import { listEmbeddedCustomSounds } from "@/lib/highlights/custom-sounds"
 import {
+  createDefaultTtsConfig,
+  normalizeLookupValue,
+  normalizeTtsConfig,
+  type TtsConfig,
+  type TtsVoiceAssignment,
+} from "@/lib/tts/tts-config"
+import {
+  getAllVoiceAssignments,
+  listSoundEffectAudioBackups,
+  type TtsSoundEffectAudioBackup,
+} from "@/lib/tts/tts-db"
+import {
+  createDefaultMessageQuickActionOrder,
+  normalizeMessageQuickActionOrder,
+  type MessageQuickActionId,
+} from "@/lib/chat/message-quick-actions"
+import {
   NICKNAME_MAX_LENGTH,
   isValidNickname,
   isValidTwitchLogin,
@@ -67,6 +84,17 @@ const messageQuickActionsSchema = z.object({
   deleteEnabled: z.boolean().default(true),
   timeoutEnabled: z.boolean().default(false),
   banEnabled: z.boolean().default(false),
+  order: z
+    .unknown()
+    .transform((value): MessageQuickActionId[] =>
+      normalizeMessageQuickActionOrder(value)
+    ),
+})
+
+const userCardSchema = z.object({
+  infoCardsEnabled: z.boolean().default(true),
+  recentMessagesEnabled: z.boolean().default(true),
+  moderationActionsEnabled: z.boolean().default(true),
 })
 
 const deletedMessagesBehaviorSchema = z
@@ -115,6 +143,11 @@ const chatSchema = z.object({
     .max(LIVE_MESSAGES_PER_CHANNEL_MAX)
     .default(LIVE_MESSAGES_PER_CHANNEL_DEFAULT),
   messageQuickActions: messageQuickActionsSchema,
+  userCard: userCardSchema.default({
+    infoCardsEnabled: true,
+    recentMessagesEnabled: true,
+    moderationActionsEnabled: true,
+  }),
   deletedMessagesBehavior: deletedMessagesBehaviorSchema,
   gifMessageAppearance: gifMessageAppearanceSchema,
   chatModesVisibility: chatModesVisibilitySchema,
@@ -216,7 +249,7 @@ const chatSplitSchema = z.object({
   channels: z.array(z.string()),
   unreadIndicatorEnabled: z.boolean().nullable().default(null),
   liveNotificationsEnabled: z.boolean().nullable().default(null),
-  layout: chatSplitLayoutNodeSchema.optional(),
+  layout: chatSplitLayoutNodeSchema.optional().catch(undefined),
 })
 
 const chatLayoutSchema = z.object({
@@ -229,8 +262,8 @@ export const twitchAccountSchema = z.object({
   id: z.string(),
   login: z.string(),
   displayName: z.string(),
-  profileImageUrl: z.string(),
-  bannerImageUrl: z.string(),
+  profileImageUrl: z.string().catch(""),
+  bannerImageUrl: z.string().catch(""),
   accessToken: z.string(),
   clientId: z.string(),
   scopes: z.array(z.string()).default([]),
@@ -246,7 +279,7 @@ export const twitchChannelSchema = z.object({
 })
 
 const twitchSchema = z.object({
-  account: twitchAccountSchema.nullable(),
+  account: twitchAccountSchema.nullable().catch(null),
   channels: z.array(twitchChannelSchema),
   activeChannelLogin: z.string(),
 })
@@ -272,6 +305,7 @@ const appConfigSchema = z.object({
     pings: [],
   }),
   player: playerSchema,
+  tts: z.unknown().transform((value): TtsConfig => normalizeTtsConfig(value)),
 })
 
 const backupEnvelopeSchema = z.object({
@@ -281,6 +315,13 @@ const backupEnvelopeSchema = z.object({
   schemaVersion: z.number().int().positive(),
   data: z.unknown(),
   embeddedSounds: z.array(z.unknown()).optional(),
+  tts: z
+    .object({
+      assignments: z.array(z.unknown()).optional(),
+      soundEffects: z.array(z.unknown()).optional(),
+    })
+    .optional()
+    .catch(undefined),
 })
 
 export type HighlightPingRule = z.infer<typeof highlightPingRuleSchema>
@@ -297,6 +338,7 @@ export type ChatBadgesConfig = z.infer<typeof chatBadgesSchema>
 export type MessageQuickActionsConfig = z.infer<
   typeof messageQuickActionsSchema
 >
+export type UserCardConfig = z.infer<typeof userCardSchema>
 export type DeletedMessagesBehavior = z.infer<
   typeof deletedMessagesBehaviorSchema
 >
@@ -355,10 +397,16 @@ export function createDefaultConfig(): AppConfig {
         deleteEnabled: true,
         timeoutEnabled: false,
         banEnabled: false,
+        order: createDefaultMessageQuickActionOrder(),
+      },
+      userCard: {
+        infoCardsEnabled: true,
+        recentMessagesEnabled: true,
+        moderationActionsEnabled: true,
       },
       deletedMessagesBehavior: "strikethrough",
       gifMessageAppearance: "display",
-      chatModesVisibility: "always",
+      chatModesVisibility: "when-permitted",
       clearChatWhenInstructed: true,
       hideBlockedUsers: true,
       showSuspiciousActivity: true,
@@ -409,6 +457,7 @@ export function createDefaultConfig(): AppConfig {
     nicknames: {
       entries: [],
     },
+    tts: createDefaultTtsConfig(),
   }
 }
 
@@ -640,7 +689,7 @@ export function loadConfig(): AppConfig {
   }
 
   const raw = window.localStorage.getItem(PEEPOCHAT_STORAGE_KEY)
-  if (!raw) {
+  if (raw === null) {
     return createDefaultConfig()
   }
 
@@ -689,6 +738,12 @@ export async function exportConfigBackup(config: AppConfig): Promise<string> {
     referencedSoundIds.length > 0
       ? await listEmbeddedCustomSounds(referencedSoundIds)
       : []
+  const [ttsAssignments, ttsSoundEffects] = await Promise.all([
+    getAllVoiceAssignments(),
+    listSoundEffectAudioBackups(
+      normalized.tts.soundEffects.map((sound) => sound.id)
+    ),
+  ])
 
   const envelope: BackupEnvelope = {
     app: "peepochat",
@@ -702,16 +757,104 @@ export async function exportConfigBackup(config: AppConfig): Promise<string> {
     envelope.embeddedSounds = embeddedSounds
   }
 
+  envelope.tts = {
+    assignments: ttsAssignments,
+    soundEffects: ttsSoundEffects,
+  }
+
   return JSON.stringify(envelope, null, 2)
+}
+
+export type TtsBackupData = {
+  assignments: TtsVoiceAssignment[] | null
+  soundEffects: TtsSoundEffectAudioBackup[] | null
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0
+}
+
+function parseTtsBackupData(
+  input: { assignments?: unknown[]; soundEffects?: unknown[] } | undefined
+): TtsBackupData {
+  const assignments = input?.assignments?.flatMap((entry) => {
+    if (!entry || typeof entry !== "object") {
+      return []
+    }
+    const value = entry as Record<string, unknown>
+    if (
+      !isNonEmptyString(value.userName) ||
+      !isNonEmptyString(value.voiceProfileId)
+    ) {
+      return []
+    }
+    const userName = normalizeLookupValue(value.userName)
+    if (!userName) {
+      return []
+    }
+    const now = new Date().toISOString()
+    return [
+      {
+        userName,
+        displayName: isNonEmptyString(value.displayName)
+          ? value.displayName
+          : value.userName,
+        voiceProfileId: value.voiceProfileId,
+        createdAt: isNonEmptyString(value.createdAt) ? value.createdAt : now,
+        lastSeenAt: isNonEmptyString(value.lastSeenAt) ? value.lastSeenAt : now,
+      } satisfies TtsVoiceAssignment,
+    ]
+  })
+
+  const soundEffects = input?.soundEffects?.flatMap((entry) => {
+    if (!entry || typeof entry !== "object") {
+      return []
+    }
+    const value = entry as Record<string, unknown>
+    if (
+      !isNonEmptyString(value.id) ||
+      !isNonEmptyString(value.mimeType) ||
+      typeof value.data !== "string"
+    ) {
+      return []
+    }
+    return [
+      {
+        id: value.id,
+        fileName: typeof value.fileName === "string" ? value.fileName : "",
+        mimeType: value.mimeType,
+        data: value.data,
+      } satisfies TtsSoundEffectAudioBackup,
+    ]
+  })
+
+  return {
+    assignments: assignments ?? null,
+    soundEffects: soundEffects ?? null,
+  }
+}
+
+function assertPeepochatBackupSource(parsed: unknown) {
+  if (!isRecord(parsed) || !("app" in parsed) || parsed.app === "peepochat") {
+    return
+  }
+  if (parsed.app === "chatvoice") {
+    throw new Error(
+      "This is a Chatvoice backup. Import it from Settings > Data Management instead."
+    )
+  }
+  throw new Error("This file isn't a Peepochat backup.")
 }
 
 export function parseBackupPayload(payload: string): {
   config: AppConfig
   embeddedSounds: BackupPreviewSound[]
+  tts: TtsBackupData
   exportedAt: string | null
   appVersion: string | null
 } {
   const parsed = JSON.parse(payload) as unknown
+  assertPeepochatBackupSource(parsed)
 
   const envelopeResult = backupEnvelopeSchema.safeParse(parsed)
   if (envelopeResult.success) {
@@ -727,6 +870,7 @@ export function parseBackupPayload(payload: string): {
             typeof (sound as BackupPreviewSound).mimeType === "string" &&
             typeof (sound as BackupPreviewSound).data === "string"
         ) ?? [],
+      tts: parseTtsBackupData(envelopeResult.data.tts),
       exportedAt: envelopeResult.data.exportedAt,
       appVersion: envelopeResult.data.appVersion,
     }
@@ -735,6 +879,7 @@ export function parseBackupPayload(payload: string): {
   return {
     config: parseConfig(parsed),
     embeddedSounds: [],
+    tts: { assignments: null, soundEffects: null },
     exportedAt: null,
     appVersion: null,
   }
@@ -833,10 +978,19 @@ export function mergeRestoredConfig(
   const sameAccount =
     existingAccount !== null && existingAccount.id === restoredAccount.id
 
-  const accessToken =
-    restoredAccount.accessToken.trim() ||
-    (sameAccount ? existingAccount.accessToken : "")
+  const restoredAccessToken = restoredAccount.accessToken.trim()
+  const sessionAccount =
+    !restoredAccessToken &&
+    sameAccount &&
+    existingAccount.accessToken.trim().length > 0
+      ? existingAccount
+      : null
+
+  const accessToken = sessionAccount
+    ? sessionAccount.accessToken
+    : restoredAccessToken
   const clientId =
+    sessionAccount?.clientId.trim() ||
     restoredAccount.clientId.trim() ||
     (sameAccount ? existingAccount.clientId : "") ||
     envClientId
@@ -859,8 +1013,10 @@ export function mergeRestoredConfig(
         ...restoredAccount,
         accessToken,
         clientId,
-        scopes:
-          restoredAccount.scopes ?? (sameAccount ? existingAccount.scopes : []),
+        scopes: sessionAccount ? sessionAccount.scopes : restoredAccount.scopes,
+        accessTokenExpiresAt: sessionAccount
+          ? sessionAccount.accessTokenExpiresAt
+          : restoredAccount.accessTokenExpiresAt,
       },
     },
   })
@@ -876,10 +1032,14 @@ function parseConfig(input: unknown): AppConfig {
     return parseConfig(envelopeResult.data.data)
   }
 
-  const object = input as Record<string, unknown>
+  if (!isRecord(input)) {
+    throw new Error("Failed to parse saved config")
+  }
+
   const coerced = {
-    ...coerceConfigCredentials(object),
-    layout: coerceLayoutShape(object.layout),
+    ...coerceConfigCredentials(input),
+    highlights: migrateLegacyHighlights(input.highlights),
+    layout: coerceLayoutShape(input.layout),
     schemaVersion: PEEPOCHAT_SCHEMA_VERSION,
   }
 
@@ -894,6 +1054,30 @@ function parseConfig(input: unknown): AppConfig {
   }
 
   return normalizeConfig(repaired)
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value)
+}
+
+function migrateLegacyHighlights(input: unknown): unknown {
+  if (!isRecord(input)) {
+    return input
+  }
+
+  const migrated: Record<string, unknown> = {
+    ...input,
+    useDefaultSounds: resolveUseDefaultSounds(input),
+  }
+
+  if (
+    typeof input.liveSoundCustomId !== "string" &&
+    typeof input.notificationSoundCustomId === "string"
+  ) {
+    migrated.liveSoundCustomId = input.notificationSoundCustomId
+  }
+
+  return migrated
 }
 
 /**
@@ -1055,19 +1239,17 @@ export function findMessageUrls(text: string): MessageUrlMatch[] {
   })
 }
 
-function resolveUseDefaultSounds(
-  highlights: Record<string, unknown> | undefined
-): boolean {
-  if (typeof highlights?.useDefaultSounds === "boolean") {
+function resolveUseDefaultSounds(highlights: Record<string, unknown>): boolean {
+  if (typeof highlights.useDefaultSounds === "boolean") {
     return highlights.useDefaultSounds
   }
 
-  const pingSoundUseDefault = highlights?.pingSoundUseDefault
-  const liveSoundUseDefault = highlights?.liveSoundUseDefault
-  const notificationSoundUseDefault = highlights?.notificationSoundUseDefault
-  const pingSoundCustomId = highlights?.pingSoundCustomId
-  const liveSoundCustomId = highlights?.liveSoundCustomId
-  const notificationSoundCustomId = highlights?.notificationSoundCustomId
+  const pingSoundUseDefault = highlights.pingSoundUseDefault
+  const liveSoundUseDefault = highlights.liveSoundUseDefault
+  const notificationSoundUseDefault = highlights.notificationSoundUseDefault
+  const pingSoundCustomId = highlights.pingSoundCustomId
+  const liveSoundCustomId = highlights.liveSoundCustomId
+  const notificationSoundCustomId = highlights.notificationSoundCustomId
 
   const usesCustomSounds =
     pingSoundUseDefault === false ||
@@ -1081,7 +1263,7 @@ function resolveUseDefaultSounds(
   return !usesCustomSounds
 }
 
-function normalizeConfig(config: AppConfig): AppConfig {
+export function normalizeConfig(config: AppConfig): AppConfig {
   const twitch = {
     ...config.twitch,
     activeChannelLogin: config.twitch.activeChannelLogin
@@ -1173,8 +1355,6 @@ function normalizeConfig(config: AppConfig): AppConfig {
     chat.emoteScale = chat.fontSizePx
   }
 
-  const rawHighlights = config.highlights as Record<string, unknown> | undefined
-
   const seenNicknameLogins = new Set<string>()
   const seenNicknames = new Set<string>()
   const nicknames = {
@@ -1199,26 +1379,15 @@ function normalizeConfig(config: AppConfig): AppConfig {
     ...config.highlights,
     pingOnUsernameMention: config.highlights?.pingOnUsernameMention ?? true,
     highlightPingedMessages: config.highlights?.highlightPingedMessages ?? true,
-    useDefaultSounds: resolveUseDefaultSounds(rawHighlights),
+    useDefaultSounds: config.highlights?.useDefaultSounds ?? true,
     pingSoundCustomId:
       typeof config.highlights?.pingSoundCustomId === "string"
         ? config.highlights.pingSoundCustomId.trim() || null
         : null,
-    liveSoundCustomId: (() => {
-      const liveSoundCustomId = config.highlights?.liveSoundCustomId
-      if (typeof liveSoundCustomId === "string") {
-        return liveSoundCustomId.trim() || null
-      }
-
-      const legacyNotificationSoundCustomId = (
-        rawHighlights as { notificationSoundCustomId?: unknown } | undefined
-      )?.notificationSoundCustomId
-      if (typeof legacyNotificationSoundCustomId === "string") {
-        return legacyNotificationSoundCustomId.trim() || null
-      }
-
-      return null
-    })(),
+    liveSoundCustomId:
+      typeof config.highlights?.liveSoundCustomId === "string"
+        ? config.highlights.liveSoundCustomId.trim() || null
+        : null,
     pings: (config.highlights?.pings ?? []).map((rule) => ({
       id: rule.id.trim(),
       pattern: rule.pattern,
@@ -1235,6 +1404,7 @@ function normalizeConfig(config: AppConfig): AppConfig {
     chat,
     highlights,
     nicknames,
+    tts: normalizeTtsConfig(config.tts),
     layout: {
       activeSplitId,
       splits,

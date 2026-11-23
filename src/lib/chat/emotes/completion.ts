@@ -282,12 +282,13 @@ export function applyEmoteSuggestion(
 
   const left = text.slice(0, replaceRange.start)
   const right = text.slice(replaceRange.end)
-  const suffix = trailingSpace ? " " : ""
+  const followedByWhitespace = /^\s/.test(right)
+  const suffix = trailingSpace && !followedByWhitespace ? " " : ""
   const value = `${left}${display}${suffix}${right}`
 
   return {
     value,
-    caret: replaceRange.start + display.length + suffix.length,
+    caret: replaceRange.start + display.length + (trailingSpace ? 1 : 0),
   }
 }
 

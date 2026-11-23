@@ -71,6 +71,8 @@ import {
   usePeepochatSettings,
 } from "@/lib/peepochat/peepochat-context"
 import { cn } from "@/lib/utils"
+import { AltHint } from "@/components/ui/alt-hint"
+import { getAltHintKey } from "@/lib/hotkeys/alt-hints"
 
 const EMPTY_TIMELINES: TwitchTimelineItem[][] = []
 const EMPTY_SEARCH_USERNAMES: ChatSearchUsername[] = []
@@ -932,12 +934,21 @@ export function ChannelSearch() {
       open: (prefill?: string) => {
         openSearch(prefill)
       },
+      openWithFilters: (nextFilters: ChatSearchCommittedFilter[]) => {
+        setFilters(nextFilters)
+        setRemainder("")
+        setCursor(0)
+        setSuggestionIndex(0)
+        setSuggestionsDismissed(false)
+        setOpen(true)
+        requestAnimationFrame(() => focusInput())
+      },
       close: () => {
         setOpen(false)
       },
       isOpen: () => open,
     })
-  }, [open, openSearch, registerSearch])
+  }, [focusInput, open, openSearch, registerSearch])
 
   const visibleSuggestions =
     inputFocused && !suggestionsDismissed ? suggestions : []
@@ -1028,12 +1039,16 @@ export function ChannelSearch() {
               type="button"
               variant="outline"
               size="sm"
-              className="flex h-7 cursor-pointer items-center gap-1.5 border border-border px-1.5 text-sm"
+              className="relative flex h-7 cursor-pointer items-center gap-1.5 border border-border px-1.5 text-sm"
               aria-label="Search messages"
               aria-keyshortcuts="Control+F Meta+F Alt+F"
             >
               <SearchIcon className="size-3.5" />
               <span className="hidden font-medium sm:inline">Search</span>
+              <AltHint
+                label={getAltHintKey("search.open")}
+                className="-right-1.5 -bottom-1.5"
+              />
             </Button>
           </TooltipTrigger>
         </DialogTrigger>
@@ -1208,6 +1223,7 @@ export function ChannelSearch() {
             loginWithTwitch={loginWithTwitch}
             getRecentMessages={getRecentMessages}
             timestampFormat={config.chat.messageTimestampFormat}
+            sections={config.chat.userCard}
             isUserBlocked={isUserBlocked}
             blockUser={blockUser}
             unblockUser={unblockUser}

@@ -1,5 +1,6 @@
 import * as React from "react"
 import {
+  AudioLinesIcon,
   EllipsisIcon,
   ExternalLinkIcon,
   MessagesSquareIcon,
@@ -30,6 +31,7 @@ import {
   ChatSwitcherMenu,
   type ChatSwitcherConfig,
 } from "@/components/player/chat-switcher"
+import { TtsPaneBar } from "@/components/tts/tts-pane-bar"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -56,6 +58,7 @@ import type {
   MessageQuickActionsConfig,
   MessageTimestampFormat,
   TwitchAccount,
+  UserCardConfig,
 } from "@/lib/peepochat/peepochat-config"
 import type { TwitchLiveStream } from "@/lib/twitch/auth/api"
 import { useChannelMessageHighlights } from "@/hooks/chat-ui/use-highlight-activity"
@@ -86,8 +89,8 @@ import { cn } from "@/lib/utils"
 
 import { openExternalTool, CHATLOGS_URL } from "@/lib/chat/moderation/tools"
 import { maskReplyForBlockedUser } from "@/lib/twitch/channel/blocked-users"
+import { useTtsSession } from "@/lib/tts/tts-context"
 
-const CHATVOICE_URL = "https://chatvoice.rcw.lol"
 const JUMP_HIGHLIGHT_MS = 2400
 
 function ChatPaneHotkeyRegistration({
@@ -158,6 +161,7 @@ type ChatPaneProps = {
   timeline: TwitchTimelineItem[]
   timestampFormat: MessageTimestampFormat
   messageQuickActions: MessageQuickActionsConfig
+  userCardSections: UserCardConfig
   deletedMessagesBehavior: DeletedMessagesBehavior
   highlightPingedMessages: boolean
   account: TwitchAccount | null
@@ -193,6 +197,7 @@ function ChatPaneInner({
   timeline,
   timestampFormat,
   messageQuickActions,
+  userCardSections,
   deletedMessagesBehavior,
   highlightPingedMessages,
   account,
@@ -234,6 +239,13 @@ function ChatPaneInner({
     usePeepochatSidebarHighlights()
   const { watchedChannelLogins } = usePeepochatPlayer()
   const isWatching = watchedChannelLogins.includes(channelLogin)
+  const {
+    channelLogin: ttsChannelLogin,
+    availability: ttsAvailability,
+    startTts,
+    stopTts,
+  } = useTtsSession()
+  const ttsActive = ttsChannelLogin === channelLogin
   const messageHighlights = useChannelMessageHighlights(channelLogin)
   const composerCatalog = getComposerEmoteCatalog(channelLogin)
   const [rowStripeCache] = React.useState(() => new Map<string, boolean>())
@@ -467,6 +479,7 @@ function ChatPaneInner({
       loginWithTwitch={loginWithTwitch}
       getRecentMessages={getRecentMessagesForUser}
       timestampFormat={timestampFormat}
+      sections={userCardSections}
       isUserBlocked={isUserBlocked}
       blockUser={blockUser}
       unblockUser={unblockUser}
@@ -574,6 +587,20 @@ function ChatPaneInner({
                         label="Reload emotes"
                         onSelect={() => void refreshEmotes(channelLogin)}
                       />
+                      <MenuPanelItem
+                        icon={AudioLinesIcon}
+                        label={
+                          ttsActive
+                            ? "Stop Chatvoice"
+                            : ttsAvailability === "unavailable"
+                              ? "Chatvoice unavailable"
+                              : "Start Chatvoice"
+                        }
+                        disabled={!ttsActive && ttsAvailability !== "available"}
+                        onSelect={() =>
+                          ttsActive ? stopTts() : startTts(channelLogin)
+                        }
+                      />
                       <MenuPanelSeparator />
                       <MenuPanelItem
                         icon={ExternalLinkIcon}
@@ -590,15 +617,6 @@ function ChatPaneInner({
                         onSelect={() =>
                           openExternalTool(
                             `${CHATLOGS_URL}/?channel=${encodeURIComponent(channelLogin)}`
-                          )
-                        }
-                      />
-                      <MenuPanelItem
-                        icon={ExternalLinkIcon}
-                        label="Open in Chatvoice"
-                        onSelect={() =>
-                          openExternalTool(
-                            `${CHATVOICE_URL}/?channel=${encodeURIComponent(channelLogin)}`
                           )
                         }
                       />
@@ -647,6 +665,7 @@ function ChatPaneInner({
                 ref={chatMessagesRef}
                 className="relative min-h-0 flex-1 overflow-hidden"
               >
+                <TtsPaneBar channelLogin={channelLogin} />
                 {displayedTimeline.length === 0 ? (
                   <div className="flex h-full items-center justify-center p-4">
                     <EmptyState

@@ -584,6 +584,10 @@ export function useUserCard({
         })
       }
     })()
+
+    return () => {
+      requestIdRef.current += 1
+    }
   }, [
     account,
     channelLogin,

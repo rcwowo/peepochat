@@ -44,6 +44,25 @@ import {
 import { cn } from "@/lib/utils"
 
 type RowActionKind = "watch" | "add"
+type RowActionPreview = RowActionKind | "addWatch"
+
+function getActionPreview(event: {
+  shiftKey: boolean
+  ctrlKey: boolean
+  metaKey: boolean
+}): RowActionPreview | null {
+  const modifier = event.ctrlKey || event.metaKey
+  if (event.shiftKey && modifier) {
+    return "addWatch"
+  }
+  if (event.shiftKey) {
+    return "watch"
+  }
+  if (modifier) {
+    return "add"
+  }
+  return null
+}
 
 function FollowedChannelAvatar({
   login,
@@ -151,18 +170,45 @@ function RowActions({
   onFocus,
   onWatch,
   onAdd,
+  onAddWatch,
 }: {
   added?: boolean
   disabled: boolean
   focus: RowActionKind
-  preview: RowActionKind | null
+  preview: RowActionPreview | null
   onFocus: (action: RowActionKind) => void
   onWatch?: () => void
   onAdd: () => void
+  onAddWatch: () => void
 }) {
   const canWatch = Boolean(onWatch)
   const switchLabel = added ? "Switch to channel" : "Add channel"
   const switchText = added ? "Switch" : "Add"
+
+  if (preview === "addWatch") {
+    return (
+      <span
+        className="flex shrink-0 items-center gap-1.5 rounded-md bg-background/80 py-0.5 pr-2.5 pl-1 shadow-sm ring-1 ring-border/40 backdrop-blur-sm"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          tabIndex={-1}
+          aria-label={added ? "Watch channel" : "Add and watch channel"}
+          disabled={disabled}
+          className="cursor-pointer text-foreground"
+          onClick={onAddWatch}
+        >
+          <PlayIcon className="size-3.5" />
+        </Button>
+        <span className="text-xs font-medium text-foreground">
+          {added ? "Watch" : "Add & Watch"}
+        </span>
+      </span>
+    )
+  }
 
   if (preview === "watch" && canWatch) {
     return (
@@ -278,11 +324,12 @@ function AddChannelList({
   onActionFocus,
   onWatch,
   onAdd,
+  onAddWatch,
 }: {
   rows: FollowedChannelListRow[]
   activeKey: string | null
   actionFocus: RowActionKind
-  preview: RowActionKind | null
+  preview: RowActionPreview | null
   addedLogins: Set<string>
   savedAvatars: Map<string, string>
   submitting: boolean
@@ -291,6 +338,7 @@ function AddChannelList({
   onActionFocus: (action: RowActionKind) => void
   onWatch: (login: string) => void
   onAdd: (login: string) => void
+  onAddWatch: (login: string) => void
 }) {
   const parentRef = React.useRef<HTMLDivElement>(null)
 
@@ -428,6 +476,7 @@ function AddChannelList({
                       onFocus={onActionFocus}
                       onWatch={() => onWatch(row.login)}
                       onAdd={() => onAdd(row.login)}
+                      onAddWatch={() => onAddWatch(row.login)}
                     />
                   ) : null}
                 </div>
@@ -484,6 +533,7 @@ function AddChannelList({
                     onFocus={onActionFocus}
                     onWatch={() => onWatch(channel.login)}
                     onAdd={() => onAdd(channel.login)}
+                    onAddWatch={() => onAddWatch(channel.login)}
                   />
                 ) : null}
               </div>
@@ -514,7 +564,7 @@ export function AddChannelDialog({
     action: RowActionKind
   } | null>(null)
   const [actionPreview, setActionPreview] =
-    React.useState<RowActionKind | null>(null)
+    React.useState<RowActionPreview | null>(null)
   const [wasOpen, setWasOpen] = React.useState(open)
   const inputRef = React.useRef<HTMLInputElement>(null)
 
@@ -594,7 +644,10 @@ export function AddChannelDialog({
   }, [open, submitting])
 
   const addLogin = React.useCallback(
-    async (login: string, options?: { keepOpen?: boolean }) => {
+    async (
+      login: string,
+      options?: { keepOpen?: boolean; watch?: boolean }
+    ) => {
       const value = normalizeChannelLogin(login)
       if (!value || submitting) {
         return
@@ -602,8 +655,11 @@ export function AddChannelDialog({
 
       setSubmitting(true)
       try {
-        await addChannel(value)
-        if (options?.keepOpen) {
+        const added = await addChannel(value)
+        if (options?.watch) {
+          openPlayer(added)
+          onOpenChange(false)
+        } else if (options?.keepOpen) {
           setDraft("")
           refocusInputRef.current = true
         } else {
@@ -617,7 +673,7 @@ export function AddChannelDialog({
         setSubmitting(false)
       }
     },
-    [addChannel, onOpenChange, submitting]
+    [addChannel, onOpenChange, openPlayer, submitting]
   )
 
   const watchLogin = React.useCallback(
@@ -681,6 +737,16 @@ export function AddChannelDialog({
     watchLogin(query)
   }, [draft, getActiveRow, watchLogin])
 
+  const addAndWatchActive = React.useCallback(() => {
+    const row = getActiveRow()
+    const login = row
+      ? row.kind === "add"
+        ? row.login
+        : row.channel.login
+      : draft
+    void addLogin(login, { watch: true })
+  }, [addLogin, draft, getActiveRow])
+
   const moveActive = React.useCallback(
     (direction: 1 | -1) => {
       if (selectableKeys.length === 0) {
@@ -705,9 +771,7 @@ export function AddChannelDialog({
       return
     }
 
-    setActionPreview(
-      event.shiftKey ? "watch" : event.ctrlKey || event.metaKey ? "add" : null
-    )
+    setActionPreview(getActionPreview(event))
 
     if (event.key === "ArrowDown") {
       event.preventDefault()
@@ -740,7 +804,9 @@ export function AddChannelDialog({
 
     if (event.key === "Enter") {
       event.preventDefault()
-      if (event.shiftKey) {
+      if (event.shiftKey && (event.ctrlKey || event.metaKey)) {
+        addAndWatchActive()
+      } else if (event.shiftKey) {
         watchActiveLive()
       } else if (event.ctrlKey || event.metaKey) {
         confirmActive({ keepOpen: true })
@@ -751,9 +817,7 @@ export function AddChannelDialog({
   }
 
   const handleInputKeyUp = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    setActionPreview(
-      event.shiftKey ? "watch" : event.ctrlKey || event.metaKey ? "add" : null
-    )
+    setActionPreview(getActionPreview(event))
   }
 
   const handleInputBlur = () => {
@@ -762,6 +826,7 @@ export function AddChannelDialog({
 
   const query = normalizeChannelLogin(draft)
   const showLoading = followed.loading && followed.rows.length === 0 && !query
+  const refreshingFollows = followed.refreshing && followed.rows.length > 0
   const showEmpty = !showLoading && listRows.length === 0
   const emptyMessage =
     followed.missingScope || followed.error
@@ -806,7 +871,17 @@ export function AddChannelDialog({
 
         <div className="shrink-0 px-4 pt-3.5 pb-3">
           <div className="relative">
-            <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+            {refreshingFollows ? (
+              <Spinner
+                aria-hidden
+                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+              />
+            ) : (
+              <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+            )}
+            <span role="status" className="sr-only">
+              {refreshingFollows ? "Loading follows..." : null}
+            </span>
             <Input
               ref={inputRef}
               id="add-channel-input"
@@ -862,16 +937,6 @@ export function AddChannelDialog({
           </div>
         ) : null}
 
-        {followed.refreshing && followed.rows.length > 0 ? (
-          <div
-            role="status"
-            className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-2.5 text-xs text-muted-foreground"
-          >
-            <Spinner className="size-3.5" />
-            Loading follows...
-          </div>
-        ) : null}
-
         <div className="relative min-h-0 flex-1">
           {listRows.length > 0 ? (
             <AddChannelList
@@ -887,6 +952,7 @@ export function AddChannelDialog({
               onActionFocus={setActionFocus}
               onWatch={watchLogin}
               onAdd={(login) => void addLogin(login)}
+              onAddWatch={(login) => void addLogin(login, { watch: true })}
             />
           ) : null}
 

@@ -45,11 +45,13 @@ export function upsertSharedChatSourceProfiles(
 
   for (const profile of profiles) {
     const existing = next[profile.userId]
+    const profileImageUrl =
+      profile.profileImageUrl || existing?.profileImageUrl || ""
     if (
       existing &&
       existing.login === profile.login &&
       existing.displayName === profile.displayName &&
-      existing.profileImageUrl === profile.profileImageUrl
+      existing.profileImageUrl === profileImageUrl
     ) {
       continue
     }
@@ -58,8 +60,7 @@ export function upsertSharedChatSourceProfiles(
       userId: profile.userId,
       login: profile.login,
       displayName: profile.displayName,
-      profileImageUrl:
-        profile.profileImageUrl || existing?.profileImageUrl || "",
+      profileImageUrl,
     }
     changed = true
   }

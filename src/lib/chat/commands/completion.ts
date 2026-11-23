@@ -6,6 +6,7 @@ import {
 } from "@/lib/chat/commands/definitions"
 import { parseSlashCommand } from "@/lib/chat/commands/parse"
 import {
+  applyEmoteSuggestion,
   nextSuggestionIndex,
   prevSuggestionIndex,
   type EmoteReplaceRange,
@@ -178,12 +179,13 @@ export function shouldCompleteCommandOnSubmit(
 }
 
 export function applyCommandSuggestion(
-  _text: string,
-  _replaceRange: EmoteReplaceRange,
+  text: string,
+  replaceRange: EmoteReplaceRange,
   suggestion: CommandSuggestion
 ): { value: string; caret: number } {
-  const next = `/${suggestion.name} `
-  return { value: next, caret: next.length }
+  return applyEmoteSuggestion(text, replaceRange, `/${suggestion.name}`, {
+    trailingSpace: true,
+  })
 }
 
 export function getCommandSuggestionIndices(

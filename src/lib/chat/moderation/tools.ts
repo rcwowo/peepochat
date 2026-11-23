@@ -17,6 +17,10 @@ export function twitchViewerCardUrl(
   return `https://www.twitch.tv/popout/${encodeURIComponent(channelLogin)}/viewercard/${encodeURIComponent(username)}`
 }
 
+export function twitchReportUserUrl(username: string): string {
+  return `https://www.twitch.tv/${encodeURIComponent(username)}/report`
+}
+
 export function chatlogsUserUrl(
   channelLogin: string,
   username: string

@@ -20,6 +20,7 @@ import {
   type SplitLayoutEdge,
   type DeletedMessagesBehavior,
   type MessageQuickActionsConfig,
+  type UserCardConfig,
   type MessageTimestampFormat,
   type TwitchChannel,
 } from "@/lib/peepochat/peepochat-config"
@@ -34,6 +35,7 @@ import { cn } from "@/lib/utils"
 type ChatPaneBindings = {
   timestampFormat: MessageTimestampFormat
   messageQuickActions: MessageQuickActionsConfig
+  userCardSections: UserCardConfig
   deletedMessagesBehavior: DeletedMessagesBehavior
   highlightPingedMessages: boolean
   channelMeta: Map<string, TwitchChannel>
@@ -100,6 +102,7 @@ function SingleChannelPane({
         timeline={room?.timeline ?? []}
         timestampFormat={bindings.timestampFormat}
         messageQuickActions={bindings.messageQuickActions}
+        userCardSections={bindings.userCardSections}
         deletedMessagesBehavior={bindings.deletedMessagesBehavior}
         highlightPingedMessages={bindings.highlightPingedMessages}
         account={bindings.account}
@@ -150,6 +153,7 @@ function SplitChatPane({
       timeline={room?.timeline ?? []}
       timestampFormat={bindings.timestampFormat}
       messageQuickActions={bindings.messageQuickActions}
+      userCardSections={bindings.userCardSections}
       deletedMessagesBehavior={bindings.deletedMessagesBehavior}
       highlightPingedMessages={bindings.highlightPingedMessages}
       account={bindings.account}
@@ -320,6 +324,7 @@ export function ChatPage({
 
   const timestampFormat = config.chat.messageTimestampFormat
   const messageQuickActions = config.chat.messageQuickActions
+  const userCardSections = config.chat.userCard
   const deletedMessagesBehavior = config.chat.deletedMessagesBehavior
   const highlightPingedMessages = config.highlights.highlightPingedMessages
   const showTwitchBadges = config.chat.badges.twitchEnabled
@@ -338,6 +343,7 @@ export function ChatPage({
     () => ({
       timestampFormat,
       messageQuickActions,
+      userCardSections,
       deletedMessagesBehavior,
       highlightPingedMessages,
       channelMeta,
@@ -360,6 +366,7 @@ export function ChatPage({
     [
       timestampFormat,
       messageQuickActions,
+      userCardSections,
       deletedMessagesBehavior,
       highlightPingedMessages,
       channelMeta,

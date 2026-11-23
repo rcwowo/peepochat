@@ -146,6 +146,28 @@ export function toSelfChatState(
   return state
 }
 
+export function selfChatStatesEqual(
+  left: TwitchSelfChatState,
+  right: TwitchSelfChatState
+): boolean {
+  return (
+    left.channel === right.channel &&
+    left.roomId === right.roomId &&
+    left.displayName === right.displayName &&
+    left.color === right.color &&
+    left.isBroadcaster === right.isBroadcaster &&
+    left.isModerator === right.isModerator &&
+    left.isSubscriber === right.isSubscriber &&
+    left.isVip === right.isVip &&
+    left.badges.length === right.badges.length &&
+    left.badges.every(
+      (badge, index) =>
+        badge.set === right.badges[index]!.set &&
+        badge.version === right.badges[index]!.version
+    )
+  )
+}
+
 export function selfStateFromMessage(
   message: TwitchChatMessage
 ): TwitchSelfChatState {
@@ -225,6 +247,23 @@ export function trimTimeline(
   const dropHistorical = Math.min(excess, historicalCount)
   const dropLive = excess - dropHistorical
   return timeline.slice(dropHistorical + dropLive)
+}
+
+export function appendTimelineWithinLimit(
+  timeline: TwitchTimelineItem[],
+  items: TwitchTimelineItem[],
+  limit: number
+): TwitchTimelineItem[] {
+  const combinedLength = timeline.length + items.length
+  if (combinedLength <= limit) {
+    return timeline.concat(items)
+  }
+
+  if (items.length >= limit) {
+    return items.slice(items.length - limit)
+  }
+
+  return timeline.slice(combinedLength - limit).concat(items)
 }
 
 export function getTimelineMessageIds(timeline: TwitchTimelineItem[]) {

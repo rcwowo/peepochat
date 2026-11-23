@@ -14,6 +14,7 @@ import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 import type {
   MessageTimestampFormat,
   TwitchAccount,
+  UserCardConfig,
 } from "@/lib/peepochat/peepochat-config"
 import type { TwitchChatMessage } from "@/lib/twitch/chat/chat"
 import { HotkeyRegistryContext } from "@/lib/hotkeys/hotkey-registry.shared"
@@ -91,6 +92,7 @@ export function UserCardProvider({
   loginWithTwitch,
   getRecentMessages,
   timestampFormat,
+  sections,
   isUserBlocked,
   blockUser,
   unblockUser,
@@ -105,6 +107,7 @@ export function UserCardProvider({
   loginWithTwitch: () => void
   getRecentMessages: (target: UserCardTarget) => TwitchChatMessage[]
   timestampFormat: MessageTimestampFormat
+  sections: UserCardConfig
   isUserBlocked: (userId?: string | null, login?: string | null) => boolean
   blockUser: (userId: string, login: string) => Promise<void>
   unblockUser: (userId: string, login?: string) => Promise<void>
@@ -278,6 +281,27 @@ export function UserCardProvider({
     }
   }, [hotkeys, open])
 
+  const searchUser = React.useMemo(() => {
+    if (!hotkeys) {
+      return undefined
+    }
+    return (channelLogin: string, login: string) => {
+      const search = hotkeys.getSearch()
+      const fromLogin = normalizeChannelLogin(login)
+      if (!search || !fromLogin) {
+        return
+      }
+      const inLogin = normalizeChannelLogin(channelLogin)
+      closeUserCard()
+      search.openWithFilters([
+        ...(inLogin
+          ? [{ key: "in" as const, value: inLogin, negated: false }]
+          : []),
+        { key: "from", value: fromLogin, negated: false },
+      ])
+    }
+  }, [closeUserCard, hotkeys])
+
   const contextValue = React.useMemo<UserCardContextValue>(
     () => ({
       openUserCard,
@@ -301,9 +325,12 @@ export function UserCardProvider({
               channelRoomId={resolvedChannelRoomId}
               selfChatState={resolvedSelfChatState}
               recentMessages={
-                activeTarget ? getRecentMessages(activeTarget) : []
+                sections.recentMessagesEnabled
+                  ? getRecentMessages(activeTarget)
+                  : []
               }
               timestampFormat={timestampFormat}
+              sections={sections}
               loginWithTwitch={loginWithTwitch}
               isUserBlocked={isUserBlocked}
               blockUser={blockUser}
@@ -313,6 +340,7 @@ export function UserCardProvider({
               panelRef={panelRef}
               actionsMenuOpenRef={actionsMenuOpenRef}
               onClose={closeUserCard}
+              onSearchUser={searchUser}
               onDragStart={handleDragStart}
             />,
             document.body

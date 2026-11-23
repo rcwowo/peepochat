@@ -1,17 +1,16 @@
 import {
-  BanIcon,
   ClockIcon,
-  CopyIcon,
-  CornerUpLeftIcon,
   EraserIcon,
   EyeIcon,
   Gamepad2Icon,
   HistoryIcon,
+  IdCardIcon,
   LayersIcon,
   Layers2Icon,
+  MessagesSquareIcon,
   RadioIcon,
   ShieldAlertIcon,
-  Trash2Icon,
+  ShieldIcon,
   TypeIcon,
   UserXIcon,
 } from "lucide-react"
@@ -19,12 +18,14 @@ import {
 import {
   LIVE_MESSAGES_PER_CHANNEL_MAX,
   LIVE_MESSAGES_PER_CHANNEL_MIN,
+  type UserCardConfig,
 } from "@/lib/peepochat/peepochat-config"
 import { usePeepochatSettings } from "@/lib/peepochat/peepochat-context"
 import {
   canBanOrTimeoutUsers,
   canDeleteChatMessages,
 } from "@/lib/chat/moderation/permissions"
+import { MessageQuickActionsSetting } from "@/components/settings/message-quick-actions-setting"
 import {
   SettingsGroup,
   SettingsSection,
@@ -66,6 +67,16 @@ export function ChatTab() {
       chat: {
         ...current.chat,
         emotes: { ...current.chat.emotes, [provider]: checked },
+      },
+    }))
+  }
+
+  const setUserCardSection = (patch: Partial<UserCardConfig>) => {
+    updateConfig((current) => ({
+      ...current,
+      chat: {
+        ...current.chat,
+        userCard: { ...current.chat.userCard, ...patch },
       },
     }))
   }
@@ -203,102 +214,58 @@ export function ChatTab() {
         title="Message quick actions"
         description={
           canConfigureChatMessages || canConfigureBanOrTimeout
-            ? "Buttons shown when you hover a message. Some actions only appear in chats you have permissions for."
-            : "Buttons shown when you hover a message."
+            ? "Buttons shown when you hover a message. Drag to reorder them. Some actions only appear in chats you have permissions for."
+            : "Buttons shown when you hover a message. Drag to reorder them."
         }
+      >
+        <MessageQuickActionsSetting
+          value={config.chat.messageQuickActions}
+          canDeleteMessages={canConfigureChatMessages}
+          canModerateUsers={canConfigureBanOrTimeout}
+          onChange={(update) =>
+            updateConfig((current) => ({
+              ...current,
+              chat: {
+                ...current.chat,
+                messageQuickActions: update(current.chat.messageQuickActions),
+              },
+            }))
+          }
+        />
+      </SettingsSection>
+
+      <SettingsSection
+        title="User cards"
+        description="Sections shown when you open a user's card."
       >
         <SettingsGroup>
           <SettingsSwitchRow
-            icon={CopyIcon}
-            title="Copy message"
-            checked={config.chat.messageQuickActions.copyEnabled}
-            onCheckedChange={(copyEnabled) =>
-              updateConfig((current) => ({
-                ...current,
-                chat: {
-                  ...current.chat,
-                  messageQuickActions: {
-                    ...current.chat.messageQuickActions,
-                    copyEnabled,
-                  },
-                },
-              }))
+            icon={IdCardIcon}
+            title="Profile details"
+            description="Bio, account creation date, subscription and user type."
+            checked={config.chat.userCard.infoCardsEnabled}
+            onCheckedChange={(infoCardsEnabled) =>
+              setUserCardSection({ infoCardsEnabled })
             }
           />
           <SettingsSwitchRow
-            icon={CornerUpLeftIcon}
-            title="Reply"
-            checked={config.chat.messageQuickActions.replyEnabled}
-            onCheckedChange={(replyEnabled) =>
-              updateConfig((current) => ({
-                ...current,
-                chat: {
-                  ...current.chat,
-                  messageQuickActions: {
-                    ...current.chat.messageQuickActions,
-                    replyEnabled,
-                  },
-                },
-              }))
+            icon={MessagesSquareIcon}
+            title="Recent messages"
+            description="The user's latest messages in the loaded chat history."
+            checked={config.chat.userCard.recentMessagesEnabled}
+            onCheckedChange={(recentMessagesEnabled) =>
+              setUserCardSection({ recentMessagesEnabled })
             }
           />
-          {canConfigureChatMessages ? (
-            <SettingsSwitchRow
-              icon={Trash2Icon}
-              title="Delete message"
-              checked={config.chat.messageQuickActions.deleteEnabled}
-              onCheckedChange={(deleteEnabled) =>
-                updateConfig((current) => ({
-                  ...current,
-                  chat: {
-                    ...current.chat,
-                    messageQuickActions: {
-                      ...current.chat.messageQuickActions,
-                      deleteEnabled,
-                    },
-                  },
-                }))
-              }
-            />
-          ) : null}
-          {canConfigureBanOrTimeout ? (
-            <SettingsSwitchRow
-              icon={ClockIcon}
-              title="Timeout"
-              checked={config.chat.messageQuickActions.timeoutEnabled}
-              onCheckedChange={(timeoutEnabled) =>
-                updateConfig((current) => ({
-                  ...current,
-                  chat: {
-                    ...current.chat,
-                    messageQuickActions: {
-                      ...current.chat.messageQuickActions,
-                      timeoutEnabled,
-                    },
-                  },
-                }))
-              }
-            />
-          ) : null}
-          {canConfigureBanOrTimeout ? (
-            <SettingsSwitchRow
-              icon={BanIcon}
-              title="Ban"
-              checked={config.chat.messageQuickActions.banEnabled}
-              onCheckedChange={(banEnabled) =>
-                updateConfig((current) => ({
-                  ...current,
-                  chat: {
-                    ...current.chat,
-                    messageQuickActions: {
-                      ...current.chat.messageQuickActions,
-                      banEnabled,
-                    },
-                  },
-                }))
-              }
-            />
-          ) : null}
+          <SettingsSwitchRow
+            icon={ShieldIcon}
+            title="Moderation actions"
+            description="Timeout, ban and role buttons in channels you moderate."
+            checked={config.chat.userCard.moderationActionsEnabled}
+            onCheckedChange={(moderationActionsEnabled) =>
+              setUserCardSection({ moderationActionsEnabled })
+            }
+          />
         </SettingsGroup>
       </SettingsSection>
 

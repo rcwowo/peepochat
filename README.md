@@ -40,4 +40,4 @@ bun dev
 
 ## Responsible disclosure!
 
-Some assistance from LLM-models **have been used** in the process of this project. I have been [very vocal](https://tv.rcw.lol/watch/8650bd18-85da-4374-b54f-a470ac1752fe/?t=6178/) about the use of AI as a tool instead of being a replacement for human creativity. I also think that is my responsibility to disclose when these tools were used to help create a project.
+Some assistance from LLM-models **have been used** in the process of this project - most notably during bug review and creating tests. I have been [very vocal](https://tv.rcw.lol/watch/8650bd18-85da-4374-b54f-a470ac1752fe/?t=6178/) about the use of AI as a tool instead of being a replacement for human creativity. I'm aware this is a debated topic, so it's my responsibility to disclose when these tools were used to help create a project.

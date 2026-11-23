@@ -13,13 +13,20 @@ import {
   markVersionSeen,
 } from "@/lib/changelog"
 import { useChannelSidebarVisibility } from "@/hooks/use-channel-sidebar-visibility"
+import { useAltHints } from "@/hooks/use-alt-hints"
 import { useAppHotkeys } from "@/hooks/use-app-hotkeys"
 import { HotkeyRegistryProvider } from "@/lib/hotkeys/hotkey-registry"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { AppHeader } from "@/components/shell/app-header"
 import { ChannelSidebar } from "@/components/sidebar/channel-sidebar"
 import { AddChannelDialog } from "@/components/sidebar/add-channel-dialog"
+import { CommandPalette } from "@/components/shell/command-palette"
 import { OnboardingDialog } from "@/components/onboarding/onboarding-dialog"
+import { ChatvoiceImportDialog } from "@/components/chatvoice/chatvoice-import-dialog"
+import {
+  captureChatvoiceImportLink,
+  clearChatvoiceImportPending,
+} from "@/lib/chatvoice/chatvoice-link"
 import {
   SettingsDialog,
   type SettingsCategory,
@@ -27,6 +34,8 @@ import {
 import { shouldPreventSettingsDismiss } from "@/lib/settings/settings-portaled-layers"
 import { ChatPage } from "@/pages/chat-page"
 import { PlayerPage } from "@/pages/player-page"
+import { TtsSidebar } from "@/components/tts/tts-sidebar"
+import { TtsProvider } from "@/lib/tts/tts-provider"
 import { cn } from "@/lib/utils"
 
 function DashboardLayout() {
@@ -40,6 +49,14 @@ function DashboardLayout() {
   >(undefined)
   const [addChannelOpen, setAddChannelOpen] = React.useState(false)
   const [notificationsOpen, setNotificationsOpen] = React.useState(false)
+  const [commandPaletteOpen, setCommandPaletteOpen] = React.useState(false)
+  const [chatvoiceImportPending, setChatvoiceImportPending] = React.useState(
+    captureChatvoiceImportLink
+  )
+  const handleChatvoiceImportHandled = React.useCallback(() => {
+    clearChatvoiceImportPending()
+    setChatvoiceImportPending(false)
+  }, [])
 
   const openSettings = React.useCallback(() => {
     setSettingsInitialCategory(undefined)
@@ -47,14 +64,12 @@ function DashboardLayout() {
     setSettingsOpen(true)
   }, [])
   const toggleSettings = React.useCallback(() => {
-    setSettingsOpen((open) => {
-      if (!open) {
-        setSettingsInitialCategory(undefined)
-        setNotificationsOpen(false)
-      }
-      return !open
-    })
-  }, [])
+    if (settingsOpen) {
+      setSettingsOpen(false)
+      return
+    }
+    openSettings()
+  }, [openSettings, settingsOpen])
   const openAddChannel = React.useCallback(() => {
     setAddChannelOpen(true)
   }, [])
@@ -68,24 +83,35 @@ function DashboardLayout() {
     setNotificationsOpen(open)
   }, [])
   const toggleNotifications = React.useCallback(() => {
-    setNotificationsOpen((open) => {
-      if (!open) {
-        setSettingsOpen(false)
-      }
-      return !open
-    })
+    handleNotificationsOpenChange(!notificationsOpen)
+  }, [handleNotificationsOpenChange, notificationsOpen])
+  const toggleCommandPalette = React.useCallback(() => {
+    setCommandPaletteOpen((open) => !open)
   }, [])
+  const openSettingsCategory = React.useCallback(
+    (category?: SettingsCategory) => {
+      setSettingsInitialCategory(category)
+      setNotificationsOpen(false)
+      setSettingsOpen(true)
+    },
+    []
+  )
+  const openNotifications = React.useCallback(() => {
+    handleNotificationsOpenChange(true)
+  }, [handleNotificationsOpenChange])
 
   useAppHotkeys({
     enabled: ready && !needsOnboarding,
     settingsOpen,
     addChannelOpen,
     notificationsOpen,
+    toggleCommandPalette,
     toggleSettings,
     toggleAddChannel,
     toggleNotifications,
     toggleSidebar: toggleChannelSidebar,
   })
+  useAltHints(ready && !needsOnboarding)
 
   React.useEffect(() => {
     if (!ready || needsOnboarding) return
@@ -117,6 +143,8 @@ function DashboardLayout() {
       <div className="min-h-svh bg-background">
         <OnboardingDialog
           open
+          chatvoiceImport={chatvoiceImportPending}
+          onChatvoiceImportHandled={handleChatvoiceImportHandled}
           onComplete={() => {
             initLastSeenVersion()
             completeOnboarding()
@@ -173,6 +201,7 @@ function DashboardLayout() {
           ) : null}
         </SidebarInset>
       </div>
+      <TtsSidebar />
       {settingsOpen && (
         <button
           type="button"
@@ -196,6 +225,21 @@ function DashboardLayout() {
         open={addChannelOpen}
         onOpenChange={setAddChannelOpen}
       />
+      <ChatvoiceImportDialog
+        open={chatvoiceImportPending}
+        onOpenChange={(open) => {
+          if (!open) handleChatvoiceImportHandled()
+        }}
+      />
+      <CommandPalette
+        open={commandPaletteOpen}
+        onOpenChange={setCommandPaletteOpen}
+        channelSidebarVisible={channelSidebarVisible}
+        onToggleChannelSidebar={toggleChannelSidebar}
+        onOpenSettings={openSettingsCategory}
+        onOpenAddChannel={openAddChannel}
+        onOpenNotifications={openNotifications}
+      />
     </SidebarProvider>
   )
 }
@@ -203,9 +247,11 @@ function DashboardLayout() {
 export function DashboardApp() {
   return (
     <PeepochatProvider>
-      <HotkeyRegistryProvider>
-        <DashboardLayout />
-      </HotkeyRegistryProvider>
+      <TtsProvider>
+        <HotkeyRegistryProvider>
+          <DashboardLayout />
+        </HotkeyRegistryProvider>
+      </TtsProvider>
     </PeepochatProvider>
   )
 }

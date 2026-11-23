@@ -4,6 +4,12 @@ import {
   KNOWN_CHAT_COMMANDS,
 } from "@/lib/chat/commands/definitions"
 import {
+  looksLikeDuration,
+  parseFollowersDuration,
+  parseSlowModeWaitTime,
+  parseTimeoutDuration,
+} from "@/lib/chat/commands/durations"
+import {
   parseSlashCommand,
   splitFirstToken,
   type ParsedSlashCommand,
@@ -110,10 +116,7 @@ function requireBroadcasterId(
   return broadcasterId
 }
 
-async function resolveLogin(
-  login: string,
-  account: TwitchAccount
-): Promise<string | ChatCommandResult> {
+function requireLogin(login: string): string | ChatCommandResult {
   const normalized = login.replace(/^@/, "").trim()
   if (!normalized) {
     return {
@@ -122,6 +125,17 @@ async function resolveLogin(
       level: "error",
       message: "A username is required.",
     }
+  }
+  return normalized
+}
+
+async function resolveLogin(
+  login: string,
+  account: TwitchAccount
+): Promise<string | ChatCommandResult> {
+  const normalized = requireLogin(login)
+  if (typeof normalized !== "string") {
+    return normalized
   }
 
   const users = await fetchTwitchUsersByLogin(
@@ -150,8 +164,8 @@ function parseOptionalPositiveInt(
     return fallback
   }
 
-  const parsed = Number.parseInt(value, 10)
-  if (!Number.isFinite(parsed) || parsed <= 0) {
+  const parsed = /^\d+$/.test(value) ? Number(value) : Number.NaN
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
     return {
       handled: true,
       kind: "feedback",
@@ -216,8 +230,13 @@ async function runCommand(
       }
     }
 
+    const normalizedLogin = requireLogin(login)
+    if (typeof normalizedLogin !== "string") {
+      return normalizedLogin
+    }
+
     const users = await fetchTwitchUsersByLogin(
-      [login.replace(/^@/, "").trim()],
+      [normalizedLogin],
       account.accessToken,
       account.clientId
     )
@@ -227,7 +246,7 @@ async function runCommand(
         handled: true,
         kind: "feedback",
         level: "error",
-        message: `User "${login.replace(/^@/, "")}" was not found.`,
+        message: `User "${normalizedLogin}" was not found.`,
       }
     }
 
@@ -258,8 +277,13 @@ async function runCommand(
       }
     }
 
+    const normalizedLogin = requireLogin(login)
+    if (typeof normalizedLogin !== "string") {
+      return normalizedLogin
+    }
+
     const users = await fetchTwitchUsersByLogin(
-      [login.replace(/^@/, "").trim()],
+      [normalizedLogin],
       account.accessToken,
       account.clientId
     )
@@ -269,7 +293,7 @@ async function runCommand(
         handled: true,
         kind: "feedback",
         level: "error",
-        message: `User "${login.replace(/^@/, "")}" was not found.`,
+        message: `User "${normalizedLogin}" was not found.`,
       }
     }
 
@@ -422,24 +446,40 @@ async function runCommand(
           message:
             command.name === "ban"
               ? "Usage: /ban <username> [reason]"
-              : "Usage: /timeout <username> [seconds] [reason]",
+              : "Usage: /timeout <username> [duration] [reason]",
+        }
+      }
+
+      const loginResult = requireLogin(login)
+      if (typeof loginResult !== "string") {
+        return loginResult
+      }
+
+      let durationSeconds: number | undefined
+      let reason = reasonAndDuration
+      if (command.name === "timeout" && reasonAndDuration) {
+        const [durationToken, rest] = splitFirstToken(reasonAndDuration)
+        if (looksLikeDuration(durationToken)) {
+          const duration = parseTimeoutDuration(durationToken)
+          if (!duration.ok) {
+            return {
+              handled: true,
+              kind: "feedback",
+              level: "error",
+              message:
+                duration.error === "invalid"
+                  ? `"${durationToken}" is not a valid duration. Use seconds or a number with a unit (s, m, h, d, w), e.g. 10m.`
+                  : "Timeout duration must be between 1 second and 2 weeks.",
+            }
+          }
+          durationSeconds = duration.value
+          reason = rest
         }
       }
 
       const userIdResult = await resolveLogin(login, account)
       if (typeof userIdResult !== "string") {
         return userIdResult
-      }
-
-      let durationSeconds: number | undefined
-      let reason = reasonAndDuration
-      if (command.name === "timeout" && reasonAndDuration) {
-        const [durationToken, ...reasonParts] = reasonAndDuration.split(/\s+/)
-        const parsedDuration = Number.parseInt(durationToken, 10)
-        if (Number.isFinite(parsedDuration) && parsedDuration > 0) {
-          durationSeconds = parsedDuration
-          reason = reasonParts.join(" ").trim()
-        }
       }
 
       await banTwitchUser({
@@ -586,16 +626,24 @@ async function runCommand(
           break
         case "followers": {
           settings.followerMode = true
-          const [durationToken] = splitFirstToken(command.rawArgs)
-          if (durationToken) {
-            const duration = parseOptionalPositiveInt(durationToken, 0)
-            if (typeof duration !== "number") {
-              return duration
-            }
-            settings.followerModeDuration = duration
-          } else {
+          if (!command.rawArgs) {
             settings.followerModeDuration = 0
+            break
           }
+
+          const duration = parseFollowersDuration(command.rawArgs)
+          if (!duration.ok) {
+            return {
+              handled: true,
+              kind: "feedback",
+              level: "error",
+              message:
+                duration.error === "invalid"
+                  ? `"${command.rawArgs}" is not a valid duration. Use minutes or a number with a unit (m, h, d, w, mo), e.g. 1w.`
+                  : "Followers-only duration must be between 0 minutes and 3 months.",
+            }
+          }
+          settings.followerModeDuration = duration.value
           break
         }
         case "followersoff":
@@ -604,14 +652,24 @@ async function runCommand(
         case "slow": {
           settings.slowMode = true
           const [secondsToken] = splitFirstToken(command.rawArgs)
-          const seconds = parseOptionalPositiveInt(
-            secondsToken || undefined,
-            DEFAULT_SLOW_SECONDS
-          )
-          if (typeof seconds !== "number") {
-            return seconds
+          if (!secondsToken) {
+            settings.slowModeWaitTime = DEFAULT_SLOW_SECONDS
+            break
           }
-          settings.slowModeWaitTime = seconds
+
+          const seconds = parseSlowModeWaitTime(secondsToken)
+          if (!seconds.ok) {
+            return {
+              handled: true,
+              kind: "feedback",
+              level: "error",
+              message:
+                seconds.error === "invalid"
+                  ? `"${secondsToken}" is not a valid number.`
+                  : "Slow mode wait time must be between 3 and 120 seconds.",
+            }
+          }
+          settings.slowModeWaitTime = seconds.value
           break
         }
         case "slowoff":

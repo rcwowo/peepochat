@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom"
 
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { OAuthCallbackRedirect } from "@/components/landing/oauth-callback-redirect"
+import { CHATVOICE_IMPORT_PATH } from "@/lib/chatvoice/chatvoice-link"
 
 const LandingPage = React.lazy(() =>
   import("@/pages/landing-page").then((module) => ({
@@ -29,6 +30,10 @@ export function App() {
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/app/*" element={<DashboardApp />} />
+            <Route
+              path="/chatvoice"
+              element={<Navigate to={CHATVOICE_IMPORT_PATH} replace />}
+            />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </React.Suspense>

@@ -1,7 +1,7 @@
 import * as React from "react"
 
 import type { TwitchChatRoomState } from "@/lib/twitch/chat/types"
-import { usePeepochatChat } from "@/lib/peepochat/peepochat-context"
+import { usePeepochatChatStore } from "@/lib/peepochat/peepochat-context"
 import { normalizeChannelLogin } from "@/lib/twitch/channel/channel"
 
 const WARM_UPDATE_MS = 500
@@ -11,7 +11,7 @@ export function useChannelRoom(
   active = true,
   keepWarm = false
 ): TwitchChatRoomState | null {
-  const { subscribeToRoom, getRoom } = usePeepochatChat()
+  const { subscribeToRoom, getRoom } = usePeepochatChatStore()
   const normalized = normalizeChannelLogin(login)
   const listening = active || keepWarm
   const activeRef = React.useRef(active)

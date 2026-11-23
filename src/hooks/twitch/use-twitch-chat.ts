@@ -34,6 +34,7 @@ import type {
   TwitchTimelineItem,
 } from "@/lib/twitch/chat/types"
 import { hydrateMessageEmotes } from "@/lib/chat/emotes/emotes"
+import { devChatLogger } from "@/lib/dev-logger"
 
 export { isSyncChannelsSupersededError } from "@/hooks/twitch/chat/types"
 
@@ -76,9 +77,8 @@ export function useTwitchChat(options?: {
     throw new Error("Send client is not ready")
   })
 
-  const [logs, setLogs] = React.useState<string[]>([])
   const appendLog = React.useCallback((text: string) => {
-    setLogs((current) => [text, ...current].slice(0, 20))
+    devChatLogger.info("log", text)
   }, [])
 
   const roomStore = useRoomStore()
@@ -477,7 +477,6 @@ export function useTwitchChat(options?: {
   return {
     connectionState: connection.connectionState,
     sendConnectionState: connection.sendConnectionState,
-    logs,
     syncChannels,
     subscribeToRoom: roomStore.subscribeToRoom,
     getRoom: roomStore.getRoom,
